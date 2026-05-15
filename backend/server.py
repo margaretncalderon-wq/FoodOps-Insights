@@ -3532,6 +3532,128 @@ async def recalculate_all_menus(user: User = Depends(get_current_user)):
     
     return {"updated_menus": updated_count}
 
+
+@plated_menus_router.get("/{menu_id}/staleness")
+async def get_plated_menu_staleness(menu_id: str, user: User = Depends(get_current_user)):
+    """Return staleness info for a Plated Menu by comparing its persisted snapshot cost
+    (cost_per_guest) against a live recalculation based on the *current* recipe costs.
+
+    This endpoint is READ-ONLY — no DB writes. Used by the UI to show a "stale cost" badge.
+
+    Response shape:
+      {
+        menu_id, name,
+        snapshot_cost_per_guest, live_cost_per_guest,
+        drift_amount, drift_percent,
+        is_stale, severity,            # ok | warn | critical
+        last_updated,
+        affected_recipes: [{recipe_id, name, snapshot_cost, live_cost, drift_percent}]
+      }
+    """
+    menu = await db.plated_menus.find_one(
+        {"menu_id": menu_id, "company_id": user.company_id},
+        {"_id": 0}
+    )
+    if not menu:
+        raise HTTPException(status_code=404, detail="Menu not found")
+
+    snapshot = float(menu.get("cost_per_guest") or 0)
+    live = float(await calculate_menu_cost(menu.get("courses", []), user.company_id))
+
+    drift_amount = round(live - snapshot, 4)
+    drift_percent = 0.0
+    if snapshot > 0:
+        drift_percent = round((drift_amount / snapshot) * 100, 2)
+    elif live > 0:
+        drift_percent = 100.0
+
+    abs_pct = abs(drift_percent)
+    if abs_pct < 2:
+        severity = "ok"
+    elif abs_pct < 10:
+        severity = "warn"
+    else:
+        severity = "critical"
+    is_stale = severity != "ok"
+
+    # Build per-recipe drift list (only for recipes whose cost moved)
+    affected = []
+    seen_recipe_ids = set()
+    for course in menu.get("courses", []):
+        for item in course.get("items", []):
+            rid = item.get("recipe_id")
+            if not rid or rid in seen_recipe_ids:
+                continue
+            seen_recipe_ids.add(rid)
+            recipe = await db.recipes.find_one(
+                {"recipe_id": rid, "company_id": user.company_id},
+                {"_id": 0, "name": 1, "cost_per_portion": 1}
+            )
+            if not recipe:
+                continue
+            live_cpp = float(recipe.get("cost_per_portion") or 0)
+            snapshot_cpp = float(item.get("snapshot_cost_per_portion") or live_cpp)
+            r_drift_pct = 0.0
+            if snapshot_cpp > 0:
+                r_drift_pct = round(((live_cpp - snapshot_cpp) / snapshot_cpp) * 100, 2)
+            elif live_cpp > 0:
+                r_drift_pct = 100.0
+            if abs(r_drift_pct) >= 1:
+                affected.append({
+                    "recipe_id": rid,
+                    "name": recipe.get("name"),
+                    "snapshot_cost": round(snapshot_cpp, 4),
+                    "live_cost": round(live_cpp, 4),
+                    "drift_percent": r_drift_pct,
+                })
+
+    return {
+        "menu_id": menu_id,
+        "name": menu.get("name"),
+        "snapshot_cost_per_guest": round(snapshot, 4),
+        "live_cost_per_guest": round(live, 4),
+        "drift_amount": drift_amount,
+        "drift_percent": drift_percent,
+        "is_stale": is_stale,
+        "severity": severity,
+        "last_updated": menu.get("updated_at"),
+        "affected_recipes": affected,
+    }
+
+
+@plated_menus_router.post("/{menu_id}/refresh-costs")
+async def refresh_plated_menu_costs(menu_id: str, user: User = Depends(get_current_user)):
+    """Recompute and persist cost_per_guest / cost_with_buffer using current recipe costs.
+    Returns the updated snapshot/live values."""
+    menu = await db.plated_menus.find_one(
+        {"menu_id": menu_id, "company_id": user.company_id},
+        {"_id": 0}
+    )
+    if not menu:
+        raise HTTPException(status_code=404, detail="Menu not found")
+
+    live = float(await calculate_menu_cost(menu.get("courses", []), user.company_id))
+    buffer_pct = float(menu.get("buffer_percentage") or 0)
+    cost_with_buffer = round(live * (1 + buffer_pct / 100), 4)
+    now_iso = datetime.now(timezone.utc).isoformat()
+
+    await db.plated_menus.update_one(
+        {"menu_id": menu_id, "company_id": user.company_id},
+        {"$set": {
+            "cost_per_guest": live,
+            "cost_with_buffer": cost_with_buffer,
+            "updated_at": now_iso,
+        }}
+    )
+
+    return {
+        "menu_id": menu_id,
+        "cost_per_guest": live,
+        "cost_with_buffer": cost_with_buffer,
+        "updated_at": now_iso,
+    }
+
+
 # ============== EVENT MENU & STOCK CHECK ==============
 
 @events_router.get("")

@@ -30,7 +30,7 @@ import {
   ArrowUpDown, DollarSign, Archive, ShoppingCart, ChefHat,
   UtensilsCrossed, RefreshCw, Copy, BookOpen, Layers, Beaker,
   Utensils, Menu as MenuIcon, ArrowLeft, History, Printer, CheckCircle,
-  Factory, ClipboardList, FileUp, Sparkles, Wand2
+  Factory, ClipboardList, FileUp, Sparkles, Wand2, Loader2
 } from "lucide-react";
 
 import { API_BASE as API } from "../utils/api"; // Dynamic API URL
@@ -1522,6 +1522,8 @@ function PlatedMenusSection() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingMenu, setEditingMenu] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [stalenessByMenu, setStalenessByMenu] = useState({}); // menu_id -> staleness payload
+  const [refreshingMenuId, setRefreshingMenuId] = useState(null);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -1532,6 +1534,18 @@ function PlatedMenusSection() {
       ]);
       setMenus(menusRes.data);
       setRecipes(recipesRes.data);
+      // Fire staleness checks in parallel — non-blocking, best-effort
+      const stalenessChecks = await Promise.all(
+        (menusRes.data || []).map((m) =>
+          axios
+            .get(`${API}/api/plated-menus/${m.menu_id}/staleness`, { withCredentials: true })
+            .then((r) => [m.menu_id, r.data])
+            .catch(() => [m.menu_id, null])
+        )
+      );
+      const map = {};
+      stalenessChecks.forEach(([id, data]) => { if (data) map[id] = data; });
+      setStalenessByMenu(map);
     } catch (error) {
       toast.error("Error loading data");
     }
@@ -1539,6 +1553,19 @@ function PlatedMenusSection() {
   }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  const handleRefreshMenuCosts = async (menuId) => {
+    setRefreshingMenuId(menuId);
+    try {
+      await axios.post(`${API}/api/plated-menus/${menuId}/refresh-costs`, {}, { withCredentials: true });
+      toast.success(language === "es" ? "Costos actualizados" : "Costs refreshed");
+      await fetchData();
+    } catch (error) {
+      toast.error(language === "es" ? "Error al actualizar" : "Refresh failed");
+    } finally {
+      setRefreshingMenuId(null);
+    }
+  };
 
   const handleDelete = async (menuId) => {
     if (!window.confirm(language === "es" ? "¿Eliminar?" : "Delete?")) return;
@@ -1628,6 +1655,49 @@ function PlatedMenusSection() {
                           <span className="font-semibold">${(menu.cost_with_buffer || 0).toFixed(2)}</span>
                         </div>
                       )}
+                      {(() => {
+                        const st = stalenessByMenu[menu.menu_id];
+                        if (!st || !st.is_stale) return null;
+                        const color = st.severity === "critical"
+                          ? "bg-red-50 border-red-200 text-red-800 dark:bg-red-950/30 dark:border-red-900 dark:text-red-300"
+                          : "bg-amber-50 border-amber-200 text-amber-800 dark:bg-amber-950/30 dark:border-amber-900 dark:text-amber-300";
+                        const sign = st.drift_amount >= 0 ? "+" : "";
+                        return (
+                          <div
+                            className={`mt-2 rounded-md border px-2 py-1.5 text-xs ${color}`}
+                            data-testid={`menu-staleness-${menu.menu_id}`}
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-1.5">
+                                <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
+                                <span className="font-medium">
+                                  {language === "es" ? "Costo desactualizado" : "Stale cost"}
+                                  {": "}
+                                  {sign}{st.drift_percent.toFixed(1)}%
+                                </span>
+                              </div>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-6 px-2 text-xs"
+                                disabled={refreshingMenuId === menu.menu_id}
+                                onClick={(e) => { e.stopPropagation(); handleRefreshMenuCosts(menu.menu_id); }}
+                                data-testid={`menu-refresh-costs-${menu.menu_id}`}
+                              >
+                                {refreshingMenuId === menu.menu_id ? (
+                                  <Loader2 className="w-3 h-3 animate-spin" />
+                                ) : (
+                                  <RefreshCw className="w-3 h-3" />
+                                )}
+                              </Button>
+                            </div>
+                            <div className="mt-1 text-[11px] opacity-80">
+                              {language === "es" ? "Snapshot" : "Snapshot"}: ${st.snapshot_cost_per_guest.toFixed(2)} →{" "}
+                              {language === "es" ? "Actual" : "Live"}: ${st.live_cost_per_guest.toFixed(2)}
+                            </div>
+                          </div>
+                        );
+                      })()}
                     </div>
                   </CardContent>
                 </Card>

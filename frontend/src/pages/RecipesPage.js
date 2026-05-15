@@ -18,15 +18,56 @@ import {
 } from "../components/ui/dropdown-menu";
 
 
+// Canonical dietary tag list — keep in sync with Recipe.dietary_tags emitted by FE/BE.
+const DIETARY_TAGS = [
+  { key: "vegetarian", labelEs: "Vegetariano", labelEn: "Vegetarian" },
+  { key: "vegan", labelEs: "Vegano", labelEn: "Vegan" },
+  { key: "gluten-free", labelEs: "Sin gluten", labelEn: "Gluten-Free" },
+  { key: "dairy-free", labelEs: "Sin lácteos", labelEn: "Dairy-Free" },
+  { key: "nut-free", labelEs: "Sin frutos secos", labelEn: "Nut-Free" },
+  { key: "kosher", labelEs: "Kosher", labelEn: "Kosher" },
+  { key: "halal", labelEs: "Halal", labelEn: "Halal" },
+  { key: "pescatarian", labelEs: "Pescetariano", labelEn: "Pescatarian" },
+  { key: "keto", labelEs: "Keto", labelEn: "Keto" },
+];
+
+const ALLERGEN_TAGS = [
+  { key: "gluten", labelEs: "Gluten", labelEn: "Gluten" },
+  { key: "dairy", labelEs: "Lácteos", labelEn: "Dairy" },
+  { key: "eggs", labelEs: "Huevo", labelEn: "Eggs" },
+  { key: "soy", labelEs: "Soya", labelEn: "Soy" },
+  { key: "nuts", labelEs: "Frutos secos", labelEn: "Nuts" },
+  { key: "peanuts", labelEs: "Maní", labelEn: "Peanuts" },
+  { key: "shellfish", labelEs: "Mariscos", labelEn: "Shellfish" },
+  { key: "fish", labelEs: "Pescado", labelEn: "Fish" },
+  { key: "sesame", labelEs: "Sésamo", labelEn: "Sesame" },
+];
+
 export default function RecipesPage() {
   const { t, language } = useLanguage();
   const [recipes, setRecipes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const [activeCategory, setActiveCategory] = useState("");
+  const [activeDietary, setActiveDietary] = useState([]); // tag keys
+  const [excludedAllergens, setExcludedAllergens] = useState([]); // allergen keys
 
   useEffect(() => {
     fetchRecipes();
   }, []);
+
+  const toggleDietary = (key) =>
+    setActiveDietary((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]));
+
+  const toggleAllergen = (key) =>
+    setExcludedAllergens((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]));
+
+  const clearFilters = () => {
+    setSearchTerm("");
+    setActiveCategory("");
+    setActiveDietary([]);
+    setExcludedAllergens([]);
+  };
 
   const fetchRecipes = async () => {
     try {
@@ -50,12 +91,25 @@ export default function RecipesPage() {
     }
   };
 
-  const filteredRecipes = recipes.filter((recipe) =>
-    recipe.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    recipe.category?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredRecipes = recipes.filter((recipe) => {
+    const q = searchTerm.toLowerCase();
+    const matchesSearch =
+      !q ||
+      recipe.name?.toLowerCase().includes(q) ||
+      recipe.category?.toLowerCase().includes(q);
+    const matchesCategory = !activeCategory || recipe.category === activeCategory;
+    const tags = Array.isArray(recipe.dietary_tags) ? recipe.dietary_tags : [];
+    const allergens = Array.isArray(recipe.allergens) ? recipe.allergens : [];
+    const matchesDietary =
+      activeDietary.length === 0 || activeDietary.every((k) => tags.includes(k));
+    const matchesAllergen =
+      excludedAllergens.length === 0 || !excludedAllergens.some((k) => allergens.includes(k));
+    return matchesSearch && matchesCategory && matchesDietary && matchesAllergen;
+  });
 
-  const categories = [...new Set(recipes.map((r) => r.category))];
+  const categories = [...new Set(recipes.map((r) => r.category).filter(Boolean))];
+  const hasActiveFilters =
+    searchTerm || activeCategory || activeDietary.length > 0 || excludedAllergens.length > 0;
 
   return (
     <Layout>
@@ -90,24 +144,83 @@ export default function RecipesPage() {
 
         {/* Categories filter */}
         {categories.length > 0 && (
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2" data-testid="recipe-category-filters">
             <Badge
-              variant={!searchTerm ? "default" : "outline"}
+              variant={!activeCategory ? "default" : "outline"}
               className="cursor-pointer"
-              onClick={() => setSearchTerm("")}
+              onClick={() => setActiveCategory("")}
+              data-testid="filter-category-all"
             >
               {language === "es" ? "Todos" : "All"}
             </Badge>
             {categories.map((category) => (
               <Badge
                 key={category}
-                variant={searchTerm === category ? "default" : "outline"}
+                variant={activeCategory === category ? "default" : "outline"}
                 className="cursor-pointer"
-                onClick={() => setSearchTerm(category)}
+                onClick={() => setActiveCategory(category)}
+                data-testid={`filter-category-${category}`}
               >
                 {category}
               </Badge>
             ))}
+          </div>
+        )}
+
+        {/* Dietary Tags filter */}
+        <div className="space-y-2" data-testid="recipe-dietary-filters">
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+            {language === "es" ? "Etiquetas dietéticas (debe cumplir todas)" : "Dietary tags (must match all)"}
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {DIETARY_TAGS.map((tag) => (
+              <Badge
+                key={tag.key}
+                variant={activeDietary.includes(tag.key) ? "default" : "outline"}
+                className="cursor-pointer"
+                onClick={() => toggleDietary(tag.key)}
+                data-testid={`filter-dietary-${tag.key}`}
+              >
+                {language === "es" ? tag.labelEs : tag.labelEn}
+              </Badge>
+            ))}
+          </div>
+        </div>
+
+        {/* Allergen Exclusion filter */}
+        <div className="space-y-2" data-testid="recipe-allergen-filters">
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+            {language === "es" ? "Excluir alérgenos" : "Exclude allergens"}
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {ALLERGEN_TAGS.map((al) => (
+              <Badge
+                key={al.key}
+                variant={excludedAllergens.includes(al.key) ? "destructive" : "outline"}
+                className="cursor-pointer"
+                onClick={() => toggleAllergen(al.key)}
+                data-testid={`filter-allergen-${al.key}`}
+              >
+                {excludedAllergens.includes(al.key) ? "✕ " : ""}
+                {language === "es" ? al.labelEs : al.labelEn}
+              </Badge>
+            ))}
+          </div>
+        </div>
+
+        {hasActiveFilters && (
+          <div className="flex items-center justify-between text-xs text-muted-foreground">
+            <span data-testid="recipe-filter-count">
+              {filteredRecipes.length} / {recipes.length} {language === "es" ? "recetas" : "recipes"}
+            </span>
+            <button
+              type="button"
+              onClick={clearFilters}
+              className="underline hover:text-foreground"
+              data-testid="recipe-clear-filters-btn"
+            >
+              {language === "es" ? "Limpiar filtros" : "Clear filters"}
+            </button>
           </div>
         )}
 
@@ -158,6 +271,18 @@ export default function RecipesPage() {
                 </Link>
                 {recipe.description && (
                   <p className="text-sm text-muted-foreground mb-4 line-clamp-2">{recipe.description}</p>
+                )}
+                {Array.isArray(recipe.dietary_tags) && recipe.dietary_tags.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mb-3" data-testid={`recipe-tags-${recipe.recipe_id}`}>
+                    {recipe.dietary_tags.slice(0, 4).map((tag) => {
+                      const found = DIETARY_TAGS.find((d) => d.key === tag);
+                      return (
+                        <Badge key={tag} variant="secondary" className="text-[10px] h-5 px-1.5">
+                          {found ? (language === "es" ? found.labelEs : found.labelEn) : tag}
+                        </Badge>
+                      );
+                    })}
+                  </div>
                 )}
                 <div className="flex items-center justify-between text-sm">
                   <div className="flex items-center gap-4">

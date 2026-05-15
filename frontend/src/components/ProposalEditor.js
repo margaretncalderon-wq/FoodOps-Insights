@@ -57,6 +57,7 @@ import {
 } from "lucide-react";
 
 import RecipePicker from "./RecipePicker";
+import RecipeScalingPanel from "./RecipeScalingPanel";
 
 
 const CATEGORY_ICONS = {
@@ -1029,6 +1030,30 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
                 {language === "es" ? "Agregar Ítem" : "Add Item"}
               </Button>
             </div>
+          )}
+
+          {/* Recipe Scaling Panel (read-only) — only when Food Ops is enabled and recipes exist */}
+          {featureFlags?.is_food_ops_enabled && recipes.length > 0 && !isLocked && (
+            <details className="group" data-testid="recipe-scaling-section">
+              <summary className="cursor-pointer text-sm font-medium text-muted-foreground hover:text-foreground flex items-center gap-2 select-none">
+                <Calculator className="w-4 h-4" />
+                {language === "es"
+                  ? "Calculadora de escalado de recetas (opcional)"
+                  : "Recipe scaling calculator (optional)"}
+                <span className="text-[10px] text-muted-foreground group-open:hidden">
+                  {language === "es" ? "abrir" : "open"}
+                </span>
+                <span className="text-[10px] text-muted-foreground hidden group-open:inline">
+                  {language === "es" ? "cerrar" : "close"}
+                </span>
+              </summary>
+              <div className="mt-3">
+                <RecipeScalingPanel
+                  recipes={recipes}
+                  defaultPortions={event?.guest_count || event?.num_guests || 0}
+                />
+              </div>
+            </details>
           )}
 
           {/* Items by Type */}
