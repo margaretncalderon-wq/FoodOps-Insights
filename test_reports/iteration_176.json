@@ -1,0 +1,48 @@
+{
+  "summary": "E2E validation of Calendar, Proposals, and Culinary P2. Backend: 19/19 tests passed. Calendar UI: events DO appear on correct dates in March 2026 (Mar 1 TEST_Linking_Event_a27aad, Mar 15 UI_Test_Internal_Event_46214) - user's bug 'events not appearing' is NOT REPRODUCIBLE. Proposals: list loads with all events (Smoke test event, Familia García-López wedding, etc.), search visible, clicking opens event detail with Items/Financials/Generate tabs and Recipe Scaling calculator. Backend events count is 12 (6 with event_date, not 7 as user stated).",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "data observation", "issue": "Only 6 of 12 events have event_date populated (user stated 7). Events with NULL event_date will not appear on calendar grid (by design)."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_calendar_proposals_culinary_validation.py",
+    "/app/test_reports/pytest/iteration_176.xml"
+  ],
+  "action_items": [
+    "User-reported Calendar bug 'events not appearing' is NOT reproducible — events appear correctly on /calendar (Mar 1, Mar 15, Apr 15, Jun 15 verified). Ask user for exact reproduction steps or specific event names not appearing.",
+    "If user expects events with event_date=NULL (6 of 12) to appear on calendar grid, that's a product decision — currently they only appear in List View, not Month Grid. Consider showing 'No date set' bucket or warning user when creating events.",
+    "demo.agency@kora.com does NOT have access to /food-ops/menus (redirects to /dashboard). For frontend culinary P2 testing use pamemey27@gmail.com as established in iteration_175. Backend culinary P2 endpoints all verified working with demo.agency."
+  ],
+  "critical_code_review_comments": [
+    "Proposals are event-scoped: there is no GET /api/proposals listing endpoint. Frontend correctly uses /api/events for the list view at /client-engagement/proposals. Document this clearly so future agents don't expect a generic /api/proposals collection.",
+    "POST /api/events requires both client_id (mandatory) and event_date (optional). When created without event_date, the event is invisible on the calendar grid — UX could warn user.",
+    "TZ handling check: EventCalendarTab.js line 100 uses date.toISOString() — verified events with 'YYYY-MM-DDT00:00:00' from backend are correctly matched by CalendarPage and EngagementCalendar; no off-by-one observed for Mar 1 and Mar 15."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_calendar_proposals_culinary_validation.py"
+  ],
+  "success_rate": {
+    "backend": "100% (19/19)",
+    "frontend": "Calendar list/grid OK, Proposals list OK, Event detail/Proposal editor OK; food-ops not testable with demo.agency"
+  },
+  "test_credentials": {
+    "admin": "demo.agency@kora.com / Evoque2024! (12 events, 6 with date)",
+    "food_ops_admin": "pamemey27@gmail.com / Evoque2024! (use for /food-ops/* testing)"
+  },
+  "seed_data_creation": "Test event created and deleted during persistence test; no residual seed data.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Calendar events appear correctly on month grid for dates that have event_date set. The reported 'events not appearing' issue could not be reproduced - user may be confusing events without event_date (NULL) with the bug. Proposals use event-scoped model: GET /api/proposals/event/{event_id}; no top-level proposals listing. /food-ops/* requires module access which demo.agency lacks. Culinary P2 backend endpoints (staleness, buffet-factors, menu-engineering, cost-variance, culinary-digest/settings, kitchen-beo, plated-menus) all 200 OK.",
+  "rca of the issue": "User reported (1) Proposals 'verify everything' — verified: list, search, open editor, items/financials/generate tabs all load; totals math validates on backend. (2) Calendar 'events not appearing' — NOT REPRODUCIBLE. The 6 events with NULL event_date won't appear (by design). The 6 events WITH event_date all render on the correct dates in correct months (Feb/Mar/Apr/Jun 2026). User may be looking at the wrong month (default opens current month = May 2026 which has zero events) and not navigating to March/June.",
+  "mocked_apis": {
+    "has_mocked_apis": true,
+    "mocked_apis_list": ["SMTP in demo_mode (culinary_digest emails not actually sent — expected behavior)"]
+  }
+}
