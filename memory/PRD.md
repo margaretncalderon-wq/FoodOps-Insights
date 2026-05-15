@@ -158,14 +158,24 @@ Multi-channel digest with 7 toggleable sections, email+in-app, scheduler job. it
 - Sprint 3: Feature 1 Buffet Factors + Feature 2 Kitchen BEO (iteration_172.json)
 - Sprint 4: Feature 3 Menu Engineering + Feature 4 Cost Variance + Feature 5 Plated→Catalog (iteration_173.json)
 
+Previous milestones: Margin Policy Fase 3, Recipe Scaling MVP, Pydantic 422 Error Formatting, Bug fix 401, Cost Health Dashboard, save-scaled-menu fix.
+
+### Calendar UX — Auto-Jump + TBD Bucket (Feb 15, 2026)
+**Goal**: Resolve perceived "events not appearing" issue. After Culinary P2 testing (iteration_176), confirmed events DO appear correctly but UX caused confusion: calendar opened in current month which often had 0 events, while events with `event_date=NULL` (TBD) were silently hidden.
+
+**Frontend**
+- `CalendarPage.js` (`/calendar`): added `autoJumped` effect that, on first load, finds the nearest month (future preferred) containing an event and sets `currentDate` to it. Added "Events without date" amber card listing all TBD events with Set-date CTA linking to `/events/{id}`.
+- `EngagementCalendar.js` (`/client-engagement/calendar`): mirror behavior — auto-jump on first load to closest event-bearing month, TBD bucket below the grid with click-to-open detail.
+
+**Test results** (smoke screenshot): calendar now opens on June 2026 (nearest events) instead of empty May 2026; 6 TBD events listed below grid with "Set date" badge.
+
+Phase 2 Culinary backend validated 19/19 in iteration_176.json.
+
 ### Pending Mini-tasks & Backlog
-- Mini-task: connect "Generate Purchase List" into Event Plan modal.
 - Production SMTP credentials → enable real email delivery for digest.
 - Logo Image Upload via Object Storage for Guest Flow (P1).
 - Unified Contact Model (P1).
 - Refactor `server.py` (~21k líneas) into routers (P2).
 - Auto-repair legacy ingredients using AI (P2).
 
-Previous milestones: Margin Policy Fase 3, Recipe Scaling MVP, Pydantic 422 Error Formatting, Bug fix 401, Cost Health Dashboard, save-scaled-menu fix.
-
-Next: Configurar SMTP en producción, Logo Guest Flow, Unified Contact Model.
+Next: Configurar SMTP en producción, Logo Guest Flow, Unified Contact Model, UX Workstreams A/B/C de Culinary (surface daily insights, empty states, data capture wizard).

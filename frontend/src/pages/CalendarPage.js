@@ -15,7 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../components/ui/select";
-import { ChevronLeft, ChevronRight, Plus, Calendar as CalendarIcon, List } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Calendar as CalendarIcon, List, CalendarClock } from "lucide-react";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths, parseISO, isWithinInterval } from "date-fns";
 import { es, enUS } from "date-fns/locale";
 
@@ -27,6 +27,7 @@ export default function CalendarPage({ embedded = false }) {
   const [selectedDate, setSelectedDate] = useState(null);
   const [viewMode, setViewMode] = useState("month"); // month, week
   const [loading, setLoading] = useState(true);
+  const [autoJumped, setAutoJumped] = useState(false);
 
   const locale = language === "es" ? es : enUS;
 
@@ -44,6 +45,46 @@ export default function CalendarPage({ embedded = false }) {
       setLoading(false);
     }
   };
+
+  // Fix A: Auto-jump to nearest month with events on initial load
+  useEffect(() => {
+    if (autoJumped || loading || events.length === 0) return;
+    const eventsInMonth = events.filter((e) => {
+      const raw = e.event_date || e.start_date;
+      if (!raw) return false;
+      try {
+        return isSameMonth(parseISO(raw), currentDate);
+      } catch {
+        return false;
+      }
+    });
+    if (eventsInMonth.length === 0) {
+      // Find closest future month with events; fallback to closest past month
+      const today = new Date();
+      const monthsWithDates = events
+        .map((e) => {
+          const raw = e.event_date || e.start_date;
+          if (!raw) return null;
+          try {
+            return parseISO(raw);
+          } catch {
+            return null;
+          }
+        })
+        .filter(Boolean);
+      if (monthsWithDates.length > 0) {
+        const future = monthsWithDates.filter((d) => d >= today).sort((a, b) => a - b);
+        const past = monthsWithDates.filter((d) => d < today).sort((a, b) => b - a);
+        const target = future[0] || past[0];
+        if (target) setCurrentDate(target);
+      }
+    }
+    setAutoJumped(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [events, loading]);
+
+  // Fix C: Events without a date (TBD)
+  const tbdEvents = events.filter((e) => !e.event_date && !e.start_date);
 
   const getEventsForDate = (date) => {
     return events.filter((event) => {
@@ -276,6 +317,50 @@ export default function CalendarPage({ embedded = false }) {
                   </Link>
                 </div>
               )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Fix C: TBD Events Bucket */}
+        {tbdEvents.length > 0 && (
+          <Card data-testid="calendar-tbd-events" className="border-amber-200 bg-amber-50/40">
+            <CardHeader className="pb-3">
+              <CardTitle className="font-heading text-lg flex items-center gap-2">
+                <CalendarClock className="w-5 h-5 text-amber-600" />
+                {language === "es"
+                  ? `Eventos sin fecha (${tbdEvents.length})`
+                  : `Events without date (${tbdEvents.length})`}
+              </CardTitle>
+              <p className="text-xs text-muted-foreground">
+                {language === "es"
+                  ? "Estos eventos no aparecen en la grilla. Asígnales una fecha para visualizarlos."
+                  : "These events don't appear in the grid. Assign them a date to see them."}
+              </p>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                {tbdEvents.map((event) => (
+                  <Link
+                    key={event.event_id}
+                    to={`/events/${event.event_id}`}
+                    data-testid={`tbd-event-${event.event_id}`}
+                    className={`flex items-center gap-3 p-3 rounded-lg border bg-white hover:bg-muted/40 transition-colors border-l-4 ${eventTypeColors[event.event_type] || "border-l-gray-500"}`}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium text-sm truncate">{event.name}</div>
+                      <div className="text-xs text-muted-foreground flex items-center gap-2 mt-0.5">
+                        <span className="capitalize">{event.event_type || "—"}</span>
+                        {event.guest_count ? (
+                          <span>· {event.guest_count} {language === "es" ? "invitados" : "guests"}</span>
+                        ) : null}
+                      </div>
+                    </div>
+                    <Badge variant="outline" className="text-xs shrink-0">
+                      {language === "es" ? "Asignar fecha" : "Set date"}
+                    </Badge>
+                  </Link>
+                ))}
+              </div>
             </CardContent>
           </Card>
         )}

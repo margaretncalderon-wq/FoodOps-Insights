@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../components/ui/dialog";
 import { 
   ChevronLeft, ChevronRight, Plus, Calendar as CalendarIcon, 
-  RefreshCw, Filter, Users, MapPin, Clock, DollarSign
+  RefreshCw, Filter, Users, MapPin, Clock, DollarSign, CalendarClock
 } from "lucide-react";
 
 import { API_BASE as API } from "../utils/api";
@@ -57,6 +57,7 @@ export default function EngagementCalendar({ embedded = false }) {
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const [timeFormat, setTimeFormat] = useState("24h"); // 24h or 12h
+  const [autoJumped, setAutoJumped] = useState(false);
 
   const fetchEvents = useCallback(async () => {
     try {
@@ -83,6 +84,26 @@ export default function EngagementCalendar({ embedded = false }) {
     fetchEvents();
     fetchCompanySettings();
   }, [fetchEvents, fetchCompanySettings]);
+
+  // Fix A: Auto-jump to nearest month with events on initial load
+  useEffect(() => {
+    if (autoJumped || loading || events.length === 0) return;
+    const monthKey = (d) => `${d.getFullYear()}-${d.getMonth()}`;
+    const currentKey = monthKey(currentDate);
+    const dates = events
+      .map((e) => (e.event_date ? new Date(e.event_date) : null))
+      .filter((d) => d && !isNaN(d.getTime()));
+    const hasInCurrent = dates.some((d) => monthKey(d) === currentKey);
+    if (!hasInCurrent && dates.length > 0) {
+      const today = new Date();
+      const future = dates.filter((d) => d >= today).sort((a, b) => a - b);
+      const past = dates.filter((d) => d < today).sort((a, b) => b - a);
+      const target = future[0] || past[0];
+      if (target) setCurrentDate(target);
+    }
+    setAutoJumped(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [events, loading]);
 
   // Legacy stage mapping
   const legacyStageMap = {
@@ -680,7 +701,50 @@ export default function EngagementCalendar({ embedded = false }) {
         </CardContent>
       </Card>
 
-      {/* Event Detail Dialog */}
+      {/* Fix C: TBD Events Bucket */}
+      {(() => {
+        const tbdEvents = filteredEvents.filter((e) => !e.event_date);
+        if (tbdEvents.length === 0) return null;
+        return (
+          <Card data-testid="engagement-tbd-events" className="border-amber-200 bg-amber-50/40">
+            <CardContent className="p-3">
+              <div className="flex items-center gap-2 mb-2">
+                <CalendarClock className="w-4 h-4 text-amber-600" />
+                <h3 className="text-sm font-semibold">
+                  {isEs ? `Eventos sin fecha (${tbdEvents.length})` : `Events without date (${tbdEvents.length})`}
+                </h3>
+                <span className="text-xs text-muted-foreground">
+                  · {isEs ? "no aparecen en la grilla" : "not shown in grid"}
+                </span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                {tbdEvents.map((event) => {
+                  const colors = getStatusColor(event.stage);
+                  return (
+                    <button
+                      key={event.event_id}
+                      onClick={() => openEventDetail(event)}
+                      data-testid={`engagement-tbd-event-${event.event_id}`}
+                      className={`text-left p-2 rounded border bg-white hover:bg-muted/40 transition-colors flex items-center gap-2`}
+                    >
+                      <div className={`w-1.5 h-8 rounded-full ${colors.dot}`} />
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs font-medium truncate">{event.name}</div>
+                        <div className="text-[11px] text-muted-foreground truncate">
+                          {event.client_name || event.event_type || "—"}
+                        </div>
+                      </div>
+                      <Badge variant="outline" className="text-[10px] shrink-0">
+                        {isEs ? "Asignar fecha" : "Set date"}
+                      </Badge>
+                    </button>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        );
+      })()}
       <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
