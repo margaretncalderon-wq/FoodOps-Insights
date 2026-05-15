@@ -24,6 +24,8 @@ import PlatedMenuBuilder from "../components/PlatedMenuBuilder";
 import IngredientWizard from "../components/culinary/IngredientWizard";
 import CostHealthDashboard from "../components/CostHealthDashboard";
 import BuffetFactorsDialog from "../components/BuffetFactorsDialog";
+import MenuEngineeringDialog from "../components/MenuEngineeringDialog";
+import CostVarianceDialog from "../components/CostVarianceDialog";
 
 // Icons
 import { 
@@ -31,7 +33,7 @@ import {
   ArrowUpDown, DollarSign, Archive, ShoppingCart, ChefHat,
   UtensilsCrossed, RefreshCw, Copy, BookOpen, Layers, Beaker,
   Utensils, Menu as MenuIcon, ArrowLeft, History, Printer, CheckCircle,
-  Factory, ClipboardList, FileUp, Sparkles, Wand2, Loader2, Sliders
+  Factory, ClipboardList, FileUp, Sparkles, Wand2, Loader2, Sliders, TrendingUp, FileText
 } from "lucide-react";
 
 import { API_BASE as API } from "../utils/api"; // Dynamic API URL
@@ -1527,6 +1529,9 @@ function PlatedMenusSection() {
   const [projectedByMenu, setProjectedByMenu] = useState({}); // menu_id -> projected-cost payload
   const [refreshingMenuId, setRefreshingMenuId] = useState(null);
   const [factorsDialogOpen, setFactorsDialogOpen] = useState(false);
+  const [meDialogOpen, setMeDialogOpen] = useState(false);
+  const [varianceDialogOpen, setVarianceDialogOpen] = useState(false);
+  const [convertingMenuId, setConvertingMenuId] = useState(null);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -1615,6 +1620,14 @@ function PlatedMenusSection() {
           <CardTitle>{language === "es" ? "Menús Emplatados" : "Plated Menus"}</CardTitle>
           <div className="flex items-center gap-2">
             <div className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" /><Input placeholder={language === "es" ? "Buscar..." : "Search..."} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-9 w-64" /></div>
+            <Button variant="outline" onClick={() => setMeDialogOpen(true)} className="gap-1.5" data-testid="open-menu-engineering-btn">
+              <TrendingUp className="w-4 h-4" />
+              {language === "es" ? "Ingeniería de Menú" : "Menu Engineering"}
+            </Button>
+            <Button variant="outline" onClick={() => setVarianceDialogOpen(true)} className="gap-1.5" data-testid="open-cost-variance-btn">
+              <AlertTriangle className="w-4 h-4" />
+              {language === "es" ? "Variación" : "Variance"}
+            </Button>
             <Button variant="outline" onClick={() => setFactorsDialogOpen(true)} className="gap-1.5" data-testid="open-buffet-factors-btn">
               <Sliders className="w-4 h-4" />
               {language === "es" ? "Factores Buffet" : "Buffet Factors"}
@@ -1645,6 +1658,40 @@ function PlatedMenusSection() {
                         </CardDescription>
                       </div>
                       <div className="flex gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          title={language === "es" ? "Convertir a Catálogo" : "Convert to Catalog"}
+                          disabled={convertingMenuId === menu.menu_id}
+                          onClick={async () => {
+                            if (!window.confirm(language === "es"
+                              ? `¿Convertir "${menu.name}" en un menú de catálogo para usar en propuestas?`
+                              : `Convert "${menu.name}" into a Catalog menu for proposals?`
+                            )) return;
+                            setConvertingMenuId(menu.menu_id);
+                            try {
+                              const res = await axios.post(
+                                `${API}/api/plated-menus/${menu.menu_id}/convert-to-catalog`,
+                                {},
+                                { withCredentials: true }
+                              );
+                              toast.success(language === "es"
+                                ? `Creado: ${res.data.name}`
+                                : `Created: ${res.data.name}`);
+                            } catch (err) {
+                              const msg = err?.response?.data?.detail;
+                              toast.error(typeof msg === "string" ? msg : (language === "es" ? "Error al convertir" : "Convert failed"));
+                            } finally {
+                              setConvertingMenuId(null);
+                            }
+                          }}
+                          data-testid={`convert-to-catalog-${menu.menu_id}`}
+                        >
+                          {convertingMenuId === menu.menu_id
+                            ? <Loader2 className="w-4 h-4 animate-spin" />
+                            : <FileText className="w-4 h-4 text-indigo-600" />
+                          }
+                        </Button>
                         <Button variant="ghost" size="icon" onClick={() => { setEditingMenu(menu); setDialogOpen(true); }}>
                           <Edit className="w-4 h-4" />
                         </Button>
@@ -1770,6 +1817,16 @@ function PlatedMenusSection() {
         open={factorsDialogOpen}
         onOpenChange={setFactorsDialogOpen}
         recipes={recipes}
+      />
+
+      <MenuEngineeringDialog
+        open={meDialogOpen}
+        onOpenChange={setMeDialogOpen}
+      />
+
+      <CostVarianceDialog
+        open={varianceDialogOpen}
+        onOpenChange={setVarianceDialogOpen}
       />
     </div>
   );

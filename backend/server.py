@@ -171,6 +171,8 @@ orchestration_router = APIRouter(prefix="/orchestration", tags=["Event Orchestra
 production_router = APIRouter(prefix="/production", tags=["Production"])
 buffet_factors_router = APIRouter(prefix="/buffet-factors", tags=["Buffet Factors"])
 kitchen_beo_router = APIRouter(prefix="/kitchen-beo", tags=["Kitchen BEO"])
+menu_engineering_router = APIRouter(prefix="/menu-engineering", tags=["Menu Engineering"])
+cost_variance_router = APIRouter(prefix="/cost-variance", tags=["Cost Variance"])
 delivery_notes_router = APIRouter(prefix="/delivery-notes", tags=["Delivery Notes"])
 org_router = APIRouter(prefix="/org", tags=["Organization & SaaS"])
 super_admin_router = APIRouter(prefix="/super-admin", tags=["Super Admin"])
@@ -3998,6 +4000,403 @@ async def get_kitchen_beo(event_id: str, user: User = Depends(get_current_user))
         },
         "generated_at": datetime.now(timezone.utc).isoformat(),
     }
+
+
+# ============== MENU ENGINEERING (Feature 3) ==============
+# Classic menu engineering quadrants based on popularity × profit:
+#   - Stars: high popularity + high profit
+#   - Plowhorses: high popularity + low profit
+#   - Puzzles: low popularity + high profit
+#   - Dogs: low popularity + low profit
+# Popularity is derived from how often a recipe appears in proposals (order_items)
+# and/or production batches in the analysis window. Profit is (sell_price - cost).
+
+@menu_engineering_router.get("/analyze")
+async def analyze_menu_engineering(
+    days: int = 90,
+    user: User = Depends(get_current_user),
+):
+    """Classify every recipe with a sell price into Stars / Plowhorses / Puzzles / Dogs.
+
+    Popularity = number of times the recipe appears across (a) proposal order_items
+    of type Food in the last `days` days and (b) production batches POSTED in same
+    window. Profit = sell_price - cost_per_portion (raw $).
+    Thresholds: above company-average for popularity and profit → high.
+    """
+    if days <= 0 or days > 730:
+        raise HTTPException(status_code=400, detail="days must be between 1 and 730")
+
+    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+    cutoff_iso = cutoff.isoformat()
+
+    recipes = await db.recipes.find(
+        {"company_id": user.company_id},
+        {"_id": 0, "recipe_id": 1, "name": 1, "category": 1,
+         "cost_per_portion": 1, "default_portion_price": 1, "sell_price": 1,
+         "recipe_type": 1},
+    ).to_list(2000)
+    recipes = [r for r in recipes if (r.get("default_portion_price") or r.get("sell_price") or 0) > 0]
+
+    if not recipes:
+        return {
+            "window_days": days,
+            "recipes": [],
+            "quadrants_summary": {"star": 0, "plowhorse": 0, "puzzle": 0, "dog": 0},
+            "thresholds": {"popularity_avg": 0, "profit_avg": 0},
+        }
+
+    recipe_ids = [r["recipe_id"] for r in recipes]
+
+    cursor = db.order_items.find(
+        {
+            "company_id": user.company_id,
+            "reference_id": {"$in": recipe_ids},
+            "item_type": "Food",
+            "created_at": {"$gte": cutoff_iso},
+        },
+        {"_id": 0, "reference_id": 1, "quantity": 1},
+    )
+    pop_proposals = {}
+    async for it in cursor:
+        rid = it.get("reference_id")
+        if rid:
+            pop_proposals[rid] = pop_proposals.get(rid, 0) + float(it.get("quantity") or 1)
+
+    cursor = db.production_batches.find(
+        {
+            "company_id": user.company_id,
+            "status": "POSTED",
+            "posted_at": {"$gte": cutoff_iso},
+        },
+        {"_id": 0, "lines": 1},
+    )
+    pop_production = {}
+    async for batch in cursor:
+        for line in batch.get("lines", []):
+            rid = line.get("recipe_id")
+            if rid in recipe_ids:
+                pop_production[rid] = pop_production.get(rid, 0) + float(line.get("target_output_qty") or 1)
+
+    rows = []
+    for r in recipes:
+        rid = r["recipe_id"]
+        sell = float(r.get("default_portion_price") or r.get("sell_price") or 0)
+        cost = float(r.get("cost_per_portion") or 0)
+        profit = sell - cost
+        popularity = pop_proposals.get(rid, 0) + pop_production.get(rid, 0)
+        rows.append({
+            "recipe_id": rid,
+            "recipe_name": r.get("name"),
+            "category": r.get("category"),
+            "recipe_type": r.get("recipe_type", "Final"),
+            "sell_price": round(sell, 4),
+            "cost_per_portion": round(cost, 4),
+            "profit_per_portion": round(profit, 4),
+            "profit_margin_percent": round(((profit / sell) * 100) if sell > 0 else 0, 2),
+            "popularity_score": round(popularity, 2),
+            "popularity_from_proposals": round(pop_proposals.get(rid, 0), 2),
+            "popularity_from_production": round(pop_production.get(rid, 0), 2),
+        })
+
+    pop_values = [x["popularity_score"] for x in rows]
+    profit_values = [x["profit_per_portion"] for x in rows]
+    pop_avg = (sum(pop_values) / len(pop_values)) if pop_values else 0
+    profit_avg = (sum(profit_values) / len(profit_values)) if profit_values else 0
+
+    summary = {"star": 0, "plowhorse": 0, "puzzle": 0, "dog": 0}
+    for row in rows:
+        high_pop = row["popularity_score"] >= pop_avg
+        high_prof = row["profit_per_portion"] >= profit_avg
+        if high_pop and high_prof:
+            row["quadrant"] = "star"
+        elif high_pop and not high_prof:
+            row["quadrant"] = "plowhorse"
+        elif not high_pop and high_prof:
+            row["quadrant"] = "puzzle"
+        else:
+            row["quadrant"] = "dog"
+        summary[row["quadrant"]] += 1
+
+    quadrant_order = {"star": 0, "puzzle": 1, "plowhorse": 2, "dog": 3}
+    rows.sort(key=lambda x: (quadrant_order.get(x["quadrant"], 9), -x["popularity_score"]))
+
+    return {
+        "window_days": days,
+        "recipes": rows,
+        "quadrants_summary": summary,
+        "thresholds": {
+            "popularity_avg": round(pop_avg, 2),
+            "profit_avg": round(profit_avg, 4),
+        },
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+class WhatIfRequest(BaseModel):
+    recipe_id: str
+    new_cost_per_portion: Optional[float] = None
+    new_sell_price: Optional[float] = None
+    days: int = 90
+
+
+@menu_engineering_router.post("/what-if")
+async def what_if_menu_engineering(data: WhatIfRequest, user: User = Depends(get_current_user)):
+    """Re-classify a single recipe with hypothetical cost/price, leaving its popularity
+    unchanged. Returns the current quadrant and the simulated quadrant side-by-side."""
+    analysis = await analyze_menu_engineering(days=data.days, user=user)
+    thresholds = analysis["thresholds"]
+    current_row = next((r for r in analysis["recipes"] if r["recipe_id"] == data.recipe_id), None)
+    if not current_row:
+        raise HTTPException(status_code=404, detail="Recipe not found in analysis window")
+
+    new_cost = float(data.new_cost_per_portion) if data.new_cost_per_portion is not None else current_row["cost_per_portion"]
+    new_sell = float(data.new_sell_price) if data.new_sell_price is not None else current_row["sell_price"]
+    new_profit = new_sell - new_cost
+    popularity = current_row["popularity_score"]
+    high_pop = popularity >= thresholds["popularity_avg"]
+    high_prof = new_profit >= thresholds["profit_avg"]
+    if high_pop and high_prof:
+        sim_quadrant = "star"
+    elif high_pop and not high_prof:
+        sim_quadrant = "plowhorse"
+    elif not high_pop and high_prof:
+        sim_quadrant = "puzzle"
+    else:
+        sim_quadrant = "dog"
+
+    return {
+        "recipe_id": data.recipe_id,
+        "recipe_name": current_row["recipe_name"],
+        "current": {
+            "cost_per_portion": current_row["cost_per_portion"],
+            "sell_price": current_row["sell_price"],
+            "profit_per_portion": current_row["profit_per_portion"],
+            "quadrant": current_row["quadrant"],
+        },
+        "simulated": {
+            "cost_per_portion": round(new_cost, 4),
+            "sell_price": round(new_sell, 4),
+            "profit_per_portion": round(new_profit, 4),
+            "quadrant": sim_quadrant,
+        },
+        "popularity_score": popularity,
+        "thresholds": thresholds,
+    }
+
+
+# ============== COST VARIANCE (Feature 4) ==============
+# Theoretical cost = sum( recipe.cost_per_portion * planned_portions ) for an event's
+# menu/proposal. Actual cost = sum of POSTED production batches' total_input_cost
+# linked to the event. Variance % = (actual - theoretical) / theoretical * 100.
+
+@cost_variance_router.get("/event/{event_id}")
+async def get_cost_variance_for_event(event_id: str, user: User = Depends(get_current_user)):
+    event = await db.events.find_one(
+        {"event_id": event_id, "company_id": user.company_id},
+        {"_id": 0},
+    )
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+
+    guest_count = int(event.get("guest_count") or event.get("num_guests") or 1)
+    if guest_count <= 0:
+        guest_count = 1
+
+    plan = await production_event_plan({"event_id": event_id}, user)
+    theoretical = float(plan.get("totals", {}).get("total_input_cost") or 0)
+
+    cursor = db.production_batches.find(
+        {
+            "company_id": user.company_id,
+            "linked_event_id": event_id,
+            "status": "POSTED",
+        },
+        {"_id": 0, "batch_number": 1, "total_input_cost": 1, "posted_at": 1, "batch_id": 1},
+    )
+    batches = []
+    actual = 0.0
+    async for b in cursor:
+        bcost = float(b.get("total_input_cost") or 0)
+        actual += bcost
+        batches.append({
+            "batch_id": b.get("batch_id"),
+            "batch_number": b.get("batch_number"),
+            "total_input_cost": round(bcost, 4),
+            "posted_at": b.get("posted_at"),
+        })
+
+    variance = round(actual - theoretical, 4)
+    variance_pct = round(((actual - theoretical) / theoretical * 100) if theoretical > 0 else 0, 2)
+
+    abs_pct = abs(variance_pct)
+    if abs_pct < 5:
+        severity = "ok"
+    elif abs_pct < 10:
+        severity = "warn"
+    else:
+        severity = "critical"
+
+    return {
+        "event_id": event_id,
+        "event_name": event.get("name"),
+        "event_date": event.get("event_date"),
+        "guest_count": guest_count,
+        "theoretical_cost": round(theoretical, 4),
+        "actual_cost": round(actual, 4),
+        "variance_amount": variance,
+        "variance_percent": variance_pct,
+        "severity": severity,
+        "is_overrun": variance > 0,
+        "production_batches": batches,
+        "batches_count": len(batches),
+        "has_actuals": len(batches) > 0,
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+@cost_variance_router.get("")
+async def list_cost_variance(
+    days: int = 90,
+    severity_filter: Optional[str] = None,
+    user: User = Depends(get_current_user),
+):
+    """Return cost variance summary for every event in the window that has
+    at least one POSTED production batch (i.e., has actual cost data)."""
+    if days <= 0 or days > 730:
+        raise HTTPException(status_code=400, detail="days must be between 1 and 730")
+    cutoff_iso = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+
+    posted_event_ids = await db.production_batches.distinct(
+        "linked_event_id",
+        {
+            "company_id": user.company_id,
+            "status": "POSTED",
+            "posted_at": {"$gte": cutoff_iso},
+        },
+    )
+    posted_event_ids = [eid for eid in posted_event_ids if eid]
+    if not posted_event_ids:
+        return {"window_days": days, "events": [], "summary": {"ok": 0, "warn": 0, "critical": 0}}
+
+    summary = {"ok": 0, "warn": 0, "critical": 0}
+    results = []
+    for eid in posted_event_ids:
+        try:
+            row = await get_cost_variance_for_event(eid, user)
+        except HTTPException:
+            continue
+        if severity_filter and row["severity"] != severity_filter:
+            continue
+        summary[row["severity"]] = summary.get(row["severity"], 0) + 1
+        results.append({
+            "event_id": row["event_id"],
+            "event_name": row["event_name"],
+            "event_date": row["event_date"],
+            "guest_count": row["guest_count"],
+            "theoretical_cost": row["theoretical_cost"],
+            "actual_cost": row["actual_cost"],
+            "variance_amount": row["variance_amount"],
+            "variance_percent": row["variance_percent"],
+            "severity": row["severity"],
+            "is_overrun": row["is_overrun"],
+            "batches_count": row["batches_count"],
+        })
+
+    results.sort(key=lambda x: abs(x["variance_percent"]), reverse=True)
+    return {"window_days": days, "events": results, "summary": summary}
+
+
+@plated_menus_router.post("/{menu_id}/convert-to-catalog")
+async def convert_plated_to_catalog(menu_id: str, user: User = Depends(get_current_user)):
+    """Feature 5 — Convert a Plated Menu (db.plated_menus) into a Catalog Menu (db.menus)
+    so it becomes available in `Settings → Catálogos → Menús` and the Proposal Editor
+    PackagePicker. The source plated menu is NOT modified or deleted.
+
+    Each recipe item in the plated menu's courses becomes a MenuItemEntry whose
+    `quantity` reflects portions_per_guest * consumption_factor (buffet factor applied
+    for buffet/cocktail menus). Cost & price overrides snapshot the recipe's current
+    cost_per_portion and default selling price.
+
+    Returns the freshly-created Menu document.
+    """
+    plated = await db.plated_menus.find_one(
+        {"menu_id": menu_id, "company_id": user.company_id}, {"_id": 0}
+    )
+    if not plated:
+        raise HTTPException(status_code=404, detail="Plated menu not found")
+
+    menu_type_src = plated.get("menu_type", "plated")
+    items = []
+    sort_order = 0
+    total_cost_per_guest = 0.0
+    total_price_per_guest = 0.0
+
+    for course in plated.get("courses", []):
+        for it in course.get("items", []):
+            rid = it.get("recipe_id")
+            if not rid:
+                continue
+            recipe = await db.recipes.find_one(
+                {"recipe_id": rid, "company_id": user.company_id},
+                {"_id": 0, "name": 1, "category": 1, "cost_per_portion": 1,
+                 "default_portion_price": 1, "sell_price": 1, "recipe_id": 1},
+            )
+            if not recipe:
+                continue
+            portions_per_guest = float(it.get("portions_per_guest") or 1)
+            factor = await _resolve_buffet_factor(recipe, user.company_id, menu_type_src)
+            effective_portions = portions_per_guest * factor
+            cost_per_portion = float(recipe.get("cost_per_portion") or 0)
+            sell_price = float(recipe.get("default_portion_price") or recipe.get("sell_price") or 0)
+            line_cost = cost_per_portion * effective_portions
+            line_price = sell_price * effective_portions
+            total_cost_per_guest += line_cost
+            total_price_per_guest += line_price
+
+            items.append({
+                "item_id": f"mi_{uuid.uuid4().hex[:10]}",
+                "recipe_id": rid,
+                "picklist_item_id": None,
+                "custom_name": it.get("course_name") and f"{course.get('course_name', '')}: {recipe.get('name')}" or recipe.get("name"),
+                "custom_description": None,
+                "quantity": round(effective_portions, 4),
+                "unit_price_override": sell_price if sell_price > 0 else None,
+                "internal_cost_override": cost_per_portion if cost_per_portion > 0 else None,
+                "sort_order": sort_order,
+            })
+            sort_order += 1
+
+    if not items:
+        raise HTTPException(status_code=400, detail="Plated menu has no recipe items to convert")
+
+    now = datetime.now(timezone.utc)
+    new_menu_id = f"menu_{uuid.uuid4().hex[:12]}"
+    menu_doc = {
+        "menu_id": new_menu_id,
+        "company_id": user.company_id,
+        "name": f"{plated.get('name')} (Catalog)",
+        "name_es": f"{plated.get('name')} (Catálogo)",
+        "description": plated.get("description"),
+        "description_es": plated.get("description"),
+        "menu_type": "Menu",  # standard catalog type so PackagePicker treats it normally
+        "category_id": None,
+        "items": items,
+        "variants": [],
+        "default_price": None,
+        "is_fixed_price": False,
+        "is_active": True,
+        "source": "plated_menu_conversion",
+        "source_plated_menu_id": menu_id,
+        "source_menu_type": menu_type_src,
+        "snapshot_cost_per_guest": round(total_cost_per_guest, 4),
+        "snapshot_price_per_guest": round(total_price_per_guest, 4),
+        "created_at": now.isoformat(),
+        "updated_at": now.isoformat(),
+        "created_by": user.user_id,
+    }
+    await db.menus.insert_one(menu_doc)
+    menu_doc.pop("_id", None)
+    return menu_doc
 
 
 # ============== EVENT MENU & STOCK CHECK ==============
@@ -13433,6 +13832,8 @@ api_router.include_router(orchestration_router)
 api_router.include_router(production_router)
 api_router.include_router(buffet_factors_router)
 api_router.include_router(kitchen_beo_router)
+api_router.include_router(menu_engineering_router)
+api_router.include_router(cost_variance_router)
 api_router.include_router(delivery_notes_router)
 api_router.include_router(people_ops_router)
 
