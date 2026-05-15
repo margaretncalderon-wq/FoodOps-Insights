@@ -26,6 +26,7 @@ import CostHealthDashboard from "../components/CostHealthDashboard";
 import BuffetFactorsDialog from "../components/BuffetFactorsDialog";
 import MenuEngineeringDialog from "../components/MenuEngineeringDialog";
 import CostVarianceDialog from "../components/CostVarianceDialog";
+import CulinaryDigestDialog from "../components/CulinaryDigestDialog";
 
 // Icons
 import { 
@@ -33,7 +34,7 @@ import {
   ArrowUpDown, DollarSign, Archive, ShoppingCart, ChefHat,
   UtensilsCrossed, RefreshCw, Copy, BookOpen, Layers, Beaker,
   Utensils, Menu as MenuIcon, ArrowLeft, History, Printer, CheckCircle,
-  Factory, ClipboardList, FileUp, Sparkles, Wand2, Loader2, Sliders, TrendingUp, FileText
+  Factory, ClipboardList, FileUp, Sparkles, Wand2, Loader2, Sliders, TrendingUp, FileText, Mail
 } from "lucide-react";
 
 import { API_BASE as API } from "../utils/api"; // Dynamic API URL
@@ -1531,6 +1532,7 @@ function PlatedMenusSection() {
   const [factorsDialogOpen, setFactorsDialogOpen] = useState(false);
   const [meDialogOpen, setMeDialogOpen] = useState(false);
   const [varianceDialogOpen, setVarianceDialogOpen] = useState(false);
+  const [digestDialogOpen, setDigestDialogOpen] = useState(false);
   const [convertingMenuId, setConvertingMenuId] = useState(null);
 
   const fetchData = useCallback(async () => {
@@ -1631,6 +1633,10 @@ function PlatedMenusSection() {
             <Button variant="outline" onClick={() => setFactorsDialogOpen(true)} className="gap-1.5" data-testid="open-buffet-factors-btn">
               <Sliders className="w-4 h-4" />
               {language === "es" ? "Factores Buffet" : "Buffet Factors"}
+            </Button>
+            <Button variant="outline" onClick={() => setDigestDialogOpen(true)} className="gap-1.5" data-testid="open-culinary-digest-btn">
+              <Mail className="w-4 h-4" />
+              {language === "es" ? "Resumen Semanal" : "Weekly Digest"}
             </Button>
             <Button onClick={() => { setEditingMenu(null); setDialogOpen(true); }}>
               <Plus className="w-4 h-4 mr-2" />{language === "es" ? "Nuevo Menú" : "New Menu"}
@@ -1827,6 +1833,11 @@ function PlatedMenusSection() {
       <CostVarianceDialog
         open={varianceDialogOpen}
         onOpenChange={setVarianceDialogOpen}
+      />
+
+      <CulinaryDigestDialog
+        open={digestDialogOpen}
+        onOpenChange={setDigestDialogOpen}
       />
     </div>
   );

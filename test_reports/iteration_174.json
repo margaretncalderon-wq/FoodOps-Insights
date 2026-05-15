@@ -1,0 +1,129 @@
+{
+  "summary": "Sprint 5 Phase 2 Culinary Weekly Digest testing complete. All backend tests passed (32/32). All frontend UI elements verified working with correct data-testid attributes. Features: Settings GET/PUT with validations, Preview with HTML rendering, Generate-Now with history + in-app notifications, History list. SMTP is in demo_mode (expected - no SMTP credentials configured).",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {
+        "screen": "CulinaryDigestDialog",
+        "issues": ["Minor: Console warnings about DialogTitle accessibility - not blocking functionality"]
+      }
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_sprint5_culinary_digest.py",
+    "/app/test_reports/pytest/pytest_sprint5_culinary_digest.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "GET /api/culinary-digest/settings returns default settings with enabled=false, all 7 sections with defaults",
+    "PUT /api/culinary-digest/settings validates frequency (weekly|biweekly|monthly), day_of_week (0-6), hour (0-23) - returns 400 for invalid values",
+    "GET /api/culinary-digest/preview returns {data, html, settings} without side-effects (no history created)",
+    "Preview HTML is non-empty string with valid HTML structure",
+    "POST /api/culinary-digest/generate-now returns {data, recipients, notified_user_ids, email_result, counts, history_id}",
+    "Generate-now creates history entry in db.culinary_digest_history with history_id starting with 'cdh_'",
+    "Generate-now creates in-app notifications for users matching recipients_roles",
+    "In demo mode (no SMTP), email_result.demo_mode=true and email_result.success=false (expected behavior)",
+    "GET /api/culinary-digest/history returns list sorted by dispatched_at descending",
+    "Disabled section (staleness=false) is excluded from preview data",
+    "Scheduler job 'culinary_digest_dispatcher' registered and visible in startup logs",
+    "Frontend: 'Weekly Digest' button visible with data-testid='open-culinary-digest-btn'",
+    "Frontend: Dialog opens with data-testid='culinary-digest-dialog' and 3 tabs (cd-tab-settings, cd-tab-preview, cd-tab-history)",
+    "Frontend: Settings tab has enabled switch, frequency/day/hour selects, role badges (owner/admin/manager), extra email input + Add button",
+    "Frontend: All 7 section switches present (exec_summary, stars_dogs, staleness, variance, low_stock, mise_en_place_gap, ai_recommendations)",
+    "Frontend: Preview tab has Load Preview button, iframe renders digest HTML with Executive Summary and Stars sections",
+    "Frontend: History tab shows dispatch entries with timestamp, window label, demo badge, email count, in-app count",
+    "Frontend: Send Now button triggers dispatch, shows toast with recipient count + in-app count, history updates",
+    "Regression: All Sprint 1-4 endpoints still work (plated-menus, buffet-factors, kitchen-beo, menu-engineering, cost-variance, convert-to-catalog)"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_sprint5_culinary_digest.py"
+  ],
+  "success_rate": {
+    "backend": "100% (32/32 tests passed)",
+    "frontend": "100% - All UI elements verified working"
+  },
+  "seed_data_creation": "No seed data created - used existing data. Pame account (pamemey27@gmail.com) has 3 events, 125 guests, Test Recipe con Alérgenos for digest preview.",
+  "test_credentials": {
+    "admin_with_food_ops": "pamemey27@gmail.com / Evoque2024!",
+    "demo_account": "demo.agency@kora.com / Evoque2024!"
+  },
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Sprint 5 Phase 2 Culinary Weekly Digest complete. Settings stored in db.culinary_digest_settings (one doc per company). History stored in db.culinary_digest_history. In-app notifications created in db.notifications. Scheduler job 'culinary_digest_dispatcher' runs hourly at :05 to check enabled companies and dispatch when day_of_week+hour matches. SMTP is in demo_mode in this environment (no SMTP_USER/PASSWORD configured) - that's expected behavior, not a bug. AI Recommendations section is opt-in (default off) and uses Emergent LLM key.",
+  "features_tested": {
+    "Backend_Settings_Endpoint": [
+      "GET /api/culinary-digest/settings requires auth (401/403)",
+      "GET /api/culinary-digest/settings returns default settings with all 7 sections",
+      "PUT /api/culinary-digest/settings requires auth (401/403)",
+      "PUT /api/culinary-digest/settings persists changes and returns updated doc",
+      "PUT /api/culinary-digest/settings validates frequency (400 for invalid)",
+      "PUT /api/culinary-digest/settings validates day_of_week 0-6 (400 for -1 or 7)",
+      "PUT /api/culinary-digest/settings validates hour 0-23 (400 for -1 or 24)",
+      "PUT /api/culinary-digest/settings accepts biweekly frequency",
+      "PUT /api/culinary-digest/settings accepts monthly frequency"
+    ],
+    "Backend_Preview_Endpoint": [
+      "GET /api/culinary-digest/preview requires auth (401/403)",
+      "GET /api/culinary-digest/preview returns {data, html, settings}",
+      "Preview data contains enabled sections (exec_summary, stars_dogs, etc.)",
+      "Preview HTML is non-empty string with valid HTML tags",
+      "Preview does not create history entries (no side-effects)"
+    ],
+    "Backend_GenerateNow_Endpoint": [
+      "POST /api/culinary-digest/generate-now requires auth (401/403)",
+      "POST /api/culinary-digest/generate-now returns expected fields (data, recipients, notified_user_ids, email_result, counts, history_id)",
+      "Generate-now creates history entry with history_id starting with 'cdh_'",
+      "Generate-now in demo mode has email_result.demo_mode=true or skipped=true",
+      "Generate-now creates in-app notifications (notified_user_ids list)"
+    ],
+    "Backend_History_Endpoint": [
+      "GET /api/culinary-digest/history requires auth (401/403)",
+      "GET /api/culinary-digest/history returns list",
+      "History sorted by dispatched_at descending",
+      "History entries have expected structure (history_id, company_id, dispatched_at, recipients, notified_user_ids, email_result, counts)"
+    ],
+    "Backend_DisabledSection": [
+      "Disabled section (staleness=false) excluded from preview data"
+    ],
+    "Backend_Scheduler": [
+      "Scheduler job 'culinary_digest_dispatcher' registered in startup logs"
+    ],
+    "Backend_Regression": [
+      "GET /api/plated-menus still works",
+      "GET /api/buffet-factors still works",
+      "GET /api/kitchen-beo/event/{id} returns 404 for non-existent",
+      "GET /api/menu-engineering/analyze still works",
+      "GET /api/cost-variance still works",
+      "POST /api/plated-menus/{id}/convert-to-catalog returns 404 for non-existent"
+    ],
+    "Frontend_UI_Elements": [
+      "Weekly Digest button visible with data-testid='open-culinary-digest-btn'",
+      "Dialog opens with data-testid='culinary-digest-dialog'",
+      "3 tabs present (cd-tab-settings, cd-tab-preview, cd-tab-history)",
+      "Settings tab: enabled switch (cd-enabled-switch)",
+      "Settings tab: frequency select (cd-frequency-select)",
+      "Settings tab: day select (cd-day-select)",
+      "Settings tab: hour select (cd-hour-select)",
+      "Settings tab: role badges (cd-role-owner, cd-role-admin, cd-role-manager)",
+      "Settings tab: extra email input (cd-extra-email-input) + Add button (cd-add-extra-btn)",
+      "Settings tab: 7 section switches (cd-section-switch-exec_summary, -stars_dogs, -staleness, -variance, -low_stock, -mise_en_place_gap, -ai_recommendations)",
+      "Settings tab: Save button (cd-save-btn)",
+      "Preview tab: Load Preview button (cd-load-preview-btn)",
+      "Preview tab: iframe (cd-preview-iframe) renders digest HTML",
+      "History tab: shows dispatch entries with timestamp, window label, demo badge, email count, in-app count",
+      "History tab: empty state shown when no history",
+      "Send Now button (cd-generate-now-btn) triggers dispatch",
+      "Toast shows recipient count + in-app count after dispatch"
+    ]
+  },
+  "mocked_apis": {
+    "has_mocked_apis": false,
+    "notes": "SMTP is in demo_mode (no SMTP_USER/PASSWORD configured) - expected behavior. AI Recommendations section uses Emergent LLM key (optional, disabled by default)."
+  },
+  "notes": "All Sprint 5 features working correctly. The digest preview shows real data (3 events, 125 guests, Test Recipe con Alérgenos as Star). Send Now creates history entry and in-app notification. Email is in demo mode (expected). Scheduler job registered for hourly dispatch at :05."
+}

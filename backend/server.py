@@ -20954,6 +20954,10 @@ async def get_user_organizations(user: User = Depends(get_current_user)):
 from routers.notifications import notifications_router
 api_router.include_router(notifications_router)  # /api/notifications/*
 
+# Include Culinary Digest router (Sprint 5)
+from routers.culinary_digest import culinary_digest_router
+api_router.include_router(culinary_digest_router)  # /api/culinary-digest/*
+
 # Include Brand Hub router
 from routers.brand_hub import brand_hub_router
 api_router.include_router(brand_hub_router)  # /api/brand-hub/*

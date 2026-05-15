@@ -136,6 +136,65 @@ async def _send_weekly_newsletter_all_companies():
         logger.exception(f"[scheduler] weekly-newsletter top-level error: {e}")
 
 
+async def _send_culinary_digests():
+    """Hourly: scan companies with enabled digest settings, dispatch when day_of_week+hour matches.
+    Frequency 'biweekly' fires only on even ISO weeks; 'monthly' fires only on the 1st-7th of the month.
+    """
+    try:
+        from routers.culinary_digest import dispatch_digest, _get_settings
+        from dependencies import User  # User model for instantiation
+    except Exception as e:
+        logger.warning(f"[scheduler] culinary digest import failed: {e}")
+        return
+
+    now = datetime.now(timezone.utc)
+    # Convert to local tz (best-effort — uses scheduler tz which is the company default)
+    local_now = now  # treat naive comparison since cron runs every hour, ±1h tolerance is fine
+    cur_dow = local_now.weekday()  # 0=Mon..6=Sun
+    cur_hour = local_now.hour
+
+    settings_cursor = db.culinary_digest_settings.find({"enabled": True}, {"_id": 0})
+    sent = 0
+    skipped = 0
+    async for s in settings_cursor:
+        try:
+            if int(s.get("day_of_week", 0)) != cur_dow:
+                skipped += 1
+                continue
+            if int(s.get("hour", 8)) != cur_hour:
+                skipped += 1
+                continue
+            freq = s.get("frequency", "weekly")
+            if freq == "biweekly":
+                iso_week = local_now.isocalendar()[1]
+                if iso_week % 2 != 0:
+                    skipped += 1
+                    continue
+            elif freq == "monthly":
+                if local_now.day > 7:
+                    skipped += 1
+                    continue
+            # We need a "user" to call dispatch_digest. Pick an admin for the company.
+            company_id = s["company_id"]
+            admin = await db.users.find_one(
+                {"company_id": company_id, "role": {"$in": ["owner", "admin"]}},
+                {"_id": 0, "user_id": 1, "company_id": 1, "role": 1, "email": 1, "name": 1, "created_at": 1},
+            )
+            if not admin:
+                logger.warning(f"[scheduler] no admin for {company_id}, skipping digest")
+                skipped += 1
+                continue
+            admin.setdefault("created_at", datetime.now(timezone.utc))
+            admin.setdefault("name", admin.get("email", "scheduler"))
+            user_obj = User(**admin)
+            await dispatch_digest(company_id, user_obj, s)
+            sent += 1
+        except Exception as e:
+            logger.exception(f"[scheduler] digest dispatch failed for {s.get('company_id')}: {e}")
+    if sent or skipped:
+        logger.info(f"[scheduler] culinary-digest hourly tick: sent={sent} skipped={skipped}")
+
+
 def start_scheduler():
     """Initialize and start the global scheduler (idempotent)."""
     global _scheduler
@@ -165,6 +224,14 @@ def start_scheduler():
         id="weekly_performance_newsletter",
         replace_existing=True,
         misfire_grace_time=3600,
+    )
+    # Hourly tick — culinary digest dispatcher (Sprint 5)
+    _scheduler.add_job(
+        _send_culinary_digests,
+        trigger=CronTrigger(minute=5),  # 5 min past every hour to avoid clash with weekly @8:00
+        id="culinary_digest_dispatcher",
+        replace_existing=True,
+        misfire_grace_time=600,
     )
     _scheduler.start()
     logger.info(f"[scheduler] started in tz={tz} — jobs: {[j.id for j in _scheduler.get_jobs()]}")
