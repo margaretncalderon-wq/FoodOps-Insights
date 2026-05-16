@@ -169,6 +169,23 @@ export default function EngagementCalendar({ embedded = false }) {
     return "middle";
   };
 
+  // Multi-day day index "N/Total" for a given date (e.g. "2/3"). Returns null when not multi-day.
+  const getMultiDayIndex = (event, date) => {
+    if (!isMultiDayEvent(event)) return null;
+    const toUTC = (s) => {
+      const [y, m, d] = s.split('T')[0].split('-').map(Number);
+      return Date.UTC(y, m - 1, d);
+    };
+    const startMs = toUTC(event.event_date);
+    const endMs = toUTC(event.end_date);
+    const dateMs = Date.UTC(date.getFullYear(), date.getMonth(), date.getDate());
+    const dayMs = 86400000;
+    const total = Math.round((endMs - startMs) / dayMs) + 1;
+    const current = Math.round((dateMs - startMs) / dayMs) + 1;
+    if (current < 1 || current > total) return null;
+    return `${current}/${total}`;
+  };
+
   // Format time based on user preference (24h or 12h)
   const formatTime = (timeStr) => {
     if (!timeStr) return "";
@@ -516,6 +533,9 @@ export default function EngagementCalendar({ embedded = false }) {
                                 <span className="opacity-60 mr-0.5">↔</span>
                               )}
                               <span className="truncate">{event.name}</span>
+                              {isMultiDay && (
+                                <span className="opacity-70 ml-1 font-mono text-[10px]">{getMultiDayIndex(event, dayInfo.date)}</span>
+                              )}
                             </div>
                           );
                         })}
@@ -582,7 +602,7 @@ export default function EngagementCalendar({ embedded = false }) {
                                 <Badge className={`text-xs ${colors.bg} ${colors.text}`}>{normalizeStage(event.stage)}</Badge>
                                 {isMultiDay && (
                                   <Badge variant="outline" className="text-xs">
-                                    {isEs ? "Multi-día" : "Multi-day"}
+                                    {(isEs ? "Multi-día " : "Multi-day ")}{getMultiDayIndex(event, date)}
                                   </Badge>
                                 )}
                               </div>
