@@ -180,11 +180,15 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
 
   // Section/Pack Templates
   const [sectionTemplates, setSectionTemplates] = useState([]);
+  const [sectionTemplateChecks, setSectionTemplateChecks] = useState({}); // template_id -> {stale_count, items}
   const [saveTemplateOpen, setSaveTemplateOpen] = useState(false);
   const [saveTemplateName, setSaveTemplateName] = useState("");
   const [saveTemplateScope, setSaveTemplateScope] = useState("pack"); // 'pack' = full proposal, 'section' = single section
   const [saveTemplateSectionContext, setSaveTemplateSectionContext] = useState(null); // {itype, section_title} when scope='section'
   const [applyTemplateOpen, setApplyTemplateOpen] = useState(false);
+  const [useCurrentPrices, setUseCurrentPrices] = useState(false);
+  const [reviewTemplateOpen, setReviewTemplateOpen] = useState(false);
+  const [reviewTemplate, setReviewTemplate] = useState(null); // {template_id, ...check data}
 
   // Duplicate-day dialog
   const [dupDayOpen, setDupDayOpen] = useState(false);
@@ -861,11 +865,58 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
   const fetchSectionTemplates = useCallback(async () => {
     try {
       const res = await axios.get(`${API}/proposals/section-templates`, { withCredentials: true });
-      setSectionTemplates(res.data || []);
+      const tpls = res.data || [];
+      setSectionTemplates(tpls);
+      // Fetch stale checks in parallel (best-effort)
+      const checks = await Promise.allSettled(
+        tpls.map((t) =>
+          axios.get(`${API}/proposals/section-templates/${t.template_id}/check`, { withCredentials: true })
+        )
+      );
+      const map = {};
+      checks.forEach((c, i) => {
+        if (c.status === "fulfilled") map[tpls[i].template_id] = c.value.data;
+      });
+      setSectionTemplateChecks(map);
     } catch (err) {
       console.error("Failed to fetch templates:", err);
     }
   }, []);
+
+  const openReviewTemplate = async (templateId) => {
+    try {
+      const res = await axios.get(
+        `${API}/proposals/section-templates/${templateId}/check`,
+        { withCredentials: true }
+      );
+      setReviewTemplate(res.data);
+      setReviewTemplateOpen(true);
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Failed to load template");
+    }
+  };
+
+  const handleRefreshTemplate = async (templateId, itemIndexes = null) => {
+    try {
+      const res = await axios.post(
+        `${API}/proposals/section-templates/${templateId}/refresh`,
+        itemIndexes ? { item_indexes: itemIndexes } : {},
+        { withCredentials: true }
+      );
+      toast.success(
+        language === "es"
+          ? `${res.data.updated} ítem(s) actualizados`
+          : `${res.data.updated} item(s) updated`
+      );
+      // Reload review + list
+      if (reviewTemplate && reviewTemplate.template_id === templateId) {
+        await openReviewTemplate(templateId);
+      }
+      fetchSectionTemplates();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Failed to refresh");
+    }
+  };
 
   const handleSaveTemplate = async () => {
     const name = (saveTemplateName || "").trim();
@@ -906,10 +957,14 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
     try {
       await axios.post(
         `${API}/proposals/${proposal.proposal_id}/apply-template`,
-        { template_id: templateId },
+        { template_id: templateId, use_current_prices: useCurrentPrices },
         { withCredentials: true }
       );
-      toast.success(language === "es" ? "Plantilla aplicada" : "Template applied");
+      toast.success(
+        useCurrentPrices
+          ? (language === "es" ? "Plantilla aplicada (precios actuales)" : "Template applied (current prices)")
+          : (language === "es" ? "Plantilla aplicada" : "Template applied")
+      );
       setApplyTemplateOpen(false);
       fetchProposal();
       fetchFinancials();
@@ -2231,43 +2286,203 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
               {language === "es" ? "Usar plantilla" : "Use template"}
             </DialogTitle>
           </DialogHeader>
-          <div className="space-y-2 max-h-[60vh] overflow-y-auto">
-            {sectionTemplates.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-6">
-                {language === "es" ? "No tienes plantillas guardadas aún." : "No saved templates yet."}
-              </p>
-            ) : (
-              sectionTemplates.map((tpl) => {
-                const sectionCount = new Set((tpl.items || []).map(i => i.section_title || "")).size;
-                return (
-                  <div
-                    key={tpl.template_id}
-                    className="flex items-center gap-3 p-3 rounded-lg border hover:bg-muted/40 transition-colors"
-                    data-testid={`template-row-${tpl.template_id}`}
-                  >
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium truncate">{tpl.name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {(tpl.items || []).length} {language === "es" ? "ítems" : "items"} · {sectionCount} {language === "es" ? "secciones" : "sections"}
-                      </p>
-                    </div>
-                    <Button size="sm" onClick={() => handleApplyTemplate(tpl.template_id)} data-testid={`template-apply-${tpl.template_id}`}>
-                      {language === "es" ? "Usar" : "Use"}
-                    </Button>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="text-muted-foreground hover:text-destructive"
-                      onClick={() => handleDeleteTemplate(tpl.template_id)}
-                      title={language === "es" ? "Eliminar plantilla" : "Delete template"}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
+          <div className="space-y-3">
+            {/* Price source toggle */}
+            <div className="rounded-lg border p-3 bg-muted/30">
+              <Label className="text-xs font-semibold text-muted-foreground uppercase">
+                {language === "es" ? "Precios al aplicar" : "Prices on apply"}
+              </Label>
+              <div className="flex gap-2 mt-2">
+                <Button
+                  type="button"
+                  variant={!useCurrentPrices ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setUseCurrentPrices(false)}
+                  className="flex-1 h-auto py-2"
+                  data-testid="price-mode-snapshot"
+                >
+                  <div className="text-left">
+                    <div className="text-xs font-semibold">{language === "es" ? "Snapshot" : "Snapshot"}</div>
+                    <div className="text-[10px] opacity-80">{language === "es" ? "Precios guardados" : "Saved prices"}</div>
                   </div>
-                );
-              })
-            )}
+                </Button>
+                <Button
+                  type="button"
+                  variant={useCurrentPrices ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setUseCurrentPrices(true)}
+                  className="flex-1 h-auto py-2"
+                  data-testid="price-mode-current"
+                >
+                  <div className="text-left">
+                    <div className="text-xs font-semibold">{language === "es" ? "Actuales" : "Current"}</div>
+                    <div className="text-[10px] opacity-80">{language === "es" ? "Del catálogo" : "From catalog"}</div>
+                  </div>
+                </Button>
+              </div>
+            </div>
+
+            <div className="space-y-2 max-h-[50vh] overflow-y-auto">
+              {sectionTemplates.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-6">
+                  {language === "es" ? "No tienes plantillas guardadas aún." : "No saved templates yet."}
+                </p>
+              ) : (
+                sectionTemplates.map((tpl) => {
+                  const sectionCount = new Set((tpl.items || []).map(i => i.section_title || "")).size;
+                  const check = sectionTemplateChecks[tpl.template_id];
+                  const staleCount = check?.stale_count || 0;
+                  return (
+                    <div
+                      key={tpl.template_id}
+                      className="flex items-center gap-3 p-3 rounded-lg border hover:bg-muted/40 transition-colors"
+                      data-testid={`template-row-${tpl.template_id}`}
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium truncate">{tpl.name}</p>
+                          {staleCount > 0 && (
+                            <Badge variant="outline" className="text-[10px] border-amber-400 text-amber-700 bg-amber-50 shrink-0">
+                              <AlertTriangle className="w-3 h-3 mr-0.5" />
+                              {staleCount} {language === "es" ? "desactualizados" : "outdated"}
+                            </Badge>
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          {(tpl.items || []).length} {language === "es" ? "ítems" : "items"} · {sectionCount} {language === "es" ? "secciones" : "sections"}
+                        </p>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => openReviewTemplate(tpl.template_id)}
+                        data-testid={`template-review-${tpl.template_id}`}
+                        title={language === "es" ? "Revisar plantilla" : "Review template"}
+                      >
+                        {language === "es" ? "Revisar" : "Review"}
+                      </Button>
+                      <Button size="sm" onClick={() => handleApplyTemplate(tpl.template_id)} data-testid={`template-apply-${tpl.template_id}`}>
+                        {language === "es" ? "Usar" : "Use"}
+                      </Button>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="text-muted-foreground hover:text-destructive"
+                        onClick={() => handleDeleteTemplate(tpl.template_id)}
+                        title={language === "es" ? "Eliminar plantilla" : "Delete template"}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  );
+                })
+              )}
+            </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Review Template Dialog */}
+      <Dialog open={reviewTemplateOpen} onOpenChange={setReviewTemplateOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Eye className="w-5 h-5 text-emerald-600" />
+              {language === "es" ? "Revisar plantilla" : "Review template"}: {reviewTemplate?.name}
+            </DialogTitle>
+          </DialogHeader>
+          {reviewTemplate && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <div className="flex items-center gap-2 text-sm">
+                  <Badge>{(reviewTemplate.items || []).length} {language === "es" ? "ítems" : "items"}</Badge>
+                  {reviewTemplate.stale_count > 0 ? (
+                    <Badge variant="outline" className="border-amber-400 text-amber-700 bg-amber-50">
+                      <AlertTriangle className="w-3 h-3 mr-1" />
+                      {reviewTemplate.stale_count} {language === "es" ? "desactualizados" : "outdated"}
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline" className="border-emerald-400 text-emerald-700 bg-emerald-50">
+                      <CheckCircle className="w-3 h-3 mr-1" />
+                      {language === "es" ? "Todo actualizado" : "All up to date"}
+                    </Badge>
+                  )}
+                </div>
+                {reviewTemplate.stale_count > 0 && (
+                  <Button
+                    size="sm"
+                    onClick={() => handleRefreshTemplate(reviewTemplate.template_id)}
+                    data-testid="template-refresh-all"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5 mr-1" />
+                    {language === "es" ? "Actualizar todo" : "Update all"}
+                  </Button>
+                )}
+              </div>
+
+              <div className="rounded-lg border overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead className="bg-muted/50">
+                    <tr>
+                      <th className="text-left px-2 py-2 font-medium">{language === "es" ? "Sección" : "Section"}</th>
+                      <th className="text-left px-2 py-2 font-medium">{language === "es" ? "Ítem" : "Item"}</th>
+                      <th className="text-right px-2 py-2 font-medium">{language === "es" ? "Precio snap" : "Snap price"}</th>
+                      <th className="text-right px-2 py-2 font-medium">{language === "es" ? "Precio actual" : "Current price"}</th>
+                      <th className="text-right px-2 py-2 font-medium">{language === "es" ? "Costo snap" : "Snap cost"}</th>
+                      <th className="text-right px-2 py-2 font-medium">{language === "es" ? "Costo actual" : "Current cost"}</th>
+                      <th className="text-center px-2 py-2 font-medium w-24">{language === "es" ? "Acción" : "Action"}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(reviewTemplate.items || []).map((it) => {
+                      const stale = it._is_stale_price || it._is_stale_cost;
+                      return (
+                        <tr key={it._idx} className={`border-t ${stale ? "bg-amber-50/50" : ""}`}>
+                          <td className="px-2 py-2 text-muted-foreground">{it.section_title || "—"}</td>
+                          <td className="px-2 py-2 truncate max-w-[280px]">{it.description}</td>
+                          <td className={`px-2 py-2 text-right font-mono ${it._is_stale_price ? "text-amber-700 font-semibold" : ""}`}>
+                            ${(it.unit_price || 0).toFixed(2)}
+                          </td>
+                          <td className={`px-2 py-2 text-right font-mono ${it._is_stale_price ? "text-emerald-700 font-semibold" : "text-muted-foreground"}`}>
+                            {it._current_price != null ? `$${it._current_price.toFixed(2)}` : "—"}
+                          </td>
+                          <td className={`px-2 py-2 text-right font-mono ${it._is_stale_cost ? "text-amber-700 font-semibold" : "text-muted-foreground"}`}>
+                            {it.internal_cost != null ? `$${it.internal_cost.toFixed(2)}` : "—"}
+                          </td>
+                          <td className={`px-2 py-2 text-right font-mono ${it._is_stale_cost ? "text-emerald-700 font-semibold" : "text-muted-foreground"}`}>
+                            {it._current_cost != null ? `$${it._current_cost.toFixed(2)}` : "—"}
+                          </td>
+                          <td className="px-2 py-2 text-center">
+                            {stale ? (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-7 text-xs"
+                                onClick={() => handleRefreshTemplate(reviewTemplate.template_id, [it._idx])}
+                                data-testid={`template-refresh-item-${it._idx}`}
+                              >
+                                <RefreshCw className="w-3 h-3 mr-1" />
+                                {language === "es" ? "Refrescar" : "Refresh"}
+                              </Button>
+                            ) : it._has_reference ? (
+                              <Check className="w-4 h-4 text-emerald-600 inline" />
+                            ) : (
+                              <span className="text-[10px] text-muted-foreground italic">{language === "es" ? "sin ref" : "no ref"}</span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                {language === "es"
+                  ? "Los ítems sin referencia (\"sin ref\") fueron creados manualmente y no se pueden refrescar automáticamente."
+                  : "Items without reference (\"no ref\") were created manually and cannot be auto-refreshed."}
+              </p>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 
