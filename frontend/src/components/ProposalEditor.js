@@ -1345,7 +1345,7 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
               {sectionTemplates.length > 0 && (
                 <Button variant="outline" onClick={() => setApplyTemplateOpen(true)} className="gap-2" data-testid="apply-template-btn">
                   <Package className="w-4 h-4" />
-                  {language === "es" ? "Aplicar Pack" : "Apply Pack"}
+                  {language === "es" ? "Usar plantilla" : "Use template"}
                 </Button>
               )}
               {(proposal?.items?.length || 0) > 0 && (
@@ -1356,7 +1356,7 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
                   data-testid="save-template-btn"
                 >
                   <FileText className="w-4 h-4" />
-                  {language === "es" ? "Guardar Pack" : "Save as Pack"}
+                  {language === "es" ? "Guardar como plantilla" : "Save as template"}
                 </Button>
               )}
               {isMultidayEvent && (
@@ -2186,37 +2186,37 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
         />
       )}
 
-      {/* Save Template (Pack) Dialog */}
+      {/* Save Template Dialog */}
       <Dialog open={saveTemplateOpen} onOpenChange={setSaveTemplateOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <FileText className="w-5 h-5 text-emerald-600" />
-              {language === "es" ? "Guardar como Pack" : "Save as Pack"}
+              {language === "es" ? "Guardar como plantilla" : "Save as template"}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <p className="text-xs text-muted-foreground">
               {saveTemplateScope === "section"
                 ? (language === "es"
-                    ? `Guardarás solo la sección "${saveTemplateSectionContext?.section_title || "(sin título)"}".`
-                    : `You'll save only the "${saveTemplateSectionContext?.section_title || "(untitled)"}" section.`)
+                    ? `Guardarás solo la sección "${saveTemplateSectionContext?.section_title || "(sin título)"}" como plantilla reutilizable.`
+                    : `You'll save only the "${saveTemplateSectionContext?.section_title || "(untitled)"}" section as a reusable template.`)
                 : (language === "es"
-                    ? "Guardarás todas las secciones e ítems actuales como un pack reutilizable (ej: Cóctel + Cena + Postre)."
-                    : "You'll save all current sections and items as a reusable pack (e.g. Cocktail + Dinner + Dessert).")}
+                    ? "Guardarás todas las secciones (con sus títulos e ítems) para reutilizarlas en otras propuestas (ej: Cóctel de Bienvenida + Cena + Postre)."
+                    : "You'll save all sections (with their titles and items) to reuse in other proposals (e.g. Welcome Cocktail + Dinner + Dessert).")}
             </p>
             <div>
-              <Label className="text-sm">{language === "es" ? "Nombre del pack" : "Pack name"}</Label>
+              <Label className="text-sm">{language === "es" ? "Nombre de la plantilla" : "Template name"}</Label>
               <Input
                 value={saveTemplateName}
                 onChange={(e) => setSaveTemplateName(e.target.value)}
-                placeholder={language === "es" ? "Ej: Boda Plata 100 pax" : "E.g. Silver Wedding 100 pax"}
+                placeholder={language === "es" ? "Ej: Boda 100 pax - Cóctel + Cena + Postre" : "E.g. Wedding 100 pax - Cocktail + Dinner + Dessert"}
                 data-testid="save-template-name"
                 autoFocus
               />
             </div>
             <Button onClick={handleSaveTemplate} className="w-full" data-testid="save-template-submit">
-              {language === "es" ? "Guardar" : "Save"}
+              {language === "es" ? "Guardar plantilla" : "Save template"}
             </Button>
           </div>
         </DialogContent>
@@ -2228,13 +2228,13 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Package className="w-5 h-5 text-emerald-600" />
-              {language === "es" ? "Aplicar Pack" : "Apply Pack"}
+              {language === "es" ? "Usar plantilla" : "Use template"}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-2 max-h-[60vh] overflow-y-auto">
             {sectionTemplates.length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-6">
-                {language === "es" ? "No tienes packs guardados aún." : "No saved packs yet."}
+                {language === "es" ? "No tienes plantillas guardadas aún." : "No saved templates yet."}
               </p>
             ) : (
               sectionTemplates.map((tpl) => {
@@ -2252,7 +2252,7 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
                       </p>
                     </div>
                     <Button size="sm" onClick={() => handleApplyTemplate(tpl.template_id)} data-testid={`template-apply-${tpl.template_id}`}>
-                      {language === "es" ? "Aplicar" : "Apply"}
+                      {language === "es" ? "Usar" : "Use"}
                     </Button>
                     <Button
                       size="icon"
