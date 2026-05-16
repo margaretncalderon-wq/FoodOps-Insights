@@ -62,6 +62,7 @@ import {
   PointerSensor,
   useSensor,
   useSensors,
+  useDroppable,
 } from "@dnd-kit/core";
 import {
   SortableContext,
@@ -114,6 +115,22 @@ const SortableItemRow = ({ id, children }) => {
         </button>
         <div className="flex-1">{children}</div>
       </div>
+    </div>
+  );
+};
+
+// Droppable empty-section zone — visual highlight on hover
+const EmptySectionDropzone = ({ id, label }) => {
+  const { setNodeRef, isOver } = useDroppable({ id });
+  return (
+    <div
+      ref={setNodeRef}
+      data-testid={`drop-empty-${id}`}
+      className={`text-xs text-center py-6 italic border-2 border-dashed transition-colors ${
+        isOver ? "border-emerald-400 bg-emerald-50 text-emerald-700" : "border-transparent text-muted-foreground"
+      }`}
+    >
+      {label}
     </div>
   );
 };
@@ -1447,18 +1464,19 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
                   <CardContent className="pt-0 space-y-4">
                     {(() => {
                       const sections = groupBySections(typeData.items, itype);
+                      const allItemIds = sections.flatMap(s => s.items.map(i => i.item_id));
                       return (
                         <DndContext
                           sensors={dndSensors}
                           collisionDetection={closestCenter}
                           onDragEnd={(ev) => handleDragEndForType(itype, ev)}
                         >
+                          <SortableContext items={allItemIds} strategy={verticalListSortingStrategy}>
                           {sections.map((section) => {
                             const sectionKey = `${itype}::${section.title || ""}`;
                             const isEditing = editingSectionKey === sectionKey;
-                            const itemIds = section.items.map((i) => i.item_id);
                             return (
-                              <div key={sectionKey} className="border rounded-lg overflow-hidden" data-testid={`section-${itype}-${section.title || "default"}`}>
+                              <div key={sectionKey} className="border rounded-lg overflow-hidden mb-3" data-testid={`section-${itype}-${section.title || "default"}`}>
                                 {/* Section header (only if has a title or it's the only-but-empty draft) */}
                                 {(section.title || section.isDraft) && (
                                   <div className="flex items-center justify-between gap-2 px-3 py-2 bg-muted/40 border-b">
@@ -1532,17 +1550,14 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
                                   </div>
                                 )}
                                 {/* Drop-zone: section header acts as drop target too */}
-                                <SortableContext id={`section::${section.title || ""}`} items={itemIds.length ? itemIds : [`section::${section.title || ""}`]} strategy={verticalListSortingStrategy}>
                                   <div className="divide-y">
                                     {section.items.length === 0 ? (
-                                      <div
+                                      <EmptySectionDropzone
                                         id={`section::${section.title || ""}`}
-                                        className="text-xs text-muted-foreground text-center py-6 italic"
-                                      >
-                                        {language === "es"
+                                        label={language === "es"
                                           ? "Arrastra ítems aquí o crea uno nuevo"
                                           : "Drag items here or add a new one"}
-                                      </div>
+                                      />
                                     ) : (
                                       section.items.map((item) => (
                                         <SortableItemRow key={item.item_id} id={item.item_id}>
@@ -1599,10 +1614,10 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
                                       ))
                                     )}
                                   </div>
-                                </SortableContext>
                               </div>
                             );
                           })}
+                          </SortableContext>
                         </DndContext>
                       );
                     })()}
