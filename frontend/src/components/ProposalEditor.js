@@ -53,8 +53,22 @@ import {
   Armchair, Users, Flower2, Package, GripVertical, Percent,
   DollarSign, ChevronDown, ChevronRight, Loader2, AlertTriangle, 
   Search, Send, CheckCircle, XCircle, Lock, History, TrendingUp,
-  Edit, Clock, Calculator, Link2, RefreshCw, CreditCard
+  Edit, Clock, Calculator, Link2, RefreshCw, CreditCard, Check, X, Type
 } from "lucide-react";
+
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
 import RecipePicker from "./RecipePicker";
 import RecipeScalingPanel from "./RecipeScalingPanel";
@@ -76,6 +90,32 @@ const STATUS_COLORS = {
   Sent: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
   Accepted: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
   Rejected: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
+};
+
+// Sortable wrapper for a single line item — uses @dnd-kit/sortable
+const SortableItemRow = ({ id, children }) => {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+  return (
+    <div ref={setNodeRef} style={style} className="bg-background">
+      <div className="flex items-stretch">
+        <button
+          type="button"
+          {...attributes}
+          {...listeners}
+          className="flex items-center justify-center px-2 cursor-grab active:cursor-grabbing text-muted-foreground/50 hover:text-foreground touch-none"
+          aria-label="drag-handle"
+        >
+          <GripVertical className="w-4 h-4" />
+        </button>
+        <div className="flex-1">{children}</div>
+      </div>
+    </div>
+  );
 };
 
 export default function ProposalEditor({ eventId, event, onDocumentGenerated }) {
@@ -110,6 +150,16 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
   const [selectedPicklistCategory, setSelectedPicklistCategory] = useState("");
   const [picklistSearch, setPicklistSearch] = useState("");
   const [activeTab, setActiveTab] = useState("items");
+
+  // DnD sensors for sortable items
+  const dndSensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+
+  // Section management (custom titles within item types)
+  const [editingSectionKey, setEditingSectionKey] = useState(null); // `${itype}::${oldTitle}`
+  const [editingSectionValue, setEditingSectionValue] = useState("");
+  const [newSectionForType, setNewSectionForType] = useState(null); // itype string when adding a new section
+  const [newSectionTitle, setNewSectionTitle] = useState("");
+  const [draftSectionTitles, setDraftSectionTitles] = useState({}); // {itype: [title, ...]} — empty sections persisted in-component until first item added
   
   // Customizable item types from company settings
   const [itemTypes, setItemTypes] = useState([]);
@@ -773,6 +823,140 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
     }));
   };
 
+  // -------- Sections (custom titles) helpers --------
+  // Group items in a type into sections by section_title, preserving sort_order.
+  const groupBySections = (items, itype) => {
+    const sortedItems = [...items].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+    const map = new Map(); // title -> {title, items}
+    sortedItems.forEach((it) => {
+      const title = (it.section_title || "").trim();
+      if (!map.has(title)) map.set(title, { title, items: [] });
+      map.get(title).items.push(it);
+    });
+    // Inject empty draft sections for this type (kept in component until first item)
+    (draftSectionTitles[itype] || []).forEach((t) => {
+      if (!map.has(t)) map.set(t, { title: t, items: [], isDraft: true });
+    });
+    return Array.from(map.values());
+  };
+
+  // Bulk-update section_title on a list of items. Returns a promise.
+  const updateItemSection = async (item, patch) => {
+    try {
+      await axios.put(
+        `${API}/proposals/${proposal.proposal_id}/items/${item.item_id}`,
+        patch,
+        { withCredentials: true }
+      );
+    } catch (err) {
+      console.error("Update item section failed:", err);
+      throw err;
+    }
+  };
+
+  const handleRenameSection = async (itype, oldTitle, newTitle) => {
+    const trimmed = (newTitle || "").trim();
+    if (trimmed === (oldTitle || "")) {
+      setEditingSectionKey(null);
+      return;
+    }
+    const items = proposal?.items?.filter(
+      (i) => i.item_type === itype && (i.section_title || "") === (oldTitle || "")
+    ) || [];
+    try {
+      await Promise.all(items.map((it) => updateItemSection(it, { section_title: trimmed })));
+      // Update draft mapping if needed
+      if (draftSectionTitles[itype]?.includes(oldTitle)) {
+        setDraftSectionTitles((prev) => ({
+          ...prev,
+          [itype]: (prev[itype] || []).map((t) => (t === oldTitle ? trimmed : t)),
+        }));
+      }
+      setEditingSectionKey(null);
+      toast.success(language === "es" ? "Sección renombrada" : "Section renamed");
+      fetchProposal();
+    } catch {
+      toast.error(language === "es" ? "Error al renombrar sección" : "Failed to rename section");
+    }
+  };
+
+  const handleAddSection = (itype) => {
+    const trimmed = (newSectionTitle || "").trim();
+    if (!trimmed) return;
+    setDraftSectionTitles((prev) => ({
+      ...prev,
+      [itype]: Array.from(new Set([...(prev[itype] || []), trimmed])),
+    }));
+    setNewSectionForType(null);
+    setNewSectionTitle("");
+    toast.info(
+      language === "es"
+        ? `Sección "${trimmed}" creada. Agrega ítems para que persista.`
+        : `Section "${trimmed}" created. Add items to persist it.`
+    );
+  };
+
+  const handleDeleteSection = async (itype, title) => {
+    if (!title) return; // never delete the implicit "no section" group
+    const items = proposal?.items?.filter(
+      (i) => i.item_type === itype && (i.section_title || "") === title
+    ) || [];
+    try {
+      await Promise.all(items.map((it) => updateItemSection(it, { section_title: "" })));
+      setDraftSectionTitles((prev) => ({
+        ...prev,
+        [itype]: (prev[itype] || []).filter((t) => t !== title),
+      }));
+      toast.success(language === "es" ? "Sección eliminada" : "Section removed");
+      fetchProposal();
+    } catch {
+      toast.error(language === "es" ? "Error al eliminar sección" : "Failed to remove section");
+    }
+  };
+
+  // Drag-and-drop handler scoped per item_type
+  const handleDragEndForType = async (itype, event) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const typeItems = (proposal?.items || []).filter((i) => i.item_type === itype);
+    const activeItem = typeItems.find((i) => i.item_id === active.id);
+    const overItem = typeItems.find((i) => i.item_id === over.id);
+    if (!activeItem) return;
+    // If dropping on a section header pseudo-id (e.g. "section::Title")
+    let targetSectionTitle;
+    if (typeof over.id === "string" && over.id.startsWith("section::")) {
+      targetSectionTitle = over.id.replace("section::", "");
+    } else if (overItem) {
+      targetSectionTitle = overItem.section_title || "";
+    } else {
+      return;
+    }
+    const patch = {};
+    if ((activeItem.section_title || "") !== targetSectionTitle) {
+      patch.section_title = targetSectionTitle;
+    }
+    // Compute new sort_order: place after overItem (or at end if dropped on header)
+    const sectionItems = typeItems
+      .filter((i) => (i.section_title || "") === targetSectionTitle && i.item_id !== activeItem.item_id)
+      .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+    let newOrder;
+    if (overItem) {
+      const idx = sectionItems.findIndex((i) => i.item_id === overItem.item_id);
+      const prev = idx >= 0 ? sectionItems[idx].sort_order || 0 : 0;
+      const next = sectionItems[idx + 1]?.sort_order ?? prev + 2;
+      newOrder = (prev + next) / 2;
+    } else {
+      newOrder = (sectionItems[sectionItems.length - 1]?.sort_order || 0) + 1;
+    }
+    patch.sort_order = Math.round(newOrder * 1000);
+    try {
+      await updateItemSection(activeItem, patch);
+      fetchProposal();
+    } catch {
+      toast.error(language === "es" ? "Error al reordenar" : "Failed to reorder");
+    }
+  };
+
   // Group items by item_type
   const itemsByType = {};
   ITEM_TYPES.forEach(itype => {
@@ -1110,63 +1294,190 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
                 </CardHeader>
                 
                 {isExpanded && (
-                  <CardContent className="pt-0">
-                    <div className="border rounded-lg divide-y">
-                      {typeData.items.map((item) => (
-                        <div 
-                          key={item.item_id} 
-                          className="flex items-center gap-4 p-3 hover:bg-muted/30 transition-colors"
-                          data-testid={`order-item-${item.item_id}`}
+                  <CardContent className="pt-0 space-y-4">
+                    {(() => {
+                      const sections = groupBySections(typeData.items, itype);
+                      return (
+                        <DndContext
+                          sensors={dndSensors}
+                          collisionDetection={closestCenter}
+                          onDragEnd={(ev) => handleDragEndForType(itype, ev)}
                         >
-                          <GripVertical className="w-4 h-4 text-muted-foreground/50" />
-                          <div className="flex-1 min-w-0">
-                            <p className="font-medium truncate">{item.description}</p>
-                            {item.internal_notes && (
-                              <p className="text-xs text-warning mt-1 italic">
-                                📝 {item.internal_notes}
-                              </p>
-                            )}
-                            {/* Margin indicator for admins */}
-                            {featureFlags?.is_margin_tracking_enabled && item.internal_cost !== null && (
-                              <div className="flex items-center gap-2 mt-1">
-                                <span className={`text-xs ${item.margin_percentage < 20 ? 'text-destructive' : item.margin_percentage > 50 ? 'text-success' : 'text-muted-foreground'}`}>
-                                  {language === "es" ? "Margen" : "Margin"}: {item.margin_percentage?.toFixed(0)}%
-                                </span>
-                                {item.internal_cost === null && (
-                                  <Badge variant="outline" className="text-xs text-warning">
-                                    <AlertTriangle className="w-3 h-3 mr-1" />
-                                    {language === "es" ? "Sin costo" : "No cost"}
-                                  </Badge>
+                          {sections.map((section) => {
+                            const sectionKey = `${itype}::${section.title || ""}`;
+                            const isEditing = editingSectionKey === sectionKey;
+                            const itemIds = section.items.map((i) => i.item_id);
+                            return (
+                              <div key={sectionKey} className="border rounded-lg overflow-hidden" data-testid={`section-${itype}-${section.title || "default"}`}>
+                                {/* Section header (only if has a title or it's the only-but-empty draft) */}
+                                {(section.title || section.isDraft) && (
+                                  <div className="flex items-center justify-between gap-2 px-3 py-2 bg-muted/40 border-b">
+                                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                                      <Type className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                                      {isEditing ? (
+                                        <Input
+                                          autoFocus
+                                          value={editingSectionValue}
+                                          onChange={(e) => setEditingSectionValue(e.target.value)}
+                                          onKeyDown={(e) => {
+                                            if (e.key === "Enter") handleRenameSection(itype, section.title, editingSectionValue);
+                                            if (e.key === "Escape") setEditingSectionKey(null);
+                                          }}
+                                          onBlur={() => handleRenameSection(itype, section.title, editingSectionValue)}
+                                          className="h-7 text-sm"
+                                          data-testid={`section-rename-input-${section.title}`}
+                                        />
+                                      ) : (
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            if (isLocked) return;
+                                            setEditingSectionKey(sectionKey);
+                                            setEditingSectionValue(section.title || "");
+                                          }}
+                                          className="text-sm font-semibold truncate text-left hover:text-primary transition-colors"
+                                          data-testid={`section-title-${section.title}`}
+                                        >
+                                          {section.title || (language === "es" ? "(sin título)" : "(untitled)")}
+                                          {section.isDraft && (
+                                            <Badge variant="outline" className="ml-2 text-[9px] h-4 px-1">
+                                              {language === "es" ? "borrador" : "draft"}
+                                            </Badge>
+                                          )}
+                                        </button>
+                                      )}
+                                      <span className="text-xs text-muted-foreground shrink-0">
+                                        · {section.items.length} {language === "es" ? "ítems" : "items"}
+                                      </span>
+                                    </div>
+                                    {!isLocked && !isEditing && (
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                                        onClick={() => handleDeleteSection(itype, section.title)}
+                                        data-testid={`section-delete-${section.title}`}
+                                        title={language === "es" ? "Quitar sección (mantiene ítems)" : "Remove section (keeps items)"}
+                                      >
+                                        <X className="w-3.5 h-3.5" />
+                                      </Button>
+                                    )}
+                                  </div>
                                 )}
+                                {/* Drop-zone: section header acts as drop target too */}
+                                <SortableContext id={`section::${section.title || ""}`} items={itemIds.length ? itemIds : [`section::${section.title || ""}`]} strategy={verticalListSortingStrategy}>
+                                  <div className="divide-y">
+                                    {section.items.length === 0 ? (
+                                      <div
+                                        id={`section::${section.title || ""}`}
+                                        className="text-xs text-muted-foreground text-center py-6 italic"
+                                      >
+                                        {language === "es"
+                                          ? "Arrastra ítems aquí o crea uno nuevo"
+                                          : "Drag items here or add a new one"}
+                                      </div>
+                                    ) : (
+                                      section.items.map((item) => (
+                                        <SortableItemRow key={item.item_id} id={item.item_id}>
+                                          <div
+                                            className="flex items-center gap-4 p-3 hover:bg-muted/30 transition-colors"
+                                            data-testid={`order-item-${item.item_id}`}
+                                          >
+                                            <div className="flex-1 min-w-0">
+                                              <p className="font-medium truncate">{item.description}</p>
+                                              {item.internal_notes && (
+                                                <p className="text-xs text-warning mt-1 italic">
+                                                  📝 {item.internal_notes}
+                                                </p>
+                                              )}
+                                              {featureFlags?.is_margin_tracking_enabled && item.internal_cost !== null && (
+                                                <div className="flex items-center gap-2 mt-1">
+                                                  <span className={`text-xs ${item.margin_percentage < 20 ? 'text-destructive' : item.margin_percentage > 50 ? 'text-success' : 'text-muted-foreground'}`}>
+                                                    {language === "es" ? "Margen" : "Margin"}: {item.margin_percentage?.toFixed(0)}%
+                                                  </span>
+                                                  {item.internal_cost === null && (
+                                                    <Badge variant="outline" className="text-xs text-warning">
+                                                      <AlertTriangle className="w-3 h-3 mr-1" />
+                                                      {language === "es" ? "Sin costo" : "No cost"}
+                                                    </Badge>
+                                                  )}
+                                                </div>
+                                              )}
+                                            </div>
+                                            <div className="text-right">
+                                              <p className="text-sm">
+                                                {item.quantity} × ${item.unit_price?.toFixed(2)}
+                                              </p>
+                                              {featureFlags?.is_margin_tracking_enabled && item.internal_cost !== null && (
+                                                <p className="text-xs text-muted-foreground">
+                                                  {language === "es" ? "Costo" : "Cost"}: ${(item.internal_cost * item.quantity).toFixed(2)}
+                                                </p>
+                                              )}
+                                            </div>
+                                            <p className="font-medium w-24 text-right">
+                                              ${item.total_price?.toFixed(2)}
+                                            </p>
+                                            {!isLocked && (
+                                              <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="text-destructive hover:text-destructive"
+                                                onClick={() => handleDeleteItem(item.item_id)}
+                                              >
+                                                <Trash2 className="w-4 h-4" />
+                                              </Button>
+                                            )}
+                                          </div>
+                                        </SortableItemRow>
+                                      ))
+                                    )}
+                                  </div>
+                                </SortableContext>
                               </div>
-                            )}
-                          </div>
-                          <div className="text-right">
-                            <p className="text-sm">
-                              {item.quantity} × ${item.unit_price?.toFixed(2)}
-                            </p>
-                            {featureFlags?.is_margin_tracking_enabled && item.internal_cost !== null && (
-                              <p className="text-xs text-muted-foreground">
-                                {language === "es" ? "Costo" : "Cost"}: ${(item.internal_cost * item.quantity).toFixed(2)}
-                              </p>
-                            )}
-                          </div>
-                          <p className="font-medium w-24 text-right">
-                            ${item.total_price?.toFixed(2)}
-                          </p>
-                          {!isLocked && (
-                            <Button 
-                              variant="ghost" 
-                              size="icon"
-                              className="text-destructive hover:text-destructive"
-                              onClick={() => handleDeleteItem(item.item_id)}
-                            >
-                              <Trash2 className="w-4 h-4" />
+                            );
+                          })}
+                        </DndContext>
+                      );
+                    })()}
+
+                    {/* + Nueva sección */}
+                    {!isLocked && (
+                      <div className="pt-2">
+                        {newSectionForType === itype ? (
+                          <div className="flex items-center gap-2">
+                            <Input
+                              autoFocus
+                              value={newSectionTitle}
+                              onChange={(e) => setNewSectionTitle(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") handleAddSection(itype);
+                                if (e.key === "Escape") { setNewSectionForType(null); setNewSectionTitle(""); }
+                              }}
+                              placeholder={language === "es" ? "Ej: Bocadillos Salados" : "E.g. Salty Bites"}
+                              className="h-8 text-sm"
+                              data-testid={`new-section-input-${itype}`}
+                            />
+                            <Button size="sm" onClick={() => handleAddSection(itype)} data-testid={`new-section-save-${itype}`}>
+                              <Check className="w-4 h-4" />
                             </Button>
-                          )}
-                        </div>
-                      ))}
-                    </div>
+                            <Button size="sm" variant="ghost" onClick={() => { setNewSectionForType(null); setNewSectionTitle(""); }}>
+                              <X className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-xs text-muted-foreground hover:text-foreground"
+                            onClick={() => { setNewSectionForType(itype); setNewSectionTitle(""); }}
+                            data-testid={`new-section-btn-${itype}`}
+                          >
+                            <Plus className="w-3 h-3 mr-1" />
+                            {language === "es" ? "Nueva sección" : "New section"}
+                          </Button>
+                        )}
+                      </div>
+                    )}
                   </CardContent>
                 )}
               </Card>
