@@ -160,6 +160,20 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
   const [newSectionForType, setNewSectionForType] = useState(null); // itype string when adding a new section
   const [newSectionTitle, setNewSectionTitle] = useState("");
   const [draftSectionTitles, setDraftSectionTitles] = useState({}); // {itype: [title, ...]} — empty sections persisted in-component until first item added
+
+  // Section/Pack Templates
+  const [sectionTemplates, setSectionTemplates] = useState([]);
+  const [saveTemplateOpen, setSaveTemplateOpen] = useState(false);
+  const [saveTemplateName, setSaveTemplateName] = useState("");
+  const [saveTemplateScope, setSaveTemplateScope] = useState("pack"); // 'pack' = full proposal, 'section' = single section
+  const [saveTemplateSectionContext, setSaveTemplateSectionContext] = useState(null); // {itype, section_title} when scope='section'
+  const [applyTemplateOpen, setApplyTemplateOpen] = useState(false);
+
+  // Duplicate-day dialog
+  const [dupDayOpen, setDupDayOpen] = useState(false);
+  const [dupDaySource, setDupDaySource] = useState(null); // ISO date or null
+  const [dupDayTarget, setDupDayTarget] = useState(null);
+  const [dupDayMode, setDupDayMode] = useState("append");
   
   // Customizable item types from company settings
   const [itemTypes, setItemTypes] = useState([]);
@@ -217,6 +231,7 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
       fetchEventInvoices(),
       fetchItemTypes(),
       fetchDocumentTypes(),
+      fetchSectionTemplates(),
     ]).finally(() => setLoading(false));
   }, [eventId]);
 
@@ -824,6 +839,107 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
   };
 
   // -------- Sections (custom titles) helpers --------
+
+  // Section/Pack templates
+  const fetchSectionTemplates = useCallback(async () => {
+    try {
+      const res = await axios.get(`${API}/proposals/section-templates`, { withCredentials: true });
+      setSectionTemplates(res.data || []);
+    } catch (err) {
+      console.error("Failed to fetch templates:", err);
+    }
+  }, []);
+
+  const handleSaveTemplate = async () => {
+    const name = (saveTemplateName || "").trim();
+    if (!name) {
+      toast.error(language === "es" ? "Nombre requerido" : "Name required");
+      return;
+    }
+    let itemsToSave = [];
+    if (saveTemplateScope === "section" && saveTemplateSectionContext) {
+      const { itype, section_title } = saveTemplateSectionContext;
+      itemsToSave = (proposal?.items || []).filter(
+        (i) => i.item_type === itype && (i.section_title || "") === (section_title || "")
+      );
+    } else {
+      itemsToSave = proposal?.items || [];
+    }
+    if (itemsToSave.length === 0) {
+      toast.error(language === "es" ? "No hay ítems para guardar" : "No items to save");
+      return;
+    }
+    try {
+      await axios.post(
+        `${API}/proposals/section-templates`,
+        { name, scope: saveTemplateScope, items: itemsToSave },
+        { withCredentials: true }
+      );
+      toast.success(language === "es" ? `Plantilla "${name}" guardada` : `Template "${name}" saved`);
+      setSaveTemplateOpen(false);
+      setSaveTemplateName("");
+      setSaveTemplateSectionContext(null);
+      fetchSectionTemplates();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Failed to save template");
+    }
+  };
+
+  const handleApplyTemplate = async (templateId) => {
+    try {
+      await axios.post(
+        `${API}/proposals/${proposal.proposal_id}/apply-template`,
+        { template_id: templateId },
+        { withCredentials: true }
+      );
+      toast.success(language === "es" ? "Plantilla aplicada" : "Template applied");
+      setApplyTemplateOpen(false);
+      fetchProposal();
+      fetchFinancials();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Failed to apply template");
+    }
+  };
+
+  const handleDeleteTemplate = async (templateId) => {
+    try {
+      await axios.delete(`${API}/proposals/section-templates/${templateId}`, { withCredentials: true });
+      toast.success(language === "es" ? "Plantilla eliminada" : "Template removed");
+      fetchSectionTemplates();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Failed to delete template");
+    }
+  };
+
+  // Duplicate-day handler
+  const handleDuplicateDay = async () => {
+    if (!dupDayTarget) {
+      toast.error(language === "es" ? "Selecciona el día destino" : "Pick a target day");
+      return;
+    }
+    if ((dupDaySource || "") === (dupDayTarget || "")) {
+      toast.error(language === "es" ? "Origen y destino deben ser distintos" : "Source and target must differ");
+      return;
+    }
+    try {
+      const res = await axios.post(
+        `${API}/proposals/${proposal.proposal_id}/duplicate-day`,
+        { source_date: dupDaySource, target_date: dupDayTarget, mode: dupDayMode },
+        { withCredentials: true }
+      );
+      toast.success(
+        language === "es"
+          ? `${res.data.created} ítems duplicados`
+          : `${res.data.created} items duplicated`
+      );
+      setDupDayOpen(false);
+      fetchProposal();
+      fetchFinancials();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Failed to duplicate day");
+    }
+  };
+
   // Group items in a type into sections by section_title, preserving sort_order.
   const groupBySections = (items, itype) => {
     const sortedItems = [...items].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
@@ -1202,11 +1318,45 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
         <TabsContent value="items" className="space-y-4">
           {/* Add Item / Menu Buttons */}
           {!isLocked && (
-            <div className="flex justify-end gap-2">
+            <div className="flex flex-wrap justify-end gap-2">
               {menus.length > 0 && (
                 <Button variant="outline" onClick={() => setAddMenuOpen(true)} className="gap-2" data-testid="add-menu-btn">
                   <Package className="w-4 h-4" />
                   {language === "es" ? "Agregar Menú" : "Add Menu"}
+                </Button>
+              )}
+              {sectionTemplates.length > 0 && (
+                <Button variant="outline" onClick={() => setApplyTemplateOpen(true)} className="gap-2" data-testid="apply-template-btn">
+                  <Package className="w-4 h-4" />
+                  {language === "es" ? "Aplicar Pack" : "Apply Pack"}
+                </Button>
+              )}
+              {(proposal?.items?.length || 0) > 0 && (
+                <Button
+                  variant="outline"
+                  onClick={() => { setSaveTemplateScope("pack"); setSaveTemplateSectionContext(null); setSaveTemplateName(""); setSaveTemplateOpen(true); }}
+                  className="gap-2"
+                  data-testid="save-template-btn"
+                >
+                  <FileText className="w-4 h-4" />
+                  {language === "es" ? "Guardar Pack" : "Save as Pack"}
+                </Button>
+              )}
+              {isMultidayEvent && (
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    const days = getEventDays();
+                    setDupDaySource(days[0] || null);
+                    setDupDayTarget(days[1] || days[0] || null);
+                    setDupDayMode("append");
+                    setDupDayOpen(true);
+                  }}
+                  className="gap-2"
+                  data-testid="duplicate-day-btn"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                  {language === "es" ? "Duplicar día" : "Duplicate day"}
                 </Button>
               )}
               <Button onClick={() => setAddItemOpen(true)} className="gap-2" data-testid="add-item-btn">
@@ -1351,16 +1501,33 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
                                       </span>
                                     </div>
                                     {!isLocked && !isEditing && (
-                                      <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className="h-6 w-6 text-muted-foreground hover:text-destructive"
-                                        onClick={() => handleDeleteSection(itype, section.title)}
-                                        data-testid={`section-delete-${section.title}`}
-                                        title={language === "es" ? "Quitar sección (mantiene ítems)" : "Remove section (keeps items)"}
-                                      >
-                                        <X className="w-3.5 h-3.5" />
-                                      </Button>
+                                      <>
+                                        <Button
+                                          variant="ghost"
+                                          size="icon"
+                                          className="h-6 w-6 text-muted-foreground hover:text-emerald-600"
+                                          onClick={() => {
+                                            setSaveTemplateScope("section");
+                                            setSaveTemplateSectionContext({ itype, section_title: section.title });
+                                            setSaveTemplateName(section.title || "");
+                                            setSaveTemplateOpen(true);
+                                          }}
+                                          data-testid={`section-save-template-${section.title}`}
+                                          title={language === "es" ? "Guardar esta sección como plantilla" : "Save this section as template"}
+                                        >
+                                          <FileText className="w-3.5 h-3.5" />
+                                        </Button>
+                                        <Button
+                                          variant="ghost"
+                                          size="icon"
+                                          className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                                          onClick={() => handleDeleteSection(itype, section.title)}
+                                          data-testid={`section-delete-${section.title}`}
+                                          title={language === "es" ? "Quitar sección (mantiene ítems)" : "Remove section (keeps items)"}
+                                        >
+                                          <X className="w-3.5 h-3.5" />
+                                        </Button>
+                                      </>
                                     )}
                                   </div>
                                 )}
@@ -2003,6 +2170,172 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
           onClose={() => setPreviewOpen(false)}
         />
       )}
+
+      {/* Save Template (Pack) Dialog */}
+      <Dialog open={saveTemplateOpen} onOpenChange={setSaveTemplateOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="w-5 h-5 text-emerald-600" />
+              {language === "es" ? "Guardar como Pack" : "Save as Pack"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-xs text-muted-foreground">
+              {saveTemplateScope === "section"
+                ? (language === "es"
+                    ? `Guardarás solo la sección "${saveTemplateSectionContext?.section_title || "(sin título)"}".`
+                    : `You'll save only the "${saveTemplateSectionContext?.section_title || "(untitled)"}" section.`)
+                : (language === "es"
+                    ? "Guardarás todas las secciones e ítems actuales como un pack reutilizable (ej: Cóctel + Cena + Postre)."
+                    : "You'll save all current sections and items as a reusable pack (e.g. Cocktail + Dinner + Dessert).")}
+            </p>
+            <div>
+              <Label className="text-sm">{language === "es" ? "Nombre del pack" : "Pack name"}</Label>
+              <Input
+                value={saveTemplateName}
+                onChange={(e) => setSaveTemplateName(e.target.value)}
+                placeholder={language === "es" ? "Ej: Boda Plata 100 pax" : "E.g. Silver Wedding 100 pax"}
+                data-testid="save-template-name"
+                autoFocus
+              />
+            </div>
+            <Button onClick={handleSaveTemplate} className="w-full" data-testid="save-template-submit">
+              {language === "es" ? "Guardar" : "Save"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Apply Template Dialog */}
+      <Dialog open={applyTemplateOpen} onOpenChange={setApplyTemplateOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Package className="w-5 h-5 text-emerald-600" />
+              {language === "es" ? "Aplicar Pack" : "Apply Pack"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2 max-h-[60vh] overflow-y-auto">
+            {sectionTemplates.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-6">
+                {language === "es" ? "No tienes packs guardados aún." : "No saved packs yet."}
+              </p>
+            ) : (
+              sectionTemplates.map((tpl) => {
+                const sectionCount = new Set((tpl.items || []).map(i => i.section_title || "")).size;
+                return (
+                  <div
+                    key={tpl.template_id}
+                    className="flex items-center gap-3 p-3 rounded-lg border hover:bg-muted/40 transition-colors"
+                    data-testid={`template-row-${tpl.template_id}`}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium truncate">{tpl.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {(tpl.items || []).length} {language === "es" ? "ítems" : "items"} · {sectionCount} {language === "es" ? "secciones" : "sections"}
+                      </p>
+                    </div>
+                    <Button size="sm" onClick={() => handleApplyTemplate(tpl.template_id)} data-testid={`template-apply-${tpl.template_id}`}>
+                      {language === "es" ? "Aplicar" : "Apply"}
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="text-muted-foreground hover:text-destructive"
+                      onClick={() => handleDeleteTemplate(tpl.template_id)}
+                      title={language === "es" ? "Eliminar plantilla" : "Delete template"}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Duplicate Day Dialog */}
+      <Dialog open={dupDayOpen} onOpenChange={setDupDayOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <RefreshCw className="w-5 h-5 text-emerald-600" />
+              {language === "es" ? "Duplicar día" : "Duplicate day"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-xs text-muted-foreground">
+              {language === "es"
+                ? "Copia todos los ítems (con sus secciones) de un día a otro."
+                : "Copy all items (with their sections) from one day to another."}
+            </p>
+            <div>
+              <Label className="text-sm">{language === "es" ? "Día origen" : "Source day"}</Label>
+              <Select value={dupDaySource || ""} onValueChange={(v) => setDupDaySource(v)}>
+                <SelectTrigger data-testid="dup-day-source"><SelectValue placeholder={language === "es" ? "Selecciona día" : "Pick day"} /></SelectTrigger>
+                <SelectContent>
+                  {getEventDays().map((d, i) => (
+                    <SelectItem key={d} value={d}>
+                      {language === "es" ? `Día ${i + 1}` : `Day ${i + 1}`} · {d}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-sm">{language === "es" ? "Día destino" : "Target day"}</Label>
+              <Select value={dupDayTarget || ""} onValueChange={(v) => setDupDayTarget(v)}>
+                <SelectTrigger data-testid="dup-day-target"><SelectValue placeholder={language === "es" ? "Selecciona día" : "Pick day"} /></SelectTrigger>
+                <SelectContent>
+                  {getEventDays().filter(d => d !== dupDaySource).map((d, i) => {
+                    const idx = getEventDays().indexOf(d);
+                    return (
+                      <SelectItem key={d} value={d}>
+                        {language === "es" ? `Día ${idx + 1}` : `Day ${idx + 1}`} · {d}
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-sm">{language === "es" ? "Modo" : "Mode"}</Label>
+              <div className="flex gap-2 mt-1">
+                <Button
+                  type="button"
+                  variant={dupDayMode === "append" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setDupDayMode("append")}
+                  className="flex-1"
+                  data-testid="dup-mode-append"
+                >
+                  {language === "es" ? "Agregar (sumar)" : "Append (add)"}
+                </Button>
+                <Button
+                  type="button"
+                  variant={dupDayMode === "replace" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setDupDayMode("replace")}
+                  className="flex-1"
+                  data-testid="dup-mode-replace"
+                >
+                  {language === "es" ? "Reemplazar" : "Replace"}
+                </Button>
+              </div>
+              <p className="text-[11px] text-muted-foreground mt-1">
+                {dupDayMode === "replace"
+                  ? (language === "es" ? "Borrará los ítems existentes en el día destino antes de copiar." : "Will delete existing items in target day before copying.")
+                  : (language === "es" ? "Los ítems existentes en el día destino se mantienen." : "Existing items in target day are kept.")}
+              </p>
+            </div>
+            <Button onClick={handleDuplicateDay} className="w-full" data-testid="dup-day-submit">
+              {language === "es" ? "Duplicar" : "Duplicate"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Add Item Dialog */}
       <Dialog open={addItemOpen} onOpenChange={(open) => {

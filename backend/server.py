@@ -8990,6 +8990,235 @@ async def delete_order_item(proposal_id: str, item_id: str, user: User = Depends
     await db.order_items.delete_one({"item_id": item_id})
     return {"message": "Item deleted"}
 
+# ============== SECTION TEMPLATES (Reusable Packs) ==============
+
+@proposals_router.get("/section-templates")
+async def list_section_templates(user: User = Depends(get_current_user)):
+    """List reusable section/pack templates for the user's company."""
+    templates = await db.section_templates.find(
+        {"company_id": user.company_id},
+        {"_id": 0}
+    ).sort("name", 1).to_list(500)
+    return templates
+
+@proposals_router.post("/section-templates")
+async def create_section_template(body: Dict[str, Any], user: User = Depends(get_current_user)):
+    """Create a section/pack template from a snapshot of items."""
+    name = (body.get("name") or "").strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="Template name is required")
+    items = body.get("items") or []
+    if not isinstance(items, list) or len(items) == 0:
+        raise HTTPException(status_code=400, detail="At least one item is required")
+    now = datetime.now(timezone.utc).isoformat()
+    tpl_id = f"sectpl_{uuid.uuid4().hex[:12]}"
+    doc = {
+        "template_id": tpl_id,
+        "company_id": user.company_id,
+        "name": name,
+        "description": body.get("description") or "",
+        "scope": body.get("scope") or "pack",  # "pack" (multi-section) or "section" (single)
+        "items": [
+            {
+                "item_type": (it.get("item_type") or "Service"),
+                "description": it.get("description") or "",
+                "quantity": float(it.get("quantity") or 1),
+                "unit_price": float(it.get("unit_price") or 0),
+                "internal_cost": float(it.get("internal_cost")) if it.get("internal_cost") not in (None, "") else None,
+                "category_id": it.get("category_id"),
+                "reference_id": it.get("reference_id"),
+                "section_title": it.get("section_title") or "",
+                "section_time": it.get("section_time") or None,
+                "sort_order": int(it.get("sort_order") or 0),
+                "internal_notes": it.get("internal_notes") or None,
+            }
+            for it in items
+        ],
+        "created_by": user.user_id,
+        "created_at": now,
+        "updated_at": now,
+    }
+    await db.section_templates.insert_one(doc)
+    doc.pop("_id", None)
+    return doc
+
+@proposals_router.put("/section-templates/{template_id}")
+async def rename_section_template(template_id: str, body: Dict[str, Any], user: User = Depends(get_current_user)):
+    """Rename a template or update its description."""
+    update = {}
+    if "name" in body:
+        n = (body.get("name") or "").strip()
+        if not n:
+            raise HTTPException(status_code=400, detail="Name cannot be empty")
+        update["name"] = n
+    if "description" in body:
+        update["description"] = body.get("description") or ""
+    if not update:
+        raise HTTPException(status_code=400, detail="Nothing to update")
+    update["updated_at"] = datetime.now(timezone.utc).isoformat()
+    res = await db.section_templates.update_one(
+        {"template_id": template_id, "company_id": user.company_id},
+        {"$set": update},
+    )
+    if res.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Template not found")
+    return await db.section_templates.find_one({"template_id": template_id}, {"_id": 0})
+
+@proposals_router.delete("/section-templates/{template_id}")
+async def delete_section_template(template_id: str, user: User = Depends(get_current_user)):
+    res = await db.section_templates.delete_one(
+        {"template_id": template_id, "company_id": user.company_id}
+    )
+    if res.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Template not found")
+    return {"message": "Template deleted"}
+
+@proposals_router.post("/{proposal_id}/apply-template")
+async def apply_section_template(proposal_id: str, body: Dict[str, Any], user: User = Depends(get_current_user)):
+    """Clone the template's items into the proposal."""
+    template_id = body.get("template_id")
+    target_date = body.get("target_date")  # Optional ISO date
+    if not template_id:
+        raise HTTPException(status_code=400, detail="template_id required")
+
+    proposal = await db.proposals.find_one(
+        {"proposal_id": proposal_id, "company_id": user.company_id}
+    )
+    if not proposal:
+        raise HTTPException(status_code=404, detail="Proposal not found")
+
+    event = await db.events.find_one(
+        {"event_id": proposal["event_id"], "company_id": user.company_id}
+    )
+    if event and event.get("operational_status") == "Closed":
+        raise HTTPException(status_code=400, detail="Cannot edit items in a closed event")
+
+    tpl = await db.section_templates.find_one(
+        {"template_id": template_id, "company_id": user.company_id}, {"_id": 0}
+    )
+    if not tpl:
+        raise HTTPException(status_code=404, detail="Template not found")
+
+    now = datetime.now(timezone.utc).isoformat()
+    created = []
+    max_sort = 0
+    cursor = await db.order_items.find(
+        {"proposal_id": proposal_id, "company_id": user.company_id},
+        {"_id": 0, "sort_order": 1},
+    ).to_list(2000)
+    for it in cursor:
+        max_sort = max(max_sort, int(it.get("sort_order") or 0))
+
+    for offset, it in enumerate(tpl.get("items", [])):
+        item_id = f"oi_{uuid.uuid4().hex[:12]}"
+        qty = float(it.get("quantity") or 1)
+        price = float(it.get("unit_price") or 0)
+        cost = it.get("internal_cost")
+        total_price = qty * price
+        total_cost = qty * cost if cost is not None else None
+        margin_amount = total_price - total_cost if total_cost is not None else None
+        margin_pct = (margin_amount / total_price * 100) if margin_amount is not None and total_price > 0 else None
+        doc = {
+            "item_id": item_id,
+            "event_id": proposal["event_id"],
+            "proposal_id": proposal_id,
+            "company_id": user.company_id,
+            "item_type": it.get("item_type") or "Service",
+            "reference_id": it.get("reference_id"),
+            "description": it.get("description") or "",
+            "quantity": qty,
+            "unit_price": price,
+            "internal_cost": cost,
+            "total_price": total_price,
+            "total_cost": total_cost,
+            "margin_amount": margin_amount,
+            "margin_percentage": margin_pct,
+            "category_id": it.get("category_id"),
+            "internal_notes": it.get("internal_notes"),
+            "event_date": target_date or it.get("event_date"),
+            "section_title": it.get("section_title") or "",
+            "section_time": it.get("section_time"),
+            "sort_order": max_sort + 1 + offset,
+            "created_at": now,
+            "updated_at": now,
+        }
+        await db.order_items.insert_one(doc)
+        doc.pop("_id", None)
+        created.append(doc)
+    return {"created": len(created), "items": created}
+
+# ============== DUPLICATE DAY (Multi-day events) ==============
+
+@proposals_router.post("/{proposal_id}/duplicate-day")
+async def duplicate_proposal_day(proposal_id: str, body: Dict[str, Any], user: User = Depends(get_current_user)):
+    """Clone all items from one day to another within the same proposal.
+    body: { source_date: 'YYYY-MM-DD'|None, target_date: 'YYYY-MM-DD'|None, mode: 'append'|'replace' }
+    Either date may be None to indicate the unassigned bucket.
+    """
+    source_date = body.get("source_date")
+    target_date = body.get("target_date")
+    mode = (body.get("mode") or "append").lower()
+    if mode not in ("append", "replace"):
+        raise HTTPException(status_code=400, detail="mode must be append or replace")
+    if (source_date or "") == (target_date or ""):
+        raise HTTPException(status_code=400, detail="source and target dates must differ")
+
+    proposal = await db.proposals.find_one(
+        {"proposal_id": proposal_id, "company_id": user.company_id}
+    )
+    if not proposal:
+        raise HTTPException(status_code=404, detail="Proposal not found")
+    event = await db.events.find_one(
+        {"event_id": proposal["event_id"], "company_id": user.company_id}
+    )
+    if event and event.get("operational_status") == "Closed":
+        raise HTTPException(status_code=400, detail="Cannot edit items in a closed event")
+
+    # Fetch source items
+    source_query = {"proposal_id": proposal_id, "company_id": user.company_id}
+    if source_date is None:
+        source_query["$or"] = [{"event_date": None}, {"event_date": {"$exists": False}}]
+    else:
+        source_query["event_date"] = source_date
+    source_items = await db.order_items.find(source_query, {"_id": 0}).sort("sort_order", 1).to_list(2000)
+    if not source_items:
+        raise HTTPException(status_code=400, detail="No items found in source day")
+
+    # If replace mode: delete existing items in target day first
+    if mode == "replace":
+        target_query = {"proposal_id": proposal_id, "company_id": user.company_id}
+        if target_date is None:
+            target_query["$or"] = [{"event_date": None}, {"event_date": {"$exists": False}}]
+        else:
+            target_query["event_date"] = target_date
+        await db.order_items.delete_many(target_query)
+
+    now = datetime.now(timezone.utc).isoformat()
+    # Determine base sort_order
+    max_sort = 0
+    all_items = await db.order_items.find(
+        {"proposal_id": proposal_id, "company_id": user.company_id},
+        {"_id": 0, "sort_order": 1},
+    ).to_list(2000)
+    for it in all_items:
+        max_sort = max(max_sort, int(it.get("sort_order") or 0))
+
+    created = []
+    for offset, src in enumerate(source_items):
+        new_doc = {
+            **src,
+            "item_id": f"oi_{uuid.uuid4().hex[:12]}",
+            "event_date": target_date,
+            "sort_order": max_sort + 1 + offset,
+            "created_at": now,
+            "updated_at": now,
+        }
+        new_doc.pop("_id", None)
+        await db.order_items.insert_one(new_doc)
+        new_doc.pop("_id", None)
+        created.append(new_doc)
+    return {"created": len(created), "mode": mode, "items": created}
+
 # ============== AUDIT LOG ROUTES ==============
 
 @audit_router.get("/event/{event_id}")
