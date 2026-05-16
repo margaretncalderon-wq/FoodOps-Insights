@@ -822,24 +822,53 @@ export default function SettingsPage() {
     }
   };
 
+  // Parse bulk-add text into structured rows.
+  // Auto-detects CSV (comma) vs TSV (tab from Excel/Sheets).
+  const parseBulkRows = (text) => {
+    const lines = (text || "").split("\n").map(l => l.trim()).filter(Boolean);
+    const hasTab = lines.some(l => l.includes("\t"));
+    const sep = hasTab ? "\t" : ",";
+    return lines.map((line, idx) => {
+      const parts = line.split(sep).map(p => p.trim());
+      const name = parts[0] || "";
+      const description = parts[1] || "";
+      const priceRaw = parts[2] ?? "";
+      const costRaw = parts[3] ?? "";
+      const price = priceRaw === "" ? 0 : parseFloat(priceRaw.replace(/[$,]/g, ""));
+      const cost = costRaw === "" ? null : parseFloat(costRaw.replace(/[$,]/g, ""));
+      const errors = [];
+      if (!name) errors.push("name");
+      if (priceRaw !== "" && Number.isNaN(price)) errors.push("price");
+      if (costRaw !== "" && Number.isNaN(cost)) errors.push("cost");
+      return {
+        idx,
+        name,
+        description,
+        price: Number.isNaN(price) ? 0 : price,
+        cost: cost == null || Number.isNaN(cost) ? null : cost,
+        valid: errors.length === 0 && !!name,
+        errors,
+      };
+    });
+  };
+
   const handleBulkAddPicklist = async () => {
     try {
-      // Parse bulk items (one per line: name, price)
-      const lines = bulkItems.split("\n").filter(l => l.trim());
-      const items = lines.map(line => {
-        const parts = line.split(",").map(p => p.trim());
-        return {
-          name: parts[0],
-          description: parts[1] || "",
-          category_id: newPicklist.category_id,
-          item_type: newPicklist.item_type,
-          default_price: parseFloat(parts[2]) || 0,
-          internal_cost: parts[3] ? parseFloat(parts[3]) : null,
-          unit: "unit",
-          is_active: true
-        };
-      });
-      
+      const rows = parseBulkRows(bulkItems).filter(r => r.valid);
+      if (rows.length === 0) {
+        toast.error(language === "es" ? "No hay ítems válidos para crear" : "No valid items to create");
+        return;
+      }
+      const items = rows.map(r => ({
+        name: r.name,
+        description: r.description,
+        category_id: newPicklist.category_id,
+        item_type: newPicklist.item_type,
+        default_price: r.price,
+        internal_cost: r.cost,
+        unit: "unit",
+        is_active: true,
+      }));
       await axios.post(`${API}/settings/picklist/bulk`, { items }, { withCredentials: true });
       toast.success(language === "es" ? `${items.length} ítems creados` : `${items.length} items created`);
       fetchPicklist();
@@ -3092,64 +3121,167 @@ export default function SettingsPage() {
 
             {/* Bulk Add Dialog */}
             <Dialog open={bulkAddOpen} onOpenChange={setBulkAddOpen}>
-              <DialogContent>
+              <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
-                  <DialogTitle>{language === "es" ? "Agregar Múltiples Ítems" : "Bulk Add Items"}</DialogTitle>
+                  <DialogTitle className="flex items-center gap-2">
+                    <Plus className="w-5 h-5 text-emerald-600" />
+                    {language === "es" ? "Agregar Múltiples Ítems" : "Bulk Add Items"}
+                  </DialogTitle>
                 </DialogHeader>
-                <div className="space-y-4">
-                  <p className="text-sm text-muted-foreground">
-                    {language === "es" 
-                      ? "Ingresa un ítem por línea: nombre, descripción, precio, costo (opcional)"
-                      : "Enter one item per line: name, description, price, cost (optional)"}
-                  </p>
-                  
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label>{language === "es" ? "Tipo" : "Type"}</Label>
-                      <Select 
-                        value={newPicklist.item_type} 
-                        onValueChange={(v) => setNewPicklist({ ...newPicklist, item_type: v })}
-                      >
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          {itemTypes.map(it => (
-                            <SelectItem key={it.type_id} value={it.type_id}>
-                              {language === "es" ? it.name_es || it.name : it.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                <div className="space-y-5">
+                  {/* Apply-to-all panel */}
+                  <div className="rounded-lg border border-emerald-200 bg-emerald-50/50 p-3 space-y-3">
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline" className="text-[10px] bg-white border-emerald-400 text-emerald-700">
+                        {language === "es" ? "APLICAR A TODOS" : "APPLY TO ALL"}
+                      </Badge>
+                      <span className="text-xs text-muted-foreground">
+                        {language === "es"
+                          ? "Tipo y categoría se asignan a todos los ítems creados."
+                          : "Type and category will be assigned to all created items."}
+                      </span>
                     </div>
-                    <div>
-                      <Label>{language === "es" ? "Categoría" : "Category"}</Label>
-                      <Select 
-                        value={newPicklist.category_id} 
-                        onValueChange={(v) => setNewPicklist({ ...newPicklist, category_id: v })}
-                      >
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          {categories.map(cat => (
-                            <SelectItem key={cat.category_id} value={cat.category_id}>
-                              {language === "es" ? cat.name_es || cat.name : cat.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <Label className="text-xs">{language === "es" ? "Tipo" : "Type"}</Label>
+                        <Select
+                          value={newPicklist.item_type}
+                          onValueChange={(v) => setNewPicklist({ ...newPicklist, item_type: v })}
+                        >
+                          <SelectTrigger className="bg-white" data-testid="bulk-add-type"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {itemTypes.map(it => (
+                              <SelectItem key={it.type_id} value={it.type_id}>
+                                {language === "es" ? it.name_es || it.name : it.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label className="text-xs">{language === "es" ? "Categoría" : "Category"}</Label>
+                        <Select
+                          value={newPicklist.category_id}
+                          onValueChange={(v) => setNewPicklist({ ...newPicklist, category_id: v })}
+                        >
+                          <SelectTrigger className="bg-white" data-testid="bulk-add-category">
+                            <SelectValue placeholder={language === "es" ? "Selecciona categoría" : "Select category"} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {categories.map(cat => (
+                              <SelectItem key={cat.category_id} value={cat.category_id}>
+                                {language === "es" ? cat.name_es || cat.name : cat.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
                   </div>
 
-                  <Textarea
-                    value={bulkItems}
-                    onChange={(e) => setBulkItems(e.target.value)}
-                    placeholder={`${language === "es" ? "Ejemplo:" : "Example:"}
-Silla Tiffany, Silla elegante dorada, 15, 5
-Mesa Redonda, Mesa para 10 personas, 80, 25
-Mantel Blanco, , 10, 3`}
-                    rows={8}
-                  />
-                  
-                  <Button onClick={handleBulkAddPicklist} className="w-full" disabled={!bulkItems.trim() || !newPicklist.category_id}>
-                    {language === "es" ? "Crear Ítems" : "Create Items"}
+                  {/* Tip + format */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <Label className="text-sm font-medium">
+                        {language === "es" ? "Ítems (uno por línea)" : "Items (one per line)"}
+                      </Label>
+                      <span className="text-[11px] text-muted-foreground inline-flex items-center gap-1">
+                        💡 {language === "es"
+                          ? "Puedes pegar directamente desde Excel o Google Sheets"
+                          : "You can paste directly from Excel or Google Sheets"}
+                      </span>
+                    </div>
+                    <Textarea
+                      value={bulkItems}
+                      onChange={(e) => setBulkItems(e.target.value)}
+                      placeholder={`${language === "es" ? "nombre, descripción, precio, costo" : "name, description, price, cost"}\nSilla Tiffany, Silla elegante dorada, 15, 5\nMesa Redonda, Mesa para 10 personas, 80, 25\nMantel Blanco, , 10, 3`}
+                      rows={6}
+                      className="font-mono text-sm"
+                      data-testid="bulk-add-textarea"
+                    />
+                    <details className="text-xs text-muted-foreground">
+                      <summary className="cursor-pointer hover:text-foreground">
+                        {language === "es" ? "Ver formato esperado" : "View expected format"}
+                      </summary>
+                      <div className="mt-2 pl-3 border-l-2 border-muted space-y-1">
+                        <p>{language === "es" ? "Separa columnas con coma (,) o tab (Excel/Sheets)." : "Separate columns with comma (,) or tab (Excel/Sheets)."}</p>
+                        <p>{language === "es" ? "Columnas: nombre (obligatorio), descripción, precio, costo." : "Columns: name (required), description, price, cost."}</p>
+                        <p>{language === "es" ? "Líneas vacías o sin nombre se ignoran." : "Empty lines or lines without name are ignored."}</p>
+                      </div>
+                    </details>
+                  </div>
+
+                  {/* Live preview table */}
+                  {(() => {
+                    const rows = parseBulkRows(bulkItems);
+                    if (rows.length === 0) return null;
+                    const validCount = rows.filter(r => r.valid).length;
+                    const invalidCount = rows.length - validCount;
+                    return (
+                      <div className="space-y-2" data-testid="bulk-add-preview">
+                        <div className="flex items-center gap-2 text-xs">
+                          <Badge className="bg-emerald-600 text-white">
+                            {validCount} {language === "es" ? "válidos" : "valid"}
+                          </Badge>
+                          {invalidCount > 0 && (
+                            <Badge variant="destructive">
+                              {invalidCount} {language === "es" ? "con error" : "with errors"}
+                            </Badge>
+                          )}
+                          <span className="text-muted-foreground">
+                            {language === "es" ? "Vista previa — corrige los errores arriba antes de crear." : "Preview — fix errors above before creating."}
+                          </span>
+                        </div>
+                        <div className="rounded-lg border overflow-hidden max-h-64 overflow-y-auto">
+                          <table className="w-full text-sm">
+                            <thead className="bg-muted/50 sticky top-0">
+                              <tr>
+                                <th className="text-left px-2 py-1.5 font-medium w-8">#</th>
+                                <th className="text-left px-2 py-1.5 font-medium">{language === "es" ? "Nombre" : "Name"}</th>
+                                <th className="text-left px-2 py-1.5 font-medium">{language === "es" ? "Descripción" : "Description"}</th>
+                                <th className="text-right px-2 py-1.5 font-medium w-20">{language === "es" ? "Precio" : "Price"}</th>
+                                <th className="text-right px-2 py-1.5 font-medium w-20">{language === "es" ? "Costo" : "Cost"}</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {rows.map((r) => (
+                                <tr
+                                  key={r.idx}
+                                  className={`border-t ${r.valid ? "" : "bg-red-50"}`}
+                                  data-testid={`bulk-preview-row-${r.idx}`}
+                                >
+                                  <td className="px-2 py-1.5 text-muted-foreground">{r.idx + 1}</td>
+                                  <td className={`px-2 py-1.5 ${r.errors.includes("name") ? "text-red-600 font-medium" : ""}`}>
+                                    {r.name || (language === "es" ? "(falta nombre)" : "(name missing)")}
+                                  </td>
+                                  <td className="px-2 py-1.5 text-muted-foreground truncate max-w-[200px]">{r.description || "—"}</td>
+                                  <td className={`px-2 py-1.5 text-right font-mono ${r.errors.includes("price") ? "text-red-600" : ""}`}>
+                                    ${(r.price || 0).toFixed(2)}
+                                  </td>
+                                  <td className={`px-2 py-1.5 text-right font-mono text-muted-foreground ${r.errors.includes("cost") ? "text-red-600" : ""}`}>
+                                    {r.cost == null ? "—" : `$${r.cost.toFixed(2)}`}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  <Button
+                    onClick={handleBulkAddPicklist}
+                    className="w-full"
+                    disabled={!bulkItems.trim() || !newPicklist.category_id || parseBulkRows(bulkItems).filter(r => r.valid).length === 0}
+                    data-testid="bulk-add-submit"
+                  >
+                    {(() => {
+                      const validCount = parseBulkRows(bulkItems).filter(r => r.valid).length;
+                      if (!newPicklist.category_id) return language === "es" ? "Selecciona categoría primero" : "Select a category first";
+                      if (validCount === 0) return language === "es" ? "Crear Ítems" : "Create Items";
+                      return language === "es" ? `Crear ${validCount} ítems` : `Create ${validCount} items`;
+                    })()}
                   </Button>
                 </div>
               </DialogContent>
