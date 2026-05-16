@@ -126,8 +126,8 @@ export default function PackagePicker({ proposalId, quantityMultiplier = 1, onLo
                     </p>
                     <p className="text-[10px] text-muted-foreground mt-1">
                       {isEs
-                        ? "Créalos en Ajustes → Menús para reutilizarlos en cotizaciones."
-                        : "Create them in Settings → Menus to reuse on quotes."}
+                        ? "Créalos en Ajustes → Catálogos → Tipos de Ítems → Menús/Paquetes para reutilizarlos en cotizaciones."
+                        : "Create them in Settings → Catalogs → Item Types → Menus/Packages to reuse on quotes."}
                     </p>
                   </div>
                 </CommandEmpty>

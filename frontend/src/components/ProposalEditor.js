@@ -1781,8 +1781,8 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
             ) : (
               <p className="text-xs text-muted-foreground text-center py-2">
                 {language === "es"
-                  ? "Configura tu picklist en Ajustes → Menús para tener atajos rápidos."
-                  : "Configure your picklist in Settings → Menus for quick shortcuts."}
+                  ? "Configura tu picklist en Ajustes → Catálogos → Tipos de Ítems para tener atajos rápidos."
+                  : "Configure your picklist in Settings → Catalogs → Item Types for quick shortcuts."}
               </p>
             )}
           </div>
@@ -2190,8 +2190,8 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
               <p>{language === "es" ? "No hay menús creados" : "No menus created"}</p>
               <p className="text-sm mt-2">
                 {language === "es" 
-                  ? "Crea menús en Settings → Lista de Ítems → Menús"
-                  : "Create menus in Settings → Item Picklist → Menus"}
+                  ? "Crea menús en Ajustes → Catálogos → Tipos de Ítems → Menús/Paquetes"
+                  : "Create menus in Settings → Catalogs → Item Types → Menus/Packages"}
               </p>
             </div>
           )}
