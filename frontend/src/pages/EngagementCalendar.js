@@ -492,7 +492,7 @@ export default function EngagementCalendar({ embedded = false }) {
                         {dayInfo.date.getDate()}
                       </div>
                       <div className="space-y-0.5">
-                        {dayEvents.slice(0, 2).map(event => {
+                        {dayEvents.map(event => {
                           const colors = getStatusColor(event.stage);
                           const multiDayPos = getMultiDayPosition(event, dayInfo.date);
                           const isMultiDay = isMultiDayEvent(event);
@@ -521,11 +521,6 @@ export default function EngagementCalendar({ embedded = false }) {
                             </div>
                           );
                         })}
-                        {dayEvents.length > 2 && (
-                          <div className="text-xs text-muted-foreground text-center">
-                            +{dayEvents.length - 2}
-                          </div>
-                        )}
                       </div>
                     </div>
                   );

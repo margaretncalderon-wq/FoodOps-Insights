@@ -183,8 +183,8 @@ export default function CalendarPage({ embedded = false }) {
               <div className={`text-sm font-medium mb-1 ${isToday ? "text-primary" : ""}`}>
                 {format(day, "d")}
               </div>
-              <div className="space-y-1 overflow-hidden">
-                {dayEvents.slice(0, 3).map((event) => (
+              <div className="space-y-1">
+                {dayEvents.map((event) => (
                   <Link
                     key={event.event_id}
                     to={`/events/${event.event_id}`}
@@ -194,11 +194,6 @@ export default function CalendarPage({ embedded = false }) {
                     {event.name}
                   </Link>
                 ))}
-                {dayEvents.length > 3 && (
-                  <div className="text-xs text-muted-foreground pl-1">
-                    +{dayEvents.length - 3} {language === "es" ? "más" : "more"}
-                  </div>
-                )}
               </div>
             </div>
           );

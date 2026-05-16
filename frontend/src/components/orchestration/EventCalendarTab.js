@@ -224,7 +224,7 @@ export default function EventCalendarTab({ eventId, isGlobal = false }) {
                     )}
                   </div>
                   <div className="space-y-1">
-                    {dayEvents.slice(0, 3).map((event) => (
+                    {dayEvents.map((event) => (
                       <button
                         key={event.event_id}
                         onClick={() => setSelectedEvent(event)}
@@ -234,11 +234,6 @@ export default function EventCalendarTab({ eventId, isGlobal = false }) {
                         {event.name}
                       </button>
                     ))}
-                    {dayEvents.length > 3 && (
-                      <p className="text-xs text-muted-foreground text-center">
-                        +{dayEvents.length - 3} {isEs ? "más" : "more"}
-                      </p>
-                    )}
                   </div>
                 </div>
               );
