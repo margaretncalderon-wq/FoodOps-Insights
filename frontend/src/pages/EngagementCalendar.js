@@ -512,12 +512,10 @@ export default function EngagementCalendar({ embedded = false }) {
                               }`}
                               title={`${event.name} - ${normalizeStage(event.stage)}${event.start_time ? ` @ ${formatTime(event.start_time)}` : ""}`}
                             >
-                              {multiDayPos !== "middle" && multiDayPos !== "end" && (
-                                <span className="truncate">{event.name}</span>
+                              {isMultiDay && multiDayPos !== "start" && (
+                                <span className="opacity-60 mr-0.5">↔</span>
                               )}
-                              {(multiDayPos === "middle" || multiDayPos === "end") && (
-                                <span className="opacity-60 truncate">↔</span>
-                              )}
+                              <span className="truncate">{event.name}</span>
                             </div>
                           );
                         })}
