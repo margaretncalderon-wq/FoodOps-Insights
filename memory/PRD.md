@@ -203,6 +203,19 @@ Phase 2 Culinary backend validated 19/19 in iteration_176.json.
 
 **Tests**: Backend curl validado — evento con 150 invitados muestra Food cost $27,000 → $180/invitado (51.4%) → debería pintarse rojo. Lint OK.
 
+### Sección con Subtotal y Hora de Servicio (May 17, 2026)
+**Goal**: Cuando se agrega un menú a la cotización, ver claramente el nombre del menú como cabecera, los platos debajo, un subtotal por sección que recalcula al añadir/quitar ítems, y una hora de servicio por sección.
+
+**Backend** (`server.py`)
+- `OrderItem` response model ahora expone `section_title` y `section_time` (ya existían en Create/Update).
+
+**Frontend** (`ProposalEditor.js`)
+- Section header ampliado: agrega badge **subtotal** (`$X.XX`, suma reactiva de `total_price`) y un **input `time`** con icono ⏰ para la hora de servicio.
+- Cambiar la hora propaga el valor a todos los items de esa sección (PUT en paralelo, `section_time = HH:MM`).
+- El nombre del menú/curso ya se establecía como `section_title` al agregar un menú (catálogo o CI) — no requería cambios.
+
+**Tests**: Backend E2E curl — set `section_time=18:30`, GET items confirma persistencia. Lint frontend OK.
+
 ### Pending Mini-tasks & Backlog
 - Production SMTP credentials → enable real email delivery for digest.
 - Logo Image Upload via Object Storage for Guest Flow (P1).

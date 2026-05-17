@@ -1085,6 +1085,8 @@ class OrderItem(BaseModel):
     internal_notes: Optional[str] = None
     event_date: Optional[str] = None
     sort_order: int
+    section_title: Optional[str] = None
+    section_time: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 

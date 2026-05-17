@@ -1183,6 +1183,25 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
     );
   };
 
+  const handleSectionTimeChange = async (itype, title, newTime) => {
+    const items = proposal?.items?.filter(
+      (i) => i.item_type === itype && (i.section_title || "") === (title || "")
+    ) || [];
+    if (items.length === 0) return;
+    try {
+      await Promise.all(
+        items.map((it) =>
+          axios.put(`${API}/proposals/${proposal.proposal_id}/items/${it.item_id}`,
+            { section_time: newTime || null },
+            { withCredentials: true })
+        )
+      );
+      fetchProposal();
+    } catch (e) {
+      toast.error(language === "es" ? "Error al cambiar hora" : "Failed to update time");
+    }
+  };
+
   const handleDeleteSection = async (itype, title) => {
     if (!title) return; // never delete the implicit "no section" group
     const items = proposal?.items?.filter(
@@ -1721,6 +1740,34 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
                                       <span className="text-xs text-muted-foreground shrink-0">
                                         · {section.items.length} {language === "es" ? "ítems" : "items"}
                                       </span>
+                                      {/* Section service time */}
+                                      {(() => {
+                                        const firstWithTime = section.items.find(i => i.section_time);
+                                        const currentTime = firstWithTime?.section_time || "";
+                                        return (
+                                          <div className="flex items-center gap-1 ml-1" data-testid={`section-time-${section.title || "default"}`}>
+                                            <Clock className="w-3 h-3 text-muted-foreground shrink-0" />
+                                            <Input
+                                              type="time"
+                                              value={currentTime}
+                                              disabled={isLocked}
+                                              onChange={(e) => handleSectionTimeChange(itype, section.title, e.target.value)}
+                                              className="h-6 w-[88px] text-[11px] px-1 border-muted-foreground/20 bg-white"
+                                              title={language === "es" ? "Hora de servicio de esta sección" : "Service time for this section"}
+                                            />
+                                          </div>
+                                        );
+                                      })()}
+                                      {/* Section subtotal */}
+                                      {(() => {
+                                        const subtotal = section.items.reduce((s, it) => s + (it.total_price || 0), 0);
+                                        if (subtotal <= 0) return null;
+                                        return (
+                                          <Badge variant="secondary" className="font-mono text-xs ml-1" data-testid={`section-subtotal-${section.title || "default"}`}>
+                                            ${subtotal.toFixed(2)}
+                                          </Badge>
+                                        );
+                                      })()}
                                     </div>
                                     {!isLocked && !isEditing && (
                                       <>
