@@ -178,18 +178,18 @@ Phase 2 Culinary backend validated 19/19 in iteration_176.json.
 - Refactor `server.py` (~21k líneas) into routers (P2).
 - Auto-repair legacy ingredients using AI (P2).
 
-### Picklist ↔ Recipe Portion Format Linking (May 17, 2026)
-**Goal**: Allow a single catalog (picklist) item to be linked to a specific portion format of a recipe (e.g. Gallon, 12oz, 8oz) instead of just the generic recipe. Item inherits format-specific cost and price.
+### Picklist ↔ Recipe Portion Format Linking + Bulk Generate (May 17, 2026)
+**Goal**: Allow a single catalog (picklist) item to be linked to a specific portion format of a recipe (e.g. Gallon, 12oz, 8oz) instead of just the generic recipe. Item inherits format-specific cost and price. Also bulk-create one item per format with a single click.
 
 **Backend** (`server.py`)
 - `enrich_picklist_items` (GET `/api/settings/picklist`) now resolves `recipe_portion_format_id` against `recipe_portion_formats` and adds: `recipe_format_name`, `recipe_format_sell_price`, `recipe_format_suggested_price`, and uses `cost_per_portion` of the format when no manual `internal_cost` exists (cost_source=`recipe_format`).
 - `PicklistItemUpdate` nullable_fields now includes `recipe_portion_format_id` so it can be cleared.
+- **NEW** `POST /api/recipes/{recipe_id}/generate-picklist-items` — accepts `{format_ids[], category_id, name_prefix?, item_type?, skip_if_exists?}`, creates one picklist item per format (name = `{prefix} - {format_name}`), inherits `sell_price` → `default_price` and links `recipe_id` + `recipe_portion_format_id`. Idempotent via `skip_if_exists`.
 
-**Frontend** (`SettingsPage.js`)
-- `fetchRecipePortionFormats(recipeId)` calls `/api/recipes/{recipe_id}/portion-formats` and stores list.
-- Item Add/Edit dialog: new "Specific Format / Size" select appears when a recipe is linked. Auto-fills `default_price` from `sell_price` or `suggested_price` when the price was empty/zero.
-- Picklist list row shows a small badge with the linked format name next to the recipe.
+**Frontend**
+- `SettingsPage.js`: Item Add/Edit dialog now shows "Specific Format / Size" select when a recipe is linked. Auto-fills `default_price`. Picklist row shows a small badge with the format name.
+- `RecipeBuilder.js`: New button "📦 Generar ítems de catálogo" (Generate catalog items) next to "Add Format" — only visible if recipe has at least 1 portion format. Opens a dialog with: name prefix, category select, checklist of formats with cost/price preview, idempotent submit.
 
-**Tests**: Backend curl flow OK (create → enriched fetch shows `recipe_format_*` fields → delete). Frontend smoke screenshot validated full flow (open dialog → pick recipe → see format dropdown → see TestFormat12oz with cost/price/Default).
+**Tests**: Backend E2E (curl): single item link enriched correctly; bulk generate creates 3 items, re-run skips 3. Frontend smoke: Item dialog shows format dropdown with cost/price/Default labels.
 
 Next: Configurar SMTP en producción, Logo Guest Flow, Unified Contact Model, UX Workstreams A/B/C de Culinary (surface daily insights, empty states, data capture wizard).

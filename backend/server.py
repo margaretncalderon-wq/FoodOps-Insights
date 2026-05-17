@@ -10318,6 +10318,90 @@ async def delete_recipe_portion_format(recipe_id: str, format_id: str, user: Use
         raise HTTPException(status_code=404, detail="Portion format not found")
     return {"message": "Deleted"}
 
+
+class GeneratePicklistFromFormatsRequest(BaseModel):
+    format_ids: List[str]
+    category_id: str
+    name_prefix: Optional[str] = None  # Defaults to recipe name
+    item_type: str = "Food"
+    skip_if_exists: bool = True  # Skip if an item with the same recipe_portion_format_id already exists
+
+
+@recipes_router.post("/{recipe_id}/generate-picklist-items")
+async def generate_picklist_items_from_formats(
+    recipe_id: str,
+    data: GeneratePicklistFromFormatsRequest,
+    user: User = Depends(get_current_user),
+):
+    """Create one picklist (catalog) item per selected portion format.
+    Each item is linked to the recipe + specific format so it inherits cost & price."""
+    recipe = await db.recipes.find_one(
+        {"recipe_id": recipe_id, "company_id": user.company_id}, {"_id": 0}
+    )
+    if not recipe:
+        raise HTTPException(status_code=404, detail="Recipe not found")
+
+    formats = await db.recipe_portion_formats.find(
+        {"recipe_id": recipe_id, "company_id": user.company_id, "format_id": {"$in": data.format_ids}},
+        {"_id": 0},
+    ).to_list(50)
+    if not formats:
+        raise HTTPException(status_code=400, detail="No matching formats found")
+
+    # Map for ordering same as request
+    format_by_id = {f["format_id"]: f for f in formats}
+    now = datetime.now(timezone.utc)
+    base_name = (data.name_prefix or recipe.get("name") or "Item").strip()
+
+    # Existing items linked to these formats (for skip)
+    existing = set()
+    if data.skip_if_exists:
+        exist_docs = await db.picklist_items.find(
+            {
+                "company_id": user.company_id,
+                "recipe_id": recipe_id,
+                "recipe_portion_format_id": {"$in": data.format_ids},
+            },
+            {"_id": 0, "recipe_portion_format_id": 1},
+        ).to_list(100)
+        existing = {d["recipe_portion_format_id"] for d in exist_docs}
+
+    created = []
+    skipped = []
+    for fmt_id in data.format_ids:
+        fmt = format_by_id.get(fmt_id)
+        if not fmt:
+            continue
+        if fmt_id in existing:
+            skipped.append({"format_id": fmt_id, "format_name": fmt.get("format_name"), "reason": "exists"})
+            continue
+        item_id = f"pli_{uuid.uuid4().hex[:12]}"
+        sell_price = fmt.get("sell_price") or fmt.get("suggested_price") or 0
+        doc = {
+            "item_id": item_id,
+            "company_id": user.company_id,
+            "name": f"{base_name} - {fmt.get('format_name')}",
+            "description": None,
+            "category_id": data.category_id,
+            "item_type": data.item_type,
+            "default_price": float(sell_price),
+            "internal_cost": None,
+            "recipe_id": recipe_id,
+            "recipe_portion_format_id": fmt_id,
+            "inventory_item_id": None,
+            "unit": fmt.get("portion_unit") or "unit",
+            "is_active": True,
+            "min_margin_pct": None,
+            "created_at": now.isoformat(),
+            "updated_at": now.isoformat(),
+        }
+        await db.picklist_items.insert_one(doc)
+        doc.pop("_id", None)
+        created.append(doc)
+
+    return {"created": len(created), "skipped": len(skipped), "items": created, "skipped_details": skipped}
+
+
 # ============== RECIPE PACKAGING FORMATS ROUTES ==============
 
 @recipes_router.get("/{recipe_id}/packaging-formats")

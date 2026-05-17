@@ -328,6 +328,13 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
   const [portionDialogOpen, setPortionDialogOpen] = useState(false);
   const [packagingDialogOpen, setPackagingDialogOpen] = useState(false);
   const [repairIngredient, setRepairIngredient] = useState(null); // when set, opens IngredientWizard in repair mode
+  // Generate Picklist Items from Formats
+  const [genPicklistOpen, setGenPicklistOpen] = useState(false);
+  const [genSelectedFormatIds, setGenSelectedFormatIds] = useState([]);
+  const [genCategoryId, setGenCategoryId] = useState("");
+  const [genNamePrefix, setGenNamePrefix] = useState("");
+  const [genCategories, setGenCategories] = useState([]);
+  const [genSubmitting, setGenSubmitting] = useState(false);
   
   // Local ingredients cache — refreshed after a repair so the picker sees the new base_unit/cost
   const [localIngredients, setLocalIngredients] = useState(ingredients);
@@ -666,6 +673,60 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
       toast.success(language === "es" ? "Eliminado" : "Deleted");
     } catch (error) {
       toast.error("Error");
+    }
+  };
+
+  // Open "Generate Picklist Items from Formats" dialog
+  const openGeneratePicklist = async () => {
+    if (!initialRecipe?.recipe_id || portionFormats.length === 0) return;
+    try {
+      const res = await axios.get(`${API}/api/settings/categories`, { withCredentials: true });
+      setGenCategories(res.data || []);
+      // Default category: first Food category, else first
+      const foodCat = (res.data || []).find(c => (c.name || "").toLowerCase().includes("food") || (c.name_es || "").toLowerCase().includes("comida"));
+      setGenCategoryId((foodCat || res.data?.[0])?.category_id || "");
+    } catch (e) {
+      setGenCategories([]);
+    }
+    setGenSelectedFormatIds(portionFormats.map(f => f.format_id));
+    setGenNamePrefix(form.name || initialRecipe.name || "");
+    setGenPicklistOpen(true);
+  };
+
+  const handleGeneratePicklistItems = async () => {
+    if (genSelectedFormatIds.length === 0) {
+      toast.error(language === "es" ? "Selecciona al menos un formato" : "Select at least one format");
+      return;
+    }
+    if (!genCategoryId) {
+      toast.error(language === "es" ? "Selecciona una categoría" : "Select a category");
+      return;
+    }
+    setGenSubmitting(true);
+    try {
+      const res = await axios.post(
+        `${API}/api/recipes/${initialRecipe.recipe_id}/generate-picklist-items`,
+        {
+          format_ids: genSelectedFormatIds,
+          category_id: genCategoryId,
+          name_prefix: genNamePrefix || undefined,
+          item_type: "Food",
+          skip_if_exists: true,
+        },
+        { withCredentials: true }
+      );
+      const created = res.data?.created || 0;
+      const skipped = res.data?.skipped || 0;
+      toast.success(
+        language === "es"
+          ? `${created} ítem(s) creado(s)${skipped ? ` · ${skipped} ya existían` : ""}`
+          : `${created} item(s) created${skipped ? ` · ${skipped} already existed` : ""}`
+      );
+      setGenPicklistOpen(false);
+    } catch (e) {
+      toast.error(e.response?.data?.detail || "Error");
+    } finally {
+      setGenSubmitting(false);
     }
   };
 
@@ -1468,23 +1529,37 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
                 <Badge variant="outline">{portionFormats.length}</Badge>
               </div>
               {initialRecipe ? (
-                <Button variant="outline" size="sm" onClick={() => {
-                  // Calculate suggested price when opening dialog
-                  const costPer = totalCost / 1; // portions_obtained default is 1
-                  const margin = 30; // default margin
-                  const suggestedPrice = margin < 100 ? costPer / (1 - margin / 100) : costPer;
-                  setPortionForm({
-                    format_name: "", 
-                    portions_obtained: 1, 
-                    portion_unit: "serving",
-                    sell_price: Math.round(suggestedPrice * 100) / 100, 
-                    target_margin_pct: margin, 
-                    is_default: false
-                  });
-                  setPortionDialogOpen(true);
-                }}>
-                  <Plus className="w-4 h-4 mr-1" />{t("addPortionFormat")}
-                </Button>
+                <div className="flex gap-2">
+                  {portionFormats.length > 0 && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={openGeneratePicklist}
+                      data-testid="generate-picklist-from-formats-btn"
+                      title={language === "es" ? "Crear ítems de catálogo desde estos formatos" : "Create catalog items from these formats"}
+                    >
+                      <Package className="w-4 h-4 mr-1" />
+                      {language === "es" ? "Generar ítems de catálogo" : "Generate catalog items"}
+                    </Button>
+                  )}
+                  <Button variant="outline" size="sm" onClick={() => {
+                    // Calculate suggested price when opening dialog
+                    const costPer = totalCost / 1; // portions_obtained default is 1
+                    const margin = 30; // default margin
+                    const suggestedPrice = margin < 100 ? costPer / (1 - margin / 100) : costPer;
+                    setPortionForm({
+                      format_name: "", 
+                      portions_obtained: 1, 
+                      portion_unit: "serving",
+                      sell_price: Math.round(suggestedPrice * 100) / 100, 
+                      target_margin_pct: margin, 
+                      is_default: false
+                    });
+                    setPortionDialogOpen(true);
+                  }}>
+                    <Plus className="w-4 h-4 mr-1" />{t("addPortionFormat")}
+                  </Button>
+                </div>
               ) : (
                 <Badge variant="secondary" className="text-xs">
                   {language === "es" ? "Guarda primero para agregar formatos" : "Save first to add formats"}
@@ -1827,6 +1902,110 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
           <DialogFooter>
             <Button variant="outline" onClick={() => setPortionDialogOpen(false)}>{t("cancel")}</Button>
             <Button onClick={handleAddPortionFormat} disabled={!portionForm.format_name}>{t("save")}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Generate Picklist Items from Portion Formats Dialog */}
+      <Dialog open={genPicklistOpen} onOpenChange={setGenPicklistOpen}>
+        <DialogContent className="sm:max-w-xl" data-testid="generate-picklist-dialog">
+          <DialogHeader>
+            <DialogTitle>
+              {language === "es" ? "Generar ítems de catálogo desde formatos" : "Generate catalog items from formats"}
+            </DialogTitle>
+            <DialogDescription className="text-sm text-muted-foreground">
+              {language === "es"
+                ? "Crea un ítem de catálogo por cada formato seleccionado. Cada ítem queda vinculado al formato y hereda su costo y precio."
+                : "Creates one catalog item per selected format. Each item is linked to its format and inherits cost & price."}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>{language === "es" ? "Prefijo del nombre" : "Name prefix"}</Label>
+              <Input
+                value={genNamePrefix}
+                onChange={(e) => setGenNamePrefix(e.target.value)}
+                placeholder={initialRecipe?.name || form.name}
+                data-testid="gen-picklist-name-prefix"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                {language === "es"
+                  ? `Ejemplo: "${genNamePrefix || form.name || "Receta"} - Galón"`
+                  : `Example: "${genNamePrefix || form.name || "Recipe"} - Gallon"`}
+              </p>
+            </div>
+
+            <div>
+              <Label>{language === "es" ? "Categoría del catálogo" : "Catalog category"} *</Label>
+              <Select value={genCategoryId} onValueChange={setGenCategoryId}>
+                <SelectTrigger data-testid="gen-picklist-category-select">
+                  <SelectValue placeholder={language === "es" ? "Seleccionar..." : "Select..."} />
+                </SelectTrigger>
+                <SelectContent>
+                  {genCategories.map(c => (
+                    <SelectItem key={c.category_id} value={c.category_id}>
+                      {language === "es" ? (c.name_es || c.name) : c.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label>{language === "es" ? "Formatos a crear" : "Formats to create"}</Label>
+              <div className="mt-2 border rounded-md divide-y">
+                {portionFormats.map(pf => {
+                  const checked = genSelectedFormatIds.includes(pf.format_id);
+                  return (
+                    <label
+                      key={pf.format_id}
+                      className="flex items-center justify-between p-3 cursor-pointer hover:bg-slate-50"
+                      data-testid={`gen-picklist-format-${pf.format_id}`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <Checkbox
+                          checked={checked}
+                          onCheckedChange={(c) => {
+                            setGenSelectedFormatIds(prev =>
+                              c ? [...prev, pf.format_id] : prev.filter(id => id !== pf.format_id)
+                            );
+                          }}
+                        />
+                        <div>
+                          <div className="font-medium text-sm">
+                            {pf.format_name}
+                            {pf.is_default && <Badge variant="secondary" className="ml-2 text-xs">{language === "es" ? "Predeterminado" : "Default"}</Badge>}
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            {language === "es" ? "Costo" : "Cost"}: ${(pf.cost_per_portion || 0).toFixed(2)} · {language === "es" ? "Precio" : "Price"}: ${(pf.sell_price || 0).toFixed(2)}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {genNamePrefix || form.name || "Item"} - {pf.format_name}
+                      </div>
+                    </label>
+                  );
+                })}
+              </div>
+              <p className="text-xs text-muted-foreground mt-2">
+                {language === "es"
+                  ? "💡 Si ya existe un ítem vinculado al mismo formato, se omitirá."
+                  : "💡 If an item already linked to a format exists, it will be skipped."}
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setGenPicklistOpen(false)}>{t("cancel")}</Button>
+            <Button
+              onClick={handleGeneratePicklistItems}
+              disabled={genSubmitting || genSelectedFormatIds.length === 0 || !genCategoryId}
+              data-testid="gen-picklist-submit-btn"
+            >
+              {genSubmitting
+                ? (language === "es" ? "Creando..." : "Creating...")
+                : (language === "es" ? `Crear ${genSelectedFormatIds.length} ítem(s)` : `Create ${genSelectedFormatIds.length} item(s)`)}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
