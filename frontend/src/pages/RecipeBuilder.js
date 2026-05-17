@@ -136,6 +136,55 @@ export default function RecipeBuilder() {
     });
   };
 
+  const [aiSuggestLoading, setAiSuggestLoading] = useState(false);
+
+  const handleAISuggestIngredients = async () => {
+    if (!formData.name) {
+      toast.error(language === "es" ? "Ingrese nombre de receta primero" : "Enter recipe name first");
+      return;
+    }
+    setAiSuggestLoading(true);
+    try {
+      const res = await axios.post(
+        `${API}/recipes/suggest-ingredients`,
+        { name: formData.name, servings: formData.servings || 1, language },
+        { withCredentials: true }
+      );
+      const data = res.data || {};
+      const sugg = (data.ingredients || []).map((i) => ({
+        ingredient_id: `temp_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+        name: i.name,
+        quantity: Number(i.quantity || 0),
+        unit: i.unit || "unidad",
+        cost_per_unit: Number(i.cost || 0) / (Number(i.quantity) || 1),
+        notes: i.notes || "",
+      }));
+      if (sugg.length === 0) {
+        toast.error(language === "es" ? "La IA no devolvió ingredientes" : "AI returned no ingredients");
+        return;
+      }
+      setIngredientsList((prev) => [...prev, ...sugg]);
+      // Also adopt prep/cook times if recipe is empty
+      setFormData((prev) => ({
+        ...prev,
+        prep_time_minutes: prev.prep_time_minutes || data.prep_time_minutes || 0,
+        cook_time_minutes: prev.cook_time_minutes || data.cook_time_minutes || 0,
+        allergens: prev.allergens?.length ? prev.allergens : (data.allergens || []),
+        dietary_tags: prev.dietary_tags?.length ? prev.dietary_tags : (data.dietary_tags || []),
+      }));
+      toast.success(
+        language === "es"
+          ? `${sugg.length} ingredientes sugeridos · revisa cantidades y costos`
+          : `${sugg.length} ingredients suggested · review quantities and costs`
+      );
+    } catch (err) {
+      console.error("Suggest ingredients failed:", err);
+      toast.error(language === "es" ? "Error al sugerir ingredientes" : "Failed to suggest ingredients");
+    } finally {
+      setAiSuggestLoading(false);
+    }
+  };
+
   const handleAIAnalyze = async () => {
     if (!formData.name) {
       toast.error(language === "es" ? "Ingrese nombre de receta" : "Enter recipe name");
@@ -353,8 +402,20 @@ export default function RecipeBuilder() {
 
               {/* Ingredients */}
               <Card>
-                <CardHeader>
+                <CardHeader className="flex flex-row items-center justify-between gap-2 flex-wrap">
                   <CardTitle className="font-heading text-lg">{t("ingredients")}</CardTitle>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleAISuggestIngredients}
+                    disabled={aiSuggestLoading || !formData.name}
+                    className="gap-2"
+                    data-testid="ai-suggest-ingredients-btn"
+                  >
+                    {aiSuggestLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                    {language === "es" ? "Sugerir con IA" : "Suggest with AI"}
+                  </Button>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   {/* Add ingredient form */}

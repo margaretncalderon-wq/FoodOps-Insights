@@ -26,7 +26,7 @@ import {
   Plus, Search, Edit, Trash2, ChefHat, Copy, X, AlertTriangle,
   Link2, DollarSign, History, Percent, Info, Layers, Utensils,
   Beaker, CookingPot, ArrowRight, RefreshCw, Check, Package,
-  AlertOctagon, Tag, Upload, Image, FileText, Loader2, BookOpen
+  AlertOctagon, Tag, Upload, Image, FileText, Loader2, BookOpen, Sparkles
 } from "lucide-react";
 
 import { API_BASE as API } from "../utils/api";
@@ -332,6 +332,7 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
   // Local ingredients cache — refreshed after a repair so the picker sees the new base_unit/cost
   const [localIngredients, setLocalIngredients] = useState(ingredients);
   useEffect(() => { setLocalIngredients(ingredients); }, [ingredients]);
+  const [aiSuggesting, setAiSuggesting] = useState(false);
   
   // Form states
   const [portionForm, setPortionForm] = useState({
@@ -1236,19 +1237,78 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
         <TabsContent value="costing" className="space-y-4 mt-4">
           {/* Ingredients */}
           <div className="border rounded-lg p-4 space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between flex-wrap gap-2">
               <div className="flex items-center gap-2">
                 <h3 className="font-semibold">{t("ingredients")}</h3>
                 <Badge variant="outline">{form.ingredients.length}</Badge>
               </div>
-              <IngredientPicker
-                ingredients={localIngredients.filter(i => i.inventory_type === "food")}
-                alreadyAddedIds={form.ingredients.map(i => i.item_id)}
-                onPick={addIngredient}
-                onRepair={(ing) => setRepairIngredient(ing)}
-                isEs={language === "es"}
-                type="ingredient"
-              />
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={async () => {
+                    if (!form.name) {
+                      toast.error(language === "es" ? "Ingresa nombre primero" : "Enter name first");
+                      return;
+                    }
+                    setAiSuggesting(true);
+                    try {
+                      const res = await axios.post(
+                        `${API}/recipes/suggest-ingredients`,
+                        { name: form.name, servings: form.portions_per_yield || 1, language },
+                        { withCredentials: true }
+                      );
+                      const sugg = (res.data?.ingredients || []).map((i, idx) => ({
+                        item_id: `temp_ai_${Date.now()}_${idx}`,
+                        name: i.name,
+                        quantity: Number(i.quantity || 0),
+                        unit: i.unit || "unidad",
+                        waste_factor: 0,
+                        cost: Number(i.cost || 0),
+                        cost_per_unit: Number(i.cost || 0) / (Number(i.quantity) || 1),
+                        notes: i.notes || "",
+                        ai_suggested: true,
+                      }));
+                      if (sugg.length === 0) {
+                        toast.error(language === "es" ? "Sin sugerencias" : "No suggestions");
+                        return;
+                      }
+                      setForm((prev) => ({
+                        ...prev,
+                        ingredients: [...prev.ingredients, ...sugg],
+                        prep_time_minutes: prev.prep_time_minutes || res.data?.prep_time_minutes || 0,
+                        cook_time_minutes: prev.cook_time_minutes || res.data?.cook_time_minutes || 0,
+                        allergens: prev.allergens?.length ? prev.allergens : (res.data?.allergens || []),
+                        dietary_tags: prev.dietary_tags?.length ? prev.dietary_tags : (res.data?.dietary_tags || []),
+                      }));
+                      toast.success(
+                        language === "es"
+                          ? `${sugg.length} ingredientes sugeridos · revisa antes de guardar`
+                          : `${sugg.length} ingredients suggested · review before saving`
+                      );
+                    } catch (err) {
+                      toast.error(language === "es" ? "Error con IA" : "AI error");
+                    } finally {
+                      setAiSuggesting(false);
+                    }
+                  }}
+                  disabled={aiSuggesting || !form.name}
+                  className="gap-2"
+                  data-testid="recipe-ai-suggest-ingredients"
+                >
+                  {aiSuggesting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                  {language === "es" ? "Sugerir con IA" : "Suggest with AI"}
+                </Button>
+                <IngredientPicker
+                  ingredients={localIngredients.filter(i => i.inventory_type === "food")}
+                  alreadyAddedIds={form.ingredients.map(i => i.item_id)}
+                  onPick={addIngredient}
+                  onRepair={(ing) => setRepairIngredient(ing)}
+                  isEs={language === "es"}
+                  type="ingredient"
+                />
+              </div>
             </div>
 
             {form.ingredients.length === 0 ? (

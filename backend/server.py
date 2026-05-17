@@ -3268,6 +3268,103 @@ Provide suggestions in this JSON format:
         logger.error(f"AI analysis error: {e}")
         raise HTTPException(status_code=500, detail="AI analysis failed")
 
+@recipes_router.post("/suggest-ingredients")
+async def suggest_recipe_ingredients(data: dict, user: User = Depends(get_current_user)):
+    """Given just a recipe name (and optional servings), use Claude to propose
+    a structured list of ingredients with quantity, unit, and approximate cost.
+    Designed for completing auto-created recipe stubs from bulk picklist add."""
+    from emergentintegrations.llm.chat import LlmChat, UserMessage
+
+    recipe_name = (data.get("name") or "").strip()
+    servings = int(data.get("servings") or 1)
+    language = (data.get("language") or "es").lower()
+    if not recipe_name:
+        raise HTTPException(status_code=400, detail="Recipe name is required")
+
+    api_key = os.environ.get("EMERGENT_LLM_KEY")
+    if not api_key:
+        raise HTTPException(status_code=500, detail="AI service not configured")
+
+    sys_msg = (
+        "Eres un chef profesional y analista de costos para un ERP de catering. "
+        "Cuando te den el nombre de una receta, devuelves una lista estructurada de "
+        "ingredientes con cantidad, unidad y costo aproximado en USD. Sé realista y conciso. "
+        "Responde SIEMPRE en JSON puro, sin explicaciones."
+        if language == "es"
+        else "You are a professional chef and cost analyst for a catering ERP. "
+        "Given a recipe name, return a structured list of ingredients with quantity, unit, and approximate USD cost. "
+        "Be realistic and concise. Always respond in pure JSON, no commentary."
+    )
+
+    chat = LlmChat(
+        api_key=api_key,
+        session_id=f"recipe_suggest_{uuid.uuid4().hex[:8]}",
+        system_message=sys_msg,
+    ).with_model("anthropic", "claude-sonnet-4-5-20250929")
+
+    prompt_es = f"""Receta: {recipe_name}
+Porciones: {servings}
+
+Devuelve EXACTAMENTE este JSON:
+{{
+  "ingredients": [
+    {{"name": "nombre del ingrediente (en español)", "quantity": número, "unit": "kg|g|L|ml|unidad|taza|cda", "cost": número, "notes": "opcional"}}
+  ],
+  "prep_time_minutes": número,
+  "cook_time_minutes": número,
+  "allergens": ["lácteos", "gluten", "frutos secos", ...],
+  "dietary_tags": ["vegetariano", "sin gluten", ...]
+}}
+Entrega 5-12 ingredientes principales. Costos en USD realistas para una cocina comercial."""
+
+    prompt_en = f"""Recipe: {recipe_name}
+Servings: {servings}
+
+Return EXACTLY this JSON:
+{{
+  "ingredients": [
+    {{"name": "ingredient name", "quantity": number, "unit": "kg|g|L|ml|unit|cup|tbsp", "cost": number, "notes": "optional"}}
+  ],
+  "prep_time_minutes": number,
+  "cook_time_minutes": number,
+  "allergens": ["dairy", "gluten", "nuts", ...],
+  "dietary_tags": ["vegetarian", "gluten-free", ...]
+}}
+Provide 5-12 main ingredients. Realistic USD costs for a commercial kitchen."""
+
+    prompt = prompt_es if language == "es" else prompt_en
+
+    try:
+        response = await chat.send_message(UserMessage(text=prompt))
+        import json as _json
+        text = response.strip()
+        # Strip possible code fences
+        if text.startswith("```json"):
+            text = text[7:]
+        if text.startswith("```"):
+            text = text[3:]
+        if text.endswith("```"):
+            text = text[:-3]
+        text = text.strip()
+        parsed = _json.loads(text)
+        # Sanity defaults
+        parsed.setdefault("ingredients", [])
+        parsed.setdefault("allergens", [])
+        parsed.setdefault("dietary_tags", [])
+        # Compute total estimated cost
+        total = 0.0
+        for ing in parsed["ingredients"]:
+            try:
+                total += float(ing.get("cost") or 0)
+            except Exception:
+                pass
+        parsed["estimated_total_cost"] = round(total, 2)
+        parsed["estimated_cost_per_portion"] = round(total / servings, 2) if servings > 0 else total
+        return parsed
+    except Exception as e:
+        logger.error(f"AI suggest-ingredients error: {e}")
+        raise HTTPException(status_code=500, detail=f"AI suggestion failed: {str(e)[:200]}")
+
 @recipes_router.post("/recalculate-all")
 async def recalculate_all_recipes(
     dry_run: bool = True,
