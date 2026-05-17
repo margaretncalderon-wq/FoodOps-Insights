@@ -1277,6 +1277,7 @@ function RecipesSection() {
   };
 
   const [pendingReviewOnly, setPendingReviewOnly] = useState(false);
+  const [bulkAILoading, setBulkAILoading] = useState(false);
 
   const filteredRecipes = recipes.filter(r => {
     const matchesSearch = r.name?.toLowerCase().includes(searchTerm.toLowerCase());
@@ -1325,19 +1326,52 @@ function RecipesSection() {
       {/* Header */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between flex-wrap gap-2">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
             <CardTitle>{language === "es" ? "Recetas" : "Recipes"}</CardTitle>
             {pendingReviewCount > 0 && (
-              <Button
-                variant={pendingReviewOnly ? "default" : "outline"}
-                size="sm"
-                className={pendingReviewOnly ? "" : "border-amber-400 text-amber-700 bg-amber-50 hover:bg-amber-100"}
-                onClick={() => setPendingReviewOnly(!pendingReviewOnly)}
-                data-testid="recipes-pending-review-filter"
-              >
-                <AlertTriangle className="w-3.5 h-3.5 mr-1" />
-                {pendingReviewCount} {language === "es" ? "por revisar" : "to review"}
-              </Button>
+              <>
+                <Button
+                  variant={pendingReviewOnly ? "default" : "outline"}
+                  size="sm"
+                  className={pendingReviewOnly ? "" : "border-amber-400 text-amber-700 bg-amber-50 hover:bg-amber-100"}
+                  onClick={() => setPendingReviewOnly(!pendingReviewOnly)}
+                  data-testid="recipes-pending-review-filter"
+                >
+                  <AlertTriangle className="w-3.5 h-3.5 mr-1" />
+                  {pendingReviewCount} {language === "es" ? "por revisar" : "to review"}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="border-emerald-400 text-emerald-700 bg-emerald-50 hover:bg-emerald-100"
+                  onClick={async () => {
+                    if (!window.confirm(language === "es"
+                      ? `¿Sugerir ingredientes con IA para ${pendingReviewCount} receta(s)? Toma 1-2 min. Cada receta queda marcada "por revisar" hasta que la abras y guardes.`
+                      : `Suggest ingredients with AI for ${pendingReviewCount} recipe(s)? Takes 1-2 min. Each stays flagged "to review" until you open and save it.`)) return;
+                    setBulkAILoading(true);
+                    try {
+                      const res = await axios.post(`${API}/recipes/suggest-ingredients-bulk`,
+                        { language, limit: 25 },
+                        { withCredentials: true });
+                      toast.success(language === "es"
+                        ? `Procesadas: ${res.data.processed} · Completadas: ${res.data.filled} · Errores: ${res.data.errors}`
+                        : `Processed: ${res.data.processed} · Filled: ${res.data.filled} · Errors: ${res.data.errors}`);
+                      // reload recipes
+                      const recipesRes = await axios.get(`${API}/recipes`, { withCredentials: true });
+                      setRecipes(recipesRes.data);
+                    } catch (err) {
+                      toast.error(language === "es" ? "Error en sugerencia masiva" : "Bulk suggestion failed");
+                    } finally {
+                      setBulkAILoading(false);
+                    }
+                  }}
+                  disabled={bulkAILoading}
+                  data-testid="recipes-bulk-ai-suggest"
+                >
+                  {bulkAILoading ? <RefreshCw className="w-3.5 h-3.5 mr-1 animate-spin" /> : <Sparkles className="w-3.5 h-3.5 mr-1" />}
+                  {language === "es" ? "Sugerir todas con IA" : "Suggest all with AI"}
+                </Button>
+              </>
             )}
           </div>
           <div className="flex items-center gap-2">

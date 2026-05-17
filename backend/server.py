@@ -3268,6 +3268,120 @@ Provide suggestions in this JSON format:
         logger.error(f"AI analysis error: {e}")
         raise HTTPException(status_code=500, detail="AI analysis failed")
 
+@recipes_router.post("/suggest-ingredients-bulk")
+async def suggest_ingredients_bulk(data: dict, user: User = Depends(get_current_user)):
+    """For every recipe with needs_review=true (or for an explicit list of recipe_ids),
+    ask Claude for an ingredient list and persist it. Keeps needs_review=true so
+    the human still has to open + save each recipe to confirm.
+    body: { recipe_ids?: [str], limit?: int (default 25), language?: 'es'|'en' }
+    """
+    from emergentintegrations.llm.chat import LlmChat, UserMessage
+    import json as _json
+    import asyncio as _asyncio
+
+    api_key = os.environ.get("EMERGENT_LLM_KEY")
+    if not api_key:
+        raise HTTPException(status_code=500, detail="AI service not configured")
+
+    explicit_ids = data.get("recipe_ids") or []
+    limit = int(data.get("limit") or 25)
+    language = (data.get("language") or "es").lower()
+
+    query = {"company_id": user.company_id, "needs_review": True}
+    if explicit_ids:
+        query = {"company_id": user.company_id, "recipe_id": {"$in": explicit_ids}}
+    recipes = await db.recipes.find(query, {"_id": 0, "recipe_id": 1, "name": 1, "portions_per_yield": 1, "ingredients": 1}).to_list(limit)
+
+    sem = _asyncio.Semaphore(3)  # cap concurrency
+
+    async def process_one(rec):
+        async with sem:
+            try:
+                if (rec.get("ingredients") or []) and len(rec["ingredients"]) > 0:
+                    return {"recipe_id": rec["recipe_id"], "name": rec.get("name"), "status": "skipped_has_ingredients"}
+                sys_msg = (
+                    "Eres un chef profesional para un ERP de catering. Devuelves SIEMPRE JSON puro."
+                    if language == "es" else
+                    "You are a professional chef for a catering ERP. Always respond in pure JSON."
+                )
+                chat = LlmChat(
+                    api_key=api_key,
+                    session_id=f"recipe_bulk_{rec['recipe_id']}",
+                    system_message=sys_msg,
+                ).with_model("anthropic", "claude-sonnet-4-5-20250929")
+                servings = int(rec.get("portions_per_yield") or 1)
+                if language == "es":
+                    prompt = f"""Receta: {rec['name']}
+Porciones: {servings}
+JSON exacto:
+{{"ingredients":[{{"name":"...","quantity":num,"unit":"kg|g|L|ml|unidad","cost":num}}],"prep_time_minutes":num,"cook_time_minutes":num,"allergens":[],"dietary_tags":[]}}
+5-12 ingredientes principales. Costos USD realistas."""
+                else:
+                    prompt = f"""Recipe: {rec['name']}
+Servings: {servings}
+Exact JSON:
+{{"ingredients":[{{"name":"...","quantity":num,"unit":"kg|g|L|ml|unit","cost":num}}],"prep_time_minutes":num,"cook_time_minutes":num,"allergens":[],"dietary_tags":[]}}
+5-12 main ingredients. Realistic USD costs."""
+                response = await chat.send_message(UserMessage(text=prompt))
+                text = response.strip()
+                if text.startswith("```json"): text = text[7:]
+                if text.startswith("```"): text = text[3:]
+                if text.endswith("```"): text = text[:-3]
+                parsed = _json.loads(text.strip())
+                ai_ings = parsed.get("ingredients") or []
+                if not ai_ings:
+                    return {"recipe_id": rec["recipe_id"], "name": rec.get("name"), "status": "no_suggestions"}
+                # Build ingredient docs (no inventory link — temp)
+                now = datetime.now(timezone.utc).isoformat()
+                ingredients_doc = []
+                total_cost = 0.0
+                for idx, ing in enumerate(ai_ings):
+                    qty = float(ing.get("quantity") or 0)
+                    cost = float(ing.get("cost") or 0)
+                    total_cost += cost
+                    ingredients_doc.append({
+                        "item_id": f"temp_ai_{uuid.uuid4().hex[:8]}",
+                        "name": ing.get("name") or "",
+                        "quantity": qty,
+                        "unit": ing.get("unit") or "unidad",
+                        "waste_factor": 0,
+                        "cost_per_unit": (cost / qty) if qty > 0 else 0,
+                        "cost": cost,
+                        "notes": ing.get("notes") or "",
+                        "ai_suggested": True,
+                    })
+                cost_per_portion = (total_cost / servings) if servings > 0 else total_cost
+                update = {
+                    "ingredients": ingredients_doc,
+                    "total_cost": round(total_cost, 4),
+                    "cost_per_portion": round(cost_per_portion, 4),
+                    "prep_time_minutes": parsed.get("prep_time_minutes") or 0,
+                    "cook_time_minutes": parsed.get("cook_time_minutes") or 0,
+                    "allergens": parsed.get("allergens") or [],
+                    "dietary_tags": parsed.get("dietary_tags") or [],
+                    # KEEP needs_review=True — human must confirm
+                    "ai_bulk_filled_at": now,
+                    "updated_at": now,
+                }
+                await db.recipes.update_one(
+                    {"recipe_id": rec["recipe_id"], "company_id": user.company_id},
+                    {"$set": update},
+                )
+                return {"recipe_id": rec["recipe_id"], "name": rec.get("name"), "status": "filled", "ingredient_count": len(ingredients_doc)}
+            except Exception as exc:
+                logger.error(f"AI bulk suggestion failed for {rec.get('name')}: {exc}")
+                return {"recipe_id": rec.get("recipe_id"), "name": rec.get("name"), "status": "error", "error": str(exc)[:200]}
+
+    results = await _asyncio.gather(*(process_one(r) for r in recipes))
+    summary = {
+        "processed": len(results),
+        "filled": sum(1 for r in results if r.get("status") == "filled"),
+        "skipped": sum(1 for r in results if r.get("status") in ("skipped_has_ingredients", "no_suggestions")),
+        "errors": sum(1 for r in results if r.get("status") == "error"),
+        "results": results,
+    }
+    return summary
+
 @recipes_router.post("/suggest-ingredients")
 async def suggest_recipe_ingredients(data: dict, user: User = Depends(get_current_user)):
     """Given just a recipe name (and optional servings), use Claude to propose
