@@ -151,7 +151,7 @@ export default function KitchenBEO({ open, onOpenChange, events = [] }) {
                     <p className="font-semibold capitalize">{c.course_name}</p>
                     {c.service_time && (
                       <Badge variant="outline" className="font-mono text-xs bg-amber-50 border-amber-300 text-amber-800">
-                        🕐 {c.service_time}
+                        🕐 {c.service_time}{c.service_end_time ? ` – ${c.service_end_time}` : ""}
                       </Badge>
                     )}
                   </div>
@@ -214,7 +214,7 @@ function buildPrintHtml(beo, isEs) {
   const coursesHtml = (beo.courses || []).map((c) => `
     <h2 class="course-header">
       <span>${escapeHtml(c.course_name || "")}</span>
-      ${c.service_time ? `<span class="course-time">🕐 ${escapeHtml(c.service_time)}</span>` : ""}
+      ${c.service_time ? `<span class="course-time">🕐 ${escapeHtml(c.service_time)}${c.service_end_time ? ` – ${escapeHtml(c.service_end_time)}` : ""}</span>` : ""}
     </h2>
     ${(c.recipes || []).map((r) => `
       <div class="recipe">

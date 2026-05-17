@@ -53,7 +53,7 @@ import {
   Armchair, Users, Flower2, Package, GripVertical, Percent,
   DollarSign, ChevronDown, ChevronRight, Loader2, AlertTriangle, 
   Search, Send, CheckCircle, XCircle, Lock, History, TrendingUp,
-  Edit, Clock, Calculator, Link2, RefreshCw, CreditCard, Check, X, Type, ChefHat
+  Edit, Clock, Calculator, Link2, RefreshCw, CreditCard, Check, X, Type, ChefHat, Calendar as CalendarIcon
 } from "lucide-react";
 
 import {
@@ -171,6 +171,10 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
   const [picklistSearch, setPicklistSearch] = useState("");
   const [activeTab, setActiveTab] = useState("items");
 
+  // Day-by-day logistics (per-date delivery info)
+  const [dayLogistics, setDayLogistics] = useState([]);
+  const [logisticsExpanded, setLogisticsExpanded] = useState(false);
+
   // Margin policy → suggested price helper
   const [marginPolicy, setMarginPolicy] = useState({ by_type: {}, by_category: [] });
   useEffect(() => {
@@ -181,6 +185,11 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
       } catch (e) { /* ignore */ }
     })();
   }, []);
+
+  // Load day-logistics whenever the proposal id changes
+  useEffect(() => {
+    fetchDayLogistics();
+  }, [fetchDayLogistics]);
   const getSuggestedUnitPrice = (item) => {
     if (item.internal_cost == null || item.internal_cost <= 0) return null;
     const itype = item.item_type || "Service";
@@ -435,6 +444,48 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
       console.error("Failed to fetch plated menus:", error);
       setPlatedMenus([]);
     }
+  };
+
+  const fetchDayLogistics = useCallback(async () => {
+    if (!proposal?.proposal_id) return;
+    try {
+      const res = await axios.get(`${API}/proposals/${proposal.proposal_id}/day-logistics`, { withCredentials: true });
+      setDayLogistics(res.data?.day_logistics || []);
+    } catch (e) {
+      setDayLogistics([]);
+    }
+  }, [proposal?.proposal_id]);
+
+  const saveDayLogistics = async (newDays) => {
+    if (!proposal?.proposal_id) return;
+    try {
+      const res = await axios.put(
+        `${API}/proposals/${proposal.proposal_id}/day-logistics`,
+        { day_logistics: newDays },
+        { withCredentials: true }
+      );
+      setDayLogistics(res.data?.day_logistics || []);
+    } catch (e) {
+      toast.error(e.response?.data?.detail || "Error");
+    }
+  };
+
+  const addLogisticsDay = () => {
+    const fallbackDate = event?.event_date || new Date().toISOString().slice(0, 10);
+    const newDay = { event_date: fallbackDate, delivery_time: "", delivery_end_time: "", address: event?.venue_address || "", instructions: "", guest_count: event?.guest_count || event?.num_guests || null };
+    saveDayLogistics([...dayLogistics, newDay]);
+  };
+
+  const updateLogisticsDay = (idx, patch) => {
+    const next = dayLogistics.map((d, i) => (i === idx ? { ...d, ...patch } : d));
+    setDayLogistics(next);
+  };
+
+  const commitLogisticsDay = () => saveDayLogistics(dayLogistics);
+
+  const removeLogisticsDay = (idx) => {
+    const next = dayLogistics.filter((_, i) => i !== idx);
+    saveDayLogistics(next);
   };
 
   const fetchRecipes = async () => {
@@ -1183,7 +1234,35 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
     );
   };
 
-  const handleSectionTimeChange = async (itype, title, newTime) => {
+  const handleAddComponentItem = async (parentItem) => {
+    try {
+      const payload = {
+        item_type: parentItem.item_type || "Food",
+        description: language === "es" ? "Nuevo componente" : "New component",
+        quantity: 1,
+        unit_price: 0,
+        internal_cost: 0,
+        section_title: parentItem.section_title || "",
+        section_time: parentItem.section_time || null,
+        section_end_time: parentItem.section_end_time || null,
+        parent_item_id: parentItem.item_id,
+        category_id: parentItem.category_id || null,
+      };
+      const res = await axios.post(
+        `${API}/proposals/${proposal.proposal_id}/items`,
+        payload,
+        { withCredentials: true },
+      );
+      toast.success(language === "es" ? "Componente agregado" : "Component added");
+      fetchProposal();
+      // Open edit dialog on the new component so user can name it
+      if (res.data) handleEditItem(res.data);
+    } catch (e) {
+      toast.error(e.response?.data?.detail || "Error");
+    }
+  };
+
+  const handleSectionTimeChange = async (itype, title, newTime, field = "section_time") => {
     const items = proposal?.items?.filter(
       (i) => i.item_type === itype && (i.section_title || "") === (title || "")
     ) || [];
@@ -1192,7 +1271,7 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
       await Promise.all(
         items.map((it) =>
           axios.put(`${API}/proposals/${proposal.proposal_id}/items/${it.item_id}`,
-            { section_time: newTime || null },
+            { [field]: newTime || null },
             { withCredentials: true })
         )
       );
@@ -1550,6 +1629,98 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
 
         {/* Items Tab */}
         <TabsContent value="items" className="space-y-4">
+          {/* Day-by-day Logistics */}
+          <Card data-testid="day-logistics-card">
+            <CardHeader
+              className="cursor-pointer hover:bg-muted/50 transition-colors py-3"
+              onClick={() => setLogisticsExpanded((v) => !v)}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  {logisticsExpanded ? <ChevronDown className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
+                  <CalendarIcon className="w-4 h-4 text-amber-600" />
+                  <CardTitle className="text-base font-medium">
+                    {language === "es" ? "Logística por Fecha" : "Per-Date Logistics"}
+                  </CardTitle>
+                  <p className="text-xs text-muted-foreground">
+                    {dayLogistics.length > 0
+                      ? `${dayLogistics.length} ${language === "es" ? "día(s)" : "day(s)"}`
+                      : (language === "es" ? "Sin definir" : "Not set")}
+                  </p>
+                </div>
+                <Badge variant="outline" className="text-xs">
+                  {language === "es" ? "Entrega / Servicio" : "Delivery / Service"}
+                </Badge>
+              </div>
+            </CardHeader>
+            {logisticsExpanded && (
+              <CardContent className="pt-0">
+                {dayLogistics.length === 0 ? (
+                  <div className="text-sm text-muted-foreground italic py-4 text-center">
+                    {language === "es"
+                      ? "Agrega una fila por cada fecha del evento (con su dirección, hora y notas de entrega)."
+                      : "Add one row per event date (with address, time and delivery notes)."}
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm border-collapse" data-testid="day-logistics-table">
+                      <thead className="bg-muted/40">
+                        <tr>
+                          <th className="text-left px-2 py-1.5 font-medium text-xs">{language === "es" ? "Fecha" : "Date"}</th>
+                          <th className="text-left px-2 py-1.5 font-medium text-xs">{language === "es" ? "Hora inicio" : "Start"}</th>
+                          <th className="text-left px-2 py-1.5 font-medium text-xs">{language === "es" ? "Hora fin" : "End"}</th>
+                          <th className="text-left px-2 py-1.5 font-medium text-xs">{language === "es" ? "Invitados" : "Guests"}</th>
+                          <th className="text-left px-2 py-1.5 font-medium text-xs">{language === "es" ? "Dirección" : "Address"}</th>
+                          <th className="text-left px-2 py-1.5 font-medium text-xs">{language === "es" ? "Instrucciones" : "Instructions"}</th>
+                          <th className="w-8"></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {dayLogistics.map((d, idx) => (
+                          <tr key={idx} className="border-b" data-testid={`logistics-row-${idx}`}>
+                            <td className="px-1 py-1"><Input type="date" value={d.event_date || ""} disabled={isLocked}
+                              onChange={(e) => updateLogisticsDay(idx, { event_date: e.target.value })}
+                              onBlur={commitLogisticsDay} className="h-8 text-xs" /></td>
+                            <td className="px-1 py-1"><Input type="time" value={d.delivery_time || ""} disabled={isLocked}
+                              onChange={(e) => updateLogisticsDay(idx, { delivery_time: e.target.value })}
+                              onBlur={commitLogisticsDay} className="h-8 text-xs w-[90px]" /></td>
+                            <td className="px-1 py-1"><Input type="time" value={d.delivery_end_time || ""} disabled={isLocked}
+                              onChange={(e) => updateLogisticsDay(idx, { delivery_end_time: e.target.value })}
+                              onBlur={commitLogisticsDay} className="h-8 text-xs w-[90px]" /></td>
+                            <td className="px-1 py-1"><Input type="number" min="0" value={d.guest_count ?? ""} disabled={isLocked}
+                              onChange={(e) => updateLogisticsDay(idx, { guest_count: e.target.value === "" ? null : parseInt(e.target.value, 10) })}
+                              onBlur={commitLogisticsDay} className="h-8 text-xs w-[70px]" /></td>
+                            <td className="px-1 py-1"><Input value={d.address || ""} disabled={isLocked}
+                              onChange={(e) => updateLogisticsDay(idx, { address: e.target.value })}
+                              onBlur={commitLogisticsDay} placeholder={language === "es" ? "Dirección de entrega" : "Delivery address"} className="h-8 text-xs" /></td>
+                            <td className="px-1 py-1"><Input value={d.instructions || ""} disabled={isLocked}
+                              onChange={(e) => updateLogisticsDay(idx, { instructions: e.target.value })}
+                              onBlur={commitLogisticsDay} placeholder={language === "es" ? "Notas para repartidor / chef" : "Notes for driver / chef"} className="h-8 text-xs" /></td>
+                            <td className="px-1 py-1">
+                              {!isLocked && (
+                                <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => removeLogisticsDay(idx)} data-testid={`remove-logistics-${idx}`}>
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </Button>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+                {!isLocked && (
+                  <div className="pt-3">
+                    <Button variant="outline" size="sm" onClick={addLogisticsDay} data-testid="add-logistics-day">
+                      <Plus className="w-4 h-4 mr-1" />
+                      {language === "es" ? "Agregar fecha" : "Add date"}
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            )}
+          </Card>
+
           {/* Add Item / Menu Buttons */}
           {!isLocked && (
             <div className="flex flex-wrap justify-end gap-2">
@@ -1740,10 +1911,12 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
                                       <span className="text-xs text-muted-foreground shrink-0">
                                         · {section.items.length} {language === "es" ? "ítems" : "items"}
                                       </span>
-                                      {/* Section service time */}
+                                      {/* Section service time range */}
                                       {(() => {
                                         const firstWithTime = section.items.find(i => i.section_time);
+                                        const firstWithEnd = section.items.find(i => i.section_end_time);
                                         const currentTime = firstWithTime?.section_time || "";
+                                        const currentEnd = firstWithEnd?.section_end_time || "";
                                         return (
                                           <div className="flex items-center gap-1 ml-1" data-testid={`section-time-${section.title || "default"}`}>
                                             <Clock className="w-3 h-3 text-muted-foreground shrink-0" />
@@ -1751,9 +1924,18 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
                                               type="time"
                                               value={currentTime}
                                               disabled={isLocked}
-                                              onChange={(e) => handleSectionTimeChange(itype, section.title, e.target.value)}
-                                              className="h-6 w-[88px] text-[11px] px-1 border-muted-foreground/20 bg-white"
-                                              title={language === "es" ? "Hora de servicio de esta sección" : "Service time for this section"}
+                                              onChange={(e) => handleSectionTimeChange(itype, section.title, e.target.value, "section_time")}
+                                              className="h-6 w-[78px] text-[11px] px-1 border-muted-foreground/20 bg-white"
+                                              title={language === "es" ? "Hora inicio de servicio" : "Service start time"}
+                                            />
+                                            <span className="text-[10px] text-muted-foreground">→</span>
+                                            <Input
+                                              type="time"
+                                              value={currentEnd}
+                                              disabled={isLocked}
+                                              onChange={(e) => handleSectionTimeChange(itype, section.title, e.target.value, "section_end_time")}
+                                              className="h-6 w-[78px] text-[11px] px-1 border-muted-foreground/20 bg-white"
+                                              title={language === "es" ? "Hora fin de servicio" : "Service end time"}
                                             />
                                           </div>
                                         );
@@ -1810,12 +1992,15 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
                                           : "Drag items here or add a new one"}
                                       />
                                     ) : (
-                                      section.items.map((item) => (
+                                      section.items.filter((it) => !it.parent_item_id).map((item) => {
+                                        const childItems = section.items.filter((c) => c.parent_item_id === item.item_id);
+                                        return (
                                         <SortableItemRow key={item.item_id} id={item.item_id}>
                                           <div
-                                            className="flex items-center gap-4 p-3 hover:bg-muted/30 transition-colors"
+                                            className="flex flex-col"
                                             data-testid={`order-item-${item.item_id}`}
                                           >
+                                          <div className="flex items-center gap-4 p-3 hover:bg-muted/30 transition-colors">
                                             <div className="flex-1 min-w-0">
                                               <p className="font-medium truncate">{item.description}</p>
                                               {item.internal_notes && (
@@ -1866,6 +2051,16 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
                                                 <Button
                                                   variant="ghost"
                                                   size="icon"
+                                                  className="text-muted-foreground hover:text-emerald-600"
+                                                  onClick={() => handleAddComponentItem(item)}
+                                                  data-testid={`add-component-${item.item_id}`}
+                                                  title={language === "es" ? "Agregar componente / sub-ítem" : "Add component / sub-item"}
+                                                >
+                                                  <Plus className="w-4 h-4" />
+                                                </Button>
+                                                <Button
+                                                  variant="ghost"
+                                                  size="icon"
                                                   className="text-muted-foreground hover:text-foreground"
                                                   onClick={() => handleEditItem(item)}
                                                   data-testid={`edit-item-${item.item_id}`}
@@ -1884,8 +2079,36 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
                                               </>
                                             )}
                                           </div>
+                                          {/* Nested children / components */}
+                                          {childItems.length > 0 && (
+                                            <div className="pl-8 pr-3 pb-2 space-y-1 bg-slate-50/50 border-l-2 border-slate-200 ml-3" data-testid={`children-${item.item_id}`}>
+                                              {childItems.map((ch) => (
+                                                <div key={ch.item_id} className="flex items-center gap-2 text-sm py-1.5" data-testid={`child-item-${ch.item_id}`}>
+                                                  <span className="text-muted-foreground text-xs">└─</span>
+                                                  <span className="flex-1 truncate">{ch.description}</span>
+                                                  <span className="text-xs text-muted-foreground">{ch.quantity}{ch.unit_price > 0 ? ` × $${ch.unit_price.toFixed(2)}` : ` · ${language === "es" ? "incluido" : "included"}`}</span>
+                                                  <span className="font-medium w-20 text-right text-sm">
+                                                    {ch.total_price > 0 ? `$${ch.total_price.toFixed(2)}` : "—"}
+                                                  </span>
+                                                  {!isLocked && (
+                                                    <>
+                                                      <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-foreground"
+                                                        onClick={() => handleEditItem(ch)} title={language === "es" ? "Editar" : "Edit"}>
+                                                        <Edit className="w-3 h-3" />
+                                                      </Button>
+                                                      <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive"
+                                                        onClick={() => handleDeleteItem(ch.item_id)}>
+                                                        <Trash2 className="w-3 h-3" />
+                                                      </Button>
+                                                    </>
+                                                  )}
+                                                </div>
+                                              ))}
+                                            </div>
+                                          )}
+                                          </div>
                                         </SortableItemRow>
-                                      ))
+                                      );})
                                     )}
                                   </div>
                               </div>

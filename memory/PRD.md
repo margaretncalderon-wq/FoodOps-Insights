@@ -228,6 +228,25 @@ Phase 2 Culinary backend validated 19/19 in iteration_176.json.
 
 **Tests**: Backend E2E curl — set times `18:30 / 19:30 / 20:30` → Kitchen BEO retorna las mismas horas por curso correctamente. Lint OK.
 
+### Hora Fin + Sub-ítems + Logística por Fecha (May 17, 2026)
+**Goal**: Paridad con cotización PDF actual (Ciano Gourmet) — agregar rango de hora de servicio, componentes anidados y logística por día.
+
+**Backend** (`server.py`)
+- `OrderItem` Create/Update/response: nuevos campos `section_end_time`, `parent_item_id`.
+- `POST /api/proposals/{id}/items` persiste los nuevos campos.
+- **Nuevo** `PUT /api/proposals/{id}/day-logistics` — guarda lista `day_logistics: [{event_date, delivery_time, delivery_end_time, address, instructions, guest_count}]`.
+- **Nuevo** `GET /api/proposals/{id}/day-logistics`.
+- Kitchen BEO: `service_end_time` por curso (paralelo a `service_time`).
+
+**Frontend**
+- **ProposalEditor.js**:
+  - Section header: ahora muestra **dos inputs** time (`HH:MM → HH:MM`) para hora inicio/fin.
+  - Items con `parent_item_id` se renderizan **indentados** debajo del padre (`└─`), con su propio precio (o "incluido"). Botón **`+ Componente`** en cada item top-level crea un sub-ítem (precio 0, hereda section/time) y abre el dialog de edición.
+  - **Card "Logística por Fecha"**: collapsible con tabla editable: Fecha · Hora inicio · Hora fin · Invitados · Dirección · Instrucciones · botón quitar. Botón **`+ Agregar fecha`**. Auto-save on blur.
+- **KitchenBEO.js**: Badge de hora muestra rango `🕐 18:30 – 19:30` cuando hay end_time (UI + HTML print).
+
+**Tests**: Backend curl E2E (a+b+d) — day_logistics PUT/GET con 2 días persistido, OrderItem creado con `parent_item_id` y `section_end_time=19:30` correctamente. Lint OK.
+
 ### Pending Mini-tasks & Backlog
 - Production SMTP credentials → enable real email delivery for digest.
 - Logo Image Upload via Object Storage for Guest Flow (P1).

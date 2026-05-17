@@ -1050,6 +1050,8 @@ class OrderItemCreate(BaseModel):
     sort_order: int = 0
     section_title: Optional[str] = None  # Custom section title for grouping
     section_time: Optional[str] = None   # Service time for section
+    section_end_time: Optional[str] = None  # Optional end time for service window
+    parent_item_id: Optional[str] = None    # Nested component of another item
 
 class OrderItemUpdate(BaseModel):
     item_type: Optional[str] = None
@@ -1064,6 +1066,8 @@ class OrderItemUpdate(BaseModel):
     sort_order: Optional[int] = None
     section_title: Optional[str] = None
     section_time: Optional[str] = None
+    section_end_time: Optional[str] = None
+    parent_item_id: Optional[str] = None
 
 class OrderItem(BaseModel):
     """Order item with calculated fields"""
@@ -1087,6 +1091,8 @@ class OrderItem(BaseModel):
     sort_order: int
     section_title: Optional[str] = None
     section_time: Optional[str] = None
+    section_end_time: Optional[str] = None
+    parent_item_id: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 
@@ -4138,6 +4144,7 @@ async def get_kitchen_beo(event_id: str, user: User = Depends(get_current_user))
 
     # Find proposal items for this event to pull service_time per course
     section_time_by_course = {}
+    section_end_by_course = {}
     proposal = await db.proposals.find_one(
         {"event_id": event_id, "company_id": user.company_id},
         {"_id": 0, "proposal_id": 1},
@@ -4150,13 +4157,16 @@ async def get_kitchen_beo(event_id: str, user: User = Depends(get_current_user))
                 "company_id": user.company_id,
                 "loaded_from_course_id": {"$exists": True, "$ne": None},
             },
-            {"_id": 0, "loaded_from_course_id": 1, "section_time": 1},
+            {"_id": 0, "loaded_from_course_id": 1, "section_time": 1, "section_end_time": 1},
         )
         async for oi in oi_cursor:
             cid = oi.get("loaded_from_course_id")
             t = oi.get("section_time")
+            te = oi.get("section_end_time")
             if cid and t and cid not in section_time_by_course:
                 section_time_by_course[cid] = t
+            if cid and te and cid not in section_end_by_course:
+                section_end_by_course[cid] = te
 
     for course in courses:
         course_recipes = []
@@ -4227,6 +4237,7 @@ async def get_kitchen_beo(event_id: str, user: User = Depends(get_current_user))
                 "course_name": course.get("course_name") or course.get("name"),
                 "course_order": course.get("course_order"),
                 "service_time": section_time_by_course.get(course.get("course_id")),
+                "service_end_time": section_end_by_course.get(course.get("course_id")),
                 "recipes": course_recipes,
             })
 
@@ -8374,6 +8385,49 @@ async def update_proposal_financials(proposal_id: str, data: dict, user: User = 
     
     return await get_event_proposal(proposal["event_id"], user)
 
+class DayLogistic(BaseModel):
+    event_date: str
+    delivery_time: Optional[str] = None
+    delivery_end_time: Optional[str] = None
+    address: Optional[str] = None
+    instructions: Optional[str] = None
+    guest_count: Optional[int] = None
+
+
+@proposals_router.put("/{proposal_id}/day-logistics")
+async def update_proposal_day_logistics(proposal_id: str, body: Dict[str, Any], user: User = Depends(get_current_user)):
+    """Replace per-date delivery logistics on a proposal.
+    body = {"day_logistics": [DayLogistic, ...]}"""
+    proposal = await db.proposals.find_one({"proposal_id": proposal_id, "company_id": user.company_id})
+    if not proposal:
+        raise HTTPException(status_code=404, detail="Proposal not found")
+    days_in = body.get("day_logistics") or []
+    cleaned = []
+    for d in days_in:
+        try:
+            obj = DayLogistic(**d).model_dump()
+            cleaned.append(obj)
+        except Exception:
+            continue
+    cleaned.sort(key=lambda x: x.get("event_date") or "")
+    await db.proposals.update_one(
+        {"proposal_id": proposal_id, "company_id": user.company_id},
+        {"$set": {"day_logistics": cleaned, "updated_at": datetime.now(timezone.utc).isoformat()}},
+    )
+    return {"day_logistics": cleaned}
+
+
+@proposals_router.get("/{proposal_id}/day-logistics")
+async def get_proposal_day_logistics(proposal_id: str, user: User = Depends(get_current_user)):
+    proposal = await db.proposals.find_one(
+        {"proposal_id": proposal_id, "company_id": user.company_id},
+        {"_id": 0, "day_logistics": 1},
+    )
+    if not proposal:
+        raise HTTPException(status_code=404, detail="Proposal not found")
+    return {"day_logistics": proposal.get("day_logistics") or []}
+
+
 @proposals_router.put("/{proposal_id}/custom-fields")
 async def update_proposal_custom_fields(proposal_id: str, data: dict, user: User = Depends(get_current_user)):
     """Update custom field values for a proposal"""
@@ -8462,6 +8516,8 @@ async def add_order_item(proposal_id: str, data: OrderItemCreate, user: User = D
         "event_date": data.event_date,
         "section_title": data.section_title,
         "section_time": data.section_time,
+        "section_end_time": data.section_end_time,
+        "parent_item_id": data.parent_item_id,
         "sort_order": data.sort_order,
         "created_at": now.isoformat(),
         "updated_at": now.isoformat()
