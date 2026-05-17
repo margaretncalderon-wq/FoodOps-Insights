@@ -1970,20 +1970,26 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
                                             <Clock className="w-3 h-3 text-muted-foreground shrink-0" />
                                             <Input
                                               type="time"
-                                              value={currentTime}
+                                              defaultValue={currentTime}
+                                              key={`start-${section.title}-${currentTime}`}
                                               disabled={isLocked}
-                                              onChange={(e) => handleSectionTimeChange(itype, section.title, e.target.value, "section_time")}
+                                              onBlur={(e) => {
+                                                if (e.target.value !== currentTime) handleSectionTimeChange(itype, section.title, e.target.value, "section_time");
+                                              }}
                                               className="h-6 w-[78px] text-[11px] px-1 border-muted-foreground/20 bg-white"
-                                              title={language === "es" ? "Hora inicio de servicio" : "Service start time"}
+                                              title={language === "es" ? "Hora inicio de servicio (formato 24h)" : "Service start time (24h)"}
                                             />
                                             <span className="text-[10px] text-muted-foreground">→</span>
                                             <Input
                                               type="time"
-                                              value={currentEnd}
+                                              defaultValue={currentEnd}
+                                              key={`end-${section.title}-${currentEnd}`}
                                               disabled={isLocked}
-                                              onChange={(e) => handleSectionTimeChange(itype, section.title, e.target.value, "section_end_time")}
+                                              onBlur={(e) => {
+                                                if (e.target.value !== currentEnd) handleSectionTimeChange(itype, section.title, e.target.value, "section_end_time");
+                                              }}
                                               className="h-6 w-[78px] text-[11px] px-1 border-muted-foreground/20 bg-white"
-                                              title={language === "es" ? "Hora fin de servicio" : "Service end time"}
+                                              title={language === "es" ? "Hora fin de servicio (formato 24h)" : "Service end time (24h)"}
                                             />
                                           </div>
                                         );

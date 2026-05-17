@@ -714,7 +714,7 @@ export default function DocumentPreview({
                           </thead>
                           <tbody>
                             {(Array.isArray(items) ? items : []).map((item, idx) => (
-                              <tr key={idx} className="border-b border-muted/50 hover:bg-muted/20">
+                              <tr key={idx} className={`border-b border-muted/50 hover:bg-muted/20 ${item.parent_item_id ? "child-item bg-muted/10" : ""}`}>
                                 {/* Checkbox cell */}
                                 {template?.show_checkboxes !== false && (selectedDocType === "packing_list" || selectedDocType === "kitchen_sheet") && (
                                   <td className="px-2 py-2 text-center">
@@ -722,10 +722,13 @@ export default function DocumentPreview({
                                   </td>
                                 )}
                                 {config.showQuantity && template?.show_quantities !== false && (
-                                  <td className="px-3 py-2">{item.quantity}</td>
+                                  <td className="px-3 py-2">{item.parent_item_id ? "" : item.quantity}</td>
                                 )}
                                 <td className="px-3 py-2">
-                                  <span className="font-medium">{item.description}</span>
+                                  <span className={`font-medium ${item.parent_item_id ? "text-sm pl-4 text-muted-foreground" : ""}`}>
+                                    {item.parent_item_id && <span className="opacity-60 mr-1">·</span>}
+                                    {item.description}
+                                  </span>
                                   {item.internal_notes && config.showNotes && !template?.show_notes_column && (
                                     <p className="text-xs text-muted-foreground mt-1 italic">
                                       📝 {item.internal_notes}
@@ -741,10 +744,10 @@ export default function DocumentPreview({
                                 {config.showPrices && (
                                   <>
                                     <td className="px-3 py-2 text-right font-mono">
-                                      {formatCurrency(item.unit_price)}
+                                      {item.parent_item_id ? "" : formatCurrency(item.unit_price)}
                                     </td>
                                     <td className="px-3 py-2 text-right font-mono font-medium">
-                                      {formatCurrency(item.total_price)}
+                                      {item.parent_item_id ? "" : formatCurrency(item.total_price)}
                                     </td>
                                   </>
                                 )}
