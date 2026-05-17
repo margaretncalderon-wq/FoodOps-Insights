@@ -861,13 +861,35 @@ export default function SettingsPage() {
     const hasTab = lines.some(l => l.includes("\t"));
     const sep = hasTab ? "\t" : ",";
     return lines.map((line, idx) => {
-      const parts = line.split(sep).map(p => p.trim());
-      const name = parts[0] || "";
-      const description = parts[1] || "";
-      const priceRaw = parts[2] ?? "";
-      const costRaw = parts[3] ?? "";
-      const price = priceRaw === "" ? 0 : parseFloat(priceRaw.replace(/[$,]/g, ""));
-      const cost = costRaw === "" ? null : parseFloat(costRaw.replace(/[$,]/g, ""));
+      const rawParts = line.split(sep).map(p => p.trim());
+      // Smart parsing for CSV: if last 1-2 fields are numeric they are price/cost.
+      // Otherwise merge extra commas back into the description (so descriptions can have commas).
+      let name = "";
+      let description = "";
+      let priceRaw = "";
+      let costRaw = "";
+      if (sep === "\t") {
+        // Excel/Sheets: trust the columns
+        name = rawParts[0] || "";
+        description = rawParts[1] || "";
+        priceRaw = rawParts[2] ?? "";
+        costRaw = rawParts[3] ?? "";
+      } else {
+        // Comma mode: detect trailing numbers
+        const isNum = (s) => s !== "" && !Number.isNaN(parseFloat(String(s).replace(/[$,]/g, "")));
+        const parts = [...rawParts];
+        // Pop trailing numeric fields (up to 2) into cost/price
+        if (parts.length > 2 && isNum(parts[parts.length - 1]) && isNum(parts[parts.length - 2])) {
+          costRaw = parts.pop();
+          priceRaw = parts.pop();
+        } else if (parts.length > 1 && isNum(parts[parts.length - 1])) {
+          priceRaw = parts.pop();
+        }
+        name = parts.shift() || "";
+        description = parts.join(", "); // rejoin any leftover commas into description
+      }
+      const price = priceRaw === "" ? 0 : parseFloat(String(priceRaw).replace(/[$,]/g, ""));
+      const cost = costRaw === "" ? null : parseFloat(String(costRaw).replace(/[$,]/g, ""));
       const errors = [];
       if (!name) errors.push("name");
       if (priceRaw !== "" && Number.isNaN(price)) errors.push("price");
