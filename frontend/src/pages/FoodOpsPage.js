@@ -30,6 +30,7 @@ import BuffetFactorsDialog from "../components/BuffetFactorsDialog";
 import MenuEngineeringDialog from "../components/MenuEngineeringDialog";
 import CostVarianceDialog from "../components/CostVarianceDialog";
 import CulinaryDigestDialog from "../components/CulinaryDigestDialog";
+import RecipeImportDialog from "../components/RecipeImportDialog";
 
 // Icons
 import { 
@@ -1502,6 +1503,7 @@ function RecipesSection() {
 
   const [pendingReviewOnly, setPendingReviewOnly] = useState(false);
   const [bulkAILoading, setBulkAILoading] = useState(false);
+  const [recipeImportOpen, setRecipeImportOpen] = useState(false);
 
   const filteredRecipes = recipes.filter(r => {
     const matchesSearch = r.name?.toLowerCase().includes(searchTerm.toLowerCase());
@@ -1612,6 +1614,10 @@ function RecipesSection() {
             <Button variant="outline" onClick={handleRecalculateAll} disabled={recalculating}>
               <RefreshCw className={`w-4 h-4 mr-2 ${recalculating ? "animate-spin" : ""}`} />
               {language === "es" ? "Recalcular" : "Recalculate"}
+            </Button>
+            <Button variant="outline" onClick={() => setRecipeImportOpen(true)} data-testid="recipes-import-btn">
+              <FileUp className="w-4 h-4 mr-2" />
+              {language === "es" ? "Importar Recetas" : "Import Recipes"}
             </Button>
             <Button onClick={() => { setEditingRecipe(null); setDialogOpen(true); }}>
               <Plus className="w-4 h-4 mr-2" />{language === "es" ? "Nueva Receta" : "New Recipe"}
@@ -2161,6 +2167,11 @@ function PlatedMenusSection() {
       <CulinaryDigestDialog
         open={digestDialogOpen}
         onOpenChange={setDigestDialogOpen}
+      />
+      <RecipeImportDialog
+        open={recipeImportOpen}
+        onClose={() => setRecipeImportOpen(false)}
+        onImported={fetchData}
       />
     </div>
   );

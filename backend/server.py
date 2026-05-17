@@ -10849,6 +10849,396 @@ async def delete_recipe_image(recipe_id: str, user: User = Depends(get_current_u
     
     return {"message": "Image deleted"}
 
+# ============== RECIPES BULK IMPORT ==============
+# Separate router prefix to avoid conflict with GET /recipes/{recipe_id}
+recipes_bulk_router = APIRouter(prefix="/recipes-bulk", tags=["Recipes Bulk Import"])
+
+def _parse_ingredients_string(s: str) -> list:
+    """Parse ingredient string format: 'Tomate: 0.5 kg; Cebolla: 200 g; Aceite: 30 ml'.
+    Returns list of dicts: [{name, quantity, unit}].
+    """
+    out = []
+    if not s or (isinstance(s, float) and pd.isna(s)):
+        return out
+    for chunk in str(s).split(";"):
+        chunk = chunk.strip()
+        if not chunk:
+            continue
+        if ":" not in chunk:
+            # No quantity → treat as name only
+            out.append({"name": chunk, "quantity": 1.0, "unit": "unit", "raw": chunk})
+            continue
+        name_part, qty_part = chunk.split(":", 1)
+        name = name_part.strip()
+        qty_part = qty_part.strip()
+        # qty_part like "0.5 kg" or "200g"
+        import re as _re
+        m = _re.match(r"^([0-9]*\.?[0-9]+)\s*([a-zA-Zµ]*)$", qty_part)
+        if m:
+            qty = float(m.group(1))
+            unit = (m.group(2) or "unit").lower()
+        else:
+            qty, unit = 1.0, "unit"
+        out.append({"name": name, "quantity": qty, "unit": unit, "raw": chunk})
+    return out
+
+
+def _recipes_template_rows():
+    """Sample rows for the recipes import template."""
+    columns = [
+        "nombre", "categoria", "tipo", "porciones", "tiempo_preparacion",
+        "instrucciones", "notas", "precio_por_porcion", "ingredientes",
+    ]
+    samples = [
+        [
+            "Ensalada César",
+            "Ensaladas",
+            "final_dish",
+            4,
+            "15 min",
+            "Mezclar lechuga, aderezo y queso parmesano.",
+            "Servir frío.",
+            12.50,
+            "Lechuga romana: 0.4 kg; Queso parmesano: 80 g; Aderezo César: 100 ml; Crutones: 50 g",
+        ],
+        [
+            "Pollo al limón",
+            "Plato principal",
+            "final_dish",
+            2,
+            "30 min",
+            "Marinar con limón y hornear 25 min a 180°C.",
+            "",
+            18.00,
+            "Pechuga de pollo: 0.6 kg; Limón: 2 unit; Aceite de oliva: 40 ml; Sal: 5 g",
+        ],
+    ]
+    return columns, samples
+
+
+@recipes_bulk_router.get("/import-template")
+async def recipes_import_template(format: str = "csv", user: User = Depends(get_current_user)):
+    """Download a CSV/XLSX template for bulk recipe import."""
+    columns, samples = _recipes_template_rows()
+    df = pd.DataFrame(samples, columns=columns)
+    no_cache = {
+        "Cache-Control": "no-cache, no-store, must-revalidate",
+        "Pragma": "no-cache",
+        "Expires": "0",
+    }
+    if format == "excel" or format == "xlsx":
+        out = io.BytesIO()
+        with pd.ExcelWriter(out, engine="openpyxl") as writer:
+            df.to_excel(writer, index=False, sheet_name="Recetas")
+        out.seek(0)
+        return StreamingResponse(
+            out,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": "attachment; filename=template_recetas.xlsx", **no_cache},
+        )
+    out = io.StringIO()
+    df.to_csv(out, index=False)
+    out.seek(0)
+    return StreamingResponse(
+        io.BytesIO(out.getvalue().encode("utf-8")),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=template_recetas.csv", **no_cache},
+    )
+
+
+_RECIPE_COL_MAP = {
+    "nombre": "name", "name": "name", "receta": "name",
+    "categoria": "category", "categoría": "category", "category": "category",
+    "tipo": "recipe_type", "type": "recipe_type", "recipe_type": "recipe_type",
+    "porciones": "servings", "servings": "servings", "yield": "servings",
+    "tiempo_preparacion": "prep_time", "tiempo": "prep_time", "prep_time": "prep_time",
+    "instrucciones": "instructions", "instructions": "instructions",
+    "notas": "notes", "notes": "notes",
+    "precio_por_porcion": "default_portion_price", "precio": "default_portion_price",
+    "default_portion_price": "default_portion_price",
+    "ingredientes": "ingredients_str", "ingredients": "ingredients_str",
+}
+
+
+def _read_recipes_dataframe(file_bytes: bytes, filename: str):
+    """Read CSV or Excel into a normalized DataFrame for recipes import."""
+    if filename.lower().endswith(".xlsx") or filename.lower().endswith(".xls"):
+        df = pd.read_excel(io.BytesIO(file_bytes))
+    else:
+        df = pd.read_csv(io.BytesIO(file_bytes))
+    df.columns = df.columns.str.lower().str.strip().str.replace(" ", "_")
+    df.rename(columns=_RECIPE_COL_MAP, inplace=True)
+    return df
+
+
+@recipes_bulk_router.post("/validate-import-file")
+async def recipes_validate_import(file: UploadFile = File(...), user: User = Depends(get_current_user)):
+    """Validate a recipes import file. Returns a preview without persisting anything."""
+    filename = (file.filename or "").lower()
+    if not (filename.endswith(".csv") or filename.endswith(".xlsx") or filename.endswith(".xls")):
+        raise HTTPException(status_code=400, detail="Solo se aceptan archivos CSV o Excel")
+    try:
+        content = await file.read()
+        df = _read_recipes_dataframe(content, filename)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"No se pudo leer el archivo: {e}")
+
+    if "name" not in df.columns:
+        return {
+            "valid": False,
+            "error": "El archivo debe contener una columna 'nombre' (o 'name').",
+            "columns_found": list(df.columns),
+            "rows": [],
+        }
+
+    # Preload existing ingredients for matching
+    existing_ings = await db.ingredients.find(
+        {"company_id": user.company_id},
+        {"_id": 0, "ingredient_id": 1, "name": 1, "base_unit": 1},
+    ).to_list(10000)
+    ing_by_name = {(i.get("name") or "").lower().strip(): i for i in existing_ings}
+
+    # Preload existing recipe names for duplicate detection
+    existing_recipes = await db.recipes.find(
+        {"company_id": user.company_id}, {"_id": 0, "name": 1}
+    ).to_list(5000)
+    existing_recipe_names = {(r.get("name") or "").lower().strip() for r in existing_recipes}
+
+    rows = []
+    valid_rows = 0
+    warning_rows = 0
+    error_rows = 0
+
+    for idx, row in df.iterrows():
+        row_num = int(idx) + 2  # +2 for header + 1-indexed
+        name = str(row.get("name") or "").strip()
+        errors = []
+        warnings = []
+        if not name:
+            errors.append("Nombre requerido")
+        # Ingredients
+        ing_parsed = _parse_ingredients_string(row.get("ingredients_str", ""))
+        matched_count = 0
+        unmatched_names = []
+        for ing in ing_parsed:
+            match = ing_by_name.get((ing["name"] or "").lower().strip())
+            if match:
+                matched_count += 1
+                ing["ingredient_id"] = match.get("ingredient_id")
+            else:
+                unmatched_names.append(ing["name"])
+        if ing_parsed and unmatched_names:
+            warnings.append(
+                f"{len(unmatched_names)} ingrediente(s) no encontrado(s) en inventario: "
+                + ", ".join(unmatched_names[:5])
+                + ("…" if len(unmatched_names) > 5 else "")
+            )
+        if name and name.lower() in existing_recipe_names:
+            warnings.append("Receta existente — se actualizará")
+
+        servings = row.get("servings")
+        try:
+            servings_int = int(float(servings)) if servings is not None and not (isinstance(servings, float) and pd.isna(servings)) else 1
+        except Exception:
+            servings_int = 1
+            warnings.append("Porciones inválidas, se usará 1")
+
+        status = "error" if errors else ("warning" if warnings else "valid")
+        if status == "valid":
+            valid_rows += 1
+        elif status == "warning":
+            warning_rows += 1
+        else:
+            error_rows += 1
+
+        rows.append({
+            "row_num": row_num,
+            "status": status,
+            "name": name,
+            "category": str(row.get("category") or "main").strip() or "main",
+            "recipe_type": str(row.get("recipe_type") or "final_dish").strip() or "final_dish",
+            "servings": servings_int,
+            "ingredients_count": len(ing_parsed),
+            "matched_count": matched_count,
+            "unmatched_count": len(unmatched_names),
+            "errors": errors,
+            "warnings": warnings,
+        })
+
+    return {
+        "valid": True,
+        "total_rows": len(rows),
+        "valid_rows": valid_rows,
+        "warning_rows": warning_rows,
+        "error_rows": error_rows,
+        "rows": rows,
+    }
+
+
+@recipes_bulk_router.post("/import-from-file")
+async def recipes_import_from_file(
+    file: UploadFile = File(...),
+    update_existing: bool = False,
+    user: User = Depends(get_current_user),
+):
+    """Import recipes from CSV/Excel. Matches ingredients to inventory by name and computes cost when possible."""
+    filename = (file.filename or "").lower()
+    if not (filename.endswith(".csv") or filename.endswith(".xlsx") or filename.endswith(".xls")):
+        raise HTTPException(status_code=400, detail="Solo se aceptan archivos CSV o Excel")
+    try:
+        content = await file.read()
+        df = _read_recipes_dataframe(content, filename)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"No se pudo leer el archivo: {e}")
+
+    if "name" not in df.columns:
+        raise HTTPException(status_code=400, detail="Falta la columna 'nombre' (o 'name')")
+
+    existing_ings = await db.ingredients.find(
+        {"company_id": user.company_id},
+        {"_id": 0, "ingredient_id": 1, "name": 1, "base_unit": 1, "purchase_unit": 1},
+    ).to_list(10000)
+    ing_by_name = {(i.get("name") or "").lower().strip(): i for i in existing_ings}
+
+    now = datetime.now(timezone.utc)
+    created = 0
+    updated = 0
+    skipped = 0
+    errors = []
+
+    for idx, row in df.iterrows():
+        row_num = int(idx) + 2
+        try:
+            name = str(row.get("name") or "").strip()
+            if not name:
+                errors.append({"row": row_num, "error": "Nombre vacío"})
+                continue
+            # Build ingredients list
+            parsed = _parse_ingredients_string(row.get("ingredients_str", ""))
+            recipe_ings = []
+            has_unmatched = False
+            for ing in parsed:
+                match = ing_by_name.get((ing["name"] or "").lower().strip())
+                if match:
+                    recipe_ings.append({
+                        "item_type": "ingredient",
+                        "item_id": match.get("ingredient_id"),
+                        "ingredient_id": match.get("ingredient_id"),
+                        "ingredient_name": match.get("name"),
+                        "quantity": float(ing.get("quantity") or 1),
+                        "unit": ing.get("unit") or match.get("base_unit") or "unit",
+                        "cost": 0.0,
+                    })
+                else:
+                    has_unmatched = True
+                    recipe_ings.append({
+                        "item_type": "ingredient",
+                        "item_id": None,
+                        "ingredient_id": None,
+                        "ingredient_name": ing.get("name"),
+                        "quantity": float(ing.get("quantity") or 1),
+                        "unit": ing.get("unit") or "unit",
+                        "cost": 0.0,
+                        "needs_review": True,
+                    })
+
+            try:
+                servings = int(float(row.get("servings"))) if row.get("servings") is not None and not (isinstance(row.get("servings"), float) and pd.isna(row.get("servings"))) else 1
+            except Exception:
+                servings = 1
+            if servings < 1:
+                servings = 1
+
+            recipe_type = str(row.get("recipe_type") or "final_dish").strip() or "final_dish"
+            if recipe_type not in ("base", "component", "final_dish"):
+                recipe_type = "final_dish"
+
+            try:
+                portion_price = float(row.get("default_portion_price")) if row.get("default_portion_price") is not None and not (isinstance(row.get("default_portion_price"), float) and pd.isna(row.get("default_portion_price"))) else 0.0
+            except Exception:
+                portion_price = 0.0
+
+            # Compute cost from matched ingredients (best-effort)
+            total_cost = 0.0
+            try:
+                from utils.units import cost_for_recipe_line  # type: ignore
+            except Exception:
+                cost_for_recipe_line = None
+            if cost_for_recipe_line:
+                for ri in recipe_ings:
+                    if not ri.get("ingredient_id"):
+                        continue
+                    ing_doc = ing_by_name.get((ri.get("ingredient_name") or "").lower().strip())
+                    if not ing_doc:
+                        continue
+                    try:
+                        line_cost = cost_for_recipe_line(ing_doc, ri.get("quantity"), ri.get("unit"))
+                        if line_cost is not None:
+                            ri["cost"] = float(line_cost)
+                            total_cost += float(line_cost)
+                    except Exception:
+                        pass
+
+            cost_per_portion = (total_cost / servings) if servings > 0 else total_cost
+
+            data = {
+                "name": name,
+                "category": str(row.get("category") or "main").strip() or "main",
+                "recipe_type": recipe_type,
+                "servings": servings,
+                "yield_quantity": float(servings),
+                "yield_unit": "portion",
+                "portion_size": 1.0,
+                "portion_unit": "serving",
+                "prep_time": str(row.get("prep_time") or "").strip() or "",
+                "instructions": str(row.get("instructions") or "").strip() or "",
+                "notes": str(row.get("notes") or "").strip() or "",
+                "default_portion_price": portion_price,
+                "sell_price": portion_price * servings if portion_price else 0.0,
+                "ingredients": recipe_ings,
+                "sub_recipes": [],
+                "total_cost": round(total_cost, 4),
+                "cost_per_portion": round(cost_per_portion, 4),
+                "cost_per_serving": round(cost_per_portion, 4),
+                "cost_per_yield": round(cost_per_portion, 4),
+                "needs_review": has_unmatched,
+                "updated_at": now.isoformat(),
+            }
+
+            existing = await db.recipes.find_one({
+                "company_id": user.company_id,
+                "name": {"$regex": f"^{re.escape(name)}$", "$options": "i"},
+            })
+            if existing:
+                if update_existing:
+                    await db.recipes.update_one(
+                        {"recipe_id": existing["recipe_id"], "company_id": user.company_id},
+                        {"$set": data},
+                    )
+                    updated += 1
+                else:
+                    skipped += 1
+            else:
+                data["recipe_id"] = f"recipe_{uuid.uuid4().hex[:12]}"
+                data["company_id"] = user.company_id
+                data["created_at"] = now.isoformat()
+                data["status"] = "active"
+                data["allergens"] = []
+                data["verified_status"] = "Draft"
+                await db.recipes.insert_one(data)
+                created += 1
+        except Exception as e:
+            errors.append({"row": row_num, "error": str(e)})
+
+    return {
+        "success": True,
+        "created": created,
+        "updated": updated,
+        "skipped": skipped,
+        "errors": errors[:20],
+    }
+
+
 # ============== PLATED MENU EXTENDED FIELDS ROUTES ==============
 
 @plated_menus_router.put("/{menu_id}/extended")
@@ -14847,6 +15237,7 @@ api_router.include_router(lead_forms_router)
 api_router.include_router(webhooks_router)  # External integrations (Zapier, Make, Meta)
 api_router.include_router(events_router)
 api_router.include_router(recipes_router)
+api_router.include_router(recipes_bulk_router)
 api_router.include_router(plated_menus_router)
 api_router.include_router(inventory_router)
 api_router.include_router(suppliers_router)

@@ -22,6 +22,30 @@ Build a comprehensive ERP application called **Kora OS** with modules for People
 - Sprint 7 (Apr-May 2026): Launch kit (May 1-3 event), tipografía Plus Jakarta Sans global, Bug fixes (Recipe whitescreen, Demand Studio post overwrite), Performance Dashboard CRM.
 
 
+### Recipes Bulk Import (CSV/Excel) — Feb 17, 2026
+**Goal**: Subir muchas recetas a la vez (al estilo del importador de Items) para usarlas en menús buffet sin tener que crearlas una por una.
+
+**Backend** (nuevo router `recipes_bulk_router` con prefix `/api/recipes-bulk`)
+- `GET /api/recipes-bulk/import-template?format=csv|excel` — descarga la plantilla con columnas y 2 filas de ejemplo (Ensalada César, Pollo al limón).
+- `POST /api/recipes-bulk/validate-import-file` — devuelve preview por fila (status valid/warning/error, conteo de ingredientes encontrados vs no encontrados, avisos por duplicados, porciones, etc.).
+- `POST /api/recipes-bulk/import-from-file?update_existing=bool` — importa, hace matching de ingredientes por nombre contra `db.ingredients`, calcula `total_cost` y `cost_per_portion` con `utils.units.cost_for_recipe_line`. Recetas con ingredientes no matcheados se crean con `needs_review=true`.
+
+**Formato de la columna `ingredientes`**:
+`Nombre1: cantidad unidad; Nombre2: cantidad unidad` — ej.: `Lechuga romana: 0.4 kg; Queso parmesano: 80 g`
+
+**Frontend**
+- Nuevo `RecipeImportDialog.js` — diálogo de 3 pasos (Seleccionar → Preview → Resultado), con tarjetas de stats (Total / Listas / Con avisos / Con errores), toggle "Actualizar existentes (por nombre)", y descarga de plantilla CSV y Excel.
+- Botón "Importar Recetas" agregado en `FoodOpsPage.js` → pestaña Recetas, junto a "Recalcular" y "Nueva Receta".
+
+**Notas de uso**: Las recetas con ingredientes no encontrados quedan marcadas "Por revisar" (badge ámbar) en la lista de recetas; el usuario las abre, enlaza el ingrediente correcto desde el `SearchableSelect` y recalcula.
+
+**Tests E2E (python)** ✅
+- Plantilla CSV se descarga (200, 479 bytes, 2 filas ejemplo).
+- Validate file: 2 filas detectadas como `warning` (ingredientes no en inventario reportados).
+- Import: `{created: 2, updated: 0, errors: []}`, ambas con `needs_review=true`.
+
+
+
 ### Searchable Selects + Alphabetical Clients/Leads — Feb 17, 2026
 **Goal**: Allow typing-to-search in long dropdowns (recipes, ingredients, suppliers, clients, leads) and present clients/leads in alphabetical order everywhere.
 
