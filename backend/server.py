@@ -8669,6 +8669,9 @@ async def add_items_from_plated_menu(proposal_id: str, body: Dict[str, Any], use
     plated_menu_id = body.get("menu_id")
     guest_count = float(body.get("guest_count") or 0)
     section_title_override = body.get("section_title")
+    mode = (body.get("mode") or "package").lower()  # "package" | "breakdown"
+    if mode not in ("package", "breakdown"):
+        mode = "package"
     if not plated_menu_id:
         raise HTTPException(status_code=400, detail="menu_id is required")
 
@@ -8698,6 +8701,63 @@ async def add_items_from_plated_menu(proposal_id: str, body: Dict[str, Any], use
 
     inserted = []
     sort_idx = 0
+    parent_id = None
+    section_title_for_all = section_title_override or menu.get("name") or "Menú"
+
+    if mode == "package":
+        # Compute total cost & price first by iterating courses
+        total_menu_cost = 0.0
+        total_menu_price = 0.0
+        for course in (menu.get("courses") or []):
+            for entry in (course.get("items") or []):
+                rid = entry.get("recipe_id")
+                if not rid:
+                    continue
+                rec = await db.recipes.find_one(
+                    {"recipe_id": rid, "company_id": user.company_id}, {"_id": 0, "cost_per_portion": 1, "default_portion_price": 1}
+                )
+                if not rec:
+                    continue
+                ppg = float(entry.get("portions_per_guest") or 1.0)
+                fmt = await db.recipe_portion_formats.find_one(
+                    {"recipe_id": rid, "company_id": user.company_id, "is_default": True}, {"_id": 0, "cost_per_portion": 1, "sell_price": 1}
+                )
+                cpp = (fmt.get("cost_per_portion") if fmt else None) or rec.get("cost_per_portion") or 0
+                spp = (fmt.get("sell_price") if fmt else None) or rec.get("default_portion_price") or (cpp * 3 if cpp else 0)
+                total_menu_cost += ppg * guest_count * cpp
+                total_menu_price += ppg * guest_count * spp
+
+        # Create ONE parent line for the menu
+        parent_id = f"oi_{uuid.uuid4().hex[:12]}"
+        guests_label = f" · {int(guest_count)} {'invitados'}"
+        parent_doc = {
+            "item_id": parent_id,
+            "event_id": proposal["event_id"],
+            "proposal_id": proposal_id,
+            "company_id": user.company_id,
+            "item_type": "Food",
+            "reference_id": plated_menu_id,
+            "description": f"{menu.get('name') or 'Menú'}{guests_label}",
+            "quantity": 1,
+            "unit_price": float(total_menu_price),
+            "internal_cost": float(total_menu_cost),
+            "total_price": float(total_menu_price),
+            "total_cost": float(total_menu_cost),
+            "margin_amount": float(total_menu_price - total_menu_cost),
+            "margin_percentage": ((total_menu_price - total_menu_cost) / total_menu_price * 100) if total_menu_price > 0 else None,
+            "category_id": food_cat.get("category_id"),
+            "category_name": food_cat.get("name"),
+            "section_title": section_title_for_all,
+            "sort_order": 0,
+            "created_at": now.isoformat(),
+            "updated_at": now.isoformat(),
+            "loaded_from_plated_menu_id": plated_menu_id,
+        }
+        await db.order_items.insert_one(parent_doc)
+        parent_doc.pop("_id", None)
+        inserted.append(parent_doc)
+        sort_idx = 1
+
     for course in (menu.get("courses") or []):
         course_name = course.get("course_name") or "Course"
         for entry in (course.get("items") or []):
@@ -8719,10 +8779,22 @@ async def add_items_from_plated_menu(proposal_id: str, body: Dict[str, Any], use
             cost_per_portion = (fmt.get("cost_per_portion") if fmt else None) or rec.get("cost_per_portion") or 0
             sell_per_portion = (fmt.get("sell_price") if fmt else None) or rec.get("default_portion_price") or (cost_per_portion * 3 if cost_per_portion else 0)
 
-            total_price = qty * sell_per_portion
-            total_cost = qty * cost_per_portion
-            margin_amount = total_price - total_cost
-            margin_pct = (margin_amount / total_price * 100) if total_price > 0 else None
+            if mode == "package":
+                # Child line: informational only, no charge (parent holds the total)
+                doc_price = 0.0
+                doc_cost = 0.0
+                doc_unit_price = 0.0
+                doc_internal_cost = 0.0
+                description = f"{entry.get('recipe_name') or rec.get('name') or 'Item'} ({course_name})"
+            else:
+                doc_price = qty * sell_per_portion
+                doc_cost = qty * cost_per_portion
+                doc_unit_price = float(sell_per_portion or 0)
+                doc_internal_cost = float(cost_per_portion or 0)
+                description = entry.get("recipe_name") or rec.get("name") or "Item"
+
+            margin_amount = doc_price - doc_cost
+            margin_pct = (margin_amount / doc_price * 100) if doc_price > 0 else None
 
             item_id = f"oi_{uuid.uuid4().hex[:12]}"
             doc = {
@@ -8732,17 +8804,17 @@ async def add_items_from_plated_menu(proposal_id: str, body: Dict[str, Any], use
                 "company_id": user.company_id,
                 "item_type": "Food",
                 "reference_id": recipe_id,
-                "description": entry.get("recipe_name") or rec.get("name") or "Item",
+                "description": description,
                 "quantity": qty,
-                "unit_price": float(sell_per_portion or 0),
-                "internal_cost": float(cost_per_portion or 0),
-                "total_price": float(total_price or 0),
-                "total_cost": float(total_cost or 0),
+                "unit_price": doc_unit_price,
+                "internal_cost": doc_internal_cost,
+                "total_price": float(doc_price or 0),
+                "total_cost": float(doc_cost or 0),
                 "margin_amount": float(margin_amount or 0),
                 "margin_percentage": margin_pct,
                 "category_id": food_cat.get("category_id"),
                 "category_name": food_cat.get("name"),
-                "section_title": section_title_override or f"{menu.get('name')} — {course_name}",
+                "section_title": section_title_for_all if mode == "package" else (section_title_override or f"{menu.get('name')} — {course_name}"),
                 "sort_order": sort_idx,
                 "created_at": now.isoformat(),
                 "updated_at": now.isoformat(),
@@ -8750,6 +8822,7 @@ async def add_items_from_plated_menu(proposal_id: str, body: Dict[str, Any], use
                 "loaded_from_course_id": course.get("course_id"),
                 "_portion_format_id": fmt.get("format_id") if fmt else None,
                 "_portion_format_name": fmt.get("format_name") if fmt else None,
+                "parent_item_id": parent_id if mode == "package" else None,
             }
             await db.order_items.insert_one(doc)
             doc.pop("_id", None)
@@ -8762,6 +8835,7 @@ async def add_items_from_plated_menu(proposal_id: str, body: Dict[str, Any], use
         "menu_type": menu.get("menu_type"),
         "serving_style": menu.get("serving_style"),
         "guest_count_used": guest_count,
+        "mode": mode,
         "items": inserted,
     }
 

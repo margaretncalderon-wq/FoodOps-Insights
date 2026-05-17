@@ -161,6 +161,7 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
   const [addItemOpen, setAddItemOpen] = useState(false);
   const [editingItemId, setEditingItemId] = useState(null);
   const [addMenuOpen, setAddMenuOpen] = useState(false);
+  const [menuAddMode, setMenuAddMode] = useState("package"); // "package" | "breakdown"
   const [statusDialogOpen, setStatusDialogOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -636,15 +637,19 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
         {
           menu_id: platedMenu.menu_id,
           guest_count: event?.guest_count || event?.num_guests || 0,
+          mode: menuAddMode,
         },
         { withCredentials: true },
       );
       const addedCount = res.data?.items_added || 0;
       const guests = res.data?.guest_count_used;
+      const modeLabel = res.data?.mode === "package"
+        ? (language === "es" ? "como paquete" : "as package")
+        : (language === "es" ? "desglosado" : "broken down");
       toast.success(
         language === "es"
-          ? `${addedCount} ítems agregados desde "${platedMenu.name}" (${guests} invitados)`
-          : `${addedCount} items added from "${platedMenu.name}" (${guests} guests)`,
+          ? `${addedCount} línea(s) agregada(s) ${modeLabel} desde "${platedMenu.name}" (${guests} invitados)`
+          : `${addedCount} line(s) added ${modeLabel} from "${platedMenu.name}" (${guests} guests)`,
       );
       fetchProposal();
       fetchFinancials();
@@ -1259,6 +1264,25 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
       if (res.data) handleEditItem(res.data);
     } catch (e) {
       toast.error(e.response?.data?.detail || "Error");
+    }
+  };
+
+  const handleSectionDateChange = async (itype, title, newDate) => {
+    const items = proposal?.items?.filter(
+      (i) => i.item_type === itype && (i.section_title || "") === (title || "")
+    ) || [];
+    if (items.length === 0) return;
+    try {
+      await Promise.all(
+        items.map((it) =>
+          axios.put(`${API}/proposals/${proposal.proposal_id}/items/${it.item_id}`,
+            { event_date: newDate || null },
+            { withCredentials: true })
+        )
+      );
+      fetchProposal();
+    } catch (e) {
+      toast.error(language === "es" ? "Error al cambiar fecha" : "Failed to update date");
     }
   };
 
@@ -1911,6 +1935,30 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
                                       <span className="text-xs text-muted-foreground shrink-0">
                                         · {section.items.length} {language === "es" ? "ítems" : "items"}
                                       </span>
+                                      {/* Section date selector (from day_logistics) */}
+                                      {dayLogistics.length > 0 && (() => {
+                                        const firstWithDate = section.items.find(i => i.event_date);
+                                        const currentDate = firstWithDate?.event_date || "";
+                                        return (
+                                          <Select
+                                            value={currentDate || "__none__"}
+                                            disabled={isLocked}
+                                            onValueChange={(v) => handleSectionDateChange(itype, section.title, v === "__none__" ? null : v)}
+                                          >
+                                            <SelectTrigger className="h-6 w-[120px] text-[11px] border-muted-foreground/20 bg-white px-2" data-testid={`section-date-${section.title || "default"}`}>
+                                              <SelectValue placeholder={language === "es" ? "Fecha" : "Date"} />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                              <SelectItem value="__none__" className="text-xs">{language === "es" ? "Sin asignar" : "Unassigned"}</SelectItem>
+                                              {dayLogistics.map((d) => (
+                                                <SelectItem key={d.event_date} value={d.event_date} className="text-xs">
+                                                  {d.event_date} {d.delivery_time ? `· ${d.delivery_time}` : ""}
+                                                </SelectItem>
+                                              ))}
+                                            </SelectContent>
+                                          </Select>
+                                        );
+                                      })()}
                                       {/* Section service time range */}
                                       {(() => {
                                         const firstWithTime = section.items.find(i => i.section_time);
@@ -3457,6 +3505,37 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
               data-testid="menu-search-input"
             />
           </div>
+
+          {/* Mode toggle (only relevant for CI plated menus) */}
+          {platedMenus.length > 0 && (
+            <div className="mb-4 p-3 bg-slate-50 rounded-md border" data-testid="menu-add-mode-toggle">
+              <Label className="text-xs font-medium mb-2 block">
+                {language === "es" ? "Cómo agregar el menú a la cotización" : "How to add the menu to the proposal"}
+              </Label>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { key: "package", label_es: "Como paquete (1 línea)", label_en: "As package (1 line)", desc_es: "Una sola línea con el menú; recetas anidadas como sub-ítems", desc_en: "One line for the menu; recipes shown as nested sub-items" },
+                  { key: "breakdown", label_es: "Desglosado por receta", label_en: "Broken down per recipe", desc_es: "Una línea por cada receta del menú", desc_en: "One line per recipe in the menu" },
+                ].map((opt) => {
+                  const active = menuAddMode === opt.key;
+                  return (
+                    <button
+                      key={opt.key}
+                      type="button"
+                      onClick={() => setMenuAddMode(opt.key)}
+                      className={`text-left p-2 rounded border transition-all ${
+                        active ? "border-emerald-500 bg-emerald-50" : "border-slate-200 hover:border-slate-300 bg-white"
+                      }`}
+                      data-testid={`menu-mode-${opt.key}`}
+                    >
+                      <div className="text-xs font-semibold">{language === "es" ? opt.label_es : opt.label_en}</div>
+                      <div className="text-[10px] text-muted-foreground mt-0.5">{language === "es" ? opt.desc_es : opt.desc_en}</div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {(() => {
             const searchLower = (menuSearch || "").trim().toLowerCase();
