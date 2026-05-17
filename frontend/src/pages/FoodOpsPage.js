@@ -1276,11 +1276,16 @@ function RecipesSection() {
     }
   };
 
+  const [pendingReviewOnly, setPendingReviewOnly] = useState(false);
+
   const filteredRecipes = recipes.filter(r => {
     const matchesSearch = r.name?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesType = typeFilter === "all" || r.recipe_type === typeFilter;
-    return matchesSearch && matchesType;
+    const matchesReview = !pendingReviewOnly || r.needs_review === true;
+    return matchesSearch && matchesType && matchesReview;
   });
+
+  const pendingReviewCount = recipes.filter(r => r.needs_review === true).length;
 
   const getRecipeTypeIcon = (type) => {
     switch (type) {
@@ -1319,8 +1324,22 @@ function RecipesSection() {
 
       {/* Header */}
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>{language === "es" ? "Recetas" : "Recipes"}</CardTitle>
+        <CardHeader className="flex flex-row items-center justify-between flex-wrap gap-2">
+          <div className="flex items-center gap-3">
+            <CardTitle>{language === "es" ? "Recetas" : "Recipes"}</CardTitle>
+            {pendingReviewCount > 0 && (
+              <Button
+                variant={pendingReviewOnly ? "default" : "outline"}
+                size="sm"
+                className={pendingReviewOnly ? "" : "border-amber-400 text-amber-700 bg-amber-50 hover:bg-amber-100"}
+                onClick={() => setPendingReviewOnly(!pendingReviewOnly)}
+                data-testid="recipes-pending-review-filter"
+              >
+                <AlertTriangle className="w-3.5 h-3.5 mr-1" />
+                {pendingReviewCount} {language === "es" ? "por revisar" : "to review"}
+              </Button>
+            )}
+          </div>
           <div className="flex items-center gap-2">
             <div className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" /><Input placeholder={language === "es" ? "Buscar..." : "Search..."} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-9 w-64" /></div>
             <Select value={typeFilter} onValueChange={setTypeFilter}>
@@ -1352,8 +1371,14 @@ function RecipesSection() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <CardTitle className="text-base truncate">{recipe.name}</CardTitle>
-                      <div className="flex items-center gap-2 mt-1">
+                      <div className="flex items-center gap-2 mt-1 flex-wrap">
                         {getRecipeTypeBadge(recipe.recipe_type)}
+                        {recipe.needs_review === true && (
+                          <Badge className="bg-amber-100 text-amber-800 border border-amber-300 text-[10px]">
+                            <AlertTriangle className="w-3 h-3 mr-0.5" />
+                            {language === "es" ? "Revisar" : "Review"}
+                          </Badge>
+                        )}
                         <span className="text-xs text-muted-foreground">
                           {recipe.yield_quantity} {recipe.yield_unit}
                         </span>

@@ -869,8 +869,17 @@ export default function SettingsPage() {
         unit: "unit",
         is_active: true,
       }));
-      await axios.post(`${API}/settings/picklist/bulk`, { items }, { withCredentials: true });
-      toast.success(language === "es" ? `${items.length} ítems creados` : `${items.length} items created`);
+      const res = await axios.post(`${API}/settings/picklist/bulk`, { items }, { withCredentials: true });
+      const autoRecipes = res?.data?.auto_created_recipes || 0;
+      if (autoRecipes > 0) {
+        toast.success(
+          language === "es"
+            ? `${items.length} ítems creados · ${autoRecipes} receta(s) auto-creadas (revisa en Culinary Intelligence)`
+            : `${items.length} items created · ${autoRecipes} recipe(s) auto-created (review in Culinary Intelligence)`
+        );
+      } else {
+        toast.success(language === "es" ? `${items.length} ítems creados` : `${items.length} items created`);
+      }
       fetchPicklist();
       setBulkAddOpen(false);
       setBulkItems("");
@@ -3201,6 +3210,16 @@ export default function SettingsPage() {
                           : "You can paste directly from Excel or Google Sheets"}
                       </span>
                     </div>
+                    {newPicklist.item_type?.toLowerCase() === "food" && (
+                      <div className="rounded-md bg-emerald-50 border border-emerald-200 p-2 text-[11px] text-emerald-800 flex items-start gap-2">
+                        <span>🍳</span>
+                        <span>
+                          {language === "es"
+                            ? "Para cada ítem Comida, si no existe una receta con el mismo nombre se creará una receta automáticamente con el costo indicado. Aparecerá en Culinary Intelligence con etiqueta \"por revisar\" para que agregues los ingredientes."
+                            : "For each Food item, if no recipe with the same name exists, a recipe will be auto-created with the given cost. It will appear in Culinary Intelligence flagged \"to review\" so you can fill in ingredients."}
+                        </span>
+                      </div>
+                    )}
                     <Textarea
                       value={bulkItems}
                       onChange={(e) => setBulkItems(e.target.value)}

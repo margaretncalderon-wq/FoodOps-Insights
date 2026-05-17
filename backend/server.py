@@ -2939,7 +2939,11 @@ async def update_recipe(recipe_id: str, data: RecipeCreate, user: User = Depends
         "food_cost_percent": round(food_cost_percent, 2),
         "updated_at": now.isoformat()
     }
-    
+
+    # Auto-clear the "needs_review" flag once the recipe has actual content (≥1 ingredient or sub-recipe).
+    if (len(updated_ingredients) > 0) or (len(updated_sub_recipes) > 0):
+        update_data["needs_review"] = False
+
     result = await db.recipes.update_one({"recipe_id": recipe_id, "company_id": user.company_id}, {"$set": update_data})
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Recipe not found")
@@ -6874,24 +6878,96 @@ async def create_picklist_item(data: PicklistItemCreate, user: User = Depends(ge
 
 @settings_router.post("/picklist/bulk")
 async def create_picklist_items_bulk(data: PicklistBulkCreate, user: User = Depends(get_current_user)):
-    """Create multiple picklist items at once"""
+    """Create multiple picklist items at once.
+    For Food items without a recipe_id, auto-creates a Recipe stub in Culinary Intelligence
+    (flagged needs_review=True) so it can be completed later with real ingredients."""
     now = datetime.now(timezone.utc)
     created_items = []
-    
+    auto_created_recipes = 0
+
+    # Fast lookup of existing recipes by lower-cased name
+    existing = await db.recipes.find(
+        {"company_id": user.company_id},
+        {"_id": 0, "recipe_id": 1, "name": 1, "name_es": 1, "cost_per_portion": 1},
+    ).to_list(2000)
+    name_to_recipe = {}
+    for r in existing:
+        for key in [r.get("name"), r.get("name_es")]:
+            if key:
+                name_to_recipe[key.strip().lower()] = r
+
     for item_data in data.items:
+        item_dict = item_data.model_dump()
         item_id = f"pli_{uuid.uuid4().hex[:12]}"
+
+        # Auto-link / auto-create recipe for Food items
+        if (item_dict.get("item_type") or "").lower() == "food" and not item_dict.get("recipe_id"):
+            name_key = (item_dict.get("name") or "").strip().lower()
+            matched = name_to_recipe.get(name_key) if name_key else None
+            if matched:
+                # Reuse existing — also adopt its cost if user didn't provide one
+                item_dict["recipe_id"] = matched["recipe_id"]
+                if item_dict.get("internal_cost") in (None, 0) and matched.get("cost_per_portion"):
+                    item_dict["internal_cost"] = matched["cost_per_portion"]
+            elif name_key:
+                # Auto-create recipe stub
+                recipe_id = f"recipe_{uuid.uuid4().hex[:12]}"
+                seed_cost = float(item_dict.get("internal_cost") or 0)
+                recipe_doc = {
+                    "recipe_id": recipe_id,
+                    "company_id": user.company_id,
+                    "name": item_data.name,
+                    "name_es": item_data.name,
+                    "description": item_data.description or "",
+                    "category": "Uncategorized",
+                    "yield_quantity": 1.0,
+                    "yield_unit": "portion",
+                    "portion_size": 1.0,
+                    "portion_unit": "serving",
+                    "portions_per_yield": 1.0,
+                    "prep_time": 0,
+                    "cook_time": 0,
+                    "difficulty": "medium",
+                    "ingredients": [],
+                    "instructions": "",
+                    "allergens": [],
+                    "dietary_tags": [],
+                    "default_portion_price": float(item_dict.get("default_price") or 0),
+                    "recipe_type": "Final",
+                    "is_public": True,
+                    "is_on_menu": False,
+                    "sub_recipes": [],
+                    "total_cost": seed_cost,
+                    "cost_per_portion": seed_cost,
+                    "cost_breakdown": {"ingredients": 0, "labor": 0, "overhead": 0, "manual_override": seed_cost},
+                    # Review flags so it appears in Culinary Intelligence with a "Pending Review" pill
+                    "needs_review": True,
+                    "auto_created_from": "bulk_picklist_add",
+                    "auto_created_at": now.isoformat(),
+                    "created_at": now.isoformat(),
+                    "updated_at": now.isoformat(),
+                }
+                await db.recipes.insert_one(recipe_doc)
+                name_to_recipe[name_key] = {"recipe_id": recipe_id, "name": item_data.name, "cost_per_portion": seed_cost}
+                item_dict["recipe_id"] = recipe_id
+                auto_created_recipes += 1
+
         item_doc = {
             "item_id": item_id,
             "company_id": user.company_id,
-            **item_data.model_dump(),
+            **item_dict,
             "created_at": now.isoformat(),
-            "updated_at": now.isoformat()
+            "updated_at": now.isoformat(),
         }
         await db.picklist_items.insert_one(item_doc)
-        del item_doc["_id"]
+        item_doc.pop("_id", None)
         created_items.append(item_doc)
-    
-    return {"created": len(created_items), "items": created_items}
+
+    return {
+        "created": len(created_items),
+        "items": created_items,
+        "auto_created_recipes": auto_created_recipes,
+    }
 
 @settings_router.put("/picklist/{item_id}")
 async def update_picklist_item(item_id: str, data: PicklistItemUpdate, user: User = Depends(get_current_user)):
