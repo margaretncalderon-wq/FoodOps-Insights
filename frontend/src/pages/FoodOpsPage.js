@@ -1802,6 +1802,12 @@ function RecipesSection() {
           )}
         </DialogContent>
       </Dialog>
+
+      <RecipeImportDialog
+        open={recipeImportOpen}
+        onClose={() => setRecipeImportOpen(false)}
+        onImported={fetchData}
+      />
     </div>
   );
 }
@@ -2167,11 +2173,6 @@ function PlatedMenusSection() {
       <CulinaryDigestDialog
         open={digestDialogOpen}
         onOpenChange={setDigestDialogOpen}
-      />
-      <RecipeImportDialog
-        open={recipeImportOpen}
-        onClose={() => setRecipeImportOpen(false)}
-        onImported={fetchData}
       />
     </div>
   );
