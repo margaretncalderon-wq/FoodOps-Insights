@@ -21,6 +21,22 @@ Build a comprehensive ERP application called **Kora OS** with modules for People
 - Sprint 6 (Apr 2026): CRM Map (react-leaflet), Dashboard funnel/pipeline alignment, in-app notifications on conversion, follow-ups dialog, Execution Hub privacy, company_entity_id migration.
 - Sprint 7 (Apr-May 2026): Launch kit (May 1-3 event), tipografía Plus Jakarta Sans global, Bug fixes (Recipe whitescreen, Demand Studio post overwrite), Performance Dashboard CRM.
 
+
+### Buffet Menu Selection Rules — Feb 17, 2026
+**Goal**: Quote Ciano-style dynamic buffet menus ("Choose 1 of 5 salads, 2 of 6 proteins") with a fixed base price per guest and per-course extra-choice surcharges.
+
+**Backend (`server.py`)**
+- `MenuCourse` extended with `min_choices`, `max_choices`, `extra_choice_price`.
+- `PlatedMenu` / `PlatedMenuCreate` extended with `base_price_per_guest` (0 = use sum of recipe prices).
+- `POST /api/proposals/{id}/items/bulk-from-plated-menu` now accepts `selected_items: {course_id: [recipe_id,...]}` to filter dishes and computes extras = Σ max(0, picks − max_choices) × course.extra_choice_price × guests. When `base_price_per_guest > 0`, parent line price = `base × guests + extras`.
+
+**Frontend**
+- `PlatedMenuBuilder.js`: New "Precio Base por Invitado" field; per-course Min / Max / Extra Price controls (auto-shown for buffet/cocktail/grab_and_go) with an inline rule preview.
+- `BuffetSelectionDialog.js` (new): Opens automatically from ProposalEditor when adding a menu that has selection rules or a base price. Operator picks dishes per course; the dialog enforces min, flags extras over max, and previews `Base × guests`, Extras, and Total Menu in real time before confirming.
+- `ProposalEditor.js`: `handleAddPlatedMenu` detects rules/base price and routes through the dialog; passes `selected_items` to the backend.
+
+**Tests**: Python E2E verified — base only ($75 × 20 = $1,500) and base + extras (1 extra salad @ $5 + 1 extra entrée @ $10 × 20 = $1,800).
+
 ## Latest Releases
 
 ### Culinary UX — Live Cost Preview + Wizard + Review Banner (Feb 14, 2026)

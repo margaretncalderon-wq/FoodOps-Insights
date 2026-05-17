@@ -776,6 +776,10 @@ class MenuCourse(BaseModel):
     course_name: str  # appetizer, salad, soup, entree, dessert
     course_order: int = 0
     items: List[Dict[str, Any]] = []  # [{recipe_id, recipe_name, portions_per_guest, notes}]
+    # Buffet-style selection rules (Ciano-style "Choose 1 of 5")
+    min_choices: Optional[int] = None  # Minimum dishes client picks (None = no rule)
+    max_choices: Optional[int] = None  # Maximum dishes included in base price (None = all)
+    extra_choice_price: float = 0.0  # Price per guest for each extra dish beyond max_choices
 
 class PlatedMenuCreate(BaseModel):
     name: str
@@ -786,6 +790,7 @@ class PlatedMenuCreate(BaseModel):
     courses: List[MenuCourse] = []
     buffer_percentage: float = 0.0  # Extra % for prep loss/overage
     notes: Optional[str] = None
+    base_price_per_guest: float = 0.0  # Fixed package price per guest (buffet-style); 0 = sum of recipe prices
 
 class PlatedMenu(BaseModel):
     menu_id: str
@@ -799,6 +804,7 @@ class PlatedMenu(BaseModel):
     buffer_percentage: float = 0.0
     cost_per_guest: float = 0.0  # Calculated from recipe costs
     cost_with_buffer: float = 0.0  # cost_per_guest * (1 + buffer_percentage/100)
+    base_price_per_guest: float = 0.0
     notes: Optional[str] = None
     status: str = "active"  # active, archived
     created_at: datetime
@@ -3690,6 +3696,7 @@ async def create_plated_menu(data: PlatedMenuCreate, user: User = Depends(get_cu
         "buffer_percentage": buffer_pct,
         "cost_per_guest": cost_per_guest,
         "cost_with_buffer": round(cost_with_buffer, 4),
+        "base_price_per_guest": float(data.base_price_per_guest or 0),
         "notes": data.notes,
         "status": "active",
         "created_at": now.isoformat(),
@@ -3731,6 +3738,7 @@ async def update_plated_menu(menu_id: str, data: PlatedMenuCreate, user: User = 
         "buffer_percentage": buffer_pct,
         "cost_per_guest": cost_per_guest,
         "cost_with_buffer": round(cost_with_buffer, 4),
+        "base_price_per_guest": float(data.base_price_per_guest or 0),
         "notes": data.notes,
         "updated_at": now.isoformat()
     }
@@ -8665,11 +8673,18 @@ async def add_items_from_menu(proposal_id: str, body: Dict[str, Any], user: User
 async def add_items_from_plated_menu(proposal_id: str, body: Dict[str, Any], user: User = Depends(get_current_user)):
     """Load a Culinary Intelligence menu (plated/buffet/family-style/cocktail/grab_and_go) into a proposal.
     Each recipe in each course becomes one OrderItem. Quantity = portions_per_guest * guest_count.
-    Unit price comes from recipe.default_portion_price (or default portion format), cost from recipe.cost_per_portion."""
+    Unit price comes from recipe.default_portion_price (or default portion format), cost from recipe.cost_per_portion.
+
+    Optional buffet-style fields:
+      - selected_items: {course_id: [recipe_id, ...]} — operator's picks (filters dishes)
+      - When menu.base_price_per_guest > 0: parent line price = base_price * guests + extras
+        Extras = sum over courses of max(0, picks - max_choices) * course.extra_choice_price * guests
+    """
     plated_menu_id = body.get("menu_id")
     guest_count = float(body.get("guest_count") or 0)
     section_title_override = body.get("section_title")
     mode = (body.get("mode") or "package").lower()  # "package" | "breakdown"
+    selected_items = body.get("selected_items") or {}  # {course_id: [recipe_id, ...]}
     if mode not in ("package", "breakdown"):
         mode = "package"
     if not plated_menu_id:
@@ -8694,6 +8709,19 @@ async def add_items_from_plated_menu(proposal_id: str, body: Dict[str, Any], use
     if not menu:
         raise HTTPException(status_code=404, detail="Plated menu not found")
 
+    base_price_pg = float(menu.get("base_price_per_guest") or 0)
+    use_base_price = base_price_pg > 0
+
+    # Filter courses' items by selected_items (if provided for that course)
+    def _filter_course_items(course):
+        course_id = course.get("course_id")
+        if course_id in selected_items:
+            picks = set(selected_items.get(course_id) or [])
+            if picks:
+                course = dict(course)
+                course["items"] = [it for it in (course.get("items") or []) if it.get("recipe_id") in picks]
+        return course
+
     now = datetime.now(timezone.utc)
     food_cat = await db.item_categories.find_one(
         {"company_id": user.company_id, "key": "Food"}, {"_id": 0, "category_id": 1, "name": 1}
@@ -8705,11 +8733,13 @@ async def add_items_from_plated_menu(proposal_id: str, body: Dict[str, Any], use
     section_title_for_all = section_title_override or menu.get("name") or "Menú"
 
     if mode == "package":
-        # Compute total cost & price first by iterating courses
+        # Compute total cost & price first by iterating (filtered) courses
         total_menu_cost = 0.0
         total_menu_price = 0.0
+        extras_charge_total = 0.0  # extras over max_choices, charged per guest
         for course in (menu.get("courses") or []):
-            for entry in (course.get("items") or []):
+            fcourse = _filter_course_items(course)
+            for entry in (fcourse.get("items") or []):
                 rid = entry.get("recipe_id")
                 if not rid:
                     continue
@@ -8726,10 +8756,22 @@ async def add_items_from_plated_menu(proposal_id: str, body: Dict[str, Any], use
                 spp = (fmt.get("sell_price") if fmt else None) or rec.get("default_portion_price") or (cpp * 3 if cpp else 0)
                 total_menu_cost += ppg * guest_count * cpp
                 total_menu_price += ppg * guest_count * spp
+            # Extras: picks beyond max_choices
+            max_choices = course.get("max_choices")
+            extra_price = float(course.get("extra_choice_price") or 0)
+            picks_count = len(fcourse.get("items") or [])
+            if max_choices is not None and extra_price > 0 and picks_count > max_choices:
+                extras_charge_total += (picks_count - max_choices) * extra_price * guest_count
+
+        # Override price with base_price if set
+        if use_base_price:
+            total_menu_price = base_price_pg * guest_count + extras_charge_total
 
         # Create ONE parent line for the menu
         parent_id = f"oi_{uuid.uuid4().hex[:12]}"
         guests_label = f" · {int(guest_count)} {'invitados'}"
+        if use_base_price and extras_charge_total > 0:
+            guests_label += f" · +${extras_charge_total:.2f} extras"
         parent_doc = {
             "item_id": parent_id,
             "event_id": proposal["event_id"],
@@ -8759,6 +8801,7 @@ async def add_items_from_plated_menu(proposal_id: str, body: Dict[str, Any], use
         sort_idx = 1
 
     for course in (menu.get("courses") or []):
+        course = _filter_course_items(course)
         course_name = course.get("course_name") or "Course"
         for entry in (course.get("items") or []):
             recipe_id = entry.get("recipe_id")

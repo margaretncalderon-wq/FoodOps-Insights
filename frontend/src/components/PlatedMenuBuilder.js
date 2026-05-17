@@ -63,7 +63,9 @@ export default function PlatedMenuBuilder({ onClose, onSave, initialMenu = null,
     default_guest_count: 50,
     sell_price_per_guest: 0,
     target_margin_pct: 35,
-    tax_included: false
+    tax_included: false,
+    // Buffet selection package fields
+    base_price_per_guest: 0
   });
 
   // Load portion formats for a recipe
@@ -93,7 +95,8 @@ export default function PlatedMenuBuilder({ onClose, onSave, initialMenu = null,
         default_guest_count: initialMenu.default_guest_count || 50,
         sell_price_per_guest: initialMenu.sell_price_per_guest || 0,
         target_margin_pct: initialMenu.target_margin_pct || 35,
-        tax_included: initialMenu.tax_included || false
+        tax_included: initialMenu.tax_included || false,
+        base_price_per_guest: initialMenu.base_price_per_guest || 0
       });
     }
   }, [initialMenu]);
@@ -145,8 +148,18 @@ export default function PlatedMenuBuilder({ onClose, onSave, initialMenu = null,
         course_id: courseId,
         course_name: defaultCourse ? defaultCourse.name : "",
         course_order: prev.courses.length,
-        items: []
+        items: [],
+        min_choices: null,
+        max_choices: null,
+        extra_choice_price: 0
       }]
+    }));
+  };
+
+  const updateCourseRule = (courseId, field, value) => {
+    setForm(prev => ({
+      ...prev,
+      courses: prev.courses.map(c => c.course_id === courseId ? { ...c, [field]: value } : c)
     }));
   };
 
@@ -449,6 +462,48 @@ export default function PlatedMenuBuilder({ onClose, onSave, initialMenu = null,
                   </div>
                 </CardHeader>
                 <CardContent className="pt-3">
+                  {/* Buffet selection rules: Min/Max choices and extra price (visible when buffet/cocktail/etc.) */}
+                  {(form.menu_type === "buffet" || form.menu_type === "cocktail" || form.menu_type === "grab_and_go") && (
+                    <div className="mb-3 p-3 bg-amber-50/60 border border-amber-200 rounded-md grid grid-cols-1 md:grid-cols-3 gap-3" data-testid={`course-rules-${course.course_id}`}>
+                      <div>
+                        <Label className="text-xs">{language === "es" ? "Mín. a elegir" : "Min choices"}</Label>
+                        <Input
+                          type="number" min="0" step="1"
+                          className="h-8 text-xs"
+                          value={course.min_choices ?? ""}
+                          onChange={(e) => updateCourseRule(course.course_id, "min_choices", e.target.value === "" ? null : parseInt(e.target.value))}
+                          placeholder={language === "es" ? "sin regla" : "no rule"}
+                          data-testid={`course-min-${course.course_id}`}
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs">{language === "es" ? "Máx. incluidas" : "Max in base price"}</Label>
+                        <Input
+                          type="number" min="0" step="1"
+                          className="h-8 text-xs"
+                          value={course.max_choices ?? ""}
+                          onChange={(e) => updateCourseRule(course.course_id, "max_choices", e.target.value === "" ? null : parseInt(e.target.value))}
+                          placeholder={language === "es" ? "todas" : "all"}
+                          data-testid={`course-max-${course.course_id}`}
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs">{language === "es" ? "Precio extra c/u (por invitado)" : "Extra price each (per guest)"}</Label>
+                        <Input
+                          type="number" min="0" step="0.01"
+                          className="h-8 text-xs"
+                          value={course.extra_choice_price ?? 0}
+                          onChange={(e) => updateCourseRule(course.course_id, "extra_choice_price", parseFloat(e.target.value) || 0)}
+                          data-testid={`course-extra-${course.course_id}`}
+                        />
+                      </div>
+                      <div className="md:col-span-3 text-xs text-amber-700">
+                        {language === "es"
+                          ? `Ej: "Elige ${course.min_choices || 1} de ${(course.items || []).length}". Si eligen más de ${course.max_choices ?? "todas"}, se cobra $${(course.extra_choice_price || 0).toFixed(2)} extra por invitado por cada adicional.`
+                          : `E.g., "Choose ${course.min_choices || 1} of ${(course.items || []).length}". Selecting more than ${course.max_choices ?? "all"} adds $${(course.extra_choice_price || 0).toFixed(2)} per guest each.`}
+                      </div>
+                    </div>
+                  )}
                   {course.items.length === 0 ? (
                     <p className="text-sm text-muted-foreground text-center py-4">{t("noDishes")}</p>
                   ) : (
@@ -584,6 +639,38 @@ export default function PlatedMenuBuilder({ onClose, onSave, initialMenu = null,
                 </Tooltip>
               </TooltipProvider>
             </div>
+          </div>
+        </div>
+
+        {/* Buffet base package price (per guest) */}
+        <div className="p-3 bg-amber-50/60 border border-amber-200 rounded-md flex flex-col md:flex-row md:items-end gap-3">
+          <div className="flex-1">
+            <Label className="text-xs flex items-center gap-1">
+              {language === "es" ? "Precio Base por Invitado (Paquete Buffet)" : "Base Price per Guest (Buffet Package)"}
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger><Info className="w-3 h-3 text-muted-foreground" /></TooltipTrigger>
+                  <TooltipContent>
+                    <p className="max-w-xs">
+                      {language === "es"
+                        ? "Si está > 0, este precio se usa al cotizar el menú como paquete. Los extras seleccionados (más allá del máx. por curso) suman al total."
+                        : "If > 0, this is used when quoting the menu as a package. Extra selections beyond the max per course add to the total."}
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </Label>
+            <Input
+              type="number" min="0" step="0.01"
+              value={form.base_price_per_guest}
+              onChange={(e) => setForm(prev => ({ ...prev, base_price_per_guest: parseFloat(e.target.value) || 0 }))}
+              data-testid="menu-base-price-per-guest"
+            />
+          </div>
+          <div className="text-xs text-amber-800 md:max-w-xs">
+            {language === "es"
+              ? "Deja en 0 para usar la suma de precios de recetas."
+              : "Leave at 0 to use the sum of recipe prices."}
           </div>
         </div>
 

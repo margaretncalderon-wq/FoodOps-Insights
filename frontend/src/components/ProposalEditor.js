@@ -4,6 +4,7 @@ import axios from "axios";
 import { useLanguage } from "../contexts/LanguageContext";
 import { useTerminology } from "../hooks/useTerminology";
 import DocumentPreview from "./DocumentPreview";
+import BuffetSelectionDialog from "./BuffetSelectionDialog";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -162,6 +163,7 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
   const [editingItemId, setEditingItemId] = useState(null);
   const [addMenuOpen, setAddMenuOpen] = useState(false);
   const [menuAddMode, setMenuAddMode] = useState("package"); // "package" | "breakdown"
+  const [buffetSelectMenu, setBuffetSelectMenu] = useState(null); // PlatedMenu being configured for selection
   const [statusDialogOpen, setStatusDialogOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -630,7 +632,19 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
     }
   };
 
-  const handleAddPlatedMenu = async (platedMenu) => {
+  const handleAddPlatedMenu = async (platedMenu, selectedItems = null) => {
+    // If the menu has selection rules or a base_price_per_guest, open the BuffetSelectionDialog first
+    // (unless `selectedItems` was already provided by the dialog confirm callback).
+    if (!selectedItems) {
+      const hasBasePrice = parseFloat(platedMenu?.base_price_per_guest || 0) > 0;
+      const hasRules = (platedMenu?.courses || []).some(
+        c => c.min_choices != null || c.max_choices != null
+      );
+      if (hasBasePrice || hasRules) {
+        setBuffetSelectMenu(platedMenu);
+        return;
+      }
+    }
     try {
       const res = await axios.post(
         `${API}/proposals/${proposal.proposal_id}/items/bulk-from-plated-menu`,
@@ -638,6 +652,7 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
           menu_id: platedMenu.menu_id,
           guest_count: event?.guest_count || event?.num_guests || 0,
           mode: menuAddMode,
+          ...(selectedItems ? { selected_items: selectedItems } : {}),
         },
         { withCredentials: true },
       );
@@ -654,6 +669,7 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
       fetchProposal();
       fetchFinancials();
       setAddMenuOpen(false);
+      setBuffetSelectMenu(null);
     } catch (error) {
       const msg = error.response?.data?.detail || "Failed to add plated menu items";
       toast.error(typeof msg === "string" ? msg : JSON.stringify(msg));
@@ -4068,6 +4084,18 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Buffet Selection Dialog (per-course "pick X of Y" rules) */}
+      <BuffetSelectionDialog
+        open={!!buffetSelectMenu}
+        onClose={() => setBuffetSelectMenu(null)}
+        menu={buffetSelectMenu}
+        guestCount={event?.guest_count || event?.num_guests || 0}
+        onConfirm={async ({ selected_items }) => {
+          if (!buffetSelectMenu) return;
+          await handleAddPlatedMenu(buffetSelectMenu, selected_items);
+        }}
+      />
     </div>
   );
 }
