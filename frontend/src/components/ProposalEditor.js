@@ -2676,7 +2676,7 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
         <DocumentPreview
           eventId={eventId}
           event={event}
-          proposal={proposal}
+          proposal={{ ...proposal, day_logistics: dayLogistics }}
           client={client}
           documentType={previewDocType}
           onClose={() => setPreviewOpen(false)}

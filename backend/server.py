@@ -5572,6 +5572,7 @@ async def generate_document(event_id: str, doc_type: str, user: User = Depends(g
         "order_items": order_items,  # New: all items
         "items_by_type": items_by_type,  # Grouped by type
         "items_by_day": items_by_day,  # Grouped by day
+        "day_logistics": (proposal or {}).get("day_logistics") or [],  # Per-date delivery info
         "is_multiday": is_multiday,
         "template_settings": template_settings,
         "section_titles": section_titles,

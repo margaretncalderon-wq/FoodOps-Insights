@@ -247,6 +247,20 @@ Phase 2 Culinary backend validated 19/19 in iteration_176.json.
 
 **Tests**: Backend curl E2E (a+b+d) — day_logistics PUT/GET con 2 días persistido, OrderItem creado con `parent_item_id` y `section_end_time=19:30` correctamente. Lint OK.
 
+### Resumen de Catering en Documento/PDF (May 17, 2026)
+**Goal**: Inyectar el `day_logistics` ya guardado en la propuesta dentro del documento/PDF generado, replicando el "RESUMEN DE CATERING" del PDF de Ciano.
+
+**Backend** (`server.py`)
+- `POST /api/documents/generate/{event_id}/{doc_type}`: `content.day_logistics` ahora se copia desde el proposal asociado.
+
+**Frontend** (`DocumentPreview.js`)
+- Nueva sección **"Resumen de Catering / Catering Summary"** justo después del cabezal (cliente/evento), antes de los items.
+- Tabla con columnas: **Fecha · Horario (HH:MM – HH:MM) · Invitados · Dirección · Instrucciones**.
+- Solo se renderiza si `proposal.day_logistics` no está vacío.
+- ProposalEditor pasa `{...proposal, day_logistics: dayLogistics}` al DocumentPreview para asegurar valor actualizado.
+
+**Tests**: Lint OK. (Backend ya validado en E2E previo).
+
 ### Pending Mini-tasks & Backlog
 - Production SMTP credentials → enable real email delivery for digest.
 - Logo Image Upload via Object Storage for Guest Flow (P1).

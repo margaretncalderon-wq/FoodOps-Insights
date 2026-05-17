@@ -449,6 +449,44 @@ export default function DocumentPreview({
               )}
             </div>
 
+            {/* RESUMEN DE CATERING - Per-Date Logistics */}
+            {(proposal?.day_logistics?.length > 0) && (
+              <div className="catering-summary mb-6" data-testid="doc-day-logistics">
+                <h4
+                  className="text-sm font-semibold uppercase tracking-wide mb-3"
+                  style={{ color: company?.primary_color || '#3A4D3F' }}
+                >
+                  {language === "es" ? "Resumen de Catering" : "Catering Summary"}
+                </h4>
+                <div className="overflow-x-auto rounded-lg border">
+                  <table className="w-full text-sm border-collapse">
+                    <thead className="bg-muted/40">
+                      <tr>
+                        <th className="text-left px-3 py-2 font-medium border-b">{language === "es" ? "Fecha" : "Date"}</th>
+                        <th className="text-left px-3 py-2 font-medium border-b">{language === "es" ? "Horario" : "Time"}</th>
+                        <th className="text-left px-3 py-2 font-medium border-b">{language === "es" ? "Invitados" : "Guests"}</th>
+                        <th className="text-left px-3 py-2 font-medium border-b">{language === "es" ? "Dirección" : "Address"}</th>
+                        <th className="text-left px-3 py-2 font-medium border-b">{language === "es" ? "Instrucciones" : "Instructions"}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {proposal.day_logistics.map((d, idx) => (
+                        <tr key={idx} className="border-b last:border-b-0">
+                          <td className="px-3 py-2 font-medium whitespace-nowrap">{d.event_date ? formatDate(d.event_date) : "—"}</td>
+                          <td className="px-3 py-2 whitespace-nowrap font-mono text-xs">
+                            {d.delivery_time || "—"}{d.delivery_end_time ? ` – ${d.delivery_end_time}` : ""}
+                          </td>
+                          <td className="px-3 py-2 whitespace-nowrap">{d.guest_count ?? "—"}</td>
+                          <td className="px-3 py-2">{d.address || "—"}</td>
+                          <td className="px-3 py-2 text-muted-foreground">{d.instructions || "—"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
             {/* Items by Date and Section */}
             <div className="items-section">
               {Object.entries(groupedItems).map(([dateKey, sectionGroups]) => (
