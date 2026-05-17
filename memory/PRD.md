@@ -189,6 +189,20 @@ Phase 2 Culinary backend validated 19/19 in iteration_176.json.
 
 **Tests**: Backend E2E (curl) — Buffet menu with 2 courses → 2 items in proposal (qty 75 and 50 from portions_per_guest × 50 guests). Frontend lint OK.
 
+### Food Cost / Invitado KPI en Cotización (May 17, 2026)
+**Goal**: Surface food cost per guest and food-cost percentage directly in the proposal header so quoting decisions are guided by per-guest economics, not just totals.
+
+**Frontend** (`ProposalEditor.js`)
+- New inline KPI in the compact header (next to status badges):
+  - Computes `food_cost_per_guest = financials.by_item_type.Food.cost / event.guest_count` (uses `num_guests` fallback).
+  - Computes `food_cost_pct = food_cost / food_revenue * 100`.
+  - Target = 30% (industry standard).
+  - Semáforo: ✅ verde si `pct ≤ 30`; ⚠️ ámbar si `30 < pct ≤ 35`; 🚩 rojo si `pct > 35`.
+  - Tooltip muestra totales: costo de comida, ingreso de comida, target %.
+  - Solo se renderiza cuando hay invitados + datos de Food.
+
+**Tests**: Backend curl validado — evento con 150 invitados muestra Food cost $27,000 → $180/invitado (51.4%) → debería pintarse rojo. Lint OK.
+
 ### Pending Mini-tasks & Backlog
 - Production SMTP credentials → enable real email delivery for digest.
 - Logo Image Upload via Object Storage for Guest Flow (P1).

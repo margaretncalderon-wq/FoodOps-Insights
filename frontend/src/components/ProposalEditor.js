@@ -1404,7 +1404,7 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
 
       {/* Compact Header - Proposal Status */}
       <div className="flex items-center justify-between py-3 border-b">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
           <Badge variant="outline" className="font-mono text-xs">
             {proposal?.proposal_number}
           </Badge>
@@ -1424,6 +1424,50 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
               {language === "es" ? "Evento movido a Comprometido" : "Event moved to Committed"}
             </span>
           )}
+
+          {/* Food Cost per Guest KPI */}
+          {(() => {
+            const guests = event?.guest_count || event?.num_guests || 0;
+            const foodData = financials?.by_item_type?.Food;
+            if (!guests || !foodData || (foodData.cost || 0) <= 0) return null;
+            const foodCost = foodData.cost || 0;
+            const foodRevenue = foodData.revenue || 0;
+            const costPerGuest = foodCost / guests;
+            const foodCostPct = foodRevenue > 0 ? (foodCost / foodRevenue) * 100 : 0;
+            // Industry-standard target: 30% food cost
+            const targetPct = 30;
+            const isOver = foodCostPct > targetPct + 5;
+            const isWarning = foodCostPct > targetPct && !isOver;
+            const isOk = foodCostPct <= targetPct;
+            const color = isOk
+              ? "bg-emerald-50 border-emerald-300 text-emerald-800"
+              : isWarning
+                ? "bg-amber-50 border-amber-300 text-amber-800"
+                : "bg-rose-50 border-rose-300 text-rose-800";
+            const icon = isOk ? "✅" : isWarning ? "⚠️" : "🚩";
+            return (
+              <div
+                className={`flex items-center gap-2 px-3 py-1 rounded-md border text-xs ${color}`}
+                title={
+                  language === "es"
+                    ? `Costo de comida total: $${foodCost.toFixed(2)} · Ingreso food: $${foodRevenue.toFixed(2)} · Target food cost: ${targetPct}%`
+                    : `Total food cost: $${foodCost.toFixed(2)} · Food revenue: $${foodRevenue.toFixed(2)} · Target food cost: ${targetPct}%`
+                }
+                data-testid="food-cost-per-guest-kpi"
+              >
+                <span className="text-base leading-none">{icon}</span>
+                <div className="flex flex-col leading-tight">
+                  <span className="font-semibold">
+                    ${costPerGuest.toFixed(2)} <span className="font-normal opacity-70">/{language === "es" ? "invitado" : "guest"}</span>
+                  </span>
+                  <span className="text-[10px] opacity-80">
+                    {language === "es" ? "Food cost" : "Food cost"}: <strong>{foodCostPct.toFixed(1)}%</strong>
+                    <span className="opacity-60 ml-1">vs {targetPct}%</span>
+                  </span>
+                </div>
+              </div>
+            );
+          })()}
         </div>
         
         <div className="flex items-center gap-2">
