@@ -3144,6 +3144,11 @@ export default function SettingsPage() {
                     <div className="grid grid-cols-2 gap-3">
                       <div>
                         <Label className="text-xs">{language === "es" ? "Tipo" : "Type"}</Label>
+                        <p className="text-[10px] text-muted-foreground mb-1">
+                          {language === "es"
+                            ? "Familia fija: Comida, Servicio, Renta, Tarifa."
+                            : "Fixed family: Food, Service, Rental, Fee."}
+                        </p>
                         <Select
                           value={newPicklist.item_type}
                           onValueChange={(v) => setNewPicklist({ ...newPicklist, item_type: v })}
@@ -3160,6 +3165,11 @@ export default function SettingsPage() {
                       </div>
                       <div>
                         <Label className="text-xs">{language === "es" ? "Categoría" : "Category"}</Label>
+                        <p className="text-[10px] text-muted-foreground mb-1">
+                          {language === "es"
+                            ? "Sub-grupo libre (ej: Entradas, Postres, Bebidas frías)."
+                            : "Free sub-group (e.g. Starters, Desserts, Cold drinks)."}
+                        </p>
                         <Select
                           value={newPicklist.category_id}
                           onValueChange={(v) => setNewPicklist({ ...newPicklist, category_id: v })}
