@@ -178,12 +178,15 @@ export default function SettingsPage() {
     default_price: 0, 
     internal_cost: null,
     recipe_id: "", 
+    recipe_portion_format_id: "",
     inventory_item_id: "",
     unit: "unit",
     is_active: true,
     min_margin_pct: ""
   });
   const [editingPicklist, setEditingPicklist] = useState(null);
+  const [picklistRecipeFormats, setPicklistRecipeFormats] = useState([]);
+  const [loadingPicklistFormats, setLoadingPicklistFormats] = useState(false);
   const [bulkAddOpen, setBulkAddOpen] = useState(false);
   const [bulkItems, setBulkItems] = useState("");
   const [newTax, setNewTax] = useState({ name: "", rate: 0, is_default: false });
@@ -346,6 +349,25 @@ export default function SettingsPage() {
       setPicklist(response.data);
     } catch (error) {
       console.error("Failed to fetch picklist:", error);
+    }
+  };
+
+  const fetchRecipePortionFormats = async (recipeId) => {
+    if (!recipeId) {
+      setPicklistRecipeFormats([]);
+      return [];
+    }
+    setLoadingPicklistFormats(true);
+    try {
+      const res = await axios.get(`${API}/recipes/${recipeId}/portion-formats`, { withCredentials: true });
+      setPicklistRecipeFormats(res.data || []);
+      return res.data || [];
+    } catch (error) {
+      console.error("Failed to fetch portion formats:", error);
+      setPicklistRecipeFormats([]);
+      return [];
+    } finally {
+      setLoadingPicklistFormats(false);
     }
   };
 
@@ -786,16 +808,23 @@ export default function SettingsPage() {
       default_price: item.default_price || 0,
       internal_cost: item.internal_cost || null,
       recipe_id: item.recipe_id || "",
+      recipe_portion_format_id: item.recipe_portion_format_id || "",
       inventory_item_id: item.inventory_item_id || "",
       unit: item.unit || "unit",
       is_active: item.is_active !== false,
       min_margin_pct: item.min_margin_pct != null ? item.min_margin_pct : ""
     });
     setPicklistDialogOpen(true);
+    if (item.recipe_id) {
+      fetchRecipePortionFormats(item.recipe_id);
+    } else {
+      setPicklistRecipeFormats([]);
+    }
   };
 
   const resetPicklistForm = () => {
     setEditingPicklist(null);
+    setPicklistRecipeFormats([]);
     setNewPicklist({ 
       name: "", 
       description: "", 
@@ -804,6 +833,7 @@ export default function SettingsPage() {
       default_price: 0, 
       internal_cost: null,
       recipe_id: "", 
+      recipe_portion_format_id: "",
       inventory_item_id: "",
       unit: "unit",
       is_active: true,
@@ -2930,6 +2960,11 @@ export default function SettingsPage() {
                             {item.recipe_name && (
                               <span className="text-green-600 dark:text-green-400 flex items-center gap-1">
                                 <Utensils className="w-3 h-3" /> {item.recipe_name}
+                                {item.recipe_format_name && (
+                                  <Badge variant="outline" className="ml-1 text-xs border-green-300 text-green-700 bg-green-50 dark:bg-green-900/20">
+                                    {item.recipe_format_name}
+                                  </Badge>
+                                )}
                               </span>
                             )}
                             {item.inventory_item_name && (
@@ -3075,9 +3110,13 @@ export default function SettingsPage() {
                       <Label>{language === "es" ? "Vincular Receta (para cálculo de costo automático)" : "Link Recipe (for auto cost calculation)"}</Label>
                       <Select 
                         value={newPicklist.recipe_id || "none"} 
-                        onValueChange={(v) => setNewPicklist({ ...newPicklist, recipe_id: v === "none" ? "" : v })}
+                        onValueChange={(v) => {
+                          const newRecipeId = v === "none" ? "" : v;
+                          setNewPicklist({ ...newPicklist, recipe_id: newRecipeId, recipe_portion_format_id: "" });
+                          fetchRecipePortionFormats(newRecipeId);
+                        }}
                       >
-                        <SelectTrigger><SelectValue placeholder={language === "es" ? "Sin receta" : "No recipe"} /></SelectTrigger>
+                        <SelectTrigger data-testid="picklist-recipe-select"><SelectValue placeholder={language === "es" ? "Sin receta" : "No recipe"} /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="none">{language === "es" ? "Sin receta" : "No recipe"}</SelectItem>
                           {recipes.map(r => (
@@ -3088,6 +3127,53 @@ export default function SettingsPage() {
                         </SelectContent>
                       </Select>
                     </div>
+
+                    {/* Recipe Portion Format (only when recipe selected and has formats) */}
+                    {newPicklist.recipe_id && (
+                      <div className="col-span-2">
+                        <Label>
+                          {language === "es" ? "Formato / Tamaño específico" : "Specific Format / Size"}
+                          <span className="text-xs text-muted-foreground ml-2">
+                            {language === "es" ? "(opcional — hereda costo y precio del formato)" : "(optional — inherits cost & price from format)"}
+                          </span>
+                        </Label>
+                        {loadingPicklistFormats ? (
+                          <div className="text-sm text-muted-foreground mt-1">{language === "es" ? "Cargando formatos..." : "Loading formats..."}</div>
+                        ) : picklistRecipeFormats.length === 0 ? (
+                          <div className="text-sm text-muted-foreground italic mt-1 p-2 bg-slate-50 rounded">
+                            {language === "es" ? "Esta receta no tiene formatos. Crea formatos (ej: Galón, 12oz, 8oz) en Culinary Intelligence." : "This recipe has no formats. Create formats (e.g. Gallon, 12oz, 8oz) in Culinary Intelligence."}
+                          </div>
+                        ) : (
+                          <Select
+                            value={newPicklist.recipe_portion_format_id || "none"}
+                            onValueChange={(v) => {
+                              const fmtId = v === "none" ? "" : v;
+                              const fmt = picklistRecipeFormats.find(f => f.format_id === fmtId);
+                              setNewPicklist((prev) => ({
+                                ...prev,
+                                recipe_portion_format_id: fmtId,
+                                // Auto-fill default_price from format if empty/zero
+                                default_price: fmt && (!prev.default_price || prev.default_price === 0)
+                                  ? (fmt.sell_price || fmt.suggested_price || prev.default_price)
+                                  : prev.default_price,
+                              }));
+                            }}
+                          >
+                            <SelectTrigger data-testid="picklist-recipe-format-select">
+                              <SelectValue placeholder={language === "es" ? "Sin formato específico" : "No specific format"} />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">{language === "es" ? "Sin formato específico (usar receta general)" : "No specific format (use general recipe)"}</SelectItem>
+                              {picklistRecipeFormats.map(f => (
+                                <SelectItem key={f.format_id} value={f.format_id}>
+                                  {f.format_name} — {language === "es" ? "Costo" : "Cost"} ${(f.cost_per_portion || 0).toFixed(2)} · {language === "es" ? "Precio" : "Price"} ${(f.sell_price || f.suggested_price || 0).toFixed(2)}{f.is_default ? ` · ${language === "es" ? "Predeterminado" : "Default"}` : ""}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
+                      </div>
+                    )}
 
                     {/* Inventory Link (for disposables) */}
                     <div className="col-span-2">

@@ -7046,6 +7046,21 @@ async def get_picklist_items(category_id: Optional[str] = None, item_type: Optio
                 if not calculated_cost:
                     calculated_cost = recipe_cost
                     cost_source = "recipe"
+
+            # If linked to a specific portion format, prefer its cost & price
+            if item.get("recipe_portion_format_id"):
+                fmt = await db.recipe_portion_formats.find_one(
+                    {"format_id": item["recipe_portion_format_id"], "recipe_id": item["recipe_id"]},
+                    {"_id": 0, "format_name": 1, "cost_per_portion": 1, "sell_price": 1, "suggested_price": 1},
+                )
+                if fmt:
+                    item["recipe_format_name"] = fmt.get("format_name")
+                    item["recipe_format_sell_price"] = fmt.get("sell_price") or 0
+                    item["recipe_format_suggested_price"] = fmt.get("suggested_price") or 0
+                    fmt_cost = fmt.get("cost_per_portion") or 0
+                    if fmt_cost:
+                        calculated_cost = fmt_cost if not item.get("internal_cost") else calculated_cost
+                        cost_source = "recipe_format" if not item.get("internal_cost") else cost_source
         
         # If linked to inventory, get inventory cost
         if item.get("inventory_item_id"):
@@ -7188,7 +7203,7 @@ async def update_picklist_item(item_id: str, data: PicklistItemUpdate, user: Use
     now = datetime.now(timezone.utc)
     raw = data.model_dump(exclude_unset=True)
     # Allow explicit null only for fields that represent optional overrides.
-    nullable_fields = {"min_margin_pct", "internal_cost", "recipe_id", "inventory_item_id", "description"}
+    nullable_fields = {"min_margin_pct", "internal_cost", "recipe_id", "recipe_portion_format_id", "inventory_item_id", "description"}
     update_data = {k: v for k, v in raw.items() if v is not None or k in nullable_fields}
     update_data["updated_at"] = now.isoformat()
     
