@@ -185,11 +185,6 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
       } catch (e) { /* ignore */ }
     })();
   }, []);
-
-  // Load day-logistics whenever the proposal id changes
-  useEffect(() => {
-    fetchDayLogistics();
-  }, [fetchDayLogistics]);
   const getSuggestedUnitPrice = (item) => {
     if (item.internal_cost == null || item.internal_cost <= 0) return null;
     const itype = item.item_type || "Service";
@@ -455,6 +450,11 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
       setDayLogistics([]);
     }
   }, [proposal?.proposal_id]);
+
+  // Load day-logistics whenever the proposal id changes
+  useEffect(() => {
+    fetchDayLogistics();
+  }, [fetchDayLogistics]);
 
   const saveDayLogistics = async (newDays) => {
     if (!proposal?.proposal_id) return;
