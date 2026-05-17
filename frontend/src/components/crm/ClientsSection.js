@@ -114,7 +114,10 @@ export default function ClientsSection() {
   const fetchClients = useCallback(async () => {
     try {
       const res = await axios.get(`${API}/api/crm/clients-with-events`, { withCredentials: true });
-      setClients(res.data);
+      const sorted = [...(res.data || [])].sort((a, b) =>
+        (a.display_name || a.name || "").localeCompare(b.display_name || b.name || "", undefined, { sensitivity: "base" })
+      );
+      setClients(sorted);
     } catch (err) {
       console.error(err);
     }

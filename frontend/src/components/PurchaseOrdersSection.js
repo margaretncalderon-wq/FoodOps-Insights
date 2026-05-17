@@ -11,6 +11,7 @@ import { Label } from "./ui/label";
 import { Badge } from "./ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "./ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
+import { SearchableSelect } from "./ui/searchable-select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./ui/table";
 import { Textarea } from "./ui/textarea";
 import { Checkbox } from "./ui/checkbox";
@@ -590,12 +591,21 @@ export default function PurchaseOrdersSection() {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label>{t("supplier")} *</Label>
-                <Select value={form.supplier_id} onValueChange={(v) => setForm(prev => ({ ...prev, supplier_id: v }))}>
-                  <SelectTrigger><SelectValue placeholder={language === "es" ? "Seleccionar..." : "Select..."} /></SelectTrigger>
-                  <SelectContent>
-                    {suppliers.map(s => (<SelectItem key={s.supplier_id} value={s.supplier_id}>{s.name}</SelectItem>))}
-                  </SelectContent>
-                </Select>
+                <SearchableSelect
+                  value={form.supplier_id}
+                  onValueChange={(v) => setForm(prev => ({ ...prev, supplier_id: v }))}
+                  options={[...suppliers]
+                    .sort((a, b) => (a.name || "").localeCompare(b.name || "", undefined, { sensitivity: "base" }))
+                    .map(s => ({
+                      value: s.supplier_id,
+                      label: s.name,
+                      keywords: [s.company_name, s.tax_id].filter(Boolean),
+                    }))}
+                  placeholder={language === "es" ? "Seleccionar..." : "Select..."}
+                  searchPlaceholder={language === "es" ? "Buscar proveedor..." : "Search supplier..."}
+                  emptyText={language === "es" ? "Sin resultados" : "No results"}
+                  testId="po-supplier-select"
+                />
               </div>
               <div>
                 <Label>{t("neededBy")}</Label>

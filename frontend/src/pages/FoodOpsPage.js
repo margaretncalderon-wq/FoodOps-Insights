@@ -16,6 +16,7 @@ import { Badge } from "../components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "../components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
+import { SearchableSelect } from "../components/ui/searchable-select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui/table";
 import { Textarea } from "../components/ui/textarea";
 import { Checkbox } from "../components/ui/checkbox";
@@ -754,23 +755,33 @@ function InventorySection() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label>{language === "es" ? "Proveedor Principal" : "Primary Supplier"}</Label>
-                  <Select value={itemForm.preferred_supplier_id || "none"} onValueChange={(v) => setItemForm({ ...itemForm, preferred_supplier_id: v === "none" ? "" : v })}>
-                    <SelectTrigger><SelectValue placeholder={language === "es" ? "Seleccionar" : "Select"} /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">{language === "es" ? "Sin proveedor" : "No supplier"}</SelectItem>
-                      {suppliers.map(s => (<SelectItem key={s.supplier_id} value={s.supplier_id}>{s.name}</SelectItem>))}
-                    </SelectContent>
-                  </Select>
+                  <SearchableSelect
+                    value={itemForm.preferred_supplier_id || null}
+                    onValueChange={(v) => setItemForm({ ...itemForm, preferred_supplier_id: v || "" })}
+                    options={[...suppliers]
+                      .sort((a, b) => (a.name || "").localeCompare(b.name || "", undefined, { sensitivity: "base" }))
+                      .map(s => ({ value: s.supplier_id, label: s.name, keywords: [s.company_name].filter(Boolean) }))}
+                    placeholder={language === "es" ? "Sin proveedor" : "No supplier"}
+                    searchPlaceholder={language === "es" ? "Buscar proveedor..." : "Search supplier..."}
+                    emptyText={language === "es" ? "Sin resultados" : "No results"}
+                    clearable
+                    testId="item-primary-supplier-select"
+                  />
                 </div>
                 <div>
                   <Label>{language === "es" ? "Proveedor Secundario" : "Secondary Supplier"}</Label>
-                  <Select value={itemForm.secondary_supplier_id || "none"} onValueChange={(v) => setItemForm({ ...itemForm, secondary_supplier_id: v === "none" ? "" : v })}>
-                    <SelectTrigger><SelectValue placeholder={language === "es" ? "Seleccionar" : "Select"} /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">{language === "es" ? "Sin proveedor" : "No supplier"}</SelectItem>
-                      {suppliers.map(s => (<SelectItem key={s.supplier_id} value={s.supplier_id}>{s.name}</SelectItem>))}
-                    </SelectContent>
-                  </Select>
+                  <SearchableSelect
+                    value={itemForm.secondary_supplier_id || null}
+                    onValueChange={(v) => setItemForm({ ...itemForm, secondary_supplier_id: v || "" })}
+                    options={[...suppliers]
+                      .sort((a, b) => (a.name || "").localeCompare(b.name || "", undefined, { sensitivity: "base" }))
+                      .map(s => ({ value: s.supplier_id, label: s.name, keywords: [s.company_name].filter(Boolean) }))}
+                    placeholder={language === "es" ? "Sin proveedor" : "No supplier"}
+                    searchPlaceholder={language === "es" ? "Buscar proveedor..." : "Search supplier..."}
+                    emptyText={language === "es" ? "Sin resultados" : "No results"}
+                    clearable
+                    testId="item-secondary-supplier-select"
+                  />
                 </div>
               </div>
             </div>

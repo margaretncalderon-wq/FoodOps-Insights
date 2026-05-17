@@ -130,7 +130,10 @@ export default function CRMPage() {
   const fetchLeads = async () => {
     try {
       const response = await axios.get(`${API}/leads`, { withCredentials: true });
-      setLeads(response.data);
+      const sorted = [...(response.data || [])].sort((a, b) =>
+        (a.name || a.lead_name || "").localeCompare(b.name || b.lead_name || "", undefined, { sensitivity: "base" })
+      );
+      setLeads(sorted);
     } catch (error) {
       console.error("Failed to fetch leads:", error);
     } finally {
@@ -141,7 +144,10 @@ export default function CRMPage() {
   const fetchClients = async () => {
     try {
       const response = await axios.get(`${API}/crm/clients`, { withCredentials: true });
-      setClients(response.data);
+      const sorted = [...(response.data || [])].sort((a, b) =>
+        (a.display_name || a.name || "").localeCompare(b.display_name || b.name || "", undefined, { sensitivity: "base" })
+      );
+      setClients(sorted);
     } catch (error) {
       console.error("Failed to fetch clients:", error);
     }

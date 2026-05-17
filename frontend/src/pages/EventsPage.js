@@ -28,6 +28,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../components/ui/select";
+import { SearchableSelect } from "../components/ui/searchable-select";
 import { Textarea } from "../components/ui/textarea";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -168,7 +169,10 @@ export default function EventsPage({ embedded = false }) {
   const fetchClients = async () => {
     try {
       const response = await axios.get(`${API}/crm/clients`, { withCredentials: true });
-      setClients(response.data);
+      const sorted = [...(response.data || [])].sort((a, b) =>
+        (a.display_name || a.name || "").localeCompare(b.display_name || b.name || "", undefined, { sensitivity: "base" })
+      );
+      setClients(sorted);
     } catch (error) {
       console.error("Failed to fetch clients:", error);
     }
@@ -458,21 +462,21 @@ export default function EventsPage({ embedded = false }) {
 
                   <div className="space-y-2">
                     <Label>{t("clients")} *</Label>
-                    <Select
+                    <SearchableSelect
                       value={formData.client_id}
                       onValueChange={(value) => setFormData({ ...formData, client_id: value })}
-                    >
-                      <SelectTrigger data-testid="event-client-select">
-                        <SelectValue placeholder={language === "es" ? "Seleccionar cliente" : "Select client"} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {clients.map((client) => (
-                          <SelectItem key={client.client_id} value={client.client_id}>
-                            {client.display_name || client.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      options={[...clients]
+                        .sort((a, b) => (a.display_name || a.name || "").localeCompare(b.display_name || b.name || ""))
+                        .map((c) => ({
+                          value: c.client_id,
+                          label: c.display_name || c.name || "—",
+                          keywords: [c.email, c.phone, c.company_name].filter(Boolean),
+                        }))}
+                      placeholder={language === "es" ? "Seleccionar cliente" : "Select client"}
+                      searchPlaceholder={language === "es" ? "Buscar cliente..." : "Search client..."}
+                      emptyText={language === "es" ? "Sin resultados" : "No results"}
+                      testId="event-client-select"
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label>

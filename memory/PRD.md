@@ -22,6 +22,26 @@ Build a comprehensive ERP application called **Kora OS** with modules for People
 - Sprint 7 (Apr-May 2026): Launch kit (May 1-3 event), tipografía Plus Jakarta Sans global, Bug fixes (Recipe whitescreen, Demand Studio post overwrite), Performance Dashboard CRM.
 
 
+### Searchable Selects + Alphabetical Clients/Leads — Feb 17, 2026
+**Goal**: Allow typing-to-search in long dropdowns (recipes, ingredients, suppliers, clients, leads) and present clients/leads in alphabetical order everywhere.
+
+**New shared component**: `frontend/src/components/ui/searchable-select.jsx` — typeable combobox built on shadcn Command + Popover. Supports `options[]` with `label / secondary / keywords / disabled`, optional `clearable`, customizable placeholders, and a `testId` hook.
+
+**Applied to (Fase 1)**:
+- `PlatedMenuBuilder.js` → **Add Dish** per course (with cost as secondary text)
+- `EventsPage.js` → **Clients** in Add Project dialog
+- `RecipeBuilder.js` → **Ingredients** selector
+- `FoodOpsPage.js` → **Primary / Secondary Supplier** in Item edit modal (clearable)
+- `PurchaseOrdersSection.js` → **Supplier** in Create PO
+- `MenuEngineeringDialog.js` → **Recipe** in What-If simulator
+
+**Alphabetical sorting added in**:
+- `CRMPage.js` (clients + leads)
+- `EventsPage.js` (clients)
+- `crm/ClientsSection.js` (Clients tab listing)
+
+
+
 ### Buffet Menu Selection Rules — Feb 17, 2026
 **Goal**: Quote Ciano-style dynamic buffet menus ("Choose 1 of 5 salads, 2 of 6 proteins") with a fixed base price per guest and per-course extra-choice surcharges.
 

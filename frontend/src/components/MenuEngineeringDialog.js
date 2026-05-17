@@ -9,6 +9,7 @@ import { Input } from "./ui/input";
 import { Badge } from "./ui/badge";
 import { Card, CardContent } from "./ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
+import { SearchableSelect } from "./ui/searchable-select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./ui/table";
 import { TrendingUp, Sparkles, Loader2, Info, ChevronRight } from "lucide-react";
 import { API_BASE as API } from "../utils/api";
@@ -202,16 +203,17 @@ export default function MenuEngineeringDialog({ open, onOpenChange }) {
           <div className="grid grid-cols-1 sm:grid-cols-[2fr_1fr_1fr_auto] gap-2 items-end">
             <div>
               <Label className="text-xs">{isEs ? "Receta" : "Recipe"}</Label>
-              <Select value={whatIf.recipe_id} onValueChange={(v) => setWhatIf({ ...whatIf, recipe_id: v })}>
-                <SelectTrigger data-testid="me-whatif-recipe-select">
-                  <SelectValue placeholder={isEs ? "Elige..." : "Pick..."} />
-                </SelectTrigger>
-                <SelectContent className="max-h-72">
-                  {(data?.recipes || []).map((r) => (
-                    <SelectItem key={r.recipe_id} value={r.recipe_id}>{r.recipe_name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                value={whatIf.recipe_id || null}
+                onValueChange={(v) => setWhatIf({ ...whatIf, recipe_id: v || "" })}
+                options={[...(data?.recipes || [])]
+                  .sort((a, b) => (a.recipe_name || "").localeCompare(b.recipe_name || "", undefined, { sensitivity: "base" }))
+                  .map(r => ({ value: r.recipe_id, label: r.recipe_name }))}
+                placeholder={isEs ? "Elige..." : "Pick..."}
+                searchPlaceholder={isEs ? "Buscar receta..." : "Search recipe..."}
+                emptyText={isEs ? "Sin resultados" : "No results"}
+                testId="me-whatif-recipe-select"
+              />
             </div>
             <div>
               <Label className="text-xs">{isEs ? "Nuevo costo" : "New cost"}</Label>

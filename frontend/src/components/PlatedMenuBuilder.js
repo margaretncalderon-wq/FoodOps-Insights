@@ -10,6 +10,7 @@ import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Badge } from "./ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
+import { SearchableSelect } from "./ui/searchable-select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./ui/table";
 import { Textarea } from "./ui/textarea";
 import { Checkbox } from "./ui/checkbox";
@@ -437,25 +438,30 @@ export default function PlatedMenuBuilder({ onClose, onSave, initialMenu = null,
                     )}
                   </div>
                   <div className="flex items-center gap-2">
-                    <Select onValueChange={(v) => addDishToCourse(course.course_id, v)}>
-                      <SelectTrigger className="w-48 h-8"><SelectValue placeholder={t("addDish")} /></SelectTrigger>
-                      <SelectContent>
-                        {finalDishRecipes.length === 0 ? (
-                          <div className="px-3 py-2 text-sm text-muted-foreground">
-                            {language === "es" ? "Crea recetas tipo 'Plato Final' primero" : "Create 'Final Dish' recipes first"}
-                          </div>
-                        ) : (
-                          finalDishRecipes.map(recipe => (
-                            <SelectItem key={recipe.recipe_id} value={recipe.recipe_id}>
-                              <div className="flex items-center justify-between w-full">
-                                <span>{recipe.name}</span>
-                                <span className="text-xs text-muted-foreground ml-2">${recipe.cost_per_portion?.toFixed(2)}</span>
-                              </div>
-                            </SelectItem>
-                          ))
-                        )}
-                      </SelectContent>
-                    </Select>
+                    {finalDishRecipes.length === 0 ? (
+                      <div className="px-3 py-2 text-xs text-muted-foreground border rounded">
+                        {language === "es" ? "Crea recetas tipo 'Plato Final' primero" : "Create 'Final Dish' recipes first"}
+                      </div>
+                    ) : (
+                      <SearchableSelect
+                        value={null}
+                        onValueChange={(rid) => { if (rid) addDishToCourse(course.course_id, rid); }}
+                        options={[...finalDishRecipes]
+                          .sort((a, b) => (a.name || "").localeCompare(b.name || ""))
+                          .map(r => ({
+                            value: r.recipe_id,
+                            label: r.name,
+                            secondary: r.cost_per_portion != null ? `$${(r.cost_per_portion || 0).toFixed(2)}` : null,
+                            keywords: [r.recipe_code || ""].filter(Boolean),
+                          }))}
+                        placeholder={t("addDish")}
+                        searchPlaceholder={language === "es" ? "Buscar receta..." : "Search recipe..."}
+                        emptyText={language === "es" ? "Sin resultados" : "No results"}
+                        triggerClassName="w-56 h-8 text-xs"
+                        contentClassName="min-w-[18rem]"
+                        testId={`add-dish-${course.course_id}`}
+                      />
+                    )}
                     <Button variant="ghost" size="icon" onClick={() => removeCourse(course.course_id)}>
                       <X className="w-4 h-4 text-red-500" />
                     </Button>

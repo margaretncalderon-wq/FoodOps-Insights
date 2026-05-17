@@ -16,6 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../components/ui/select";
+import { SearchableSelect } from "../components/ui/searchable-select";
 import { toast } from "sonner";
 import { ArrowLeft, Plus, Trash2, Sparkles, Loader2 } from "lucide-react";
 
@@ -422,18 +423,21 @@ export default function RecipeBuilder() {
                   <div className="grid grid-cols-12 gap-2 items-end">
                     <div className="col-span-4 space-y-2">
                       <Label>{t("name")}</Label>
-                      <Select onValueChange={handleSelectIngredient}>
-                        <SelectTrigger>
-                          <SelectValue placeholder={language === "es" ? "Seleccionar..." : "Select..."} />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {ingredients.map((ing) => (
-                            <SelectItem key={ing.ingredient_id} value={ing.ingredient_id}>
-                              {ing.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <SearchableSelect
+                        value={ingredientForm?.ingredient_id || null}
+                        onValueChange={(v) => v && handleSelectIngredient(v)}
+                        options={[...ingredients]
+                          .sort((a, b) => (a.name || "").localeCompare(b.name || "", undefined, { sensitivity: "base" }))
+                          .map((ing) => ({
+                            value: ing.ingredient_id,
+                            label: ing.name,
+                            keywords: [ing.category, ing.base_unit].filter(Boolean),
+                          }))}
+                        placeholder={language === "es" ? "Seleccionar..." : "Select..."}
+                        searchPlaceholder={language === "es" ? "Buscar ingrediente..." : "Search ingredient..."}
+                        emptyText={language === "es" ? "Sin resultados" : "No results"}
+                        testId="recipe-ingredient-select"
+                      />
                     </div>
                     <div className="col-span-2 space-y-2">
                       <Label>{language === "es" ? "Cantidad" : "Qty"}</Label>
