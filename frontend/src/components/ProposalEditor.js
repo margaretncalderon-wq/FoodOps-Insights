@@ -157,6 +157,7 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [addItemOpen, setAddItemOpen] = useState(false);
+  const [editingItemId, setEditingItemId] = useState(null);
   const [addMenuOpen, setAddMenuOpen] = useState(false);
   const [statusDialogOpen, setStatusDialogOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -220,11 +221,20 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
   const [dupDayTarget, setDupDayTarget] = useState(null);
   const [dupDayMode, setDupDayMode] = useState("append");
   
-  // Customizable item types from company settings
+  // Customizable item types from company settings (deduped by type_key)
   const [itemTypes, setItemTypes] = useState([]);
-  const ITEM_TYPES = itemTypes.length > 0 
-    ? itemTypes.filter(t => t.is_active !== false).map(t => t.type_key)
-    : ITEM_TYPES_DEFAULT;
+  const ITEM_TYPES = (() => {
+    if (itemTypes.length === 0) return ITEM_TYPES_DEFAULT;
+    const seen = new Set();
+    const out = [];
+    for (const t of itemTypes) {
+      if (t.is_active === false) continue;
+      if (seen.has(t.type_key)) continue;
+      seen.add(t.type_key);
+      out.push(t.type_key);
+    }
+    return out;
+  })();
   
   // Invoice dialog state
   const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false);
@@ -471,16 +481,42 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
       const payload = Object.fromEntries(
         Object.entries(newItem).filter(([k]) => !k.startsWith("_")),
       );
-      await axios.post(`${API}/proposals/${proposal.proposal_id}/items`, payload, { withCredentials: true });
-      toast.success(language === "es" ? "Ítem agregado" : "Item added");
+      if (editingItemId) {
+        await axios.put(`${API}/proposals/${proposal.proposal_id}/items/${editingItemId}`, payload, { withCredentials: true });
+        toast.success(language === "es" ? "Ítem actualizado" : "Item updated");
+      } else {
+        await axios.post(`${API}/proposals/${proposal.proposal_id}/items`, payload, { withCredentials: true });
+        toast.success(language === "es" ? "Ítem agregado" : "Item added");
+      }
       fetchProposal();
       fetchFinancials();
       setAddItemOpen(false);
+      setEditingItemId(null);
       resetNewItem();
     } catch (error) {
       const msg = error.response?.data?.detail || "Failed to add item";
       toast.error(msg);
     }
+  };
+
+  const handleEditItem = (item) => {
+    setEditingItemId(item.item_id);
+    setNewItem({
+      item_type: item.item_type || "Service",
+      description: item.description || "",
+      category_id: item.category_id || "",
+      quantity: item.quantity || 1,
+      unit_price: item.unit_price || 0,
+      internal_cost: item.internal_cost ?? null,
+      reference_id: item.reference_id || "",
+      internal_notes: item.internal_notes || "",
+      event_date: item.event_date || "",
+      section_title: item.section_title || "",
+      section_time: item.section_time || "",
+      _recipe_allergens: [],
+      _portion_format_name: null,
+    });
+    setAddItemOpen(true);
   };
 
   const resetNewItem = () => {
@@ -1690,14 +1726,26 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
                                               ${item.total_price?.toFixed(2)}
                                             </p>
                                             {!isLocked && (
-                                              <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                className="text-destructive hover:text-destructive"
-                                                onClick={() => handleDeleteItem(item.item_id)}
-                                              >
-                                                <Trash2 className="w-4 h-4" />
-                                              </Button>
+                                              <>
+                                                <Button
+                                                  variant="ghost"
+                                                  size="icon"
+                                                  className="text-muted-foreground hover:text-foreground"
+                                                  onClick={() => handleEditItem(item)}
+                                                  data-testid={`edit-item-${item.item_id}`}
+                                                  title={language === "es" ? "Editar" : "Edit"}
+                                                >
+                                                  <Edit className="w-4 h-4" />
+                                                </Button>
+                                                <Button
+                                                  variant="ghost"
+                                                  size="icon"
+                                                  className="text-destructive hover:text-destructive"
+                                                  onClick={() => handleDeleteItem(item.item_id)}
+                                                >
+                                                  <Trash2 className="w-4 h-4" />
+                                                </Button>
+                                              </>
                                             )}
                                           </div>
                                         </SortableItemRow>
@@ -2608,13 +2656,16 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
         if (!open) {
           setSelectedPicklistCategory("");
           setPicklistSearch("");
+          setEditingItemId(null);
           resetNewItem();
         }
       }}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
-              {language === "es" ? "Agregar Ítem" : "Add Item"}
+              {editingItemId
+                ? (language === "es" ? "Editar Ítem" : "Edit Item")
+                : (language === "es" ? "Agregar Ítem" : "Add Item")}
             </DialogTitle>
           </DialogHeader>
           
@@ -2801,6 +2852,30 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
                   onChange={(e) => setNewItem({ ...newItem, unit_price: parseFloat(e.target.value) || 0 })}
                   data-testid="item-price-input"
                 />
+                {(() => {
+                  const sugg = getSuggestedUnitPrice(newItem);
+                  if (sugg == null) return null;
+                  const below = (newItem.unit_price || 0) < sugg - 0.01;
+                  return (
+                    <div className="mt-1.5 flex items-center gap-2 flex-wrap text-xs">
+                      <span className={`inline-flex items-center gap-1 ${below ? "text-emerald-700" : "text-muted-foreground"}`}>
+                        💡 {language === "es" ? "Sugerido" : "Suggested"}: <strong>${sugg.toFixed(2)}</strong>
+                      </span>
+                      {below && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-6 px-2 text-xs bg-emerald-50 border-emerald-300 text-emerald-700 hover:bg-emerald-100"
+                          onClick={() => setNewItem({ ...newItem, unit_price: Number(sugg.toFixed(2)) })}
+                          data-testid="apply-suggested-price"
+                        >
+                          {language === "es" ? "Aplicar" : "Apply"}
+                        </Button>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
 
               {/* Internal Cost (if margin tracking enabled) */}
@@ -2937,7 +3012,9 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
                 {language === "es" ? "Cancelar" : "Cancel"}
               </Button>
               <Button type="submit" data-testid="save-item-btn">
-                {language === "es" ? "Agregar Ítem" : "Add Item"}
+                {editingItemId
+                  ? (language === "es" ? "Guardar cambios" : "Save changes")
+                  : (language === "es" ? "Agregar Ítem" : "Add Item")}
               </Button>
             </div>
           </form>
