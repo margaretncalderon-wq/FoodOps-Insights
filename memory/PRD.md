@@ -261,6 +261,31 @@ Phase 2 Culinary backend validated 19/19 in iteration_176.json.
 
 **Tests**: Lint OK. (Backend ya validado en E2E previo).
 
+### 4 Estilos Visuales para Documentos (May 17, 2026)
+**Goal**: Permitir al usuario escoger entre 4 estilos visuales para sus propuestas/facturas PDF desde Settings, sin perder la lógica de contenido.
+
+**Backend** (`server.py`)
+- `DocumentTemplateCreate` / `DocumentTemplate`: nuevo campo `style_variant: str = "classic"` (valores: `classic`, `minimal`, `editorial`, `luxury`).
+- `PUT /api/settings/document-templates/{id}` ahora persiste `style_variant` y `primary_color`.
+
+**Frontend Settings** (`SettingsPage.js`)
+- En cada card de Document Template (Proposal/Invoice), nuevo **selector visual de estilo** con 4 cards radio:
+  - 📄 Clásico (Limpio B/N) — actual
+  - 🌿 Minimal Cálido (Notion-style)
+  - 📰 Editorial (Revista gourmet)
+  - 🌑 Lujo Hotelero (Hotel 5★)
+- Click guarda inmediatamente (PUT) y aplica al next preview.
+
+**Frontend DocumentPreview** (`DocumentPreview.js`)
+- Root content envuelto con `data-style-variant={template.style_variant}` + clase `doc-root`.
+- Inyecta `<style>` con CSS variants completas (mismo DOM, 4 looks distintos):
+  - **Minimal Cálido**: tipografía Inter, bordes redondeados, tablas con shadow sutil, total en pill verde, header con gradiente suave.
+  - **Editorial**: header full-bleed color marca con tipografía serif (Georgia 36px+), section-titles uppercase con accent bar, tablas sin bordes, total en double-line.
+  - **Lujo Hotelero**: header dark con dorado #d4af37, tipografía Cormorant Garamond, section-titles centrados con diamantes ◆, total dark con dorado.
+- Print HTML también respeta el variant.
+
+**Tests**: Backend curl E2E — `style_variant` se setea a `luxury`, luego `minimal`, luego `classic` correctamente. Lint frontend OK.
+
 ### Pending Mini-tasks & Backlog
 - Production SMTP credentials → enable real email delivery for digest.
 - Logo Image Upload via Object Storage for Guest Flow (P1).

@@ -258,33 +258,165 @@ export default function DocumentPreview({
     return subtotals;
   };
 
+  const styleVariant = template?.style_variant || "classic";
+  const primaryColor = company?.primary_color || '#3A4D3F';
+
+  // CSS for each visual variant — applied to both preview and print
+  const variantCSS = `
+    /* === BASE === */
+    .doc-root { color: #1a1a1a; }
+    .doc-root .section-title { font-weight: 600; }
+    .doc-root .text-right { text-align: right; }
+
+    /* === CLASSIC (default, current look) === */
+    .doc-root[data-style-variant="classic"] .header { border-bottom: 2px solid ${primaryColor}; padding-bottom: 20px; margin-bottom: 20px; }
+    .doc-root[data-style-variant="classic"] .section-title { font-size: 16px; color: ${primaryColor}; border-bottom: 1px solid #ddd; padding-bottom: 5px; }
+    .doc-root[data-style-variant="classic"] table th { background: ${primaryColor}; color: white; padding: 8px; }
+    .doc-root[data-style-variant="classic"] .total-row { font-size: 18px; font-weight: bold; border-top: 2px solid ${primaryColor}; }
+    .doc-root[data-style-variant="classic"] .catering-summary table { border: 1px solid #ddd; }
+
+    /* === MINIMAL CÁLIDO (Notion-style) === */
+    .doc-root[data-style-variant="minimal"] {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      color: #2d3748; background: #fdfcfa;
+    }
+    .doc-root[data-style-variant="minimal"] .header {
+      border-bottom: none; padding-bottom: 32px; margin-bottom: 32px;
+      background: linear-gradient(180deg, ${primaryColor}08 0%, transparent 100%);
+      border-radius: 16px 16px 0 0; padding: 24px;
+    }
+    .doc-root[data-style-variant="minimal"] .company-name { font-weight: 700; letter-spacing: -0.02em; }
+    .doc-root[data-style-variant="minimal"] .section-title {
+      font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em;
+      color: #94a3b8; border-bottom: none; margin-bottom: 16px;
+    }
+    .doc-root[data-style-variant="minimal"] table { border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+    .doc-root[data-style-variant="minimal"] table th {
+      background: #f8fafc; color: #475569; padding: 12px 16px;
+      font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; border: none;
+    }
+    .doc-root[data-style-variant="minimal"] table td { padding: 12px 16px; border-bottom: 1px solid #f1f5f9; }
+    .doc-root[data-style-variant="minimal"] table tr:nth-child(even) td { background: #fafbfc; }
+    .doc-root[data-style-variant="minimal"] .total-row {
+      background: ${primaryColor}; color: white; padding: 16px 20px; border-radius: 12px;
+      font-weight: 600; border: none; margin-top: 16px;
+    }
+    .doc-root[data-style-variant="minimal"] .catering-summary table { border-radius: 12px; border: 1px solid #e2e8f0; }
+    .doc-root[data-style-variant="minimal"] .date-group { background: #fafbfc; border-radius: 12px; padding: 16px; }
+
+    /* === EDITORIAL MODERNO (revista gourmet) === */
+    .doc-root[data-style-variant="editorial"] {
+      font-family: 'Georgia', 'Playfair Display', serif;
+      color: #1c1917;
+    }
+    .doc-root[data-style-variant="editorial"] .header {
+      background: ${primaryColor}; color: white;
+      margin: -32px -32px 40px -32px; padding: 56px 48px;
+      border-bottom: none; border-radius: 0;
+    }
+    .doc-root[data-style-variant="editorial"] .header * { color: white !important; }
+    .doc-root[data-style-variant="editorial"] .header .info-label,
+    .doc-root[data-style-variant="editorial"] .header .text-muted-foreground { color: rgba(255,255,255,0.8) !important; }
+    .doc-root[data-style-variant="editorial"] .company-name {
+      font-family: 'Georgia', serif; font-size: 36px; font-weight: normal; letter-spacing: -0.02em;
+    }
+    .doc-root[data-style-variant="editorial"] h2 {
+      font-family: 'Georgia', serif; font-size: 48px; font-weight: normal; letter-spacing: -0.03em;
+    }
+    .doc-root[data-style-variant="editorial"] .section-title {
+      font-family: 'Inter', sans-serif; font-size: 11px; text-transform: uppercase; letter-spacing: 0.2em;
+      color: ${primaryColor}; border-bottom: none; position: relative; padding-bottom: 12px;
+    }
+    .doc-root[data-style-variant="editorial"] .section-title::after {
+      content: ''; position: absolute; bottom: 0; left: 0; width: 40px; height: 2px; background: ${primaryColor};
+    }
+    .doc-root[data-style-variant="editorial"] table { border: none; }
+    .doc-root[data-style-variant="editorial"] table th {
+      background: transparent; color: ${primaryColor}; border-bottom: 2px solid ${primaryColor};
+      padding: 10px 0; font-family: 'Inter', sans-serif; font-size: 10px; text-transform: uppercase; letter-spacing: 0.15em;
+    }
+    .doc-root[data-style-variant="editorial"] table td {
+      padding: 14px 0; border-bottom: 1px solid #e7e5e4; font-size: 15px;
+    }
+    .doc-root[data-style-variant="editorial"] .total-row {
+      font-family: 'Georgia', serif; font-size: 28px; font-weight: normal;
+      border-top: 3px double ${primaryColor}; padding-top: 16px; color: ${primaryColor};
+    }
+    .doc-root[data-style-variant="editorial"] .catering-summary table th,
+    .doc-root[data-style-variant="editorial"] .catering-summary table td { border: none; }
+    .doc-root[data-style-variant="editorial"] .catering-summary table {
+      border-top: 2px solid ${primaryColor}; border-bottom: 2px solid ${primaryColor};
+    }
+
+    /* === HOSPITALITY LUJO (hotel 5★) === */
+    .doc-root[data-style-variant="luxury"] {
+      font-family: 'Cormorant Garamond', 'Georgia', serif;
+      color: #1c1917; background: #0a0a0a;
+      padding: 0 !important;
+    }
+    .doc-root[data-style-variant="luxury"] > * { background: white; padding: 32px; }
+    .doc-root[data-style-variant="luxury"] .header {
+      background: #0a0a0a; color: #d4af37;
+      margin: -32px -32px 40px -32px; padding: 64px 48px;
+      border-bottom: 1px solid #d4af37; border-radius: 0; position: relative;
+    }
+    .doc-root[data-style-variant="luxury"] .header::after {
+      content: ''; position: absolute; bottom: -1px; left: 50%; transform: translateX(-50%);
+      width: 60px; height: 1px; background: #d4af37; box-shadow: 0 2px 0 #d4af37;
+    }
+    .doc-root[data-style-variant="luxury"] .header * { color: #f5f5f4 !important; }
+    .doc-root[data-style-variant="luxury"] .header .company-name { color: #d4af37 !important; }
+    .doc-root[data-style-variant="luxury"] .company-name {
+      font-family: 'Cormorant Garamond', serif; font-size: 32px; font-weight: 300;
+      letter-spacing: 0.15em; text-transform: uppercase;
+    }
+    .doc-root[data-style-variant="luxury"] h2, .doc-root[data-style-variant="luxury"] h3 {
+      font-family: 'Cormorant Garamond', serif; font-weight: 300; letter-spacing: 0.1em; text-transform: uppercase;
+    }
+    .doc-root[data-style-variant="luxury"] .section-title {
+      font-family: 'Cormorant Garamond', serif; font-size: 14px; font-weight: 400;
+      letter-spacing: 0.3em; text-transform: uppercase; color: #1c1917;
+      text-align: center; border-bottom: none; padding: 16px 0;
+      position: relative;
+    }
+    .doc-root[data-style-variant="luxury"] .section-title::before,
+    .doc-root[data-style-variant="luxury"] .section-title::after {
+      content: '◆'; color: #d4af37; margin: 0 16px; font-size: 8px; vertical-align: middle;
+    }
+    .doc-root[data-style-variant="luxury"] table th {
+      background: transparent; color: #1c1917; border-top: 1px solid #1c1917; border-bottom: 1px solid #1c1917;
+      padding: 12px 8px; font-family: 'Cormorant Garamond', serif; font-size: 12px;
+      text-transform: uppercase; letter-spacing: 0.2em; font-weight: 500;
+    }
+    .doc-root[data-style-variant="luxury"] table td {
+      padding: 14px 8px; border-bottom: 1px solid #e7e5e4; font-size: 15px; font-family: 'Cormorant Garamond', serif;
+    }
+    .doc-root[data-style-variant="luxury"] .total-row {
+      background: #0a0a0a; color: #d4af37 !important; padding: 24px;
+      font-family: 'Cormorant Garamond', serif; font-size: 28px; font-weight: 300; letter-spacing: 0.1em;
+      text-transform: uppercase; text-align: center; margin-top: 24px; border: none;
+    }
+    .doc-root[data-style-variant="luxury"] .total-row * { color: #d4af37 !important; }
+    .doc-root[data-style-variant="luxury"] .catering-summary table { border-top: 1px solid #1c1917; border-bottom: 1px solid #1c1917; }
+  `;
+
   const handlePrint = () => {
     const printContent = printRef.current;
     const printWindow = window.open('', '_blank');
-    // Use company primary color or fallback to default
-    const primaryColor = company?.primary_color || '#3A4D3F';
     printWindow.document.write(`
       <html>
         <head>
           <title>${config.name[language]} - ${event?.name || 'Document'}</title>
           <style>
             body { font-family: 'Segoe UI', sans-serif; padding: 20px; color: #1a1a1a; }
-            .header { border-bottom: 2px solid ${primaryColor}; padding-bottom: 20px; margin-bottom: 20px; }
-            .company-name { font-size: 24px; font-weight: bold; color: ${primaryColor}; }
-            .event-name { font-size: 20px; font-weight: 600; margin-top: 10px; }
+            ${variantCSS}
             .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 15px 0; }
             .info-item { display: flex; gap: 8px; }
             .info-label { font-weight: 600; color: #666; }
             .section { margin: 20px 0; }
-            .section-title { font-size: 16px; font-weight: 600; color: ${primaryColor}; border-bottom: 1px solid #ddd; padding-bottom: 5px; margin-bottom: 10px; }
             .date-group { margin: 15px 0; padding: 10px; background: #f9f9f9; border-radius: 4px; }
             .date-title { font-weight: 600; color: ${primaryColor}; margin-bottom: 10px; }
             table { width: 100%; border-collapse: collapse; margin: 10px 0; }
-            th { background: ${primaryColor}; color: white; padding: 8px; text-align: left; font-size: 12px; }
-            td { padding: 8px; border-bottom: 1px solid #eee; font-size: 13px; }
-            .text-right { text-align: right; }
-            .subtotals { margin-top: 20px; padding: 15px; background: #f5f5f5; border-radius: 4px; }
-            .total-row { font-size: 18px; font-weight: bold; border-top: 2px solid ${primaryColor}; padding-top: 10px; margin-top: 10px; }
             .notes { margin-top: 20px; padding: 15px; background: #fffde7; border-left: 4px solid #ffc107; }
             .terms { margin-top: 20px; padding: 15px; background: #f5f5f5; font-size: 12px; }
             .payment-info { margin-top: 15px; padding: 15px; background: #e8f5e9; border-left: 4px solid ${primaryColor}; font-size: 12px; }
@@ -296,7 +428,9 @@ export default function DocumentPreview({
           </style>
         </head>
         <body>
-          ${printContent.innerHTML}
+          <div class="doc-root" data-style-variant="${styleVariant}">
+            ${printContent.innerHTML}
+          </div>
         </body>
       </html>
     `);
@@ -366,7 +500,8 @@ export default function DocumentPreview({
 
         {/* Document Preview */}
         <Card className="shadow-lg">
-          <CardContent className="p-8" ref={printRef}>
+          <style dangerouslySetInnerHTML={{ __html: variantCSS }} />
+          <CardContent className="p-8 doc-root" data-style-variant={styleVariant} ref={printRef}>
             {/* Header */}
             <div className="header border-b-2 pb-6 mb-6" style={{ borderColor: company?.primary_color || '#3A4D3F' }}>
               <div className="flex justify-between items-start">
@@ -453,7 +588,7 @@ export default function DocumentPreview({
             {(proposal?.day_logistics?.length > 0) && (
               <div className="catering-summary mb-6" data-testid="doc-day-logistics">
                 <h4
-                  className="text-sm font-semibold uppercase tracking-wide mb-3"
+                  className="section-title text-sm font-semibold uppercase tracking-wide mb-3"
                   style={{ color: company?.primary_color || '#3A4D3F' }}
                 >
                   {language === "es" ? "Resumen de Catering" : "Catering Summary"}

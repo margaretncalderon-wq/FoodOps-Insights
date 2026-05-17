@@ -1136,6 +1136,7 @@ class DocumentTemplateCreate(BaseModel):
     bank_details: Optional[str] = None
     # Document styling
     primary_color: Optional[str] = "#3A4D3F"
+    style_variant: Optional[str] = "classic"  # classic | minimal | editorial | luxury
     show_logo: bool = True
     show_company_address: bool = True
     show_tax_id: bool = True
@@ -1162,6 +1163,8 @@ class DocumentTemplate(BaseModel):
     service_section_title_es: Optional[str] = "Servicios"
     rental_section_title_en: Optional[str] = "Rentals & Equipment"
     rental_section_title_es: Optional[str] = "Alquileres y Equipos"
+    primary_color: Optional[str] = "#3A4D3F"
+    style_variant: Optional[str] = "classic"
     created_at: datetime
     updated_at: datetime
 
@@ -7722,6 +7725,7 @@ async def update_document_template(template_id: str, data: DocumentTemplateCreat
         "payment_instructions_es": data.payment_instructions_es,
         "bank_details": data.bank_details,
         "primary_color": data.primary_color,
+        "style_variant": data.style_variant or "classic",
         "show_logo": data.show_logo,
         "show_company_address": data.show_company_address,
         "show_tax_id": data.show_tax_id,

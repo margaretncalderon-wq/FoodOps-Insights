@@ -458,7 +458,9 @@ export default function SettingsPage() {
         header_text_en: templateData.header_text_en,
         header_text_es: templateData.header_text_es,
         footer_text_en: templateData.footer_text_en,
-        footer_text_es: templateData.footer_text_es
+        footer_text_es: templateData.footer_text_es,
+        style_variant: templateData.style_variant || "classic",
+        primary_color: templateData.primary_color,
       }, { withCredentials: true });
       
       // Update local state
@@ -3848,6 +3850,50 @@ export default function SettingsPage() {
                           </div>
                         </CardHeader>
                         <CardContent className="pt-2 space-y-4">
+                          {/* Style Variant Selector (Proposal/Invoice only) */}
+                          {["Proposal", "Invoice"].includes(template.template_type) && (
+                            <div className="border-b pb-4">
+                              <Label className="text-xs mb-3 block font-medium flex items-center gap-2">
+                                🎨 {language === "es" ? "Estilo visual del documento" : "Document visual style"}
+                              </Label>
+                              <div className="grid grid-cols-2 md:grid-cols-4 gap-2" data-testid="style-variant-picker">
+                                {[
+                                  { key: "classic", label_es: "Clásico", label_en: "Classic", desc_es: "Limpio B/N", desc_en: "Clean B/W", emoji: "📄" },
+                                  { key: "minimal", label_es: "Minimal Cálido", label_en: "Minimal Warm", desc_es: "Notion-style", desc_en: "Notion-style", emoji: "🌿" },
+                                  { key: "editorial", label_es: "Editorial", label_en: "Editorial", desc_es: "Revista gourmet", desc_en: "Magazine", emoji: "📰" },
+                                  { key: "luxury", label_es: "Lujo Hotelero", label_en: "Luxury", desc_es: "Hotel 5★", desc_en: "5★ hotel", emoji: "🌑" },
+                                ].map((s) => {
+                                  const active = (template.style_variant || "classic") === s.key;
+                                  return (
+                                    <button
+                                      key={s.key}
+                                      type="button"
+                                      onClick={() => handleUpdateTemplate(template.template_id, { ...template, style_variant: s.key })}
+                                      data-testid={`style-variant-${s.key}`}
+                                      className={`relative text-left p-3 rounded-lg border-2 transition-all hover:scale-[1.02] ${
+                                        active
+                                          ? "border-emerald-500 bg-emerald-50 shadow-sm"
+                                          : "border-slate-200 bg-white hover:border-slate-300"
+                                      }`}
+                                    >
+                                      <div className="text-2xl mb-1">{s.emoji}</div>
+                                      <div className="text-xs font-semibold">{language === "es" ? s.label_es : s.label_en}</div>
+                                      <div className="text-[10px] text-muted-foreground">{language === "es" ? s.desc_es : s.desc_en}</div>
+                                      {active && (
+                                        <div className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-emerald-500 flex items-center justify-center text-white text-[10px] font-bold">✓</div>
+                                      )}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                              <p className="text-[11px] text-muted-foreground mt-2">
+                                {language === "es"
+                                  ? "El color principal del documento se toma de tu Branding."
+                                  : "The document's primary color is taken from your Branding."}
+                              </p>
+                            </div>
+                          )}
+
                           {/* Header & Footer */}
                           <div className="grid grid-cols-2 gap-4">
                             <div>
