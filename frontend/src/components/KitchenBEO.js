@@ -147,7 +147,14 @@ export default function KitchenBEO({ open, onOpenChange, events = [] }) {
             <div className="space-y-3">
               {beo.courses?.map((c) => (
                 <div key={c.course_id || c.course_name} className="border rounded-md p-3">
-                  <p className="font-semibold capitalize mb-2">{c.course_name}</p>
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="font-semibold capitalize">{c.course_name}</p>
+                    {c.service_time && (
+                      <Badge variant="outline" className="font-mono text-xs bg-amber-50 border-amber-300 text-amber-800">
+                        🕐 {c.service_time}
+                      </Badge>
+                    )}
+                  </div>
                   <div className="space-y-2">
                     {c.recipes?.map((r) => (
                       <div key={r.recipe_id} className="text-xs border-l-2 border-primary/40 pl-2">
@@ -205,7 +212,10 @@ function buildPrintHtml(beo, isEs) {
   const dietHtml = (beo.dietary_tags_aggregate || []).map((d) => `<span class="diet">${d}</span>`).join(" ");
 
   const coursesHtml = (beo.courses || []).map((c) => `
-    <h2 class="course-header">${escapeHtml(c.course_name || "")}</h2>
+    <h2 class="course-header">
+      <span>${escapeHtml(c.course_name || "")}</span>
+      ${c.service_time ? `<span class="course-time">🕐 ${escapeHtml(c.service_time)}</span>` : ""}
+    </h2>
     ${(c.recipes || []).map((r) => `
       <div class="recipe">
         <div class="recipe-head">
@@ -240,7 +250,8 @@ function buildPrintHtml(beo, isEs) {
 <style>
   body { font-family: Arial, sans-serif; padding: 24px; color: #222; }
   h1 { border-bottom: 2px solid #222; padding-bottom: 10px; margin-bottom: 6px; }
-  h2.course-header { background: #f3f4f6; padding: 8px 12px; margin-top: 24px; border-left: 4px solid #333; }
+  h2.course-header { background: #f3f4f6; padding: 8px 12px; margin-top: 24px; border-left: 4px solid #333; display: flex; justify-content: space-between; align-items: center; }
+  .course-time { font-size: 14px; background: #fef3c7; color: #92400e; padding: 2px 10px; border-radius: 6px; border: 1px solid #fcd34d; font-weight: 600; }
   h3 { margin: 0; font-size: 16px; }
   .meta { display: flex; justify-content: space-between; flex-wrap: wrap; font-size: 13px; color: #555; }
   .meta strong { color: #222; }

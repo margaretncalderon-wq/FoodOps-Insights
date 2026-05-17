@@ -216,6 +216,18 @@ Phase 2 Culinary backend validated 19/19 in iteration_176.json.
 
 **Tests**: Backend E2E curl — set `section_time=18:30`, GET items confirma persistencia. Lint frontend OK.
 
+### Hora de Servicio en Kitchen BEO (May 17, 2026)
+**Goal**: Que la hora de servicio definida por sección en la cotización aparezca también en el Kitchen BEO (UI + HTML imprimible).
+
+**Backend** (`server.py`)
+- `GET /api/kitchen-beo/event/{event_id}` ahora busca el proposal más reciente del evento y pre-carga un mapa `course_id → section_time` desde `order_items.loaded_from_course_id` + `section_time`. Cada curso del payload incluye ahora `service_time`.
+
+**Frontend** (`KitchenBEO.js`)
+- UI: Badge `🕐 HH:MM` (amber) en el header de cada curso cuando hay hora.
+- HTML print: Style `.course-time` (chip amber) en el header del curso. Layout flex para alinear nombre y hora.
+
+**Tests**: Backend E2E curl — set times `18:30 / 19:30 / 20:30` → Kitchen BEO retorna las mismas horas por curso correctamente. Lint OK.
+
 ### Pending Mini-tasks & Backlog
 - Production SMTP credentials → enable real email delivery for digest.
 - Logo Image Upload via Object Storage for Guest Flow (P1).

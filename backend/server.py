@@ -4136,6 +4136,28 @@ async def get_kitchen_beo(event_id: str, user: User = Depends(get_current_user))
     total_input_cost = 0.0
     courses_out = []
 
+    # Find proposal items for this event to pull service_time per course
+    section_time_by_course = {}
+    proposal = await db.proposals.find_one(
+        {"event_id": event_id, "company_id": user.company_id},
+        {"_id": 0, "proposal_id": 1},
+        sort=[("created_at", -1)],
+    )
+    if proposal:
+        oi_cursor = db.order_items.find(
+            {
+                "proposal_id": proposal["proposal_id"],
+                "company_id": user.company_id,
+                "loaded_from_course_id": {"$exists": True, "$ne": None},
+            },
+            {"_id": 0, "loaded_from_course_id": 1, "section_time": 1},
+        )
+        async for oi in oi_cursor:
+            cid = oi.get("loaded_from_course_id")
+            t = oi.get("section_time")
+            if cid and t and cid not in section_time_by_course:
+                section_time_by_course[cid] = t
+
     for course in courses:
         course_recipes = []
         for item in course.get("items", []):
@@ -4204,6 +4226,7 @@ async def get_kitchen_beo(event_id: str, user: User = Depends(get_current_user))
                 "course_id": course.get("course_id"),
                 "course_name": course.get("course_name") or course.get("name"),
                 "course_order": course.get("course_order"),
+                "service_time": section_time_by_course.get(course.get("course_id")),
                 "recipes": course_recipes,
             })
 
