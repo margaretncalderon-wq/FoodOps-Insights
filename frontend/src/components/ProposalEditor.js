@@ -168,6 +168,30 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
   const [picklistSearch, setPicklistSearch] = useState("");
   const [activeTab, setActiveTab] = useState("items");
 
+  // Margin policy → suggested price helper
+  const [marginPolicy, setMarginPolicy] = useState({ by_type: {}, by_category: [] });
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await axios.get(`${API}/settings/margin-policy`, { withCredentials: true });
+        setMarginPolicy(res.data || { by_type: {}, by_category: [] });
+      } catch (e) { /* ignore */ }
+    })();
+  }, []);
+  const getSuggestedUnitPrice = (item) => {
+    if (item.internal_cost == null || item.internal_cost <= 0) return null;
+    const itype = item.item_type || "Service";
+    const cat = item.category_id;
+    const rule = (marginPolicy.by_category || []).find(
+      (r) => (r.item_type === itype || !r.item_type) && r.category === cat
+    );
+    const pct = rule?.min_margin_pct != null
+      ? Number(rule.min_margin_pct)
+      : Number(marginPolicy.by_type?.[itype] ?? 30);
+    if (!pct || pct <= 0 || pct >= 100) return null;
+    return item.internal_cost / (1 - pct / 100);
+  };
+
   // DnD sensors for sortable items
   const dndSensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
@@ -1628,10 +1652,21 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
                                                 </p>
                                               )}
                                               {featureFlags?.is_margin_tracking_enabled && item.internal_cost !== null && (
-                                                <div className="flex items-center gap-2 mt-1">
+                                                <div className="flex items-center gap-2 mt-1 flex-wrap">
                                                   <span className={`text-xs ${item.margin_percentage < 20 ? 'text-destructive' : item.margin_percentage > 50 ? 'text-success' : 'text-muted-foreground'}`}>
                                                     {language === "es" ? "Margen" : "Margin"}: {item.margin_percentage?.toFixed(0)}%
                                                   </span>
+                                                  {(() => {
+                                                    const sugg = getSuggestedUnitPrice(item);
+                                                    if (sugg == null || item.unit_price == null) return null;
+                                                    const isBelow = item.unit_price < sugg - 0.01;
+                                                    if (!isBelow) return null;
+                                                    return (
+                                                      <span className="text-xs text-emerald-700 inline-flex items-center gap-1" data-testid={`suggested-price-${item.item_id}`}>
+                                                        💡 {language === "es" ? "Precio sugerido" : "Suggested"}: <strong>${sugg.toFixed(2)}</strong>
+                                                      </span>
+                                                    );
+                                                  })()}
                                                   {item.internal_cost === null && (
                                                     <Badge variant="outline" className="text-xs text-warning">
                                                       <AlertTriangle className="w-3 h-3 mr-1" />

@@ -519,6 +519,31 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
   const foodCostPercent = form.sell_price > 0 ? (costPerPortion / form.sell_price * 100) : 0;
   const margin = form.sell_price - costPerPortion;
 
+  // Margin policy → suggested sale price (Food default unless category overrides)
+  const [marginPolicy, setMarginPolicy] = useState({ by_type: {}, by_category: [] });
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const res = await axios.get(`${API}/settings/margin-policy`, { withCredentials: true });
+        if (alive) setMarginPolicy(res.data || { by_type: {}, by_category: [] });
+      } catch (e) { /* ignore */ }
+    })();
+    return () => { alive = false; };
+  }, []);
+  const targetMarginPct = (() => {
+    const cat = form.category;
+    const ruleByCat = (marginPolicy.by_category || []).find(
+      (r) => (r.item_type === "Food" || !r.item_type) && r.category === cat
+    );
+    if (ruleByCat?.min_margin_pct != null) return Number(ruleByCat.min_margin_pct);
+    return Number(marginPolicy.by_type?.Food ?? 35);
+  })();
+  const suggestedSellPrice =
+    targetMarginPct > 0 && targetMarginPct < 100 && costPerPortion > 0
+      ? costPerPortion / (1 - targetMarginPct / 100)
+      : null;
+
   // Ingredient management
   const addIngredient = (ingredientId) => {
     const ingredient = localIngredients.find(i => i.ingredient_id === ingredientId);
@@ -1388,7 +1413,7 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
 
           {/* Cost Summary */}
           <Card className="bg-muted/30">
-            <CardContent className="pt-4">
+            <CardContent className="pt-4 space-y-3">
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="text-center p-3 bg-background rounded-lg">
                   <p className="text-xs text-muted-foreground">{t("totalCost")}</p>
@@ -1409,6 +1434,29 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
                   <p className={`text-2xl font-bold ${margin < 0 ? "text-red-500" : "text-green-500"}`}>${margin.toFixed(2)}</p>
                 </div>
               </div>
+              {suggestedSellPrice != null && (
+                <div className="flex items-center justify-between gap-3 px-4 py-2 rounded-lg border border-emerald-200 bg-emerald-50">
+                  <div className="text-sm">
+                    <span className="text-emerald-700 font-semibold">
+                      {language === "es" ? "Precio de venta sugerido:" : "Suggested sale price:"}
+                    </span>
+                    <span className="text-2xl font-bold text-emerald-700 ml-2">${suggestedSellPrice.toFixed(2)}</span>
+                    <span className="text-xs text-muted-foreground ml-2">
+                      ({language === "es" ? "basado en" : "based on"} {targetMarginPct.toFixed(0)}% {language === "es" ? "de margen" : "margin"})
+                    </span>
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="bg-white"
+                    onClick={() => setForm((prev) => ({ ...prev, sell_price: Number(suggestedSellPrice.toFixed(2)) }))}
+                    data-testid="recipe-apply-suggested-price"
+                  >
+                    {language === "es" ? "Aplicar" : "Apply"}
+                  </Button>
+                </div>
+              )}
             </CardContent>
           </Card>
 
