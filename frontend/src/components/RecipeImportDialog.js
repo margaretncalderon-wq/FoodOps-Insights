@@ -36,6 +36,7 @@ export default function RecipeImportDialog({ open, onClose, onImported }) {
   // Manual rows: each row is a recipe
   const blankRow = () => ({
     nombre: "",
+    descripcion: "",
     categoria: "",
     tipo: "final_dish",
     porciones: 1,
@@ -74,7 +75,7 @@ export default function RecipeImportDialog({ open, onClose, onImported }) {
 
   // Build a CSV File blob from the current input mode (manual rows or pasted text)
   const buildCsvFile = () => {
-    const cols = ["nombre", "categoria", "tipo", "porciones", "tiempo_preparacion", "precio_por_porcion", "ingredientes"];
+    const cols = ["nombre", "descripcion", "categoria", "tipo", "porciones", "tiempo_preparacion", "precio_por_porcion", "ingredientes"];
     let csv = cols.join(",") + "\n";
 
     if (inputMode === "manual") {
@@ -105,6 +106,7 @@ export default function RecipeImportDialog({ open, onClose, onImported }) {
           // Map by header name (loose alias support)
           const aliasMap = {
             nombre: "nombre", name: "nombre", receta: "nombre",
+            descripcion: "descripcion", "descripción": "descripcion", description: "descripcion",
             categoria: "categoria", "categoría": "categoria", category: "categoria",
             tipo: "tipo", type: "tipo",
             porciones: "porciones", servings: "porciones",
@@ -255,6 +257,7 @@ export default function RecipeImportDialog({ open, onClose, onImported }) {
                       <thead className="bg-muted/50 sticky top-0">
                         <tr>
                           <th className="text-left p-2 min-w-[160px]">{t("Nombre *", "Name *")}</th>
+                          <th className="text-left p-2 min-w-[200px]">{t("Descripción", "Description")}</th>
                           <th className="text-left p-2 min-w-[120px]">{t("Categoría", "Category")}</th>
                           <th className="text-left p-2 w-24">{t("Porciones", "Servings")}</th>
                           <th className="text-left p-2 w-24">{t("Tiempo", "Prep time")}</th>
@@ -273,6 +276,15 @@ export default function RecipeImportDialog({ open, onClose, onImported }) {
                                 placeholder={t("Ej: Ensalada César", "E.g.: Caesar Salad")}
                                 className="h-8 text-xs"
                                 data-testid={`rcp-row-${idx}-nombre`}
+                              />
+                            </td>
+                            <td className="p-1">
+                              <Input
+                                value={row.descripcion}
+                                onChange={(e) => updateRow(idx, "descripcion", e.target.value)}
+                                placeholder={t("Lechuga romana con aderezo César…", "Crisp romaine with Caesar dressing…")}
+                                className="h-8 text-xs"
+                                data-testid={`rcp-row-${idx}-descripcion`}
                               />
                             </td>
                             <td className="p-1">
@@ -345,8 +357,8 @@ export default function RecipeImportDialog({ open, onClose, onImported }) {
                     <p className="font-medium mb-1">{t("Pega desde Excel o Google Sheets", "Paste from Excel or Google Sheets")}</p>
                     <p>
                       {t(
-                        "Selecciona en tu hoja las columnas: nombre, categoria, tipo, porciones, tiempo_preparacion, precio_por_porcion, ingredientes — y pega aquí. Detectamos tabs/comas automáticamente.",
-                        "Select these columns in your sheet: name, category, type, servings, prep_time, price_per_serving, ingredients — and paste here. Tabs/commas auto-detected."
+                        "Selecciona en tu hoja las columnas: nombre, descripcion, categoria, tipo, porciones, tiempo_preparacion, precio_por_porcion, ingredientes — y pega aquí. Detectamos tabs/comas automáticamente.",
+                        "Select these columns in your sheet: name, description, category, type, servings, prep_time, price_per_serving, ingredients — and paste here. Tabs/commas auto-detected."
                       )}
                     </p>
                   </div>
@@ -355,9 +367,9 @@ export default function RecipeImportDialog({ open, onClose, onImported }) {
                     onChange={(e) => setPasteText(e.target.value)}
                     rows={10}
                     className="font-mono text-xs"
-                    placeholder={`nombre\tcategoria\ttipo\tporciones\ttiempo_preparacion\tprecio_por_porcion\tingredientes
-Ensalada César\tEnsaladas\tfinal_dish\t4\t15 min\t12.50\tLechuga: 0.4 kg; Queso parmesano: 80 g
-Pollo al limón\tPlato principal\tfinal_dish\t2\t30 min\t18.00\tPechuga: 0.6 kg; Limón: 2 unit`}
+                    placeholder={`nombre\tdescripcion\tcategoria\ttipo\tporciones\ttiempo_preparacion\tprecio_por_porcion\tingredientes
+Ensalada César\tLechuga romana con aderezo César\tEnsaladas\tfinal_dish\t4\t15 min\t12.50\tLechuga: 0.4 kg; Queso parmesano: 80 g
+Pollo al limón\tPechuga marinada en limón\tPlato principal\tfinal_dish\t2\t30 min\t18.00\tPechuga: 0.6 kg; Limón: 2 unit`}
                     data-testid="rcp-paste-textarea"
                   />
                   <p className="text-xs text-muted-foreground">

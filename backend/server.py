@@ -10886,12 +10886,13 @@ def _parse_ingredients_string(s: str) -> list:
 def _recipes_template_rows():
     """Sample rows for the recipes import template."""
     columns = [
-        "nombre", "categoria", "tipo", "porciones", "tiempo_preparacion",
+        "nombre", "descripcion", "categoria", "tipo", "porciones", "tiempo_preparacion",
         "instrucciones", "notas", "precio_por_porcion", "ingredientes",
     ]
     samples = [
         [
             "Ensalada César",
+            "Lechuga romana fresca con aderezo César cremoso, queso parmesano y crutones crujientes.",
             "Ensaladas",
             "final_dish",
             4,
@@ -10903,6 +10904,7 @@ def _recipes_template_rows():
         ],
         [
             "Pollo al limón",
+            "Pechuga de pollo marinada en limón y hierbas, horneada hasta dorar.",
             "Plato principal",
             "final_dish",
             2,
@@ -10948,6 +10950,7 @@ async def recipes_import_template(format: str = "csv", user: User = Depends(get_
 
 _RECIPE_COL_MAP = {
     "nombre": "name", "name": "name", "receta": "name",
+    "descripcion": "description", "descripción": "description", "description": "description",
     "categoria": "category", "categoría": "category", "category": "category",
     "tipo": "recipe_type", "type": "recipe_type", "recipe_type": "recipe_type",
     "porciones": "servings", "servings": "servings", "yield": "servings",
@@ -11183,6 +11186,7 @@ async def recipes_import_from_file(
 
             data = {
                 "name": name,
+                "description": str(row.get("description") or "").strip() or "",
                 "category": str(row.get("category") or "main").strip() or "main",
                 "recipe_type": recipe_type,
                 "servings": servings,
