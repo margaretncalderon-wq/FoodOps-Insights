@@ -53,7 +53,7 @@ import {
   Armchair, Users, Flower2, Package, GripVertical, Percent,
   DollarSign, ChevronDown, ChevronRight, Loader2, AlertTriangle, 
   Search, Send, CheckCircle, XCircle, Lock, History, TrendingUp,
-  Edit, Clock, Calculator, Link2, RefreshCw, CreditCard, Check, X, Type
+  Edit, Clock, Calculator, Link2, RefreshCw, CreditCard, Check, X, Type, ChefHat
 } from "lucide-react";
 
 import {
@@ -149,6 +149,8 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
   const [taxRates, setTaxRates] = useState([]);
   const [picklist, setPicklist] = useState([]);
   const [menus, setMenus] = useState([]);
+  const [platedMenus, setPlatedMenus] = useState([]);
+  const [menuSearch, setMenuSearch] = useState("");
   const [recipes, setRecipes] = useState([]);
   const [featureFlags, setFeatureFlags] = useState(null);
   const [financials, setFinancials] = useState(null);
@@ -278,6 +280,7 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
       fetchTaxRates(),
       fetchPicklist(),
       fetchMenus(),
+      fetchPlatedMenus(),
       fetchRecipes(),
       fetchFeatureFlags(),
       fetchFinancials(),
@@ -424,6 +427,16 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
     }
   };
 
+  const fetchPlatedMenus = async () => {
+    try {
+      const response = await axios.get(`${API}/plated-menus`, { withCredentials: true });
+      setPlatedMenus(response.data || []);
+    } catch (error) {
+      console.error("Failed to fetch plated menus:", error);
+      setPlatedMenus([]);
+    }
+  };
+
   const fetchRecipes = async () => {
     try {
       const response = await axios.get(`${API}/recipes`, { withCredentials: true });
@@ -561,6 +574,32 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
       setAddMenuOpen(false);
     } catch (error) {
       const msg = error.response?.data?.detail || "Failed to add menu items";
+      toast.error(typeof msg === "string" ? msg : JSON.stringify(msg));
+    }
+  };
+
+  const handleAddPlatedMenu = async (platedMenu) => {
+    try {
+      const res = await axios.post(
+        `${API}/proposals/${proposal.proposal_id}/items/bulk-from-plated-menu`,
+        {
+          menu_id: platedMenu.menu_id,
+          guest_count: event?.guest_count || event?.num_guests || 0,
+        },
+        { withCredentials: true },
+      );
+      const addedCount = res.data?.items_added || 0;
+      const guests = res.data?.guest_count_used;
+      toast.success(
+        language === "es"
+          ? `${addedCount} ítems agregados desde "${platedMenu.name}" (${guests} invitados)`
+          : `${addedCount} items added from "${platedMenu.name}" (${guests} guests)`,
+      );
+      fetchProposal();
+      fetchFinancials();
+      setAddMenuOpen(false);
+    } catch (error) {
+      const msg = error.response?.data?.detail || "Failed to add plated menu items";
       toast.error(typeof msg === "string" ? msg : JSON.stringify(msg));
     }
   };
@@ -1451,8 +1490,14 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
           {/* Add Item / Menu Buttons */}
           {!isLocked && (
             <div className="flex flex-wrap justify-end gap-2">
-              {menus.length > 0 && (
+              {menus.length > 0 || platedMenus.length > 0 ? (
                 <Button variant="outline" onClick={() => setAddMenuOpen(true)} className="gap-2" data-testid="add-menu-btn">
+                  <Package className="w-4 h-4" />
+                  {language === "es" ? "Agregar Menú" : "Add Menu"}
+                  <Badge variant="secondary" className="ml-1 text-[10px] h-4 px-1.5">{menus.length + platedMenus.length}</Badge>
+                </Button>
+              ) : (
+                <Button variant="outline" onClick={() => setAddMenuOpen(true)} className="gap-2 opacity-70" data-testid="add-menu-btn">
                   <Package className="w-4 h-4" />
                   {language === "es" ? "Agregar Menú" : "Add Menu"}
                 </Button>
@@ -3074,7 +3119,7 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
       </Dialog>
 
       {/* Add Menu Dialog */}
-      <Dialog open={addMenuOpen} onOpenChange={setAddMenuOpen}>
+      <Dialog open={addMenuOpen} onOpenChange={(o) => { setAddMenuOpen(o); if (!o) setMenuSearch(""); }}>
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -3082,105 +3127,228 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
               {language === "es" ? "Seleccionar Menú / Paquete" : "Select Menu / Package"}
             </DialogTitle>
           </DialogHeader>
-          
-          <p className="text-sm text-muted-foreground mb-4">
-            {language === "es" 
-              ? "Selecciona un menú para agregar todos sus ítems a la propuesta de una vez."
-              : "Select a menu to add all its items to the proposal at once."}
+
+          <p className="text-sm text-muted-foreground mb-3">
+            {language === "es"
+              ? "Selecciona un menú para agregar todos sus ítems a la propuesta. Los menús de Inteligencia Culinaria se multiplican automáticamente por la cantidad de invitados."
+              : "Select a menu to add all its items to the proposal. Culinary Intelligence menus are multiplied automatically by the guest count."}
           </p>
 
-          {menus.length > 0 ? (
-            <div className="space-y-3">
-              {menus.map((menu) => (
-                <Card 
-                  key={menu.menu_id} 
-                  className="cursor-pointer hover:border-primary transition-colors"
-                  onClick={() => handleAddMenu(menu)}
-                >
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <h4 className="font-semibold">{language === "es" && menu.name_es ? menu.name_es : menu.name}</h4>
-                          <Badge variant="outline" className="text-xs">{menu.menu_type}</Badge>
-                          <Badge variant="secondary" className="text-xs">{menu.items?.length || 0} {language === "es" ? "ítems" : "items"}</Badge>
-                        </div>
-                        {menu.description && (
-                          <p className="text-sm text-muted-foreground mb-2">
-                            {language === "es" && menu.description_es ? menu.description_es : menu.description}
-                          </p>
-                        )}
-                        {/* Items preview */}
-                        <div className="flex flex-wrap gap-1 mb-2">
-                          {menu.items?.slice(0, 4).map((item, idx) => (
-                            <Badge key={idx} variant="outline" className="text-xs">
-                              {item.custom_name || item.picklist_item?.name || item.recipe?.name || "Item"}
-                              {item.quantity > 1 && ` ×${item.quantity}`}
-                            </Badge>
-                          ))}
-                          {menu.items?.length > 4 && (
-                            <Badge variant="outline" className="text-xs">+{menu.items.length - 4} {language === "es" ? "más" : "more"}</Badge>
-                          )}
-                        </div>
-                        
-                        {/* Variants */}
-                        {menu.variants?.length > 0 ? (
-                          <div className="flex flex-wrap gap-2 mb-2">
-                            {menu.variants.map((variant, idx) => (
-                              <Badge 
-                                key={idx}
-                                className={`text-xs cursor-pointer hover:opacity-80 ${variant.is_default ? 'bg-primary' : 'bg-muted text-foreground'}`}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  // Add menu with variant pricing
-                                  handleAddMenu(menu, variant);
-                                }}
-                              >
-                                {variant.name}: ${variant.final_price?.toFixed(2)}
-                                {variant.discount_value > 0 && (
-                                  <span className="ml-1 opacity-75">
-                                    ({variant.discount_type === 'percentage' ? `-${variant.discount_value}%` : `-$${variant.discount_value}`})
-                                  </span>
-                                )}
-                              </Badge>
-                            ))}
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-4 text-sm mb-2">
-                            <span className="font-mono font-medium">${menu.total_price?.toFixed(2)}</span>
-                            {featureFlags?.is_margin_tracking_enabled && (
-                              <>
-                                <span className="text-muted-foreground">
-                                  {language === "es" ? "Costo" : "Cost"}: ${menu.total_cost?.toFixed(2)}
-                                </span>
-                                <span className={menu.margin_percentage < 20 ? 'text-destructive' : menu.margin_percentage > 50 ? 'text-green-600' : 'text-amber-600'}>
-                                  {language === "es" ? "Margen" : "Margin"}: {menu.margin_percentage?.toFixed(0)}%
-                                </span>
-                              </>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                      <Button variant="outline" size="sm" className="ml-4" onClick={(e) => { e.stopPropagation(); handleAddMenu(menu); }}>
-                        <Plus className="w-4 h-4 mr-1" />
-                        {language === "es" ? "Agregar" : "Add"}
-                      </Button>
+          {/* Search */}
+          <div className="mb-4">
+            <Input
+              value={menuSearch}
+              onChange={(e) => setMenuSearch(e.target.value)}
+              placeholder={language === "es" ? "Buscar por nombre..." : "Search by name..."}
+              data-testid="menu-search-input"
+            />
+          </div>
+
+          {(() => {
+            const searchLower = (menuSearch || "").trim().toLowerCase();
+            const stylePill = (mt, ss) => {
+              const key = (ss || mt || "").toLowerCase();
+              const map = {
+                plated: { es: "🍽️ Plated", en: "🍽️ Plated", color: "bg-violet-100 text-violet-800 border-violet-200" },
+                buffet: { es: "🥗 Buffet", en: "🥗 Buffet", color: "bg-amber-100 text-amber-800 border-amber-200" },
+                family_style: { es: "👨‍👩‍👧 Familiar", en: "👨‍👩‍👧 Family Style", color: "bg-orange-100 text-orange-800 border-orange-200" },
+                cocktail: { es: "🍸 Cocktail", en: "🍸 Cocktail", color: "bg-pink-100 text-pink-800 border-pink-200" },
+                stations: { es: "🍴 Stations", en: "🍴 Stations", color: "bg-cyan-100 text-cyan-800 border-cyan-200" },
+                grab_and_go: { es: "📦 Grab & Go", en: "📦 Grab & Go", color: "bg-emerald-100 text-emerald-800 border-emerald-200" },
+              };
+              return map[key] || { es: mt || "Menú", en: mt || "Menu", color: "bg-slate-100 text-slate-800 border-slate-200" };
+            };
+
+            const filteredCatalog = menus.filter(m => !searchLower || (m.name || "").toLowerCase().includes(searchLower) || (m.name_es || "").toLowerCase().includes(searchLower));
+            const filteredPlated = platedMenus.filter(m => !searchLower || (m.name || "").toLowerCase().includes(searchLower));
+
+            const hasAny = filteredCatalog.length + filteredPlated.length > 0;
+            const noneAtAll = menus.length === 0 && platedMenus.length === 0;
+
+            if (noneAtAll) {
+              return (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Package className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                  <p className="font-medium">{language === "es" ? "No hay menús creados" : "No menus created"}</p>
+                  <p className="text-sm mt-3 max-w-md mx-auto">
+                    {language === "es"
+                      ? "Puedes crear menús en dos lugares:"
+                      : "You can create menus in two places:"}
+                  </p>
+                  <ul className="text-xs mt-2 space-y-1 inline-block text-left">
+                    <li>📋 <strong>{language === "es" ? "Ajustes → Catálogos → Menús/Paquetes" : "Settings → Catalogs → Menus/Packages"}</strong></li>
+                    <li>🍽️ <strong>{language === "es" ? "Inteligencia Culinaria → Menús" : "Culinary Intelligence → Menus"}</strong> ({language === "es" ? "Plated, Buffet, Family Style, Cocktail..." : "Plated, Buffet, Family Style, Cocktail..."})</li>
+                  </ul>
+                </div>
+              );
+            }
+
+            if (!hasAny) {
+              return (
+                <div className="text-center py-6 text-muted-foreground text-sm">
+                  {language === "es" ? "Sin resultados para" : "No results for"} "{menuSearch}"
+                </div>
+              );
+            }
+
+            return (
+              <div className="space-y-5">
+                {/* Plated / Culinary Intelligence Menus */}
+                {filteredPlated.length > 0 && (
+                  <div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <ChefHat className="w-4 h-4 text-violet-600" />
+                      <h3 className="text-sm font-semibold text-slate-700">
+                        {language === "es" ? "Menús de Inteligencia Culinaria" : "Culinary Intelligence Menus"}
+                      </h3>
+                      <Badge variant="secondary" className="text-[10px]">{filteredPlated.length}</Badge>
                     </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-8 text-muted-foreground">
-              <Package className="w-12 h-12 mx-auto mb-4 opacity-50" />
-              <p>{language === "es" ? "No hay menús creados" : "No menus created"}</p>
-              <p className="text-sm mt-2">
-                {language === "es" 
-                  ? "Crea menús en Ajustes → Catálogos → Tipos de Ítems → Menús/Paquetes"
-                  : "Create menus in Settings → Catalogs → Item Types → Menus/Packages"}
-              </p>
-            </div>
-          )}
+                    <div className="space-y-3">
+                      {filteredPlated.map((pm) => {
+                        const pill = stylePill(pm.menu_type, pm.serving_style);
+                        const courseCount = (pm.courses || []).length;
+                        const itemCount = (pm.courses || []).reduce((acc, c) => acc + (c.items || []).length, 0);
+                        return (
+                          <Card
+                            key={pm.menu_id}
+                            className="cursor-pointer hover:border-violet-400 hover:shadow-sm transition-all"
+                            onClick={() => handleAddPlatedMenu(pm)}
+                            data-testid={`plated-menu-card-${pm.menu_id}`}
+                          >
+                            <CardContent className="p-4">
+                              <div className="flex items-start justify-between">
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                    <h4 className="font-semibold">{pm.name}</h4>
+                                    <Badge className={`text-xs border ${pill.color}`} variant="outline">
+                                      {language === "es" ? pill.es : pill.en}
+                                    </Badge>
+                                    <Badge variant="secondary" className="text-xs">
+                                      {courseCount} {language === "es" ? "cursos" : "courses"}
+                                    </Badge>
+                                    <Badge variant="secondary" className="text-xs">
+                                      {itemCount} {language === "es" ? "ítems" : "items"}
+                                    </Badge>
+                                  </div>
+                                  {pm.description && (
+                                    <p className="text-sm text-muted-foreground mb-2">{pm.description}</p>
+                                  )}
+                                  <div className="flex items-center gap-4 text-sm mb-1">
+                                    <span className="font-mono">
+                                      ${(pm.cost_with_buffer || pm.cost_per_guest || 0).toFixed(2)}
+                                      <span className="text-xs text-muted-foreground ml-1">/{language === "es" ? "invitado" : "guest"}</span>
+                                    </span>
+                                    {(event?.guest_count || event?.num_guests) > 0 && (
+                                      <span className="text-xs text-muted-foreground">
+                                        × {event.guest_count || event.num_guests} = <strong>${((pm.cost_with_buffer || pm.cost_per_guest || 0) * (event.guest_count || event.num_guests)).toFixed(2)}</strong>
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                                <Button variant="outline" size="sm" className="ml-4" onClick={(e) => { e.stopPropagation(); handleAddPlatedMenu(pm); }}>
+                                  <Plus className="w-4 h-4 mr-1" />
+                                  {language === "es" ? "Agregar" : "Add"}
+                                </Button>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Catalog / Settings Menus */}
+                {filteredCatalog.length > 0 && (
+                  <div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <Package className="w-4 h-4 text-slate-600" />
+                      <h3 className="text-sm font-semibold text-slate-700">
+                        {language === "es" ? "Menús del Catálogo" : "Catalog Menus"}
+                      </h3>
+                      <Badge variant="secondary" className="text-[10px]">{filteredCatalog.length}</Badge>
+                    </div>
+                    <div className="space-y-3">
+                      {filteredCatalog.map((menu) => (
+                        <Card
+                          key={menu.menu_id}
+                          className="cursor-pointer hover:border-primary transition-colors"
+                          onClick={() => handleAddMenu(menu)}
+                          data-testid={`catalog-menu-card-${menu.menu_id}`}
+                        >
+                          <CardContent className="p-4">
+                            <div className="flex items-start justify-between">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <h4 className="font-semibold">{language === "es" && menu.name_es ? menu.name_es : menu.name}</h4>
+                                  <Badge variant="outline" className="text-xs">{menu.menu_type}</Badge>
+                                  <Badge variant="secondary" className="text-xs">{menu.items?.length || 0} {language === "es" ? "ítems" : "items"}</Badge>
+                                </div>
+                                {menu.description && (
+                                  <p className="text-sm text-muted-foreground mb-2">
+                                    {language === "es" && menu.description_es ? menu.description_es : menu.description}
+                                  </p>
+                                )}
+                                {/* Items preview */}
+                                <div className="flex flex-wrap gap-1 mb-2">
+                                  {menu.items?.slice(0, 4).map((item, idx) => (
+                                    <Badge key={idx} variant="outline" className="text-xs">
+                                      {item.custom_name || item.picklist_item?.name || item.recipe?.name || "Item"}
+                                      {item.quantity > 1 && ` ×${item.quantity}`}
+                                    </Badge>
+                                  ))}
+                                  {menu.items?.length > 4 && (
+                                    <Badge variant="outline" className="text-xs">+{menu.items.length - 4} {language === "es" ? "más" : "more"}</Badge>
+                                  )}
+                                </div>
+                                {/* Variants */}
+                                {menu.variants?.length > 0 ? (
+                                  <div className="flex flex-wrap gap-2 mb-2">
+                                    {menu.variants.map((variant, idx) => (
+                                      <Badge
+                                        key={idx}
+                                        className={`text-xs cursor-pointer hover:opacity-80 ${variant.is_default ? 'bg-primary' : 'bg-muted text-foreground'}`}
+                                        onClick={(e) => { e.stopPropagation(); handleAddMenu(menu, variant); }}
+                                      >
+                                        {variant.name}: ${variant.final_price?.toFixed(2)}
+                                        {variant.discount_value > 0 && (
+                                          <span className="ml-1 opacity-75">
+                                            ({variant.discount_type === 'percentage' ? `-${variant.discount_value}%` : `-$${variant.discount_value}`})
+                                          </span>
+                                        )}
+                                      </Badge>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <div className="flex items-center gap-4 text-sm mb-2">
+                                    <span className="font-mono font-medium">${menu.total_price?.toFixed(2)}</span>
+                                    {featureFlags?.is_margin_tracking_enabled && (
+                                      <>
+                                        <span className="text-muted-foreground">
+                                          {language === "es" ? "Costo" : "Cost"}: ${menu.total_cost?.toFixed(2)}
+                                        </span>
+                                        <span className={menu.margin_percentage < 20 ? 'text-destructive' : menu.margin_percentage > 50 ? 'text-green-600' : 'text-amber-600'}>
+                                          {language === "es" ? "Margen" : "Margin"}: {menu.margin_percentage?.toFixed(0)}%
+                                        </span>
+                                      </>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                              <Button variant="outline" size="sm" className="ml-4" onClick={(e) => { e.stopPropagation(); handleAddMenu(menu); }}>
+                                <Plus className="w-4 h-4 mr-1" />
+                                {language === "es" ? "Agregar" : "Add"}
+                              </Button>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
         </DialogContent>
       </Dialog>
 

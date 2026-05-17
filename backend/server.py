@@ -8575,6 +8575,111 @@ async def add_items_from_menu(proposal_id: str, body: Dict[str, Any], user: User
     return {"items_added": len(inserted), "menu_name": menu.get("name"), "items": inserted}
 
 
+@proposals_router.post("/{proposal_id}/items/bulk-from-plated-menu")
+async def add_items_from_plated_menu(proposal_id: str, body: Dict[str, Any], user: User = Depends(get_current_user)):
+    """Load a Culinary Intelligence menu (plated/buffet/family-style/cocktail/grab_and_go) into a proposal.
+    Each recipe in each course becomes one OrderItem. Quantity = portions_per_guest * guest_count.
+    Unit price comes from recipe.default_portion_price (or default portion format), cost from recipe.cost_per_portion."""
+    plated_menu_id = body.get("menu_id")
+    guest_count = float(body.get("guest_count") or 0)
+    section_title_override = body.get("section_title")
+    if not plated_menu_id:
+        raise HTTPException(status_code=400, detail="menu_id is required")
+
+    proposal = await db.proposals.find_one({"proposal_id": proposal_id, "company_id": user.company_id})
+    if not proposal:
+        raise HTTPException(status_code=404, detail="Proposal not found")
+    event = await db.events.find_one({"event_id": proposal["event_id"], "company_id": user.company_id})
+    if event and event.get("operational_status") == "Closed":
+        raise HTTPException(status_code=400, detail="Cannot add items to a closed event")
+
+    # Default guest_count from event if not provided
+    if guest_count <= 0 and event:
+        guest_count = float(event.get("guest_count") or event.get("num_guests") or 1)
+    if guest_count <= 0:
+        guest_count = 1.0
+
+    menu = await db.plated_menus.find_one(
+        {"menu_id": plated_menu_id, "company_id": user.company_id}, {"_id": 0}
+    )
+    if not menu:
+        raise HTTPException(status_code=404, detail="Plated menu not found")
+
+    now = datetime.now(timezone.utc)
+    food_cat = await db.item_categories.find_one(
+        {"company_id": user.company_id, "key": "Food"}, {"_id": 0, "category_id": 1, "name": 1}
+    ) or {}
+
+    inserted = []
+    sort_idx = 0
+    for course in (menu.get("courses") or []):
+        course_name = course.get("course_name") or "Course"
+        for entry in (course.get("items") or []):
+            recipe_id = entry.get("recipe_id")
+            if not recipe_id:
+                continue
+            rec = await db.recipes.find_one(
+                {"recipe_id": recipe_id, "company_id": user.company_id}, {"_id": 0}
+            )
+            if not rec:
+                continue
+            portions_per_guest = float(entry.get("portions_per_guest") or 1.0)
+            qty = portions_per_guest * guest_count
+
+            # Default portion format (if any) overrides price & cost
+            fmt = await db.recipe_portion_formats.find_one(
+                {"recipe_id": recipe_id, "company_id": user.company_id, "is_default": True}, {"_id": 0}
+            )
+            cost_per_portion = (fmt.get("cost_per_portion") if fmt else None) or rec.get("cost_per_portion") or 0
+            sell_per_portion = (fmt.get("sell_price") if fmt else None) or rec.get("default_portion_price") or (cost_per_portion * 3 if cost_per_portion else 0)
+
+            total_price = qty * sell_per_portion
+            total_cost = qty * cost_per_portion
+            margin_amount = total_price - total_cost
+            margin_pct = (margin_amount / total_price * 100) if total_price > 0 else None
+
+            item_id = f"oi_{uuid.uuid4().hex[:12]}"
+            doc = {
+                "item_id": item_id,
+                "event_id": proposal["event_id"],
+                "proposal_id": proposal_id,
+                "company_id": user.company_id,
+                "item_type": "Food",
+                "reference_id": recipe_id,
+                "description": entry.get("recipe_name") or rec.get("name") or "Item",
+                "quantity": qty,
+                "unit_price": float(sell_per_portion or 0),
+                "internal_cost": float(cost_per_portion or 0),
+                "total_price": float(total_price or 0),
+                "total_cost": float(total_cost or 0),
+                "margin_amount": float(margin_amount or 0),
+                "margin_percentage": margin_pct,
+                "category_id": food_cat.get("category_id"),
+                "category_name": food_cat.get("name"),
+                "section_title": section_title_override or f"{menu.get('name')} — {course_name}",
+                "sort_order": sort_idx,
+                "created_at": now.isoformat(),
+                "updated_at": now.isoformat(),
+                "loaded_from_plated_menu_id": plated_menu_id,
+                "loaded_from_course_id": course.get("course_id"),
+                "_portion_format_id": fmt.get("format_id") if fmt else None,
+                "_portion_format_name": fmt.get("format_name") if fmt else None,
+            }
+            await db.order_items.insert_one(doc)
+            doc.pop("_id", None)
+            inserted.append(doc)
+            sort_idx += 1
+
+    return {
+        "items_added": len(inserted),
+        "menu_name": menu.get("name"),
+        "menu_type": menu.get("menu_type"),
+        "serving_style": menu.get("serving_style"),
+        "guest_count_used": guest_count,
+        "items": inserted,
+    }
+
+
 @proposals_router.get("/{proposal_id}/cost-staleness")
 async def proposal_cost_staleness(proposal_id: str, user: User = Depends(get_current_user)):
     """Detect OrderItems whose snapshot internal_cost no longer matches the current source-of-truth cost.

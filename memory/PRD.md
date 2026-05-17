@@ -171,6 +171,24 @@ Previous milestones: Margin Policy Fase 3, Recipe Scaling MVP, Pydantic 422 Erro
 
 Phase 2 Culinary backend validated 19/19 in iteration_176.json.
 
+### Menús en Cotización: Catálogo + Inteligencia Culinaria (May 17, 2026)
+**Goal**: Surface BOTH catalog menus (Settings) and Culinary Intelligence menus (Plated/Buffet/Family Style/Cocktail/Grab & Go) in the Proposal Editor so they can be added to a quote with one click.
+
+**Backend** (`server.py`)
+- New endpoint `POST /api/proposals/{proposal_id}/items/bulk-from-plated-menu` — accepts `{menu_id, guest_count?, section_title?}`. Iterates over `plated_menus.courses[*].items`, creates one OrderItem per recipe with `quantity = portions_per_guest * guest_count`. Uses default `recipe_portion_format` (if any) for price/cost; falls back to recipe `cost_per_portion` and `default_portion_price`. Section title defaults to `"{menu name} — {course name}"`. Marks items with `loaded_from_plated_menu_id` + `loaded_from_course_id` and stores `_portion_format_id`/`_portion_format_name` for traceability.
+
+**Frontend** (`ProposalEditor.js`)
+- `fetchPlatedMenus()` added; called in initial `useEffect`.
+- "Agregar Menú" button now always visible (with count badge) so users discover the feature even when one source is empty.
+- Unified Add Menu dialog with:
+  - **Búsqueda por nombre** (input).
+  - Section **"Menús de Inteligencia Culinaria"** with color-coded badges per `serving_style`/`menu_type` (🍽️ Plated, 🥗 Buffet, 👨‍👩‍👧 Family Style, 🍸 Cocktail, 🍴 Stations, 📦 Grab & Go), course/item counts, cost-per-guest and total preview multiplied by event guest count.
+  - Section **"Menús del Catálogo"** with existing rich variants/items/margin display.
+  - **Empty state** explains both creation paths (Settings catalogs + Culinary Intelligence).
+- `handleAddPlatedMenu` calls the new endpoint passing `event.guest_count`.
+
+**Tests**: Backend E2E (curl) — Buffet menu with 2 courses → 2 items in proposal (qty 75 and 50 from portions_per_guest × 50 guests). Frontend lint OK.
+
 ### Pending Mini-tasks & Backlog
 - Production SMTP credentials → enable real email delivery for digest.
 - Logo Image Upload via Object Storage for Guest Flow (P1).
