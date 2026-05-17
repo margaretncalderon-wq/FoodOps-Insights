@@ -1310,17 +1310,17 @@ function RecipesSection() {
 
   return (
     <div className="space-y-6" data-testid="recipes-section">
+      {/* Cost Health (auto-hides when nothing stale) — top priority alert */}
+      <div id="cost-health">
+        <CostHealthDashboard mode="section" />
+      </div>
+
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card><CardContent className="pt-4"><div className="flex items-center gap-3"><Beaker className="h-8 w-8 text-purple-500" /><div><p className="text-sm text-muted-foreground">{language === "es" ? "Bases" : "Base"}</p><p className="text-2xl font-bold">{recipes.filter(r => r.recipe_type === "base").length}</p></div></div></CardContent></Card>
         <Card><CardContent className="pt-4"><div className="flex items-center gap-3"><Layers className="h-8 w-8 text-blue-500" /><div><p className="text-sm text-muted-foreground">{language === "es" ? "Componentes" : "Components"}</p><p className="text-2xl font-bold">{recipes.filter(r => r.recipe_type === "component").length}</p></div></div></CardContent></Card>
         <Card><CardContent className="pt-4"><div className="flex items-center gap-3"><Utensils className="h-8 w-8 text-green-500" /><div><p className="text-sm text-muted-foreground">{language === "es" ? "Platos" : "Dishes"}</p><p className="text-2xl font-bold">{recipes.filter(r => r.recipe_type === "final_dish" || !r.recipe_type).length}</p></div></div></CardContent></Card>
         <Card><CardContent className="pt-4"><div className="flex items-center gap-3"><ChefHat className="h-8 w-8 text-primary" /><div><p className="text-sm text-muted-foreground">Total</p><p className="text-2xl font-bold">{recipes.length}</p></div></div></CardContent></Card>
-      </div>
-
-      {/* Cost Health (auto-hides when nothing stale) */}
-      <div id="cost-health">
-        <CostHealthDashboard mode="section" />
       </div>
 
       {/* Header */}
