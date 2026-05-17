@@ -17,6 +17,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "../components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui/table";
+import { Textarea } from "../components/ui/textarea";
+import { Checkbox } from "../components/ui/checkbox";
 
 // Custom Components
 import RecipeBuilder from "../components/RecipeBuilder";
@@ -94,8 +96,18 @@ function InventorySection() {
     name: "", brand: "", category: "dry_goods", inventory_type: "food", unit: "kg",
     cost_per_unit: 0, stock_quantity: 0, par_level: 0, pack_size: 1, 
     preferred_supplier_id: "", secondary_supplier_id: "",
-    purchase_unit: "", purchase_pack_size: 1, sku: "", notes: ""
+    purchase_unit: "", purchase_pack_size: 1, sku: "", notes: "",
+    // New rich fields
+    description: "",
+    storage_location: "dry",
+    allergens: [],
+    purchase_quantity_per_unit: 0,
+    base_unit: "",
+    purchase_cost: 0,
+    yield_waste_percent: 0,
+    non_yieldable: false,
   });
+  const [allergensList, setAllergensList] = useState([]);
   
   const [supplierForm, setSupplierForm] = useState({
     name: "", contact_name: "", email: "", phone: "", notes: "",
@@ -143,11 +155,12 @@ function InventorySection() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [itemsRes, suppliersRes, transactionsRes, categoriesRes] = await Promise.all([
+      const [itemsRes, suppliersRes, transactionsRes, categoriesRes, allergensRes] = await Promise.all([
         axios.get(`${API}/api/inventory/ingredients`, { withCredentials: true }),
         axios.get(`${API}/api/suppliers`, { withCredentials: true }),
         axios.get(`${API}/api/inventory/transactions`, { withCredentials: true }),
-        axios.get(`${API}/api/settings/inventory-categories`, { withCredentials: true })
+        axios.get(`${API}/api/settings/inventory-categories`, { withCredentials: true }),
+        axios.get(`${API}/api/allergens`, { withCredentials: true }).catch(() => ({ data: [] })),
       ]);
       // Filter only culinary inventory types (food and packaging)
       const culinaryItems = (itemsRes.data || []).filter(item => 
@@ -157,6 +170,7 @@ function InventorySection() {
       setSuppliers(suppliersRes.data);
       setTransactions(transactionsRes.data);
       setCategories(categoriesRes.data || []);
+      setAllergensList(allergensRes.data || []);
     } catch (error) {
       toast.error("Error loading data");
     }
@@ -177,19 +191,21 @@ function InventorySection() {
 
   const handleSaveItem = async () => {
     try {
+      // Map non_yieldable + yield_waste_percent semantics: if non_yieldable=true and yield_waste_percent is 0, leave as-is (just a tag).
+      const payload = { ...itemForm };
       if (editingItem) {
-        await axios.put(`${API}/api/inventory/ingredients/${editingItem.ingredient_id}`, itemForm, { withCredentials: true });
+        await axios.put(`${API}/api/inventory/ingredients/${editingItem.ingredient_id}`, payload, { withCredentials: true });
       } else {
-        await axios.post(`${API}/api/inventory/ingredients`, itemForm, { withCredentials: true });
+        await axios.post(`${API}/api/inventory/ingredients`, payload, { withCredentials: true });
       }
       toast.success(language === "es" ? "Guardado" : "Saved");
       setItemDialogOpen(false);
       setEditingItem(null);
-      setItemForm({ name: "", brand: "", category: "dry_goods", inventory_type: "food", unit: "kg", cost_per_unit: 0, stock_quantity: 0, par_level: 0, pack_size: 1, preferred_supplier_id: "", sku: "", notes: "" });
+      setItemForm(defaultItemForm());
       fetchData();
       fetchBrands(); // Refresh brands list after adding new item
     } catch (error) {
-      toast.error("Error");
+      toast.error(error.response?.data?.detail || "Error");
     }
   };
 
@@ -204,6 +220,16 @@ function InventorySection() {
     }
   };
 
+  const defaultItemForm = () => ({
+    name: "", brand: "", category: "dry_goods", inventory_type: "food", unit: "kg",
+    cost_per_unit: 0, stock_quantity: 0, par_level: 0, pack_size: 1,
+    preferred_supplier_id: "", secondary_supplier_id: "",
+    purchase_unit: "", purchase_pack_size: 1, sku: "", notes: "",
+    description: "", storage_location: "dry", allergens: [],
+    purchase_quantity_per_unit: 0, base_unit: "", purchase_cost: 0,
+    yield_waste_percent: 0, non_yieldable: false,
+  });
+
   const handleEditItem = (item) => {
     setEditingItem(item);
     setItemForm({
@@ -211,7 +237,15 @@ function InventorySection() {
       unit: item.unit || "kg", cost_per_unit: item.cost_per_unit || 0, stock_quantity: item.stock_quantity || 0,
       par_level: item.par_level || 0, pack_size: item.pack_size || 1, preferred_supplier_id: item.preferred_supplier_id || "",
       secondary_supplier_id: item.secondary_supplier_id || "", purchase_unit: item.purchase_unit || "",
-      purchase_pack_size: item.purchase_pack_size || 1, sku: item.sku || "", notes: item.notes || ""
+      purchase_pack_size: item.purchase_pack_size || 1, sku: item.sku || "", notes: item.notes || "",
+      description: item.description || "",
+      storage_location: item.storage_location || "dry",
+      allergens: Array.isArray(item.allergens) ? item.allergens : [],
+      purchase_quantity_per_unit: item.purchase_quantity_per_unit || 0,
+      base_unit: item.base_unit || "",
+      purchase_cost: item.purchase_cost || 0,
+      yield_waste_percent: item.yield_waste_percent || 0,
+      non_yieldable: !!item.non_yieldable,
     });
     setBrandSearch(item.brand || "");
     setItemDialogOpen(true);
@@ -500,7 +534,7 @@ function InventorySection() {
                   <Sparkles className="w-4 h-4 mr-2" />
                   {language === "es" ? "Asistente" : "Wizard"}
                 </Button>
-                <Button onClick={() => { setEditingItem(null); setItemForm({ name: "", brand: "", category: "dry_goods", inventory_type: "food", unit: "kg", cost_per_unit: 0, stock_quantity: 0, par_level: 0, pack_size: 1, preferred_supplier_id: "", sku: "", notes: "" }); setBrandSearch(""); setItemDialogOpen(true); }}><Plus className="w-4 h-4 mr-2" />{t("addItem")}</Button>
+                <Button onClick={() => { setEditingItem(null); setItemForm(defaultItemForm()); setBrandSearch(""); setItemDialogOpen(true); }}><Plus className="w-4 h-4 mr-2" />{t("addItem")}</Button>
               </div>
             </CardHeader>
             <CardContent>
@@ -741,21 +775,200 @@ function InventorySection() {
               </div>
             </div>
             
-            {/* Purchase Info Section */}
+            {/* Purchase Info Section - Rich format */}
             <div className="col-span-2 border-t pt-4 mt-2">
-              <p className="text-sm font-medium mb-3">{language === "es" ? "Info de Compra" : "Purchase Info"}</p>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-sm font-medium">{language === "es" ? "Formato y Precio de Compra" : "Purchase Format & Price"}</p>
+                {editingItem && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleViewPriceHistory(editingItem)}
+                    data-testid="item-dialog-price-history-btn"
+                  >
+                    <History className="w-4 h-4 mr-1" />
+                    {language === "es" ? "Historial de Precios" : "Price History"}
+                  </Button>
+                )}
+              </div>
+              <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <Label>{language === "es" ? "Unidad de Compra" : "Purchase Unit"}</Label>
-                  <Input value={itemForm.purchase_unit} onChange={(e) => setItemForm({ ...itemForm, purchase_unit: e.target.value })} placeholder={language === "es" ? "Ej: caja, bolsa" : "E.g., box, bag"} />
+                  <Label className="text-xs">{language === "es" ? "Formato" : "Format"}</Label>
+                  <Select
+                    value={itemForm.purchase_unit || "none"}
+                    onValueChange={(v) => setItemForm({ ...itemForm, purchase_unit: v === "none" ? "" : v })}
+                  >
+                    <SelectTrigger data-testid="item-purchase-format"><SelectValue placeholder={language === "es" ? "Saco / Caja / ..." : "Bag / Box / ..."} /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">{language === "es" ? "Sin formato" : "No format"}</SelectItem>
+                      <SelectItem value="saco">{language === "es" ? "Saco" : "Sack"}</SelectItem>
+                      <SelectItem value="caja">{language === "es" ? "Caja" : "Box"}</SelectItem>
+                      <SelectItem value="funda">{language === "es" ? "Funda" : "Bag"}</SelectItem>
+                      <SelectItem value="pack">Pack</SelectItem>
+                      <SelectItem value="galón">{language === "es" ? "Galón" : "Gallon"}</SelectItem>
+                      <SelectItem value="botella">{language === "es" ? "Botella" : "Bottle"}</SelectItem>
+                      <SelectItem value="lata">{language === "es" ? "Lata" : "Can"}</SelectItem>
+                      <SelectItem value="bandeja">{language === "es" ? "Bandeja" : "Tray"}</SelectItem>
+                      <SelectItem value="unidad">{language === "es" ? "Unidad" : "Unit"}</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div>
-                  <Label>{language === "es" ? "Tamaño del Pack" : "Pack Size"}</Label>
-                  <Input type="number" min="1" step="1" value={itemForm.purchase_pack_size} onChange={(e) => setItemForm({ ...itemForm, purchase_pack_size: parseInt(e.target.value) || 1 })} />
+                  <Label className="text-xs">{language === "es" ? "Cantidad" : "Quantity"}</Label>
+                  <Input
+                    type="number" min="0" step="0.01"
+                    value={itemForm.purchase_quantity_per_unit || ""}
+                    onChange={(e) => setItemForm({ ...itemForm, purchase_quantity_per_unit: parseFloat(e.target.value) || 0 })}
+                    placeholder="54.43"
+                    data-testid="item-purchase-qty"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">{language === "es" ? "Unidad base" : "Base unit"}</Label>
+                  <Select
+                    value={itemForm.base_unit || "none"}
+                    onValueChange={(v) => setItemForm({ ...itemForm, base_unit: v === "none" ? "" : v })}
+                  >
+                    <SelectTrigger data-testid="item-base-unit"><SelectValue placeholder="kg / lb / oz" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">—</SelectItem>
+                      <SelectItem value="kg">kg</SelectItem>
+                      <SelectItem value="g">g</SelectItem>
+                      <SelectItem value="lb">lb</SelectItem>
+                      <SelectItem value="oz">oz</SelectItem>
+                      <SelectItem value="L">L</SelectItem>
+                      <SelectItem value="ml">ml</SelectItem>
+                      <SelectItem value="unit">{language === "es" ? "unidad" : "unit"}</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
+              <div className="grid grid-cols-2 gap-3 mt-3">
+                <div>
+                  <Label className="text-xs">{language === "es" ? `Precio total del ${itemForm.purchase_unit || "pack"}` : `Total price per ${itemForm.purchase_unit || "pack"}`}</Label>
+                  <Input
+                    type="number" min="0" step="0.01"
+                    value={itemForm.purchase_cost || ""}
+                    onChange={(e) => {
+                      const cost = parseFloat(e.target.value) || 0;
+                      const qty = itemForm.purchase_quantity_per_unit || 0;
+                      const perBase = qty > 0 ? cost / qty : 0;
+                      setItemForm({
+                        ...itemForm,
+                        purchase_cost: cost,
+                        cost_per_unit: perBase || itemForm.cost_per_unit,
+                      });
+                    }}
+                    placeholder="3450"
+                    data-testid="item-purchase-cost"
+                  />
+                </div>
+                <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-md flex flex-col justify-center" data-testid="item-cost-per-base">
+                  <p className="text-xs text-emerald-700">
+                    {language === "es" ? `Precio por ${itemForm.base_unit || itemForm.unit || "unidad"}` : `Price per ${itemForm.base_unit || itemForm.unit || "unit"}`}
+                  </p>
+                  <p className="text-lg font-bold text-emerald-900 font-mono">
+                    {itemForm.purchase_cost > 0 && itemForm.purchase_quantity_per_unit > 0
+                      ? `$${(itemForm.purchase_cost / itemForm.purchase_quantity_per_unit).toFixed(4)}`
+                      : "—"}
+                  </p>
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground mt-2">
+                {language === "es"
+                  ? "💡 Ej: 1 saco contiene 54.43 kg y cuesta $3,450 → $63.38/kg automático."
+                  : "💡 Ex: 1 sack contains 54.43 kg and costs $3,450 → $63.38/kg automatic."}
+              </p>
             </div>
-            
+
+            {/* Description */}
+            <div className="col-span-2 border-t pt-4 mt-2">
+              <Label>{language === "es" ? "Descripción" : "Description"}</Label>
+              <Textarea
+                value={itemForm.description || ""}
+                onChange={(e) => setItemForm({ ...itemForm, description: e.target.value })}
+                placeholder={language === "es" ? "Detalles del producto, presentación, observaciones..." : "Product details, presentation, observations..."}
+                rows={2}
+                data-testid="item-description"
+              />
+            </div>
+
+            {/* Storage location & yield */}
+            <div className="col-span-2 grid grid-cols-2 gap-4">
+              <div>
+                <Label>{language === "es" ? "Zona de conservación" : "Storage zone"}</Label>
+                <Select
+                  value={itemForm.storage_location || "dry"}
+                  onValueChange={(v) => setItemForm({ ...itemForm, storage_location: v })}
+                >
+                  <SelectTrigger data-testid="item-storage-location"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="dry">{language === "es" ? "🌾 Seco" : "🌾 Dry"}</SelectItem>
+                    <SelectItem value="fridge">{language === "es" ? "❄️ Refrigerado" : "❄️ Refrigerated"}</SelectItem>
+                    <SelectItem value="freezer">{language === "es" ? "🧊 Congelado" : "🧊 Frozen"}</SelectItem>
+                    <SelectItem value="room_temp">{language === "es" ? "🌡️ Temperatura ambiente" : "🌡️ Room temperature"}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="flex items-center justify-between">
+                  <span>{language === "es" ? "Aprovechamiento" : "Yield"}</span>
+                  <span className="text-sm font-mono">
+                    {(100 - (itemForm.yield_waste_percent || 0)).toFixed(0)}%
+                  </span>
+                </Label>
+                <Input
+                  type="number" min="0" max="100" step="1"
+                  value={itemForm.yield_waste_percent || 0}
+                  onChange={(e) => setItemForm({ ...itemForm, yield_waste_percent: Math.min(100, Math.max(0, parseFloat(e.target.value) || 0)) })}
+                  placeholder={language === "es" ? "% de merma (0-100)" : "% waste (0-100)"}
+                  data-testid="item-yield-waste"
+                />
+                <label className="flex items-center gap-2 mt-2 cursor-pointer">
+                  <Checkbox
+                    checked={!!itemForm.non_yieldable}
+                    onCheckedChange={(c) => setItemForm({ ...itemForm, non_yieldable: !!c })}
+                    data-testid="item-non-yieldable"
+                  />
+                  <span className="text-xs text-muted-foreground">
+                    {language === "es" ? "Merma no aprovechable" : "Non-yieldable waste"}
+                  </span>
+                </label>
+              </div>
+            </div>
+
+            {/* Allergens */}
+            {allergensList.length > 0 && (
+              <div className="col-span-2 border-t pt-4 mt-2">
+                <Label className="mb-2 block">{language === "es" ? "Alérgenos" : "Allergens"}</Label>
+                <div className="flex flex-wrap gap-2" data-testid="item-allergens">
+                  {allergensList.map((a) => {
+                    const key = a.name || a.name_es;
+                    const selected = (itemForm.allergens || []).includes(key);
+                    return (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() => {
+                          const set = new Set(itemForm.allergens || []);
+                          if (selected) set.delete(key); else set.add(key);
+                          setItemForm({ ...itemForm, allergens: Array.from(set) });
+                        }}
+                        className={`px-3 py-1.5 rounded-full text-xs border transition-colors ${
+                          selected
+                            ? "bg-amber-500 text-white border-amber-500"
+                            : "bg-white border-slate-300 text-slate-700 hover:bg-slate-100"
+                        }`}
+                        data-testid={`item-allergen-${key}`}
+                      >
+                        {language === "es" ? (a.name_es || a.name) : (a.name || a.name_es)}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             {/* Notes */}
             <div className="col-span-2 border-t pt-4 mt-2">
               <Label>{language === "es" ? "Notas" : "Notes"}</Label>

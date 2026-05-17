@@ -617,6 +617,10 @@ class IngredientCreate(BaseModel):
     purchase_cost: Optional[float] = None
     custom_conversions: Optional[Dict[str, float]] = None
     is_discrete_unit: Optional[bool] = None  # True for items that should be rounded up when scaled (eggs, garlic cloves, etc.)
+    # === New rich fields (UI parity with legacy product editor) ===
+    description: Optional[str] = None  # Long description for product card / catalog
+    image_url: Optional[str] = None    # Product photo
+    non_yieldable: Optional[bool] = None  # True = merma no aprovechable (cannot be reused)
 
 class Ingredient(BaseModel):
     ingredient_id: str
@@ -662,6 +666,10 @@ class Ingredient(BaseModel):
     custom_conversions: Optional[Dict[str, float]] = None  # Per-ingredient overrides {unit: factor_in_base}
     is_discrete_unit: Optional[bool] = None  # True = round-up when scaling (eggs, garlic cloves)
     needs_review: bool = False                  # Migration flag for ambiguous data
+    # === New rich fields (UI parity with legacy product editor) ===
+    description: Optional[str] = None
+    image_url: Optional[str] = None
+    non_yieldable: Optional[bool] = None  # True = merma no aprovechable
     created_at: datetime
 
 # Recipe Models - Enhanced for detailed costing

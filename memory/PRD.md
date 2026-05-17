@@ -178,6 +178,24 @@ Phase 2 Culinary backend validated 19/19 in iteration_176.json.
 - Refactor `server.py` (~21k líneas) into routers (P2).
 - Auto-repair legacy ingredients using AI (P2).
 
+### Rich Item Editor (Inventory) — May 17, 2026
+**Goal**: Match feature parity with legacy product editor (descripción, alérgenos, zona de conservación, formato de compra con precio por unidad base auto-calculado, aprovechamiento, historial de precios).
+
+**Backend** (`server.py`)
+- Added to `IngredientCreate` and `Ingredient`: `description`, `image_url`, `non_yieldable` (Optional). Existing fields reused: `purchase_unit`, `purchase_quantity_per_unit`, `base_unit`, `purchase_cost`, `cost_per_unit`, `storage_location`, `allergens[]`, `yield_waste_percent`.
+
+**Frontend** (`FoodOpsPage.js` InventorySection)
+- Allergens fetched from `/api/allergens` on load.
+- Edit/Add Item dialog now includes:
+  - **Formato y Precio de Compra** section: dropdown formato (Saco/Caja/Funda/Pack/Galón/Botella/Lata/Bandeja/Unidad), cantidad, unidad base (kg/g/lb/oz/L/ml/unit), precio total del pack, **precio por unidad base live-calculado** (cost_per_unit updated automáticamente). Botón "Historial de Precios" (reusa el dialog existente).
+  - **Descripción** (Textarea).
+  - **Zona de conservación** (Seco / Refrigerado / Congelado / Temp ambiente).
+  - **Aprovechamiento** (input % de merma + checkbox "Merma no aprovechable" + indicador %).
+  - **Alérgenos** (chips toggle desde catálogo `/api/allergens`).
+- `defaultItemForm()` helper centraliza el reset.
+
+**Tests**: Backend E2E curl pasó (create → update → fetch → delete) con todos los nuevos campos persistidos. Lint frontend OK.
+
 ### Picklist ↔ Recipe Portion Format Linking + Bulk Generate (May 17, 2026)
 **Goal**: Allow a single catalog (picklist) item to be linked to a specific portion format of a recipe (e.g. Gallon, 12oz, 8oz) instead of just the generic recipe. Item inherits format-specific cost and price. Also bulk-create one item per format with a single click.
 
