@@ -3146,8 +3146,8 @@ export default function SettingsPage() {
                         <Label className="text-xs">{language === "es" ? "Tipo" : "Type"}</Label>
                         <p className="text-[10px] text-muted-foreground mb-1">
                           {language === "es"
-                            ? "Familia fija: Comida, Servicio, Renta, Tarifa."
-                            : "Fixed family: Food, Service, Rental, Fee."}
+                            ? "Familia principal (Comida, Servicio, Renta, Tarifa, o personalizadas)."
+                            : "Main family (Food, Service, Rental, Fee, or custom)."}
                         </p>
                         <Select
                           value={newPicklist.item_type}
@@ -3167,8 +3167,8 @@ export default function SettingsPage() {
                         <Label className="text-xs">{language === "es" ? "Categoría" : "Category"}</Label>
                         <p className="text-[10px] text-muted-foreground mb-1">
                           {language === "es"
-                            ? "Sub-grupo libre (ej: Entradas, Postres, Bebidas frías)."
-                            : "Free sub-group (e.g. Starters, Desserts, Cold drinks)."}
+                            ? "Sub-grupo dentro del tipo (ej: Entradas, Postres, Bebidas frías)."
+                            : "Sub-group within the type (e.g. Starters, Desserts, Cold drinks)."}
                         </p>
                         <Select
                           value={newPicklist.category_id}
