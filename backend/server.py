@@ -1456,6 +1456,7 @@ class PicklistItemCreate(BaseModel):
     default_price: float = 0.0
     internal_cost: Optional[float] = None  # Manual cost override
     recipe_id: Optional[str] = None  # Link to recipe for food items (auto cost)
+    recipe_portion_format_id: Optional[str] = None  # Specific portion format within the recipe
     inventory_item_id: Optional[str] = None  # Link to inventory for disposables
     unit: str = "unit"
     is_active: bool = True
@@ -1469,6 +1470,7 @@ class PicklistItemUpdate(BaseModel):
     default_price: Optional[float] = None
     internal_cost: Optional[float] = None
     recipe_id: Optional[str] = None
+    recipe_portion_format_id: Optional[str] = None
     inventory_item_id: Optional[str] = None
     unit: Optional[str] = None
     is_active: Optional[bool] = None
@@ -1484,6 +1486,7 @@ class PicklistItem(BaseModel):
     default_price: float
     internal_cost: Optional[float] = None
     recipe_id: Optional[str] = None
+    recipe_portion_format_id: Optional[str] = None
     inventory_item_id: Optional[str] = None
     unit: str
     is_active: bool
