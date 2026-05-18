@@ -734,11 +734,19 @@ export default function DocumentPreview({
                                       {item.long_description}
                                     </p>
                                   )}
-                                  {(item.discount_pct || 0) > 0 && (
-                                    <span className="inline-block mt-1 text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 font-medium">
-                                      {language === "es" ? "Descuento" : "Discount"} -{item.discount_pct}%
-                                    </span>
-                                  )}
+                                  {(() => {
+                                    const dt = item.discount_type || (item.discount_pct ? "percentage" : null);
+                                    const dv = item.discount_value != null ? item.discount_value : item.discount_pct;
+                                    if (!dv || dv <= 0) return null;
+                                    const label = dt === "fixed"
+                                      ? `${language === "es" ? "Descuento" : "Discount"} -$${Number(dv).toFixed(2)}`
+                                      : `${language === "es" ? "Descuento" : "Discount"} -${Number(dv)}%`;
+                                    return (
+                                      <span className="inline-block mt-1 text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 font-medium">
+                                        {label}
+                                      </span>
+                                    );
+                                  })()}
                                   {item.tax_exempt && (
                                     <span className="inline-block mt-1 ml-1 text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 font-medium">
                                       {language === "es" ? "Sin impuesto" : "Tax exempt"}

@@ -270,7 +270,8 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
     quantity: 1,
     unit_price: 0,
     internal_cost: null,
-    discount_pct: 0,
+    discount_type: "percentage",
+    discount_value: 0,
     tax_exempt: false,
     reference_id: "",
     internal_notes: "",
@@ -579,7 +580,8 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
       quantity: item.quantity || 1,
       unit_price: item.unit_price || 0,
       internal_cost: item.internal_cost ?? null,
-      discount_pct: item.discount_pct ?? 0,
+      discount_type: item.discount_type || (item.discount_pct ? "percentage" : "percentage"),
+      discount_value: item.discount_value != null ? item.discount_value : (item.discount_pct || 0),
       tax_exempt: !!item.tax_exempt,
       reference_id: item.reference_id || "",
       internal_notes: item.internal_notes || "",
@@ -601,7 +603,8 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
       quantity: 1,
       unit_price: 0,
       internal_cost: null,
-      discount_pct: 0,
+      discount_type: "percentage",
+      discount_value: 0,
       tax_exempt: false,
       reference_id: "",
       internal_notes: "",
@@ -2088,11 +2091,17 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
                                                 </p>
                                               )}
                                               <div className="flex items-center gap-2 mt-1 flex-wrap">
-                                                {(item.discount_pct || 0) > 0 && (
-                                                  <span className="text-xs px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 border border-emerald-200 font-medium">
-                                                    -{item.discount_pct}%
-                                                  </span>
-                                                )}
+                                                {(() => {
+                                                  const dt = item.discount_type || (item.discount_pct ? "percentage" : null);
+                                                  const dv = item.discount_value != null ? item.discount_value : item.discount_pct;
+                                                  if (!dv || dv <= 0) return null;
+                                                  const label = dt === "fixed" ? `-$${Number(dv).toFixed(2)}` : `-${Number(dv)}%`;
+                                                  return (
+                                                    <span className="text-xs px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 border border-emerald-200 font-medium">
+                                                      {label}
+                                                    </span>
+                                                  );
+                                                })()}
                                                 {item.tax_exempt && (
                                                   <span className="text-xs px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-300 font-medium">
                                                     {language === "es" ? "Exento" : "Tax exempt"}
@@ -3382,26 +3391,46 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
                 </div>
               )}
 
-              {/* Per-item Discount % */}
-              <div>
-                <Label>{language === "es" ? "Descuento %" : "Discount %"}</Label>
-                <Input
-                  type="number"
-                  min="0"
-                  max="100"
-                  step="0.01"
-                  value={newItem.discount_pct || 0}
-                  onChange={(e) => setNewItem({ ...newItem, discount_pct: parseFloat(e.target.value) || 0 })}
-                  placeholder="0"
-                  data-testid="item-discount-input"
-                />
-                {(newItem.discount_pct || 0) > 0 && newItem.quantity > 0 && newItem.unit_price > 0 && (() => {
+              {/* Per-item Discount with $ / % selector */}
+              <div className="col-span-2">
+                <Label>{language === "es" ? "Descuento" : "Discount"}</Label>
+                <div className="flex items-center gap-2">
+                  <Select
+                    value={newItem.discount_type || "percentage"}
+                    onValueChange={(t) => setNewItem({ ...newItem, discount_type: t })}
+                  >
+                    <SelectTrigger className="w-20" data-testid="item-discount-type">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="fixed">$</SelectItem>
+                      <SelectItem value="percentage">%</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Input
+                    type="number"
+                    min="0"
+                    max={newItem.discount_type === "percentage" ? 100 : undefined}
+                    step="0.01"
+                    value={newItem.discount_value || 0}
+                    onChange={(e) => setNewItem({ ...newItem, discount_value: parseFloat(e.target.value) || 0 })}
+                    placeholder="0"
+                    className="flex-1"
+                    data-testid="item-discount-input"
+                  />
+                </div>
+                {(newItem.discount_value || 0) > 0 && newItem.quantity > 0 && newItem.unit_price > 0 && (() => {
                   const gross = newItem.quantity * newItem.unit_price;
-                  const net = gross * (1 - newItem.discount_pct / 100);
+                  const dt = newItem.discount_type || "percentage";
+                  const dv = newItem.discount_value || 0;
+                  const discAmount = dt === "percentage"
+                    ? gross * Math.min(100, dv) / 100
+                    : Math.min(gross, dv);
+                  const net = Math.max(0, gross - discAmount);
                   return (
                     <div className="mt-1.5 text-xs text-emerald-700">
                       {language === "es" ? "Total con descuento" : "Discounted total"}: <strong>${net.toFixed(2)}</strong>
-                      <span className="text-muted-foreground"> (-${(gross - net).toFixed(2)})</span>
+                      <span className="text-muted-foreground"> (-${discAmount.toFixed(2)})</span>
                     </div>
                   );
                 })()}

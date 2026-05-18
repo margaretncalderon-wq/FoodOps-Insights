@@ -1051,7 +1051,9 @@ class OrderItemCreate(BaseModel):
     quantity: float = 1.0
     unit_price: float = 0.0  # Visible to client
     internal_cost: Optional[float] = None  # Hidden, internal only
-    discount_pct: float = 0.0  # Per-item discount % (applied to unit_price * quantity)
+    discount_type: str = "percentage"  # "percentage" | "fixed"
+    discount_value: float = 0.0  # Either % or absolute amount, depending on discount_type
+    discount_pct: Optional[float] = None  # Deprecated alias; if set with no discount_value, interpreted as percentage
     tax_exempt: bool = False  # If True, this item is excluded from proposal taxes
     category_id: Optional[str] = None
     internal_notes: Optional[str] = None
@@ -1070,7 +1072,9 @@ class OrderItemUpdate(BaseModel):
     quantity: Optional[float] = None
     unit_price: Optional[float] = None
     internal_cost: Optional[float] = None
-    discount_pct: Optional[float] = None
+    discount_type: Optional[str] = None
+    discount_value: Optional[float] = None
+    discount_pct: Optional[float] = None  # Deprecated alias
     tax_exempt: Optional[bool] = None
     category_id: Optional[str] = None
     internal_notes: Optional[str] = None
@@ -1093,9 +1097,11 @@ class OrderItem(BaseModel):
     quantity: float
     unit_price: float
     internal_cost: Optional[float] = None
-    discount_pct: float = 0.0
+    discount_type: str = "percentage"
+    discount_value: float = 0.0
+    discount_amount: float = 0.0  # Computed absolute discount in money
     tax_exempt: bool = False
-    total_price: float  # quantity * unit_price * (1 - discount_pct/100)
+    total_price: float  # quantity * unit_price - discount_amount (>= 0)
     total_cost: Optional[float] = None  # quantity * internal_cost
     margin_amount: Optional[float] = None  # total_price - total_cost
     margin_percentage: Optional[float] = None
@@ -8137,6 +8143,47 @@ async def generate_proposal_number(company_id: str) -> str:
     year = datetime.now().year
     return f"PROP-{year}-{str(count + 1).zfill(4)}"
 
+
+def _compute_item_discount(qty: float, unit_price: float, item_or_data) -> tuple:
+    """Return (effective_total_price, discount_amount). Supports both new and legacy fields.
+    `item_or_data` can be a Pydantic model or a dict containing discount_type/discount_value/discount_pct.
+    """
+    qty = float(qty or 0)
+    unit_price = float(unit_price or 0)
+    gross = qty * unit_price
+    
+    if hasattr(item_or_data, "model_dump"):
+        src = item_or_data.model_dump(exclude_unset=True)
+    elif isinstance(item_or_data, dict):
+        src = item_or_data
+    else:
+        src = {}
+    
+    d_type = src.get("discount_type")
+    d_value = src.get("discount_value")
+    d_pct_legacy = src.get("discount_pct")
+    
+    # Resolve: explicit new fields take priority; legacy discount_pct = percentage
+    if d_type in ("percentage", "fixed") and d_value is not None:
+        d_type_final = d_type
+        d_value_final = float(d_value or 0)
+    elif d_pct_legacy is not None:
+        d_type_final = "percentage"
+        d_value_final = float(d_pct_legacy or 0)
+    else:
+        d_type_final = "percentage"
+        d_value_final = 0.0
+    
+    if d_type_final == "percentage":
+        d_pct = max(0.0, min(100.0, d_value_final))
+        discount_amount = gross * (d_pct / 100.0)
+    else:  # fixed
+        discount_amount = max(0.0, min(gross, d_value_final))
+    
+    effective_total = max(0.0, gross - discount_amount)
+    return effective_total, discount_amount, d_type_final, d_value_final
+
+
 async def calculate_proposal_financials(proposal_id: str, company_id: str):
     """Calculate all financial totals for a proposal"""
     items = await db.order_items.find({"proposal_id": proposal_id, "company_id": company_id}, {"_id": 0}).to_list(500)
@@ -8152,8 +8199,7 @@ async def calculate_proposal_financials(proposal_id: str, company_id: str):
     for item in items:
         qty = item.get("quantity", 1) or 0
         unit = item.get("unit_price", 0) or 0
-        d_pct = float(item.get("discount_pct") or 0)
-        item_total = qty * unit * (1 - d_pct / 100.0)
+        item_total, _disc_amt, _dt, _dv = _compute_item_discount(qty, unit, item)
         subtotal += item_total
         if not item.get("tax_exempt"):
             taxable_subtotal += item_total
@@ -8380,8 +8426,7 @@ async def update_proposal_financials(proposal_id: str, data: dict, user: User = 
     for it in items:
         qty = it.get("quantity", 1) or 0
         unit = it.get("unit_price", 0) or 0
-        d_pct = float(it.get("discount_pct") or 0)
-        eff = qty * unit * (1 - d_pct / 100.0)
+        eff, _disc_amt, _dt, _dv = _compute_item_discount(qty, unit, it)
         subtotal += eff
         if not it.get("tax_exempt"):
             taxable_subtotal += eff
@@ -8535,9 +8580,8 @@ async def add_order_item(proposal_id: str, data: OrderItemCreate, user: User = D
     
     item_id = f"oi_{uuid.uuid4().hex[:12]}"
     
-    # Calculate item financials (honoring per-item discount)
-    d_pct = float(data.discount_pct or 0)
-    total_price = data.quantity * data.unit_price * (1 - d_pct / 100.0)
+    # Calculate item financials (supports $ or % discount)
+    total_price, discount_amount, d_type, d_value = _compute_item_discount(data.quantity, data.unit_price, data)
     total_cost = data.quantity * data.internal_cost if data.internal_cost else None
     margin_amount = total_price - total_cost if total_cost is not None else None
     margin_pct = (margin_amount / total_price * 100) if margin_amount is not None and total_price > 0 else None
@@ -8573,7 +8617,9 @@ async def add_order_item(proposal_id: str, data: OrderItemCreate, user: User = D
         "quantity": data.quantity,
         "unit_price": data.unit_price,
         "internal_cost": internal_cost,
-        "discount_pct": d_pct,
+        "discount_type": d_type,
+        "discount_value": d_value,
+        "discount_amount": discount_amount,
         "tax_exempt": bool(data.tax_exempt),
         "total_price": total_price,
         "total_cost": total_cost,
@@ -8840,7 +8886,9 @@ async def add_items_from_plated_menu(proposal_id: str, body: Dict[str, Any], use
             "quantity": 1,
             "unit_price": float(total_menu_price),
             "internal_cost": float(total_menu_cost),
-            "discount_pct": 0.0,
+            "discount_type": "percentage",
+            "discount_value": 0.0,
+            "discount_amount": 0.0,
             "tax_exempt": False,
             "total_price": float(total_menu_price),
             "total_cost": float(total_menu_cost),
@@ -8911,7 +8959,9 @@ async def add_items_from_plated_menu(proposal_id: str, body: Dict[str, Any], use
                 "quantity": qty,
                 "unit_price": doc_unit_price,
                 "internal_cost": doc_internal_cost,
-                "discount_pct": 0.0,
+                "discount_type": "percentage",
+                "discount_value": 0.0,
+                "discount_amount": 0.0,
                 "tax_exempt": False,
                 "total_price": float(doc_price or 0),
                 "total_cost": float(doc_cost or 0),
@@ -9593,18 +9643,28 @@ async def update_order_item(proposal_id: str, item_id: str, data: OrderItemUpdat
     
     update_data = {k: v for k, v in data.model_dump().items() if v is not None}
     
-    # Recalculate financials (honoring per-item discount)
+    # Recalculate financials (honoring per-item discount $ or %)
     quantity = update_data.get("quantity", item.get("quantity", 1))
     unit_price = update_data.get("unit_price", item.get("unit_price", 0))
     internal_cost = update_data.get("internal_cost", item.get("internal_cost"))
-    discount_pct = update_data.get("discount_pct", item.get("discount_pct", 0) or 0)
-    
-    total_price = quantity * unit_price * (1 - float(discount_pct or 0) / 100.0)
+    # Merge stored discount fields with incoming partial updates
+    merged_for_calc = {
+        "discount_type": update_data.get("discount_type", item.get("discount_type")),
+        "discount_value": update_data.get("discount_value", item.get("discount_value")),
+        "discount_pct": update_data.get("discount_pct", item.get("discount_pct")),
+    }
+    total_price, discount_amount, d_type, d_value = _compute_item_discount(quantity, unit_price, merged_for_calc)
     total_cost = quantity * internal_cost if internal_cost is not None else None
     margin_amount = total_price - total_cost if total_cost is not None else None
     margin_pct = (margin_amount / total_price * 100) if margin_amount is not None and total_price > 0 else None
     
+    # Drop legacy discount_pct from update_data so we only persist the new canonical fields
+    update_data.pop("discount_pct", None)
+    
     update_data.update({
+        "discount_type": d_type,
+        "discount_value": d_value,
+        "discount_amount": discount_amount,
         "total_price": total_price,
         "total_cost": total_cost,
         "margin_amount": margin_amount,
