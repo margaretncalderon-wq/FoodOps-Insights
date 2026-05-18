@@ -1047,9 +1047,12 @@ class OrderItemCreate(BaseModel):
     item_type: str = "Service"  # Food, Service, Rental, Fee
     reference_id: Optional[str] = None  # menu_id / recipe_id (nullable)
     description: str  # Client-facing description
+    long_description: Optional[str] = None  # Long/marketing description from the source recipe/menu
     quantity: float = 1.0
     unit_price: float = 0.0  # Visible to client
     internal_cost: Optional[float] = None  # Hidden, internal only
+    discount_pct: float = 0.0  # Per-item discount % (applied to unit_price * quantity)
+    tax_exempt: bool = False  # If True, this item is excluded from proposal taxes
     category_id: Optional[str] = None
     internal_notes: Optional[str] = None
     event_date: Optional[str] = None
@@ -1063,9 +1066,12 @@ class OrderItemUpdate(BaseModel):
     item_type: Optional[str] = None
     reference_id: Optional[str] = None
     description: Optional[str] = None
+    long_description: Optional[str] = None
     quantity: Optional[float] = None
     unit_price: Optional[float] = None
     internal_cost: Optional[float] = None
+    discount_pct: Optional[float] = None
+    tax_exempt: Optional[bool] = None
     category_id: Optional[str] = None
     internal_notes: Optional[str] = None
     event_date: Optional[str] = None
@@ -1083,10 +1089,13 @@ class OrderItem(BaseModel):
     item_type: str
     reference_id: Optional[str] = None
     description: str
+    long_description: Optional[str] = None
     quantity: float
     unit_price: float
     internal_cost: Optional[float] = None
-    total_price: float  # quantity * unit_price
+    discount_pct: float = 0.0
+    tax_exempt: bool = False
+    total_price: float  # quantity * unit_price * (1 - discount_pct/100)
     total_cost: Optional[float] = None  # quantity * internal_cost
     margin_amount: Optional[float] = None  # total_price - total_cost
     margin_percentage: Optional[float] = None
@@ -8136,15 +8145,21 @@ async def calculate_proposal_financials(proposal_id: str, company_id: str):
     proposal = await db.proposals.find_one({"proposal_id": proposal_id}, {"_id": 0})
     
     subtotal = 0
+    taxable_subtotal = 0  # sum of (effective totals) for items that are NOT tax-exempt
     total_cost = 0
     has_missing_cost = False
     
     for item in items:
-        item_total = item.get("quantity", 1) * item.get("unit_price", 0)
+        qty = item.get("quantity", 1) or 0
+        unit = item.get("unit_price", 0) or 0
+        d_pct = float(item.get("discount_pct") or 0)
+        item_total = qty * unit * (1 - d_pct / 100.0)
         subtotal += item_total
+        if not item.get("tax_exempt"):
+            taxable_subtotal += item_total
         
         if item.get("internal_cost") is not None:
-            total_cost += item.get("quantity", 1) * item["internal_cost"]
+            total_cost += qty * item["internal_cost"]
         else:
             has_missing_cost = True
     
@@ -8162,8 +8177,25 @@ async def calculate_proposal_financials(proposal_id: str, company_id: str):
     
     subtotal_after_discount = subtotal - discount_amount
     
-    # Calculate taxes from stored tax_details
-    total_tax = sum(t.get("amount", 0) for t in (proposal.get("tax_details", []) if proposal else []))
+    # Proposal-level discount reduces the taxable base proportionally
+    taxable_base = taxable_subtotal
+    if subtotal > 0 and discount_amount > 0:
+        taxable_base = max(0, taxable_subtotal - discount_amount * (taxable_subtotal / subtotal))
+    
+    # Calculate taxes from stored tax_ids using the taxable_base (excludes tax-exempt items)
+    tax_details = []
+    total_tax = 0
+    stored_tax_details = proposal.get("tax_details", []) if proposal else []
+    for td in stored_tax_details:
+        rate = td.get("rate") or 0
+        tax_amount = taxable_base * (rate / 100)
+        total_tax += tax_amount
+        tax_details.append({
+            "tax_id": td.get("tax_id"),
+            "name": td.get("name"),
+            "rate": rate,
+            "amount": tax_amount,
+        })
     
     # Calculate total (subtotal - discount + tax)
     total = subtotal_after_discount + total_tax
@@ -8173,6 +8205,7 @@ async def calculate_proposal_financials(proposal_id: str, company_id: str):
         "discount_type": discount_type,
         "discount_value": discount_value,
         "discount_amount": discount_amount,
+        "tax_details": tax_details,
         "total_tax": total_tax,
         "total": total,
         "total_cost": total_cost,
@@ -8339,10 +8372,20 @@ async def update_proposal_financials(proposal_id: str, data: dict, user: User = 
     if event and event.get("operational_status") == "Closed":
         raise HTTPException(status_code=400, detail="Cannot edit proposal for a closed event")
     
-    # Get base items subtotal
+    # Get base items subtotal (honoring per-item discount and tax_exempt)
     items = await db.order_items.find({"proposal_id": proposal_id, "company_id": user.company_id}, {"_id": 0}).to_list(500)
-    subtotal = sum(item.get("quantity", 1) * item.get("unit_price", 0) for item in items)
-    total_cost = sum(item.get("quantity", 1) * (item.get("internal_cost") or 0) for item in items)
+    subtotal = 0.0
+    taxable_subtotal = 0.0
+    total_cost = 0.0
+    for it in items:
+        qty = it.get("quantity", 1) or 0
+        unit = it.get("unit_price", 0) or 0
+        d_pct = float(it.get("discount_pct") or 0)
+        eff = qty * unit * (1 - d_pct / 100.0)
+        subtotal += eff
+        if not it.get("tax_exempt"):
+            taxable_subtotal += eff
+        total_cost += qty * (it.get("internal_cost") or 0)
     
     # Handle discount - supports both fixed amount and percentage
     discount_type = data.get("discount_type", proposal.get("discount_type", "fixed"))  # "fixed" or "percentage"
@@ -8354,15 +8397,21 @@ async def update_proposal_financials(proposal_id: str, data: dict, user: User = 
         discount_amount = discount_value
     
     subtotal_after_discount = subtotal - discount_amount
+    
+    # Proposal discount reduces taxable base proportionally
+    taxable_base = taxable_subtotal
+    if subtotal > 0 and discount_amount > 0:
+        taxable_base = max(0, taxable_subtotal - discount_amount * (taxable_subtotal / subtotal))
+    
     tax_ids = data.get("tax_ids", [])
     
-    # Calculate taxes
+    # Calculate taxes on the taxable_base (excludes tax-exempt items)
     tax_details = []
     total_tax = 0
     for tax_id in tax_ids:
         tax = await db.tax_rates.find_one({"tax_id": tax_id, "company_id": user.company_id}, {"_id": 0})
         if tax:
-            tax_amount = subtotal_after_discount * (tax["rate"] / 100)
+            tax_amount = taxable_base * (tax["rate"] / 100)
             total_tax += tax_amount
             tax_details.append({
                 "tax_id": tax_id,
@@ -8486,8 +8535,9 @@ async def add_order_item(proposal_id: str, data: OrderItemCreate, user: User = D
     
     item_id = f"oi_{uuid.uuid4().hex[:12]}"
     
-    # Calculate item financials
-    total_price = data.quantity * data.unit_price
+    # Calculate item financials (honoring per-item discount)
+    d_pct = float(data.discount_pct or 0)
+    total_price = data.quantity * data.unit_price * (1 - d_pct / 100.0)
     total_cost = data.quantity * data.internal_cost if data.internal_cost else None
     margin_amount = total_price - total_cost if total_cost is not None else None
     margin_pct = (margin_amount / total_price * 100) if margin_amount is not None and total_price > 0 else None
@@ -8498,8 +8548,9 @@ async def add_order_item(proposal_id: str, data: OrderItemCreate, user: User = D
         cat = await db.item_categories.find_one({"category_id": data.category_id}, {"_id": 0, "name": 1})
         category_name = cat.get("name") if cat else None
     
-    # If Food item with recipe, auto-calculate internal cost
+    # If Food item with recipe, auto-calculate internal cost and pull long_description from recipe.description
     internal_cost = data.internal_cost
+    long_description = data.long_description
     if data.item_type == "Food" and data.reference_id:
         recipe = await db.recipes.find_one({"recipe_id": data.reference_id, "company_id": user.company_id}, {"_id": 0})
         if recipe:
@@ -8507,6 +8558,8 @@ async def add_order_item(proposal_id: str, data: OrderItemCreate, user: User = D
             total_cost = data.quantity * internal_cost
             margin_amount = total_price - total_cost
             margin_pct = (margin_amount / total_price * 100) if total_price > 0 else 0
+            if not long_description:
+                long_description = recipe.get("description") or None
     
     item_doc = {
         "item_id": item_id,
@@ -8516,9 +8569,12 @@ async def add_order_item(proposal_id: str, data: OrderItemCreate, user: User = D
         "item_type": data.item_type,
         "reference_id": data.reference_id,
         "description": data.description,
+        "long_description": long_description,
         "quantity": data.quantity,
         "unit_price": data.unit_price,
         "internal_cost": internal_cost,
+        "discount_pct": d_pct,
+        "tax_exempt": bool(data.tax_exempt),
         "total_price": total_price,
         "total_cost": total_cost,
         "margin_amount": margin_amount,
@@ -8780,9 +8836,12 @@ async def add_items_from_plated_menu(proposal_id: str, body: Dict[str, Any], use
             "item_type": "Food",
             "reference_id": plated_menu_id,
             "description": f"{menu.get('name') or 'Menú'}{guests_label}",
+            "long_description": menu.get("description") or None,
             "quantity": 1,
             "unit_price": float(total_menu_price),
             "internal_cost": float(total_menu_cost),
+            "discount_pct": 0.0,
+            "tax_exempt": False,
             "total_price": float(total_menu_price),
             "total_cost": float(total_menu_cost),
             "margin_amount": float(total_menu_price - total_menu_cost),
@@ -8848,9 +8907,12 @@ async def add_items_from_plated_menu(proposal_id: str, body: Dict[str, Any], use
                 "item_type": "Food",
                 "reference_id": recipe_id,
                 "description": description,
+                "long_description": rec.get("description") or None,
                 "quantity": qty,
                 "unit_price": doc_unit_price,
                 "internal_cost": doc_internal_cost,
+                "discount_pct": 0.0,
+                "tax_exempt": False,
                 "total_price": float(doc_price or 0),
                 "total_cost": float(doc_cost or 0),
                 "margin_amount": float(margin_amount or 0),
@@ -9531,12 +9593,13 @@ async def update_order_item(proposal_id: str, item_id: str, data: OrderItemUpdat
     
     update_data = {k: v for k, v in data.model_dump().items() if v is not None}
     
-    # Recalculate financials
+    # Recalculate financials (honoring per-item discount)
     quantity = update_data.get("quantity", item.get("quantity", 1))
     unit_price = update_data.get("unit_price", item.get("unit_price", 0))
     internal_cost = update_data.get("internal_cost", item.get("internal_cost"))
+    discount_pct = update_data.get("discount_pct", item.get("discount_pct", 0) or 0)
     
-    total_price = quantity * unit_price
+    total_price = quantity * unit_price * (1 - float(discount_pct or 0) / 100.0)
     total_cost = quantity * internal_cost if internal_cost is not None else None
     margin_amount = total_price - total_cost if total_cost is not None else None
     margin_pct = (margin_amount / total_price * 100) if margin_amount is not None and total_price > 0 else None

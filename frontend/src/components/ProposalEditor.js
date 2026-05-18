@@ -265,10 +265,13 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
   const [newItem, setNewItem] = useState({
     item_type: "Service",
     description: "",
+    long_description: "",
     category_id: "",
     quantity: 1,
     unit_price: 0,
     internal_cost: null,
+    discount_pct: 0,
+    tax_exempt: false,
     reference_id: "",
     internal_notes: "",
     event_date: "",
@@ -571,10 +574,13 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
     setNewItem({
       item_type: item.item_type || "Service",
       description: item.description || "",
+      long_description: item.long_description || "",
       category_id: item.category_id || "",
       quantity: item.quantity || 1,
       unit_price: item.unit_price || 0,
       internal_cost: item.internal_cost ?? null,
+      discount_pct: item.discount_pct ?? 0,
+      tax_exempt: !!item.tax_exempt,
       reference_id: item.reference_id || "",
       internal_notes: item.internal_notes || "",
       event_date: item.event_date || "",
@@ -590,10 +596,13 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
     setNewItem({
       item_type: "Service",
       description: "",
+      long_description: "",
       category_id: "",
       quantity: 1,
       unit_price: 0,
       internal_cost: null,
+      discount_pct: 0,
+      tax_exempt: false,
       reference_id: "",
       internal_notes: "",
       event_date: "",
@@ -2073,6 +2082,23 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
                                           <div className="flex items-center gap-4 p-3 hover:bg-muted/30 transition-colors">
                                             <div className="flex-1 min-w-0">
                                               <p className="font-medium truncate">{item.description}</p>
+                                              {item.long_description && (
+                                                <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
+                                                  {item.long_description}
+                                                </p>
+                                              )}
+                                              <div className="flex items-center gap-2 mt-1 flex-wrap">
+                                                {(item.discount_pct || 0) > 0 && (
+                                                  <span className="text-xs px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 border border-emerald-200 font-medium">
+                                                    -{item.discount_pct}%
+                                                  </span>
+                                                )}
+                                                {item.tax_exempt && (
+                                                  <span className="text-xs px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-300 font-medium">
+                                                    {language === "es" ? "Exento" : "Tax exempt"}
+                                                  </span>
+                                                )}
+                                              </div>
                                               {item.internal_notes && (
                                                 <p className="text-xs text-warning mt-1 italic">
                                                   📝 {item.internal_notes}
@@ -3257,6 +3283,25 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
                 />
               </div>
 
+              {/* Long description (recipe description) */}
+              <div className="col-span-2">
+                <Label className="flex items-center gap-2">
+                  {language === "es" ? "Descripción larga" : "Long description"}
+                  <span className="text-xs text-muted-foreground font-normal">
+                    {language === "es" ? "(aparece bajo el ítem en la propuesta)" : "(shown under the item on the proposal)"}
+                  </span>
+                </Label>
+                <Textarea
+                  value={newItem.long_description || ""}
+                  onChange={(e) => setNewItem({ ...newItem, long_description: e.target.value })}
+                  placeholder={language === "es"
+                    ? "Ej: Lechuga romana con aderezo César, queso parmesano fresco y crutones crujientes."
+                    : "E.g.: Crisp romaine with Caesar dressing, fresh parmesan and crunchy croutons."}
+                  rows={2}
+                  data-testid="item-long-description-input"
+                />
+              </div>
+
               {/* Quantity */}
               <div>
                 <Label>{language === "es" ? "Cantidad" : "Quantity"}</Label>
@@ -3336,6 +3381,51 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
                   })()}
                 </div>
               )}
+
+              {/* Per-item Discount % */}
+              <div>
+                <Label>{language === "es" ? "Descuento %" : "Discount %"}</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.01"
+                  value={newItem.discount_pct || 0}
+                  onChange={(e) => setNewItem({ ...newItem, discount_pct: parseFloat(e.target.value) || 0 })}
+                  placeholder="0"
+                  data-testid="item-discount-input"
+                />
+                {(newItem.discount_pct || 0) > 0 && newItem.quantity > 0 && newItem.unit_price > 0 && (() => {
+                  const gross = newItem.quantity * newItem.unit_price;
+                  const net = gross * (1 - newItem.discount_pct / 100);
+                  return (
+                    <div className="mt-1.5 text-xs text-emerald-700">
+                      {language === "es" ? "Total con descuento" : "Discounted total"}: <strong>${net.toFixed(2)}</strong>
+                      <span className="text-muted-foreground"> (-${(gross - net).toFixed(2)})</span>
+                    </div>
+                  );
+                })()}
+              </div>
+
+              {/* Tax Exempt toggle */}
+              <div className="col-span-2 flex items-center gap-2 rounded-md border bg-amber-50/50 border-amber-200 p-2.5">
+                <input
+                  id="item-tax-exempt"
+                  type="checkbox"
+                  checked={!!newItem.tax_exempt}
+                  onChange={(e) => setNewItem({ ...newItem, tax_exempt: e.target.checked })}
+                  className="h-4 w-4 cursor-pointer"
+                  data-testid="item-tax-exempt-checkbox"
+                />
+                <Label htmlFor="item-tax-exempt" className="cursor-pointer text-sm flex-1">
+                  {language === "es" ? "Sin impuesto (este ítem no paga IVA)" : "Tax exempt (this item is excluded from tax)"}
+                </Label>
+                {newItem.tax_exempt && (
+                  <span className="text-xs px-2 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-300 font-medium">
+                    {language === "es" ? "Exento" : "Exempt"}
+                  </span>
+                )}
+              </div>
 
               {/* Recipe metadata: portion format + allergens badges */}
               {(newItem._portion_format_name || (newItem._recipe_allergens && newItem._recipe_allergens.length > 0)) && (

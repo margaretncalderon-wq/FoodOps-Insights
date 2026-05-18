@@ -729,6 +729,21 @@ export default function DocumentPreview({
                                     {item.parent_item_id && <span className="opacity-60 mr-1">·</span>}
                                     {item.description}
                                   </span>
+                                  {item.long_description && (
+                                    <p className="text-xs text-muted-foreground mt-0.5 leading-snug whitespace-pre-line">
+                                      {item.long_description}
+                                    </p>
+                                  )}
+                                  {(item.discount_pct || 0) > 0 && (
+                                    <span className="inline-block mt-1 text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 font-medium">
+                                      {language === "es" ? "Descuento" : "Discount"} -{item.discount_pct}%
+                                    </span>
+                                  )}
+                                  {item.tax_exempt && (
+                                    <span className="inline-block mt-1 ml-1 text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 font-medium">
+                                      {language === "es" ? "Sin impuesto" : "Tax exempt"}
+                                    </span>
+                                  )}
                                   {item.internal_notes && config.showNotes && !template?.show_notes_column && (
                                     <p className="text-xs text-muted-foreground mt-1 italic">
                                       📝 {item.internal_notes}
