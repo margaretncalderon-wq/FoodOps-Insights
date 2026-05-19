@@ -33,7 +33,7 @@ import { toDateOnly, formatDateOnly, parseDateOnly } from "../utils/dates";
 import { Textarea } from "../components/ui/textarea";
 import { toast } from "sonner";
 import { format } from "date-fns";
-import { Plus, Search, Calendar as CalendarIcon, CalendarDays, MapPin, Users, DollarSign, MoreHorizontal, Trash2, Edit, Copy, List, Music4, FolderKanban } from "lucide-react";
+import { Plus, Search, Calendar as CalendarIcon, CalendarDays, MapPin, Users, DollarSign, MoreHorizontal, Trash2, Edit, Copy, List, Music4, FolderKanban, X } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -121,9 +121,11 @@ export default function EventsPage({ embedded = false }) {
     event_date: null,
     event_date_tbd: false,
     end_date: null,
+    event_dates: [],
     start_time: "",
     end_time: "",
     is_booking: false,
+    is_multi_select: false,
     venue: "",
     locations: [],
     guest_count: 0,
@@ -183,15 +185,28 @@ export default function EventsPage({ embedded = false }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
+      // Multi-date mode: derive event_date (first) + end_date (last) for backwards
+      // compatibility with components that still read these legacy fields.
+      let derivedEventDate = formData.event_date;
+      let derivedEndDate = formData.end_date;
+      let derivedEventDates = [];
+      if (formData.is_multi_select && Array.isArray(formData.event_dates) && formData.event_dates.length > 0) {
+        const sorted = [...formData.event_dates].sort((a, b) => a - b);
+        derivedEventDate = sorted[0];
+        derivedEndDate = sorted[sorted.length - 1];
+        derivedEventDates = sorted.map(d => toDateOnly(d)).filter(Boolean);
+      } else if (Array.isArray(formData.event_dates) && formData.event_dates.length > 0) {
+        derivedEventDates = formData.event_dates.map(d => toDateOnly(d)).filter(Boolean).sort();
+      }
       const payload = {
         ...formData,
         engagement_type: formData.engagement_type || "event",
         event_type: formData.event_type || "other",
-        event_date: formData.event_date_tbd ? null : toDateOnly(formData.event_date),
-        end_date: formData.is_booking && formData.end_date ? toDateOnly(formData.end_date) : null,
-        event_dates: Array.isArray(formData.event_dates) && formData.event_dates.length > 0
-          ? formData.event_dates.map(d => toDateOnly(d)).filter(Boolean).sort()
-          : [],
+        event_date: formData.event_date_tbd ? null : toDateOnly(derivedEventDate),
+        end_date: formData.is_multi_select
+          ? toDateOnly(derivedEndDate)
+          : (formData.is_booking && formData.end_date ? toDateOnly(formData.end_date) : null),
+        event_dates: derivedEventDates,
         start_time: formData.start_time || null,
         end_time: formData.end_time || null,
         next_followup_date: formData.next_followup_date ? formData.next_followup_date.toISOString() : null,
@@ -252,9 +267,13 @@ export default function EventsPage({ embedded = false }) {
       event_date: parseDateOnly(event.event_date),
       event_date_tbd: event.event_date_tbd || !event.event_date,
       end_date: parseDateOnly(event.end_date),
+      event_dates: Array.isArray(event.event_dates)
+        ? event.event_dates.map(d => parseDateOnly(d)).filter(Boolean)
+        : [],
       start_time: event.start_time || "",
       end_time: event.end_time || "",
       is_booking: event.is_booking || false,
+      is_multi_select: Array.isArray(event.event_dates) && event.event_dates.length > 0,
       venue: event.venue || "",
       locations: event.locations || [],
       guest_count: event.guest_count,
@@ -283,9 +302,11 @@ export default function EventsPage({ embedded = false }) {
       event_date: null,
       event_date_tbd: false,
       end_date: null,
+      event_dates: [],
       start_time: "",
       end_time: "",
       is_booking: false,
+      is_multi_select: false,
       venue: "",
       locations: [],
       guest_count: 0,
@@ -617,8 +638,102 @@ export default function EventsPage({ embedded = false }) {
                     />
                   </div>
 
-                  {/* Date fields */}
-                  {!formData.event_date_tbd && (formData.is_booking ? (
+                  {/* Multi-date (non-consecutive) Toggle */}
+                  {!formData.event_date_tbd && (
+                    <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg" data-testid="multi-date-toggle-row">
+                      <div>
+                        <Label className="font-medium">
+                          {isEs ? "Días no consecutivos / múltiples fechas" : "Non-consecutive / multiple dates"}
+                        </Label>
+                        <p className="text-xs text-muted-foreground">
+                          {isEs
+                            ? "Selecciona días sueltos (ej: martes y jueves de un curso)"
+                            : "Pick individual days (e.g. Tuesdays and Thursdays of a course)"}
+                        </p>
+                      </div>
+                      <Switch
+                        data-testid="multi-date-toggle"
+                        checked={formData.is_multi_select === true}
+                        onCheckedChange={(checked) => {
+                          // Toggling ON: seed event_dates from existing single date when present
+                          // Toggling OFF: keep first selected date as event_date
+                          if (checked) {
+                            setFormData({
+                              ...formData,
+                              is_multi_select: true,
+                              is_booking: false,
+                              event_dates: formData.event_dates?.length
+                                ? formData.event_dates
+                                : (formData.event_date ? [formData.event_date] : []),
+                            });
+                          } else {
+                            const first = formData.event_dates?.[0] || formData.event_date || null;
+                            setFormData({
+                              ...formData,
+                              is_multi_select: false,
+                              event_dates: [],
+                              event_date: first,
+                            });
+                          }
+                        }}
+                      />
+                    </div>
+                  )}
+
+                  {/* Multi-date Calendar + chips */}
+                  {!formData.event_date_tbd && formData.is_multi_select && (
+                    <div className="space-y-3" data-testid="multi-date-picker-wrapper">
+                      <Label>{isEs ? "Selecciona las fechas" : "Pick the dates"}</Label>
+                      <div className="border rounded-lg p-2 bg-background">
+                        <Calendar
+                          mode="multiple"
+                          selected={formData.event_dates || []}
+                          onSelect={(dates) => setFormData({ ...formData, event_dates: dates || [] })}
+                          numberOfMonths={2}
+                          initialFocus
+                        />
+                      </div>
+                      {(formData.event_dates?.length || 0) > 0 ? (
+                        <div className="flex flex-wrap gap-1.5" data-testid="multi-date-chips">
+                          {[...formData.event_dates].sort((a, b) => a - b).map((d, idx) => (
+                            <span
+                              key={idx}
+                              className="inline-flex items-center gap-1.5 text-xs bg-primary/10 text-primary border border-primary/20 rounded-full pl-2.5 pr-1 py-0.5"
+                              data-testid={`multi-date-chip-${idx}`}
+                            >
+                              {format(d, "PPP")}
+                              <button
+                                type="button"
+                                className="inline-flex items-center justify-center w-4 h-4 rounded-full hover:bg-primary/20"
+                                onClick={() => setFormData({
+                                  ...formData,
+                                  event_dates: formData.event_dates.filter((x) => x.getTime() !== d.getTime()),
+                                })}
+                                aria-label={isEs ? "Quitar fecha" : "Remove date"}
+                              >
+                                <X className="w-3 h-3" />
+                              </button>
+                            </span>
+                          ))}
+                          <button
+                            type="button"
+                            onClick={() => setFormData({ ...formData, event_dates: [] })}
+                            className="text-xs text-muted-foreground hover:text-destructive underline ml-1"
+                            data-testid="multi-date-clear"
+                          >
+                            {isEs ? "Limpiar todas" : "Clear all"}
+                          </button>
+                        </div>
+                      ) : (
+                        <p className="text-xs text-muted-foreground">
+                          {isEs ? "Aún no has seleccionado fechas." : "No dates picked yet."}
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Date fields (single / range) — hidden in multi-select mode */}
+                  {!formData.event_date_tbd && !formData.is_multi_select && (formData.is_booking ? (
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label>{language === "es" ? "Fecha Inicio" : "Start Date"}</Label>
@@ -1000,9 +1115,11 @@ export default function EventsPage({ embedded = false }) {
                       <CalendarIcon className="w-4 h-4" />
                       <span>
                         {event.event_date_tbd || !event.event_date
-                          ? "TBD" 
-                          : formatDateOnly(event.event_date, language)}
-                        {event.is_booking && event.end_date && (
+                          ? "TBD"
+                          : Array.isArray(event.event_dates) && event.event_dates.length > 1
+                            ? `${event.event_dates.length} ${language === "es" ? "fechas" : "dates"} · ${formatDateOnly(event.event_dates[0], language)}…`
+                            : formatDateOnly(event.event_date, language)}
+                        {(!Array.isArray(event.event_dates) || event.event_dates.length <= 1) && event.is_booking && event.end_date && (
                           <> - {formatDateOnly(event.end_date, language)}</>
                         )}
                       </span>

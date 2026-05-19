@@ -412,4 +412,21 @@ Phase 2 Culinary backend validated 19/19 in iteration_176.json.
 - data-testids: `section-move-up-<title>` / `section-move-down-<title>`.
 - Smoke-tested in preview: Entradas/Principales swap via ↓ button persists immediately and shows the "Section moved" toast.
 
+### Multi-Date (Non-Consecutive) Event Picker (Feb 19, 2026 — follow-up)
+**Goal**: Let operators pick **individual non-consecutive dates** for an event (e.g. a weekly course held only on Tuesdays and Thursdays) instead of being forced into a continuous date range.
+
+**Frontend** (`/app/frontend/src/pages/EventsPage.js`, `/app/frontend/src/components/ProposalEditor.js`)
+- New **"Días no consecutivos / múltiples fechas"** toggle in the Event Create/Edit dialog (`data-testid="multi-date-toggle"`), shown right below the existing "Date TBD" toggle.
+- When enabled, the standard single-date or start/end-range fields are hidden and replaced with:
+  - A side-by-side 2-month `<Calendar mode="multiple" />` (uses `react-day-picker` already shipped via shadcn).
+  - Chips showing every picked date with × remove buttons (`data-testid="multi-date-chip-N"`) and a "Clear all" link (`data-testid="multi-date-clear"`).
+- `handleSubmit` payload derives `event_date` (first picked) and `end_date` (last picked) so legacy components that still read those scalars stay compatible. The full sorted array goes to `event_dates`.
+- `handleEdit` re-hydrates `formData.event_dates` from the event's `event_dates` array and toggles `is_multi_select` on automatically when the event already has 2+ dates.
+- Event cards in the list show "N fechas · 2026-07-07…" instead of the single date when `event_dates.length > 1`.
+- `ProposalEditor.fetchDayLogistics` now **auto-seeds** day-logistics from `event.event_dates` on first proposal open when no manual logistics rows exist — every selected event date becomes a row in the per-date logistics table, so section/item date dropdowns immediately offer those non-consecutive days.
+
+**Backend** — No changes needed; the previous `EventUpdate.event_dates` + sort/dedupe normalization already handles the round-trip. Verified via curl with 4 non-consecutive dates: `["2026-07-07","2026-07-09","2026-07-14","2026-07-16"]` persisted and returned exactly.
+
+**Compatibility**: When `event_dates` is empty the form stays in legacy single/range mode and behaves exactly as before.
+
 Next: Eliminate ProposalEditor.js bloat (now ~4360 lines) by extracting Sortable wrappers and dialogs; finish UX Workstreams A/B/C; Logo Guest Flow; Unified Contact Model.

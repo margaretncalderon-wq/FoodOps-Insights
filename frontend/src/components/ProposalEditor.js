@@ -481,11 +481,36 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
     if (!proposal?.proposal_id) return;
     try {
       const res = await axios.get(`${API}/proposals/${proposal.proposal_id}/day-logistics`, { withCredentials: true });
-      setDayLogistics(res.data?.day_logistics || []);
+      const existing = res.data?.day_logistics || [];
+      // Auto-seed day-logistics from event.event_dates the first time we open a
+      // multi-date event's proposal. We never overwrite manually configured days.
+      const eventDates = Array.isArray(event?.event_dates) ? event.event_dates.filter(Boolean) : [];
+      if (existing.length === 0 && eventDates.length > 1) {
+        const seeded = eventDates.map((d) => ({
+          event_date: String(d).slice(0, 10),
+          delivery_time: "",
+          delivery_end_time: "",
+          address: event?.venue_address || "",
+          instructions: "",
+          guest_count: event?.guest_count || event?.num_guests || null,
+        }));
+        try {
+          const put = await axios.put(
+            `${API}/proposals/${proposal.proposal_id}/day-logistics`,
+            { day_logistics: seeded },
+            { withCredentials: true }
+          );
+          setDayLogistics(put.data?.day_logistics || seeded);
+          return;
+        } catch (_e) {
+          // fall through to existing list on save failure
+        }
+      }
+      setDayLogistics(existing);
     } catch (e) {
       setDayLogistics([]);
     }
-  }, [proposal?.proposal_id]);
+  }, [proposal?.proposal_id, event?.event_dates, event?.venue_address, event?.guest_count, event?.num_guests]);
 
   // Load day-logistics whenever the proposal id changes
   useEffect(() => {
