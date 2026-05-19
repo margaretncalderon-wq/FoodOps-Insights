@@ -16,6 +16,7 @@ import { Textarea } from "./ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import RecipeScalePanel from "./RecipeScalePanel";
 import { ScrollArea } from "./ui/scroll-area";
+import { formatQtyUnit, formatPerUnit } from "../utils/portionUnits";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip";
 import { Checkbox } from "./ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
@@ -1594,7 +1595,7 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
                           {pf.format_name}
                           {pf.is_default && <Badge variant="secondary" className="ml-2">{language === "es" ? "Predeterminado" : "Default"}</Badge>}
                         </TableCell>
-                        <TableCell className="text-right">{pf.portions_obtained} {pf.portion_unit}</TableCell>
+                        <TableCell className="text-right">{formatQtyUnit(pf.portions_obtained, pf.portion_unit)}</TableCell>
                         <TableCell className="text-right">${pf.cost_per_portion?.toFixed(2)}</TableCell>
                         <TableCell className="text-right">${pf.sell_price?.toFixed(2)}</TableCell>
                         <TableCell className="text-right">

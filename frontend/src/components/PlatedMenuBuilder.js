@@ -11,6 +11,7 @@ import { Label } from "./ui/label";
 import { Badge } from "./ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { SearchableSelect } from "./ui/searchable-select";
+import { formatQtyUnit } from "../utils/portionUnits";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./ui/table";
 import { Textarea } from "./ui/textarea";
 import { Checkbox } from "./ui/checkbox";
@@ -550,7 +551,7 @@ export default function PlatedMenuBuilder({ onClose, onSave, initialMenu = null,
                                       <SelectItem value="default">{language === "es" ? "Estándar" : "Standard"} (${recipe?.cost_per_portion?.toFixed(2) || "0.00"})</SelectItem>
                                       {formats.map(fmt => (
                                         <SelectItem key={fmt.format_id} value={fmt.format_id}>
-                                          {fmt.format_name} (${fmt.cost_per_portion?.toFixed(2)})
+                                          {fmt.format_name} {formatQtyUnit(fmt.portions_obtained, fmt.portion_unit) && `(${formatQtyUnit(fmt.portions_obtained, fmt.portion_unit)})`} (${fmt.cost_per_portion?.toFixed(2)})
                                         </SelectItem>
                                       ))}
                                     </SelectContent>

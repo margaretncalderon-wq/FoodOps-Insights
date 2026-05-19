@@ -911,7 +911,7 @@ function InventorySection() {
                 </div>
                 <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-md flex flex-col justify-center" data-testid="item-cost-per-base">
                   <p className="text-xs text-emerald-700">
-                    {language === "es" ? `Precio por ${itemForm.base_unit || itemForm.unit || "unidad"}` : `Price per ${itemForm.base_unit || itemForm.unit || "unit"}`}
+                    {language === "es" ? `Precio por ${itemForm.base_unit || itemForm.unit || "unidad base"}` : `Price per ${itemForm.base_unit || itemForm.unit || "base unit"}`}
                   </p>
                   <p className="text-lg font-bold text-emerald-900 font-mono">
                     {itemForm.purchase_cost > 0 && itemForm.purchase_quantity_per_unit > 0

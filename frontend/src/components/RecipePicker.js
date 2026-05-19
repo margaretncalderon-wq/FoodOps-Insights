@@ -9,6 +9,7 @@ import { Badge } from "./ui/badge";
 import { Search, ChefHat, Loader2, ArrowLeft, Sparkles, AlertTriangle, Check } from "lucide-react";
 
 import { API_BASE as API } from "../utils/api";
+import { formatQtyUnit, formatPerUnit } from "../utils/portionUnits";
 
 /**
  * RecipePicker — Two-stage searchable picker for adding a recipe to a quote / proposal.
@@ -179,7 +180,7 @@ export default function RecipePicker({
                       </div>
                       <div className="text-right flex-shrink-0">
                         <p className="text-xs font-mono">${cost.toFixed(2)}</p>
-                        <p className="text-[10px] text-muted-foreground">/ {r.portion_unit || "porción"}</p>
+                        <p className="text-[10px] text-muted-foreground">{formatPerUnit(r.portion_unit, language)}</p>
                       </div>
                     </CommandItem>
                   );
@@ -252,7 +253,7 @@ export default function RecipePicker({
                           {f.is_default && <Badge variant="secondary" className="text-[9px] h-4 px-1">{isEs ? "Default" : "Default"}</Badge>}
                         </div>
                         <p className="text-[10px] text-muted-foreground">
-                          {f.portions_obtained} {f.portion_unit} · {isEs ? "costo" : "cost"} ${(f.cost_per_portion || 0).toFixed(2)}
+                          {formatQtyUnit(f.portions_obtained, f.portion_unit)} · {isEs ? "costo" : "cost"} ${(f.cost_per_portion || 0).toFixed(2)}
                         </p>
                       </div>
                       <div className="text-right flex-shrink-0">
