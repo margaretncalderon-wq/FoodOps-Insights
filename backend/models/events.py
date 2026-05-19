@@ -25,6 +25,7 @@ class EventCreate(BaseModel):
     event_date: Optional[datetime] = None
     event_date_tbd: bool = False
     end_date: Optional[datetime] = None  # For multi-day events
+    event_dates: List[str] = []  # Non-consecutive multi-day dates as "YYYY-MM-DD" strings
     start_time: Optional[str] = None  # e.g., "14:00"
     end_time: Optional[str] = None  # e.g., "22:00"
     is_booking: bool = False
@@ -56,6 +57,7 @@ class Event(BaseModel):
     event_date: Optional[datetime] = None
     event_date_tbd: bool = False
     end_date: Optional[datetime] = None  # For multi-day events
+    event_dates: List[str] = []  # Non-consecutive multi-day dates
     start_time: Optional[str] = None  # e.g., "14:00"
     end_time: Optional[str] = None  # e.g., "22:00"
     is_booking: bool = False

@@ -29,6 +29,7 @@ import {
   SelectValue,
 } from "../components/ui/select";
 import { SearchableSelect } from "../components/ui/searchable-select";
+import { toDateOnly, formatDateOnly, parseDateOnly } from "../utils/dates";
 import { Textarea } from "../components/ui/textarea";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -186,8 +187,11 @@ export default function EventsPage({ embedded = false }) {
         ...formData,
         engagement_type: formData.engagement_type || "event",
         event_type: formData.event_type || "other",
-        event_date: formData.event_date_tbd ? null : (formData.event_date ? formData.event_date.toISOString() : null),
-        end_date: formData.is_booking && formData.end_date ? formData.end_date.toISOString() : null,
+        event_date: formData.event_date_tbd ? null : toDateOnly(formData.event_date),
+        end_date: formData.is_booking && formData.end_date ? toDateOnly(formData.end_date) : null,
+        event_dates: Array.isArray(formData.event_dates) && formData.event_dates.length > 0
+          ? formData.event_dates.map(d => toDateOnly(d)).filter(Boolean).sort()
+          : [],
         start_time: formData.start_time || null,
         end_time: formData.end_time || null,
         next_followup_date: formData.next_followup_date ? formData.next_followup_date.toISOString() : null,
@@ -245,9 +249,9 @@ export default function EventsPage({ embedded = false }) {
       name: event.name,
       engagement_type: event.engagement_type || "event",
       event_type: event.event_type,
-      event_date: event.event_date ? new Date(event.event_date) : null,
+      event_date: parseDateOnly(event.event_date),
       event_date_tbd: event.event_date_tbd || !event.event_date,
-      end_date: event.end_date ? new Date(event.end_date) : null,
+      end_date: parseDateOnly(event.end_date),
       start_time: event.start_time || "",
       end_time: event.end_time || "",
       is_booking: event.is_booking || false,
@@ -307,8 +311,8 @@ export default function EventsPage({ embedded = false }) {
       await axios.put(`${API}/events/${eventId}`, {
         ...event,
         stage: newStage,
-        event_date: event.event_date ? new Date(event.event_date).toISOString() : null,
-        end_date: event.end_date ? new Date(event.end_date).toISOString() : null,
+        event_date: toDateOnly(event.event_date),
+        end_date: toDateOnly(event.end_date),
       }, { withCredentials: true });
       
       toast.success(language === "es" ? "Etapa actualizada" : "Stage updated");
@@ -995,11 +999,11 @@ export default function EventsPage({ embedded = false }) {
                     <div className="flex items-center gap-2 text-muted-foreground">
                       <CalendarIcon className="w-4 h-4" />
                       <span>
-                        {event.event_date_tbd || !event.event_date || new Date(event.event_date).getTime() < 86400000
+                        {event.event_date_tbd || !event.event_date
                           ? "TBD" 
-                          : new Date(event.event_date).toLocaleDateString(language === "es" ? "es-ES" : "en-US")}
-                        {event.is_booking && event.end_date && new Date(event.end_date).getTime() > 86400000 && (
-                          <> - {new Date(event.end_date).toLocaleDateString(language === "es" ? "es-ES" : "en-US")}</>
+                          : formatDateOnly(event.event_date, language)}
+                        {event.is_booking && event.end_date && (
+                          <> - {formatDateOnly(event.end_date, language)}</>
                         )}
                       </span>
                     </div>

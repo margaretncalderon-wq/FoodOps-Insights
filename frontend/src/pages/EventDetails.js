@@ -7,6 +7,7 @@ import ProposalEditor from "../components/ProposalEditor";
 import EventPurchaseList from "../components/EventPurchaseList";
 import EventPayments from "../components/EventPayments";
 import { useLanguage } from "../contexts/LanguageContext";
+import { formatDateOnly } from "../utils/dates";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
@@ -364,9 +365,9 @@ export default function EventDetails() {
               <div>
                 <p className="text-sm text-muted-foreground">{t("date")}</p>
                 <p className="font-medium">
-                  {new Date(event?.event_date).toLocaleDateString(language === "es" ? "es-ES" : "en-US")}
+                  {formatDateOnly(event?.event_date, language)}
                   {event?.is_booking && event?.end_date && (
-                    <span className="text-muted-foreground"> - {new Date(event.end_date).toLocaleDateString(language === "es" ? "es-ES" : "en-US")}</span>
+                    <span className="text-muted-foreground"> - {formatDateOnly(event.end_date, language)}</span>
                   )}
                 </p>
               </div>
