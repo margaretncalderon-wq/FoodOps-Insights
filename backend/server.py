@@ -9623,6 +9623,52 @@ async def cost_health_refresh_all(request: Request, user: User = Depends(get_cur
     }
 
 
+@proposals_router.post("/{proposal_id}/items/repair-descriptions")
+async def repair_item_descriptions(proposal_id: str, user: User = Depends(get_current_user)):
+    """For items linked to recipes/menus, restore description=name and long_description=recipe.description.
+    Only modifies items where long_description is empty AND description != recipe.name."""
+    proposal = await db.proposals.find_one({"proposal_id": proposal_id, "company_id": user.company_id})
+    if not proposal:
+        raise HTTPException(status_code=404, detail="Proposal not found")
+    items = await db.order_items.find(
+        {"proposal_id": proposal_id, "company_id": user.company_id},
+        {"_id": 0}
+    ).to_list(500)
+    fixed = 0
+    for it in items:
+        if it.get("long_description"):
+            continue
+        ref_id = it.get("reference_id")
+        if not ref_id:
+            continue
+        # Try recipe first, then plated menu
+        src = await db.recipes.find_one(
+            {"recipe_id": ref_id, "company_id": user.company_id},
+            {"_id": 0, "name": 1, "description": 1}
+        )
+        if not src:
+            src = await db.plated_menus.find_one(
+                {"menu_id": ref_id, "company_id": user.company_id},
+                {"_id": 0, "name": 1, "description": 1}
+            )
+        if not src or not src.get("description"):
+            continue
+        new_desc = src.get("name") or it.get("description")
+        new_long = src.get("description")
+        if it.get("description") == new_desc and not new_long:
+            continue
+        await db.order_items.update_one(
+            {"item_id": it["item_id"], "proposal_id": proposal_id, "company_id": user.company_id},
+            {"$set": {
+                "description": new_desc,
+                "long_description": new_long,
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+            }},
+        )
+        fixed += 1
+    return {"success": True, "fixed": fixed, "scanned": len(items)}
+
+
 @proposals_router.put("/{proposal_id}/items/{item_id}")
 async def update_order_item(proposal_id: str, item_id: str, data: OrderItemUpdate, user: User = Depends(get_current_user)):
     """Update an order item"""

@@ -1010,13 +1010,14 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
   };
 
   const handleRecipeSelect = (pick) => {
-    // pick comes from RecipePicker.onPick: { recipe, portionFormat, internal_cost, unit_price, suggested_price, allergens, description }
-    const { recipe, portionFormat, internal_cost, unit_price, allergens, description } = pick;
+    // pick comes from RecipePicker.onPick: { recipe, portionFormat, internal_cost, unit_price, suggested_price, allergens, description, long_description }
+    const { recipe, portionFormat, internal_cost, unit_price, allergens, description, long_description } = pick;
 
     setNewItem({
       ...newItem,
       item_type: "Food",
       description,
+      long_description: long_description || "",
       category_id: "cat_food",
       unit_price: Math.round(unit_price * 100) / 100,
       internal_cost,
@@ -1657,6 +1658,36 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
             <History className="w-3 h-3 mr-1" />
             {language === "es" ? "Historial" : "History"}
           </Button>
+
+          {/* Repair item descriptions from recipes/menus */}
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 text-xs"
+            onClick={async () => {
+              try {
+                const res = await axios.post(
+                  `${API}/proposals/${proposal.proposal_id}/items/repair-descriptions`,
+                  {},
+                  { withCredentials: true },
+                );
+                const { fixed = 0, scanned = 0 } = res.data || {};
+                toast.success(
+                  language === "es"
+                    ? `${fixed} de ${scanned} ítem(s) reparados`
+                    : `${fixed} of ${scanned} item(s) fixed`,
+                );
+                fetchProposal();
+              } catch (e) {
+                toast.error(e.response?.data?.detail || "Repair failed");
+              }
+            }}
+            data-testid="repair-descriptions-btn"
+            title={language === "es" ? "Restablecer descripciones de recetas en los ítems" : "Restore recipe descriptions on items"}
+          >
+            <RefreshCw className="w-3 h-3 mr-1" />
+            {language === "es" ? "Reparar descripciones" : "Repair descriptions"}
+          </Button>
         </div>
       </div>
 
@@ -2084,9 +2115,9 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
                                           >
                                           <div className="flex items-center gap-4 p-3 hover:bg-muted/30 transition-colors">
                                             <div className="flex-1 min-w-0">
-                                              <p className="font-medium truncate">{item.description}</p>
+                                              <p className="font-medium leading-tight">{item.description}</p>
                                               {item.long_description && (
-                                                <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
+                                                <p className="text-xs text-muted-foreground mt-1 leading-snug whitespace-pre-line">
                                                   {item.long_description}
                                                 </p>
                                               )}

@@ -100,6 +100,7 @@ export default function RecipePicker({
       suggested_price: format?.suggested_price || internal_cost * 3,
       allergens: recipe.allergens || [],
       description: format ? `${recipe.name} — ${format.format_name}` : recipe.name,
+      long_description: recipe.description || null,
     });
     setOpen(false);
     reset();
