@@ -17,6 +17,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "../components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import { SearchableSelect } from "../components/ui/searchable-select";
+import { SortSelect, applySort, readStoredSort } from "../components/ui/sort-select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui/table";
 import { Textarea } from "../components/ui/textarea";
 import { Checkbox } from "../components/ui/checkbox";
@@ -419,11 +420,27 @@ function InventorySection() {
     setImportStep("select");
   };
 
-  const filteredItems = items.filter(item => {
-    const matchesSearch = item.name?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesType = typeFilter === "all" || item.inventory_type === typeFilter;
-    return matchesSearch && matchesType;
-  });
+  const [itemSortBy, setItemSortBy] = useState(readStoredSort("itemsSortBy", "name_asc"));
+
+  const itemSorters = {
+    name_asc: (a, b) => (a.name || "").localeCompare(b.name || "", undefined, { sensitivity: "base" }),
+    name_desc: (a, b) => (b.name || "").localeCompare(a.name || "", undefined, { sensitivity: "base" }),
+    cost_desc: (a, b) => (b.cost_per_base_unit || b.cost_per_unit || 0) - (a.cost_per_base_unit || a.cost_per_unit || 0),
+    cost_asc: (a, b) => (a.cost_per_base_unit || a.cost_per_unit || 0) - (b.cost_per_base_unit || b.cost_per_unit || 0),
+    stock_desc: (a, b) => (b.stock_quantity || 0) - (a.stock_quantity || 0),
+    stock_asc: (a, b) => (a.stock_quantity || 0) - (b.stock_quantity || 0),
+    created_desc: (a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0),
+  };
+
+  const filteredItems = applySort(
+    items.filter(item => {
+      const matchesSearch = item.name?.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesType = typeFilter === "all" || item.inventory_type === typeFilter;
+      return matchesSearch && matchesType;
+    }),
+    itemSortBy,
+    itemSorters,
+  );
 
   const lowStockItems = items.filter(item => item.par_level > 0 && (item.stock_quantity || 0) < item.par_level);
   // Ingredients flagged for chef review: explicit needs_review flag, or missing the new v2 cost axis fields.
@@ -528,9 +545,26 @@ function InventorySection() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle>{t("items")}</CardTitle>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <div className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" /><Input placeholder={t("search")} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-9 w-64" /></div>
                 <Select value={typeFilter} onValueChange={setTypeFilter}><SelectTrigger className="w-40"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">{t("all")}</SelectItem>{INVENTORY_TYPES.map(type => (<SelectItem key={type.value} value={type.value}>{language === "es" ? type.labelEs : type.label}</SelectItem>))}</SelectContent></Select>
+                <SortSelect
+                  value={itemSortBy}
+                  onValueChange={setItemSortBy}
+                  storageKey="itemsSortBy"
+                  label={language === "es" ? "Ordenar" : "Sort"}
+                  triggerClassName="w-[200px]"
+                  testId="items-sort-select"
+                  options={[
+                    { value: "name_asc", label: language === "es" ? "Nombre (A-Z)" : "Name (A-Z)" },
+                    { value: "name_desc", label: language === "es" ? "Nombre (Z-A)" : "Name (Z-A)" },
+                    { value: "cost_desc", label: language === "es" ? "Mayor costo" : "Highest cost" },
+                    { value: "cost_asc", label: language === "es" ? "Menor costo" : "Lowest cost" },
+                    { value: "stock_desc", label: language === "es" ? "Más stock" : "Most stock" },
+                    { value: "stock_asc", label: language === "es" ? "Menos stock" : "Least stock" },
+                    { value: "created_desc", label: language === "es" ? "Más recientes" : "Newest" },
+                  ]}
+                />
                 <Button variant="outline" onClick={() => { resetImport(); setImportDialogOpen(true); }} data-testid="import-inventory-btn"><FileUp className="w-4 h-4 mr-2" />{language === "es" ? "Importar" : "Import"}</Button>
                 <Button variant="outline" onClick={() => { setWizardInitial(null); setWizardOpen(true); }} data-testid="open-wizard-btn">
                   <Sparkles className="w-4 h-4 mr-2" />
@@ -1504,13 +1538,28 @@ function RecipesSection() {
   const [pendingReviewOnly, setPendingReviewOnly] = useState(false);
   const [bulkAILoading, setBulkAILoading] = useState(false);
   const [recipeImportOpen, setRecipeImportOpen] = useState(false);
+  const [recipeSortBy, setRecipeSortBy] = useState(readStoredSort("recipesSortBy", "name_asc"));
 
-  const filteredRecipes = recipes.filter(r => {
-    const matchesSearch = r.name?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesType = typeFilter === "all" || r.recipe_type === typeFilter;
-    const matchesReview = !pendingReviewOnly || r.needs_review === true;
-    return matchesSearch && matchesType && matchesReview;
-  });
+  const recipeSorters = {
+    name_asc: (a, b) => (a.name || "").localeCompare(b.name || "", undefined, { sensitivity: "base" }),
+    name_desc: (a, b) => (b.name || "").localeCompare(a.name || "", undefined, { sensitivity: "base" }),
+    cost_desc: (a, b) => (b.cost_per_portion || 0) - (a.cost_per_portion || 0),
+    cost_asc: (a, b) => (a.cost_per_portion || 0) - (b.cost_per_portion || 0),
+    created_desc: (a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0),
+    created_asc: (a, b) => new Date(a.created_at || 0) - new Date(b.created_at || 0),
+    updated_desc: (a, b) => new Date(b.updated_at || 0) - new Date(a.updated_at || 0),
+  };
+
+  const filteredRecipes = applySort(
+    recipes.filter(r => {
+      const matchesSearch = r.name?.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesType = typeFilter === "all" || r.recipe_type === typeFilter;
+      const matchesReview = !pendingReviewOnly || r.needs_review === true;
+      return matchesSearch && matchesType && matchesReview;
+    }),
+    recipeSortBy,
+    recipeSorters,
+  );
 
   const pendingReviewCount = recipes.filter(r => r.needs_review === true).length;
 
@@ -1600,7 +1649,7 @@ function RecipesSection() {
               </>
             )}
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <div className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" /><Input placeholder={language === "es" ? "Buscar..." : "Search..."} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-9 w-64" /></div>
             <Select value={typeFilter} onValueChange={setTypeFilter}>
               <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
@@ -1611,6 +1660,23 @@ function RecipesSection() {
                 <SelectItem value="final_dish">{language === "es" ? "Plato Final" : "Final Dish"}</SelectItem>
               </SelectContent>
             </Select>
+            <SortSelect
+              value={recipeSortBy}
+              onValueChange={setRecipeSortBy}
+              storageKey="recipesSortBy"
+              label={language === "es" ? "Ordenar" : "Sort"}
+              triggerClassName="w-[200px]"
+              testId="recipes-sort-select"
+              options={[
+                { value: "name_asc", label: language === "es" ? "Nombre (A-Z)" : "Name (A-Z)" },
+                { value: "name_desc", label: language === "es" ? "Nombre (Z-A)" : "Name (Z-A)" },
+                { value: "cost_desc", label: language === "es" ? "Mayor costo" : "Highest cost" },
+                { value: "cost_asc", label: language === "es" ? "Menor costo" : "Lowest cost" },
+                { value: "created_desc", label: language === "es" ? "Más recientes" : "Newest" },
+                { value: "created_asc", label: language === "es" ? "Más antiguas" : "Oldest" },
+                { value: "updated_desc", label: language === "es" ? "Editadas recientemente" : "Recently updated" },
+              ]}
+            />
             <Button variant="outline" onClick={handleRecalculateAll} disabled={recalculating}>
               <RefreshCw className={`w-4 h-4 mr-2 ${recalculating ? "animate-spin" : ""}`} />
               {language === "es" ? "Recalcular" : "Recalculate"}
@@ -1930,7 +1996,23 @@ function PlatedMenusSection() {
     }
   };
 
-  const filteredMenus = menus.filter(m => m.name?.toLowerCase().includes(searchTerm.toLowerCase()));
+  const [menuSortBy, setMenuSortBy] = useState(readStoredSort("menusSortBy", "name_asc"));
+
+  const menuSorters = {
+    name_asc: (a, b) => (a.name || "").localeCompare(b.name || "", undefined, { sensitivity: "base" }),
+    name_desc: (a, b) => (b.name || "").localeCompare(a.name || "", undefined, { sensitivity: "base" }),
+    cost_desc: (a, b) => (b.cost_per_guest || 0) - (a.cost_per_guest || 0),
+    cost_asc: (a, b) => (a.cost_per_guest || 0) - (b.cost_per_guest || 0),
+    base_price_desc: (a, b) => (b.base_price_per_guest || 0) - (a.base_price_per_guest || 0),
+    created_desc: (a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0),
+    updated_desc: (a, b) => new Date(b.updated_at || 0) - new Date(a.updated_at || 0),
+  };
+
+  const filteredMenus = applySort(
+    menus.filter(m => m.name?.toLowerCase().includes(searchTerm.toLowerCase())),
+    menuSortBy,
+    menuSorters,
+  );
 
   const getMenuTypeLabel = (type) => {
     const types = {
@@ -1949,8 +2031,25 @@ function PlatedMenusSection() {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>{language === "es" ? "Menús Emplatados" : "Plated Menus"}</CardTitle>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <div className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" /><Input placeholder={language === "es" ? "Buscar..." : "Search..."} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-9 w-64" /></div>
+            <SortSelect
+              value={menuSortBy}
+              onValueChange={setMenuSortBy}
+              storageKey="menusSortBy"
+              label={language === "es" ? "Ordenar" : "Sort"}
+              triggerClassName="w-[200px]"
+              testId="menus-sort-select"
+              options={[
+                { value: "name_asc", label: language === "es" ? "Nombre (A-Z)" : "Name (A-Z)" },
+                { value: "name_desc", label: language === "es" ? "Nombre (Z-A)" : "Name (Z-A)" },
+                { value: "cost_desc", label: language === "es" ? "Mayor costo/invitado" : "Highest cost/guest" },
+                { value: "cost_asc", label: language === "es" ? "Menor costo/invitado" : "Lowest cost/guest" },
+                { value: "base_price_desc", label: language === "es" ? "Mayor precio base" : "Highest base price" },
+                { value: "created_desc", label: language === "es" ? "Más recientes" : "Newest" },
+                { value: "updated_desc", label: language === "es" ? "Editados recientemente" : "Recently updated" },
+              ]}
+            />
             <Button variant="outline" onClick={() => setMeDialogOpen(true)} className="gap-1.5" data-testid="open-menu-engineering-btn">
               <TrendingUp className="w-4 h-4" />
               {language === "es" ? "Ingeniería de Menú" : "Menu Engineering"}

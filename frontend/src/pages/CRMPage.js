@@ -25,6 +25,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../components/ui/select";
+import { SortSelect, applySort, readStoredSort } from "../components/ui/sort-select";
 import { Textarea } from "../components/ui/textarea";
 import { toast } from "sonner";
 import { 
@@ -275,21 +276,40 @@ export default function CRMPage() {
   };
 
   // Filtered leads
-  const filteredLeads = leads.filter(lead => {
+  // Sort selectors
+  const [leadSortBy, setLeadSortBy] = useState(readStoredSort("leadsSortBy", "name_asc"));
+  const [clientSortBy, setClientSortBy] = useState(readStoredSort("clientsCrmSortBy", "name_asc"));
+
+  const leadSorters = {
+    name_asc: (a, b) => (a.name || a.lead_name || "").localeCompare(b.name || b.lead_name || "", undefined, { sensitivity: "base" }),
+    name_desc: (a, b) => (b.name || b.lead_name || "").localeCompare(a.name || a.lead_name || "", undefined, { sensitivity: "base" }),
+    created_desc: (a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0),
+    created_asc: (a, b) => new Date(a.created_at || 0) - new Date(b.created_at || 0),
+    status_asc: (a, b) => (a.status || "").localeCompare(b.status || ""),
+  };
+
+  const clientSorters = {
+    name_asc: (a, b) => ((a.display_name || a.name) || "").localeCompare((b.display_name || b.name) || "", undefined, { sensitivity: "base" }),
+    name_desc: (a, b) => ((b.display_name || b.name) || "").localeCompare((a.display_name || a.name) || "", undefined, { sensitivity: "base" }),
+    created_desc: (a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0),
+    created_asc: (a, b) => new Date(a.created_at || 0) - new Date(b.created_at || 0),
+  };
+
+  const filteredLeads = applySort(leads.filter(lead => {
     const matchesSearch = lead.lead_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           lead.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           lead.company_name?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === "all" || lead.status?.toLowerCase() === statusFilter.toLowerCase();
     const matchesSource = sourceFilter === "all" || lead.source === sourceFilter;
     return matchesSearch && matchesStatus && matchesSource;
-  });
+  }), leadSortBy, leadSorters);
 
   // Filtered clients
-  const filteredClients = clients.filter(client => {
+  const filteredClients = applySort(clients.filter(client => {
     const name = client.display_name || client.name || "";
     return name.toLowerCase().includes(searchTerm.toLowerCase()) ||
            client.email?.toLowerCase().includes(searchTerm.toLowerCase());
-  });
+  }), clientSortBy, clientSorters);
 
   const statusColors = {
     New: "bg-blue-100 text-blue-800",
@@ -618,6 +638,21 @@ export default function CRMPage() {
                   ))}
                 </SelectContent>
               </Select>
+              <SortSelect
+                value={leadSortBy}
+                onValueChange={setLeadSortBy}
+                storageKey="leadsSortBy"
+                label={language === "es" ? "Ordenar" : "Sort"}
+                triggerClassName="w-[200px]"
+                testId="leads-sort-select"
+                options={[
+                  { value: "name_asc", label: language === "es" ? "Nombre (A-Z)" : "Name (A-Z)" },
+                  { value: "name_desc", label: language === "es" ? "Nombre (Z-A)" : "Name (Z-A)" },
+                  { value: "created_desc", label: language === "es" ? "Más recientes" : "Newest" },
+                  { value: "created_asc", label: language === "es" ? "Más antiguos" : "Oldest" },
+                  { value: "status_asc", label: language === "es" ? "Estado" : "Status" },
+                ]}
+              />
             </div>
 
             {/* Leads Table */}
@@ -703,13 +738,29 @@ export default function CRMPage() {
 
           {/* CLIENTS TAB */}
           <TabsContent value="clients" className="mt-6">
-            <div className="relative max-w-sm mb-4">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
-                placeholder={language === "es" ? "Buscar clientes..." : "Search clients..."}
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
+            <div className="flex flex-wrap items-center gap-3 mb-4">
+              <div className="relative flex-1 min-w-[200px] max-w-sm">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  placeholder={language === "es" ? "Buscar clientes..." : "Search clients..."}
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+              <SortSelect
+                value={clientSortBy}
+                onValueChange={setClientSortBy}
+                storageKey="clientsCrmSortBy"
+                label={language === "es" ? "Ordenar" : "Sort"}
+                triggerClassName="w-[200px]"
+                testId="clients-sort-select"
+                options={[
+                  { value: "name_asc", label: language === "es" ? "Nombre (A-Z)" : "Name (A-Z)" },
+                  { value: "name_desc", label: language === "es" ? "Nombre (Z-A)" : "Name (Z-A)" },
+                  { value: "created_desc", label: language === "es" ? "Más recientes" : "Newest" },
+                  { value: "created_asc", label: language === "es" ? "Más antiguos" : "Oldest" },
+                ]}
               />
             </div>
 
