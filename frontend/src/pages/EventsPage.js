@@ -111,6 +111,7 @@ export default function EventsPage({ embedded = false }) {
   const [dialogOpen, setDialogOpen] = useState(searchParams.get("new") === "true");
   const [editingEvent, setEditingEvent] = useState(null);
   const [viewMode, setViewMode] = useState(searchParams.get("view") || "list"); // list, calendar, pipeline
+  const [sortBy, setSortBy] = useState(localStorage.getItem("eventsSortBy") || "date_desc");
   const [formData, setFormData] = useState({
     client_id: "",
     name: "",
@@ -318,10 +319,26 @@ export default function EventsPage({ embedded = false }) {
     }
   };
 
-  const filteredEvents = events.filter((event) =>
-    event.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    event.venue?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredEvents = (() => {
+    const list = events.filter((event) =>
+      event.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      event.venue?.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+    const parseDate = (d) => (d ? new Date(d).getTime() : 0);
+    const sorters = {
+      date_desc: (a, b) => parseDate(b.event_date) - parseDate(a.event_date),
+      date_asc: (a, b) => parseDate(a.event_date) - parseDate(b.event_date),
+      name_asc: (a, b) => (a.name || "").localeCompare(b.name || "", undefined, { sensitivity: "base" }),
+      name_desc: (a, b) => (b.name || "").localeCompare(a.name || "", undefined, { sensitivity: "base" }),
+      guests_desc: (a, b) => (b.guest_count || b.num_guests || 0) - (a.guest_count || a.num_guests || 0),
+      guests_asc: (a, b) => (a.guest_count || a.num_guests || 0) - (b.guest_count || b.num_guests || 0),
+      value_desc: (a, b) => (b.total_value || b.total || 0) - (a.total_value || a.total || 0),
+      value_asc: (a, b) => (a.total_value || a.total || 0) - (b.total_value || b.total || 0),
+      created_desc: (a, b) => parseDate(b.created_at) - parseDate(a.created_at),
+      created_asc: (a, b) => parseDate(a.created_at) - parseDate(b.created_at),
+    };
+    return [...list].sort(sorters[sortBy] || sorters.date_desc);
+  })();
 
   const statusColors = {
     planning: "bg-info/10 text-info",
@@ -857,17 +874,44 @@ export default function EventsPage({ embedded = false }) {
           </div>
         </div>
 
-        {/* Search */}
+        {/* Search + Sort */}
         {viewMode !== "pipeline" && (
-          <div className="relative max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input
-              placeholder={t("search")}
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
-              data-testid="event-search-input"
-            />
+          <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
+            <div className="relative flex-1 max-w-md">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder={t("search")}
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+                data-testid="event-search-input"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground whitespace-nowrap">
+                {language === "es" ? "Ordenar por" : "Sort by"}:
+              </span>
+              <Select
+                value={sortBy}
+                onValueChange={(v) => { setSortBy(v); localStorage.setItem("eventsSortBy", v); }}
+              >
+                <SelectTrigger className="w-[220px]" data-testid="events-sort-select">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="date_desc">{language === "es" ? "Fecha (más reciente)" : "Date (newest)"}</SelectItem>
+                  <SelectItem value="date_asc">{language === "es" ? "Fecha (más antigua)" : "Date (oldest)"}</SelectItem>
+                  <SelectItem value="name_asc">{language === "es" ? "Nombre (A-Z)" : "Name (A-Z)"}</SelectItem>
+                  <SelectItem value="name_desc">{language === "es" ? "Nombre (Z-A)" : "Name (Z-A)"}</SelectItem>
+                  <SelectItem value="guests_desc">{language === "es" ? "Más invitados" : "Most guests"}</SelectItem>
+                  <SelectItem value="guests_asc">{language === "es" ? "Menos invitados" : "Fewest guests"}</SelectItem>
+                  <SelectItem value="value_desc">{language === "es" ? "Mayor valor" : "Highest value"}</SelectItem>
+                  <SelectItem value="value_asc">{language === "es" ? "Menor valor" : "Lowest value"}</SelectItem>
+                  <SelectItem value="created_desc">{language === "es" ? "Creado recientemente" : "Recently created"}</SelectItem>
+                  <SelectItem value="created_asc">{language === "es" ? "Creado primero" : "Created first"}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         )}
 
