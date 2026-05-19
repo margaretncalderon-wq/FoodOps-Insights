@@ -385,4 +385,21 @@ Phase 2 Culinary backend validated 19/19 in iteration_176.json.
 
 **Tests**: Backend E2E (curl): single item link enriched correctly; bulk generate creates 3 items, re-run skips 3. Frontend smoke: Item dialog shows format dropdown with cost/price/Default labels.
 
-Next: Configurar SMTP en producción, Logo Guest Flow, Unified Contact Model, UX Workstreams A/B/C de Culinary (surface daily insights, empty states, data capture wizard).
+### Section Reorder via Drag & Drop + Auto-Default Event Date + Non-Consecutive Multi-Day (Feb 19, 2026)
+**Goal**: (1) Reorder proposal sections by dragging their headers; (2) auto-prefill event date on every new item/section the user adds; (3) accept non-consecutive multi-day events via `event_dates` array on the Event.
+
+**Backend** (`/app/backend/server.py`, `/app/backend/models/events.py`)
+- **NEW** `POST /api/proposals/{proposal_id}/items/bulk-reorder` accepting `{items: [{item_id, sort_order, section_title?}]}` — atomic batch re-stamp of `sort_order` (and optional `section_title`). Returns `{updated, total}`. Filters by `proposal_id + company_id` so foreign IDs are silently skipped (safe; surfaced via `updated < total`).
+- `EventUpdate` gains `event_dates: Optional[List[str]] = None`. The PUT `/api/events/{event_id}` handler now sorts ascending, dedupes, and drops empty strings before persisting.
+- `EventCreate` already had `event_dates: List[str]`; no changes required.
+
+**Frontend** (`/app/frontend/src/components/ProposalEditor.js`)
+- New `SortableSectionWrapper` component wrapping every section. Uses `useSortable({ id: 'sectionhdr::<title>' })` and exposes a render-prop drag handle (data-testid `section-drag-handle-sectionhdr::<title>`) injected at the start of the section header so users see a `GripVertical` icon they can grab.
+- The DnD `SortableContext` now contains both `sectionhdr::*` ids and item ids in document order so drag detection works for both.
+- `handleDragEndForType` learned a **Branch A** for section drags: computes the new section order list, re-stamps each section's items in a `i*1000+j` band, and POSTs to the new `bulk-reorder` endpoint. Branch B (item drag) is unchanged.
+- `resetNewItem()` now pre-fills `event_date` with `dayLogistics[0]?.event_date ?? event.event_date`. Triggered when the **Add Item** button is clicked (both the toolbar button and the empty-state CTA call `resetNewItem()` before opening the dialog) so every freshly-added item inherits the event date by default and the user can still change it.
+- The drag handle is `disabled` when the proposal is locked or the section is in rename-edit mode.
+
+**Tests**: Backend pytest (`/app/backend/tests/test_bulk_reorder_event_dates.py`) 5/5 ✅: bulk reorder updates `sort_order` + `section_title`, returns correct counts, 404 on missing proposal, event_dates sorts/dedupes/cleans empties. Frontend Playwright: section drag persists across reload; Add Item modal pre-fills the event date.
+
+Next: Eliminate ProposalEditor.js bloat (now ~4360 lines) by extracting Sortable wrappers and dialogs; finish UX Workstreams A/B/C; Logo Guest Flow; Unified Contact Model.
