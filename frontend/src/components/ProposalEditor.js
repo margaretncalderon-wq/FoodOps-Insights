@@ -54,7 +54,8 @@ import {
   Armchair, Users, Flower2, Package, GripVertical, Percent,
   DollarSign, ChevronDown, ChevronRight, Loader2, AlertTriangle, 
   Search, Send, CheckCircle, XCircle, Lock, History, TrendingUp,
-  Edit, Clock, Calculator, Link2, RefreshCw, CreditCard, Check, X, Type, ChefHat, Calendar as CalendarIcon
+  Edit, Clock, Calculator, Link2, RefreshCw, CreditCard, Check, X, Type, ChefHat, Calendar as CalendarIcon,
+  ArrowUp, ArrowDown
 } from "lucide-react";
 
 import {
@@ -1386,6 +1387,49 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
     }
   };
 
+  // Persist a new section ordering for a given item_type by re-stamping all
+  // items' sort_order. `newOrderTitles` is the desired sequence of section
+  // titles (use "" for the untitled bucket). Items keep their relative order
+  // within each section.
+  const persistSectionOrder = async (itype, newOrderTitles) => {
+    const typeItems = (proposal?.items || []).filter((i) => i.item_type === itype);
+    const payload = [];
+    newOrderTitles.forEach((title, sIdx) => {
+      const items = typeItems
+        .filter((it) => (it.section_title || "") === title)
+        .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+      items.forEach((it, jIdx) => {
+        payload.push({ item_id: it.item_id, sort_order: sIdx * 1000 + jIdx });
+      });
+    });
+    if (payload.length === 0) return;
+    try {
+      await axios.post(
+        `${API}/proposals/${proposal.proposal_id}/items/bulk-reorder`,
+        { items: payload },
+        { withCredentials: true }
+      );
+      toast.success(language === "es" ? "Sección movida" : "Section moved");
+      fetchProposal();
+    } catch {
+      toast.error(language === "es" ? "Error al mover la sección" : "Failed to move section");
+    }
+  };
+
+  // Move a section up or down within its item_type via arrow buttons (mobile/a11y backup
+  // to the drag handle).
+  const moveSection = (itype, sectionTitle, direction) => {
+    const typeItems = (proposal?.items || []).filter((i) => i.item_type === itype);
+    const sections = groupBySections(typeItems, itype).map((s) => s.title || "");
+    const idx = sections.indexOf(sectionTitle || "");
+    if (idx < 0) return;
+    const targetIdx = direction === "up" ? idx - 1 : idx + 1;
+    if (targetIdx < 0 || targetIdx >= sections.length) return;
+    const newOrder = [...sections];
+    [newOrder[idx], newOrder[targetIdx]] = [newOrder[targetIdx], newOrder[idx]];
+    persistSectionOrder(itype, newOrder);
+  };
+
   // Drag-and-drop handler scoped per item_type
   const handleDragEndForType = async (itype, event) => {
     const { active, over } = event;
@@ -1417,29 +1461,7 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
       const newOrder = [...sections];
       newOrder.splice(fromIdx, 1);
       newOrder.splice(toIdx, 0, activeSection);
-
-      // Re-stamp sort_order for every item: section i takes the [i*1000, i*1000+999] band
-      const payload = [];
-      newOrder.forEach((title, sIdx) => {
-        const items = typeItems
-          .filter((it) => (it.section_title || "") === title)
-          .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
-        items.forEach((it, jIdx) => {
-          payload.push({ item_id: it.item_id, sort_order: sIdx * 1000 + jIdx });
-        });
-      });
-      if (payload.length === 0) return;
-      try {
-        await axios.post(
-          `${API}/proposals/${proposal.proposal_id}/items/bulk-reorder`,
-          { items: payload },
-          { withCredentials: true }
-        );
-        toast.success(language === "es" ? "Sección movida" : "Section moved");
-        fetchProposal();
-      } catch {
-        toast.error(language === "es" ? "Error al mover la sección" : "Failed to move section");
-      }
+      await persistSectionOrder(itype, newOrder);
       return;
     }
 
@@ -2044,10 +2066,12 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
                           onDragEnd={(ev) => handleDragEndForType(itype, ev)}
                         >
                           <SortableContext items={sortableIds} strategy={verticalListSortingStrategy}>
-                          {sections.map((section) => {
+                          {sections.map((section, sectionIdx) => {
                             const sectionKey = `${itype}::${section.title || ""}`;
                             const isEditing = editingSectionKey === sectionKey;
                             const sectionDragId = `sectionhdr::${section.title || ""}`;
+                            const canMoveUp = sectionIdx > 0;
+                            const canMoveDown = sectionIdx < sections.length - 1;
                             return (
                               <SortableSectionWrapper
                                 key={sectionKey}
@@ -2068,6 +2092,31 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
                                         <span className="inline-flex items-center justify-center w-6 h-6 -ml-1 text-muted-foreground/30">
                                           <GripVertical className="w-3.5 h-3.5" />
                                         </span>
+                                      )}
+                                      {/* Up / Down arrows — keyboard- and mobile-friendly fallback to drag */}
+                                      {!isLocked && !isEditing && (sections.length > 1) && (
+                                        <div className="flex items-center -ml-0.5">
+                                          <button
+                                            type="button"
+                                            disabled={!canMoveUp}
+                                            onClick={() => moveSection(itype, section.title || "", "up")}
+                                            className="inline-flex items-center justify-center w-5 h-5 rounded text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed"
+                                            title={language === "es" ? "Subir sección" : "Move section up"}
+                                            data-testid={`section-move-up-${section.title || "default"}`}
+                                          >
+                                            <ArrowUp className="w-3 h-3" />
+                                          </button>
+                                          <button
+                                            type="button"
+                                            disabled={!canMoveDown}
+                                            onClick={() => moveSection(itype, section.title || "", "down")}
+                                            className="inline-flex items-center justify-center w-5 h-5 rounded text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed"
+                                            title={language === "es" ? "Bajar sección" : "Move section down"}
+                                            data-testid={`section-move-down-${section.title || "default"}`}
+                                          >
+                                            <ArrowDown className="w-3 h-3" />
+                                          </button>
+                                        </div>
                                       )}
                                       <Type className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
                                       {isEditing ? (

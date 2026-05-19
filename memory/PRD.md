@@ -402,4 +402,14 @@ Phase 2 Culinary backend validated 19/19 in iteration_176.json.
 
 **Tests**: Backend pytest (`/app/backend/tests/test_bulk_reorder_event_dates.py`) 5/5 ✅: bulk reorder updates `sort_order` + `section_title`, returns correct counts, 404 on missing proposal, event_dates sorts/dedupes/cleans empties. Frontend Playwright: section drag persists across reload; Add Item modal pre-fills the event date.
 
+### Section ↑ ↓ Arrow Buttons (Feb 19, 2026 — follow-up)
+**Goal**: Keyboard/mobile-friendly alternative to the drag handle for users on touch devices.
+
+**Frontend** (`/app/frontend/src/components/ProposalEditor.js`)
+- Added small `ArrowUp` / `ArrowDown` buttons next to the drag handle in every section header (visible only when proposal not locked, section not in rename-edit mode, and there are 2+ sections in the item_type).
+- First section's ↑ and last section's ↓ are rendered `disabled` with reduced opacity.
+- Both arrows call a new shared helper `moveSection(itype, sectionTitle, direction)` which delegates to `persistSectionOrder()` — the same atomic bulk-reorder code path used by the drag handle.
+- data-testids: `section-move-up-<title>` / `section-move-down-<title>`.
+- Smoke-tested in preview: Entradas/Principales swap via ↓ button persists immediately and shows the "Section moved" toast.
+
 Next: Eliminate ProposalEditor.js bloat (now ~4360 lines) by extracting Sortable wrappers and dialogs; finish UX Workstreams A/B/C; Logo Guest Flow; Unified Contact Model.
