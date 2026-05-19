@@ -99,6 +99,7 @@ class EventUpdate(BaseModel):
     event_date: Optional[datetime] = None
     event_date_tbd: Optional[bool] = None
     end_date: Optional[datetime] = None
+    event_dates: Optional[List[str]] = None  # Non-consecutive multi-day dates as "YYYY-MM-DD"
     start_time: Optional[str] = None
     end_time: Optional[str] = None
     is_booking: Optional[bool] = None

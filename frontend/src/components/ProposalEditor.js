@@ -120,6 +120,34 @@ const SortableItemRow = ({ id, children }) => {
   );
 };
 
+// Sortable wrapper for an entire section — used to reorder sections by dragging
+// the header. Drag handle is exposed via render-prop so the consumer can place
+// it inside the existing header layout without disturbing other controls.
+const SortableSectionWrapper = ({ id, children, disabled }) => {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id, disabled });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.6 : 1,
+  };
+  const dragHandleProps = disabled
+    ? null
+    : {
+        ...attributes,
+        ...listeners,
+        className:
+          "flex items-center justify-center w-6 h-6 -ml-1 cursor-grab active:cursor-grabbing text-muted-foreground/60 hover:text-foreground touch-none rounded hover:bg-muted",
+        "aria-label": "section-drag-handle",
+        "data-testid": `section-drag-handle-${id}`,
+        type: "button",
+      };
+  return (
+    <div ref={setNodeRef} style={style}>
+      {children(dragHandleProps)}
+    </div>
+  );
+};
+
 // Droppable empty-section zone — visual highlight on hover
 const EmptySectionDropzone = ({ id, label }) => {
   const { setNodeRef, isOver } = useDroppable({ id });
@@ -595,6 +623,12 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
   };
 
   const resetNewItem = () => {
+    // Default the date to the first day-logistics entry (or the event's main date) so
+    // newly-added items inherit a date by default. The user can still change it.
+    const defaultDate =
+      (dayLogistics && dayLogistics[0]?.event_date) ||
+      (event?.event_date ? String(event.event_date).slice(0, 10) : "") ||
+      "";
     setNewItem({
       item_type: "Service",
       description: "",
@@ -608,7 +642,7 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
       tax_exempt: false,
       reference_id: "",
       internal_notes: "",
-      event_date: "",
+      event_date: defaultDate,
       section_title: "",
       section_time: "",
       _recipe_allergens: [],
@@ -1357,6 +1391,59 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
     const { active, over } = event;
     if (!over || active.id === over.id) return;
     const typeItems = (proposal?.items || []).filter((i) => i.item_type === itype);
+
+    // ---- Branch A: Section header dragged ----
+    if (typeof active.id === "string" && active.id.startsWith("sectionhdr::")) {
+      const activeSection = active.id.replace("sectionhdr::", "");
+      // Determine target section based on what we dropped on
+      let targetSection = null;
+      if (typeof over.id === "string" && over.id.startsWith("sectionhdr::")) {
+        targetSection = over.id.replace("sectionhdr::", "");
+      } else if (typeof over.id === "string" && over.id.startsWith("section::")) {
+        targetSection = over.id.replace("section::", "");
+      } else {
+        // Dropped on an item row — use that item's section
+        const overItem = typeItems.find((i) => i.item_id === over.id);
+        if (!overItem) return;
+        targetSection = overItem.section_title || "";
+      }
+      if (activeSection === targetSection) return;
+
+      // Build current section order for this item_type and persist the new order
+      const sections = groupBySections(typeItems, itype).map((s) => s.title || "");
+      const fromIdx = sections.indexOf(activeSection);
+      const toIdx = sections.indexOf(targetSection);
+      if (fromIdx < 0 || toIdx < 0) return;
+      const newOrder = [...sections];
+      newOrder.splice(fromIdx, 1);
+      newOrder.splice(toIdx, 0, activeSection);
+
+      // Re-stamp sort_order for every item: section i takes the [i*1000, i*1000+999] band
+      const payload = [];
+      newOrder.forEach((title, sIdx) => {
+        const items = typeItems
+          .filter((it) => (it.section_title || "") === title)
+          .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+        items.forEach((it, jIdx) => {
+          payload.push({ item_id: it.item_id, sort_order: sIdx * 1000 + jIdx });
+        });
+      });
+      if (payload.length === 0) return;
+      try {
+        await axios.post(
+          `${API}/proposals/${proposal.proposal_id}/items/bulk-reorder`,
+          { items: payload },
+          { withCredentials: true }
+        );
+        toast.success(language === "es" ? "Sección movida" : "Section moved");
+        fetchProposal();
+      } catch {
+        toast.error(language === "es" ? "Error al mover la sección" : "Failed to move section");
+      }
+      return;
+    }
+
+    // ---- Branch B: Item dragged (existing behavior) ----
     const activeItem = typeItems.find((i) => i.item_id === active.id);
     const overItem = typeItems.find((i) => i.item_id === over.id);
     if (!activeItem) return;
@@ -1364,6 +1451,8 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
     let targetSectionTitle;
     if (typeof over.id === "string" && over.id.startsWith("section::")) {
       targetSectionTitle = over.id.replace("section::", "");
+    } else if (typeof over.id === "string" && over.id.startsWith("sectionhdr::")) {
+      targetSectionTitle = over.id.replace("sectionhdr::", "");
     } else if (overItem) {
       targetSectionTitle = overItem.section_title || "";
     } else {
@@ -1853,7 +1942,7 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
                   {language === "es" ? "Duplicar día" : "Duplicate day"}
                 </Button>
               )}
-              <Button onClick={() => setAddItemOpen(true)} className="gap-2" data-testid="add-item-btn">
+              <Button onClick={() => { if (!editingItemId) resetNewItem(); setAddItemOpen(true); }} className="gap-2" data-testid="add-item-btn">
                 <Plus className="w-4 h-4" />
                 {language === "es" ? "Agregar Ítem" : "Add Item"}
               </Button>
@@ -1941,23 +2030,45 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
                   <CardContent className="pt-0 space-y-4">
                     {(() => {
                       const sections = groupBySections(typeData.items, itype);
-                      const allItemIds = sections.flatMap(s => s.items.map(i => i.item_id));
+                      // Build the full sortable id list: section headers + their items, in order.
+                      // This lets DnD detect section drags via the "sectionhdr::" prefix
+                      // while still allowing items to be reordered.
+                      const sortableIds = sections.flatMap((s) => [
+                        `sectionhdr::${s.title || ""}`,
+                        ...s.items.map((i) => i.item_id),
+                      ]);
                       return (
                         <DndContext
                           sensors={dndSensors}
                           collisionDetection={closestCenter}
                           onDragEnd={(ev) => handleDragEndForType(itype, ev)}
                         >
-                          <SortableContext items={allItemIds} strategy={verticalListSortingStrategy}>
+                          <SortableContext items={sortableIds} strategy={verticalListSortingStrategy}>
                           {sections.map((section) => {
                             const sectionKey = `${itype}::${section.title || ""}`;
                             const isEditing = editingSectionKey === sectionKey;
+                            const sectionDragId = `sectionhdr::${section.title || ""}`;
                             return (
-                              <div key={sectionKey} className="border rounded-lg overflow-hidden mb-3" data-testid={`section-${itype}-${section.title || "default"}`}>
+                              <SortableSectionWrapper
+                                key={sectionKey}
+                                id={sectionDragId}
+                                disabled={isLocked || isEditing}
+                              >
+                                {(dragHandleProps) => (
+                              <div className="border rounded-lg overflow-hidden mb-3" data-testid={`section-${itype}-${section.title || "default"}`}>
                                 {/* Section header (only if has a title or it's the only-but-empty draft) */}
                                 {(section.title || section.isDraft) && (
                                   <div className="flex items-center justify-between gap-2 px-3 py-2 bg-muted/40 border-b">
                                     <div className="flex items-center gap-2 flex-1 min-w-0">
+                                      {dragHandleProps ? (
+                                        <button {...dragHandleProps} title={language === "es" ? "Arrastrar sección" : "Drag section"}>
+                                          <GripVertical className="w-3.5 h-3.5" />
+                                        </button>
+                                      ) : (
+                                        <span className="inline-flex items-center justify-center w-6 h-6 -ml-1 text-muted-foreground/30">
+                                          <GripVertical className="w-3.5 h-3.5" />
+                                        </span>
+                                      )}
                                       <Type className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
                                       {isEditing ? (
                                         <Input
@@ -2248,6 +2359,8 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
                                     )}
                                   </div>
                               </div>
+                                )}
+                              </SortableSectionWrapper>
                             );
                           })}
                           </SortableContext>
@@ -2310,7 +2423,7 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
                     : "No items in this proposal. Add items to get started."}
                 </p>
                 {!isLocked && (
-                  <Button onClick={() => setAddItemOpen(true)} className="mt-4 gap-2">
+                  <Button onClick={() => { resetNewItem(); setAddItemOpen(true); }} className="mt-4 gap-2">
                     <Plus className="w-4 h-4" />
                     {language === "es" ? "Agregar Primer Ítem" : "Add First Item"}
                   </Button>

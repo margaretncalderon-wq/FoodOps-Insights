@@ -4932,6 +4932,11 @@ async def update_event(event_id: str, data: EventUpdate, user: User = Depends(ge
         update_data["end_date"] = update_data["end_date"].isoformat()
     if "next_followup_date" in update_data and update_data["next_followup_date"]:
         update_data["next_followup_date"] = update_data["next_followup_date"].isoformat()
+
+    # Normalize event_dates list: drop empties, ensure unique, sorted ascending
+    if "event_dates" in update_data and isinstance(update_data["event_dates"], list):
+        cleaned = sorted({d for d in update_data["event_dates"] if d})
+        update_data["event_dates"] = cleaned
     
     update_data["updated_at"] = now.isoformat()
     
@@ -9743,6 +9748,58 @@ async def update_order_item(proposal_id: str, item_id: str, data: OrderItemUpdat
     
     updated_item = await db.order_items.find_one({"item_id": item_id}, {"_id": 0})
     return updated_item
+
+
+class BulkReorderItem(BaseModel):
+    item_id: str
+    sort_order: int
+    section_title: Optional[str] = None
+
+
+class BulkReorderPayload(BaseModel):
+    items: List[BulkReorderItem]
+
+
+@proposals_router.post("/{proposal_id}/items/bulk-reorder")
+async def bulk_reorder_order_items(
+    proposal_id: str,
+    payload: BulkReorderPayload,
+    user: User = Depends(get_current_user),
+):
+    """Bulk update sort_order (and optionally section_title) for many items at once.
+
+    Used for section drag-and-drop reordering and other batch reorder operations
+    so the UI can rewrite ordering atomically without firing N HTTP requests.
+    """
+    proposal = await db.proposals.find_one(
+        {"proposal_id": proposal_id, "company_id": user.company_id}
+    )
+    if not proposal:
+        raise HTTPException(status_code=404, detail="Proposal not found")
+
+    event = await db.events.find_one(
+        {"event_id": proposal["event_id"], "company_id": user.company_id}
+    )
+    if event and event.get("operational_status") == "Closed":
+        raise HTTPException(status_code=400, detail="Cannot edit items in a closed event")
+
+    now_iso = datetime.now(timezone.utc).isoformat()
+    updated = 0
+    for entry in payload.items:
+        patch = {"sort_order": entry.sort_order, "updated_at": now_iso}
+        if entry.section_title is not None:
+            patch["section_title"] = entry.section_title
+        result = await db.order_items.update_one(
+            {
+                "item_id": entry.item_id,
+                "proposal_id": proposal_id,
+                "company_id": user.company_id,
+            },
+            {"$set": patch},
+        )
+        updated += result.modified_count
+
+    return {"updated": updated, "total": len(payload.items)}
 
 @proposals_router.delete("/{proposal_id}/items/{item_id}")
 async def delete_order_item(proposal_id: str, item_id: str, user: User = Depends(get_current_user)):
