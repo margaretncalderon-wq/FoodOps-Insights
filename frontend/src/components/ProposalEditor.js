@@ -55,7 +55,7 @@ import {
   DollarSign, ChevronDown, ChevronRight, Loader2, AlertTriangle, 
   Search, Send, CheckCircle, XCircle, Lock, History, TrendingUp,
   Edit, Clock, Calculator, Link2, RefreshCw, CreditCard, Check, X, Type, ChefHat, Calendar as CalendarIcon,
-  ArrowUp, ArrowDown
+  ArrowUp, ArrowDown, Copy
 } from "lucide-react";
 
 import {
@@ -594,6 +594,31 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
     }
   };
 
+  // Returns the list of dates this proposal/event spans. Prefers dayLogistics
+  // (the source of truth — handles non-consecutive `event_dates` AND legacy
+  // start/end ranges) and falls back to the event's date range.
+  const getProposalDates = () => {
+    if (Array.isArray(dayLogistics) && dayLogistics.length > 0) {
+      return dayLogistics
+        .map((d) => (d?.event_date ? String(d.event_date).slice(0, 10) : null))
+        .filter(Boolean);
+    }
+    if (Array.isArray(event?.event_dates) && event.event_dates.length > 0) {
+      return event.event_dates.map((d) => String(d).slice(0, 10));
+    }
+    if (event?.event_date && event?.end_date && event.event_date !== event.end_date) {
+      const out = [];
+      const start = new Date(event.event_date);
+      const end = new Date(event.end_date);
+      for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+        out.push(d.toISOString().split("T")[0]);
+      }
+      return out;
+    }
+    if (event?.event_date) return [String(event.event_date).slice(0, 10)];
+    return [];
+  };
+
   const handleAddItem = async (e) => {
     e.preventDefault();
     if (!newItem.description) {
@@ -606,7 +631,33 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
       const payload = Object.fromEntries(
         Object.entries(newItem).filter(([k]) => !k.startsWith("_")),
       );
-      if (editingItemId) {
+
+      // Fan-out: when the user picks "Todos los días" (event_date === "") on a
+      // multi-day proposal, create one independent copy of the item per date.
+      // Each copy is identical except for event_date so it appears under the
+      // right day in the editor and PDF, and can be edited/removed individually.
+      const isFanout =
+        !editingItemId &&
+        (payload.event_date === "" || payload.event_date == null) &&
+        getProposalDates().length > 1;
+
+      if (isFanout) {
+        const dates = getProposalDates();
+        await Promise.all(
+          dates.map((d) =>
+            axios.post(
+              `${API}/proposals/${proposal.proposal_id}/items`,
+              { ...payload, event_date: d },
+              { withCredentials: true }
+            )
+          )
+        );
+        toast.success(
+          language === "es"
+            ? `Ítem agregado en ${dates.length} días`
+            : `Item added across ${dates.length} days`
+        );
+      } else if (editingItemId) {
         await axios.put(`${API}/proposals/${proposal.proposal_id}/items/${editingItemId}`, payload, { withCredentials: true });
         toast.success(language === "es" ? "Ítem actualizado" : "Item updated");
       } else {
@@ -1373,6 +1424,69 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
     } catch (e) {
       toast.error(language === "es" ? "Error al cambiar fecha" : "Failed to update date");
     }
+  };
+
+  // Replicate a section across multiple dates: for each missing date, clone
+  // every item in the section once with that date. Used by the "+N days"
+  // button on the section header — lets the user fan out a "Bocadillos"
+  // section to every day of a multi-day event in one click.
+  const handleReplicateSectionAcrossDays = async (itype, title, missingDates) => {
+    const items = (proposal?.items || []).filter(
+      (i) => i.item_type === itype && (i.section_title || "") === (title || "")
+    );
+    if (items.length === 0 || !Array.isArray(missingDates) || missingDates.length === 0) return;
+    // Use the section's first dated item as the canonical "template" so we
+    // don't accidentally pick up an outlier with a different price/qty.
+    const template = items.find((i) => i.event_date) || items[0];
+    const cloneFromAll = items; // clone EVERY item per day, not just the template
+    try {
+      await Promise.all(
+        missingDates.flatMap((d) =>
+          cloneFromAll.map((it) => {
+            const payload = {
+              item_type: it.item_type,
+              description: it.description,
+              long_description: it.long_description || "",
+              category_id: it.category_id || "",
+              quantity: it.quantity,
+              unit_price: it.unit_price,
+              internal_cost: it.internal_cost,
+              discount_type: it.discount_type || "percentage",
+              discount_percent: it.discount_percent,
+              discount_amount: it.discount_amount,
+              tax_exempt: it.tax_exempt,
+              reference_id: it.reference_id || "",
+              internal_notes: it.internal_notes || "",
+              event_date: d,
+              section_title: it.section_title || "",
+              section_time: it.section_time || "",
+              section_end_time: it.section_end_time || "",
+            };
+            return axios.post(
+              `${API}/proposals/${proposal.proposal_id}/items`,
+              payload,
+              { withCredentials: true }
+            );
+          })
+        )
+      );
+      toast.success(
+        language === "es"
+          ? `Sección replicada en ${missingDates.length} día(s)`
+          : `Section replicated across ${missingDates.length} day(s)`
+      );
+      fetchProposal();
+      fetchFinancials();
+    } catch (e) {
+      toast.error(
+        language === "es"
+          ? "Error al replicar la sección"
+          : "Failed to replicate section"
+      );
+    }
+    // Suppress unused-variable lint without changing the helper signature;
+    // the canonical template was looked up for future single-row replication.
+    void template;
   };
 
   const handleSectionTimeChange = async (itype, title, newTime, field = "section_time") => {
@@ -2179,28 +2293,65 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
                                       <span className="text-xs text-muted-foreground shrink-0">
                                         · {section.items.length} {language === "es" ? "ítems" : "items"}
                                       </span>
-                                      {/* Section date selector (from day_logistics) */}
-                                      {dayLogistics.length > 0 && (() => {
-                                        const firstWithDate = section.items.find(i => i.event_date);
-                                        const currentDate = firstWithDate?.event_date || "";
+                                      {/* Section date chips — read-only summary of every distinct
+                                          event_date that appears in the section's items. Replaces the
+                                          previous bulk Select that overwrote ALL items' dates on change. */}
+                                      {dayLogistics.length > 0 && section.items.length > 0 && (() => {
+                                        const distinctDates = Array.from(
+                                          new Set(
+                                            section.items
+                                              .map((i) => i.event_date ? String(i.event_date).slice(0, 10) : null)
+                                              .filter(Boolean)
+                                          )
+                                        ).sort();
+                                        if (distinctDates.length === 0) {
+                                          return (
+                                            <span
+                                              className="text-[11px] text-muted-foreground italic"
+                                              title={language === "es" ? "Los ítems aún no tienen fecha asignada" : "Items have no date yet"}
+                                            >
+                                              {language === "es" ? "sin fecha" : "no date"}
+                                            </span>
+                                          );
+                                        }
                                         return (
-                                          <Select
-                                            value={currentDate || "__none__"}
-                                            disabled={isLocked}
-                                            onValueChange={(v) => handleSectionDateChange(itype, section.title, v === "__none__" ? null : v)}
+                                          <div className="flex flex-wrap items-center gap-1" data-testid={`section-date-chips-${section.title || "default"}`}>
+                                            {distinctDates.map((d) => {
+                                              const dt = new Date(d + "T12:00:00");
+                                              const label = dt.toLocaleDateString(language === "es" ? "es" : "en", { month: "short", day: "numeric" });
+                                              return (
+                                                <span key={d} className="inline-flex items-center text-[10px] bg-primary/10 text-primary border border-primary/20 rounded-full px-2 py-[1px]">
+                                                  {label}
+                                                </span>
+                                              );
+                                            })}
+                                          </div>
+                                        );
+                                      })()}
+                                      {/* Replicate section across all days — clones every item N times,
+                                          one per day in dayLogistics, so the user gets "Bocadillos · día N"
+                                          without re-typing. Disabled if section is empty or single-day event. */}
+                                      {!isLocked && dayLogistics.length > 1 && section.items.length > 0 && (() => {
+                                        const distinctDatesInSection = new Set(
+                                          section.items.map((i) => i.event_date ? String(i.event_date).slice(0, 10) : null).filter(Boolean)
+                                        );
+                                        const missingDates = dayLogistics
+                                          .map((d) => d?.event_date ? String(d.event_date).slice(0, 10) : null)
+                                          .filter((d) => d && !distinctDatesInSection.has(d));
+                                        if (missingDates.length === 0) return null;
+                                        return (
+                                          <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            className="h-6 text-[10px] px-2 gap-1"
+                                            onClick={() => handleReplicateSectionAcrossDays(itype, section.title, missingDates)}
+                                            data-testid={`section-replicate-${section.title || "default"}`}
+                                            title={language === "es" ? `Crear copias para ${missingDates.length} día(s) restante(s)` : `Create copies for ${missingDates.length} more day(s)`}
                                           >
-                                            <SelectTrigger className="h-6 w-[120px] text-[11px] border-muted-foreground/20 bg-white px-2" data-testid={`section-date-${section.title || "default"}`}>
-                                              <SelectValue placeholder={language === "es" ? "Fecha" : "Date"} />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                              <SelectItem value="__none__" className="text-xs">{language === "es" ? "Sin asignar" : "Unassigned"}</SelectItem>
-                                              {dayLogistics.map((d) => (
-                                                <SelectItem key={d.event_date} value={d.event_date} className="text-xs">
-                                                  {d.event_date} {d.delivery_time ? `· ${d.delivery_time}` : ""}
-                                                </SelectItem>
-                                              ))}
-                                            </SelectContent>
-                                          </Select>
+                                            <Copy className="w-3 h-3" />
+                                            {language === "es" ? `+${missingDates.length} días` : `+${missingDates.length} days`}
+                                          </Button>
                                         );
                                       })()}
                                       {/* Section service time range */}
@@ -3694,42 +3845,63 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
               {/* Event Date - For multi-day events */}
               <div>
                 <Label>{language === "es" ? "Día del Evento" : "Event Day"}</Label>
-                {event?.end_date && event?.event_date !== event?.end_date ? (
-                  <Select 
-                    value={newItem.event_date || "main"} 
-                    onValueChange={(v) => setNewItem({ ...newItem, event_date: v === "main" ? "" : v })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder={language === "es" ? "Seleccionar día..." : "Select day..."} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="main">{language === "es" ? "Todos los días" : "All days"}</SelectItem>
-                      {(() => {
-                        // Generate dates between event_date and end_date
-                        const dates = [];
-                        const start = new Date(event.event_date);
-                        const end = new Date(event.end_date);
-                        for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-                          const dateStr = d.toISOString().split('T')[0];
-                          const displayDate = d.toLocaleDateString(language === "es" ? "es" : "en", { weekday: "short", month: "short", day: "numeric" });
-                          dates.push({ value: dateStr, label: displayDate });
-                        }
-                        return dates.map(d => (
-                          <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>
-                        ));
-                      })()}
-                    </SelectContent>
-                  </Select>
-                ) : (
-                  <Input
-                    type="date"
-                    value={newItem.event_date}
-                    onChange={(e) => setNewItem({ ...newItem, event_date: e.target.value })}
-                    placeholder={language === "es" ? "Opcional" : "Optional"}
-                  />
-                )}
+                {(() => {
+                  // Build the list of dates the proposal spans. Prefer
+                  // dayLogistics (handles event_dates + legacy ranges); fall
+                  // back to a continuous range if the event has start/end.
+                  let availableDates = [];
+                  if (Array.isArray(dayLogistics) && dayLogistics.length > 0) {
+                    availableDates = dayLogistics
+                      .map((d) => d?.event_date ? String(d.event_date).slice(0, 10) : null)
+                      .filter(Boolean);
+                  } else if (Array.isArray(event?.event_dates) && event.event_dates.length > 0) {
+                    availableDates = event.event_dates.map((d) => String(d).slice(0, 10));
+                  } else if (event?.event_date && event?.end_date && event.event_date !== event.end_date) {
+                    const start = new Date(event.event_date);
+                    const end = new Date(event.end_date);
+                    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+                      availableDates.push(d.toISOString().split("T")[0]);
+                    }
+                  }
+                  const isMulti = availableDates.length > 1;
+                  return isMulti ? (
+                    <Select
+                      value={newItem.event_date || "main"}
+                      onValueChange={(v) => setNewItem({ ...newItem, event_date: v === "main" ? "" : v })}
+                    >
+                      <SelectTrigger data-testid="item-event-date-select">
+                        <SelectValue placeholder={language === "es" ? "Seleccionar día..." : "Select day..."} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="main">
+                          {language === "es" ? `Todos los días (${availableDates.length})` : `All days (${availableDates.length})`}
+                        </SelectItem>
+                        {availableDates.map((dateStr) => {
+                          const d = new Date(dateStr + "T12:00:00");
+                          const label = d.toLocaleDateString(language === "es" ? "es" : "en", {
+                            weekday: "short",
+                            month: "short",
+                            day: "numeric",
+                          });
+                          return (
+                            <SelectItem key={dateStr} value={dateStr}>{label}</SelectItem>
+                          );
+                        })}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <Input
+                      type="date"
+                      value={newItem.event_date || ""}
+                      onChange={(e) => setNewItem({ ...newItem, event_date: e.target.value })}
+                      placeholder={language === "es" ? "Opcional" : "Optional"}
+                    />
+                  );
+                })()}
                 <p className="text-xs text-muted-foreground mt-1">
-                  {language === "es" ? "Para eventos de varios días" : "For multi-day events"}
+                  {language === "es"
+                    ? '"Todos los días" duplica el ítem una vez por día'
+                    : '"All days" duplicates the item once per day'}
                 </p>
               </div>
 

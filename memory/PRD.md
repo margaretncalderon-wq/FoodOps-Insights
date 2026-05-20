@@ -622,4 +622,24 @@ Phase 2 Culinary backend validated 19/19 in iteration_176.json.
 - After duplication with 4 items each → original **$285**, copy reflects copy's items.
 - After deleting **all** items in the copy → original stays **$285**, copy shows **$0** ✅. The cards now move independently with their own contents.
 
+### Section Replication & "All Days" Item Fan-Out (Feb 20, 2026)
+**Bug reports**:
+1. "When I have a multi-day proposal and add sections, the section overwrites every item's date with a single section date. I can't have a 'Bocadillos' section with one entry per day."
+2. "When I add an item and pick 'All days', it doesn't duplicate per day — only one row stays."
+
+**Root cause**:
+1. The section header rendered a single `<Select>` bound to `handleSectionDateChange`, which fired a bulk PUT setting **every** item in the section to the same date — so individual per-item dates were impossible to keep.
+2. `handleAddItem` did one POST regardless of how many days the proposal spanned, so "All days" (`event_date=""`) created exactly one undated row.
+3. The "All days" select was also gated on `event.event_date !== event.end_date`, missing the new non-consecutive `event_dates` and the `dayLogistics`-driven path entirely.
+
+**Fix** (`/app/frontend/src/components/ProposalEditor.js`)
+- **Section header**: replaced the destructive `<Select>` with **read-only date chips** that summarize every distinct `event_date` appearing in the section's items (`section-date-chips-<title>` testid). The selector that auto-overwrote dates is gone.
+- **New "Replicate across days" button** (`section-replicate-<title>` testid): when a section spans fewer days than the proposal, the header shows a small `+N days` button. Clicking clones every item in the section once per missing date, preserving qty/price/long_description/discounts. Toast: "Sección replicada en N día(s)".
+- **Item fan-out** in `handleAddItem`: when the user picks "Todos los días" (`event_date===""`) in a multi-day proposal, the handler now POSTs N independent items in parallel (`Promise.all`), one per date in `dayLogistics` (or `event_dates` / range fallback). Each row stays editable on its own.
+- **"All days" selector** rebuilt: now uses `dayLogistics` as the source of truth (works for non-consecutive `event_dates` and legacy ranges alike) and labels the option `"Todos los días (N)"`. Helper text under the select reads `'"Todos los días" duplica el ítem una vez por día'`.
+
+**Verified in preview**: `Bocadillos` section with 2 items dated Aug 1 in a 3-day event (Aug 1, 3, 5):
+- Header showed the chip `Aug 1` plus `+2 days` button.
+- Click → toast confirmed, header chips became `Aug 1` `Aug 3` `Aug 5`, item count rose 8→12, section total $220→$660 ✅.
+
 Next: Eliminate ProposalEditor.js bloat (now ~4360 lines) by extracting Sortable wrappers and dialogs; finish UX Workstreams A/B/C; Logo Guest Flow; Unified Contact Model.
