@@ -15188,47 +15188,172 @@ async def get_events_calendar(
     end_date: Optional[str] = None,
     user: User = Depends(get_current_user)
 ):
-    """Get events for calendar view"""
-    query = {"company_id": user.company_id}
-    
-    # Date filtering
-    if start_date or end_date:
-        date_filter = {}
-        if start_date:
-            date_filter["$gte"] = start_date
-        if end_date:
-            date_filter["$lte"] = end_date
-        if date_filter:
-            query["event_date"] = date_filter
-    
-    events = await db.events.find(query, {"_id": 0}).to_list(500)
-    
-    # Enrich with client names and milestones
-    calendar_events = []
+    """Get events for calendar view.
+
+    Each event is enriched with:
+      • ``services``  list of `{date, time, end_time, title, item_count, item_types, total, item_type}`
+        derived from its proposal's order_items grouped by `(event_date, section_title, section_time)`.
+      • ``calendar_dates`` list of "YYYY-MM-DD" dates where the event should appear (covers single
+        date, multi-day ranges with `end_date`, and non-consecutive `event_dates`).
+    """
+    from collections import defaultdict
+
+    def _norm_date(value) -> Optional[str]:
+        """Normalize any date/datetime/ISO string to a YYYY-MM-DD string."""
+        if not value:
+            return None
+        if isinstance(value, str):
+            return value[:10] if len(value) >= 10 else None
+        try:
+            return value.isoformat()[:10]
+        except Exception:
+            return None
+
+    def _expand_event_dates(ev: dict) -> List[str]:
+        """All YYYY-MM-DD dates this event spans."""
+        dates: set = set()
+        for d in ev.get("event_dates") or []:
+            nd = _norm_date(d)
+            if nd:
+                dates.add(nd)
+        primary = _norm_date(ev.get("event_date"))
+        if primary:
+            dates.add(primary)
+        end = _norm_date(ev.get("end_date"))
+        if primary and end and end > primary:
+            try:
+                from datetime import date as _date
+                cur = _date.fromisoformat(primary)
+                stop = _date.fromisoformat(end)
+                while cur <= stop:
+                    dates.add(cur.isoformat())
+                    cur = cur.fromordinal(cur.toordinal() + 1)
+            except Exception:
+                pass
+        return sorted(dates)
+
+    # Build a permissive query: an event should appear in the window when ANY of its
+    # primary date, end_date range, or event_dates list overlaps. Mongo can't easily
+    # express "range overlap on heterogeneous string/datetime fields" so we fetch by
+    # company and filter in-memory (events list is small per company).
+    events = await db.events.find({"company_id": user.company_id}, {"_id": 0}).to_list(1000)
+
+    # Pre-compute each event's date set and filter to the requested window.
+    window_start = start_date[:10] if start_date else None
+    window_end = end_date[:10] if end_date else None
+    filtered: List[dict] = []
     for e in events:
+        e_dates = _expand_event_dates(e)
+        if not e_dates:
+            # Keep TBD events (no date) so the UI can show them in "Sin fecha" buckets;
+            # but only when the window is unrestricted.
+            if not window_start and not window_end:
+                e["calendar_dates"] = []
+                filtered.append(e)
+            continue
+        if window_start and all(d < window_start for d in e_dates):
+            continue
+        if window_end and all(d > window_end for d in e_dates):
+            continue
+        e["calendar_dates"] = e_dates
+        filtered.append(e)
+
+    # Enrich with client names, milestones and proposal services.
+    event_ids = [e.get("event_id") for e in filtered if e.get("event_id")]
+    proposals_by_event: dict = {}
+    if event_ids:
+        cursor = db.proposals.find(
+            {"event_id": {"$in": event_ids}, "company_id": user.company_id},
+            {"_id": 0, "proposal_id": 1, "event_id": 1},
+        )
+        async for p in cursor:
+            proposals_by_event[p["event_id"]] = p["proposal_id"]
+
+    services_by_event: dict = defaultdict(list)
+    if proposals_by_event:
+        items_cursor = db.order_items.find(
+            {"proposal_id": {"$in": list(proposals_by_event.values())}},
+            {
+                "_id": 0,
+                "proposal_id": 1,
+                "section_title": 1,
+                "section_time": 1,
+                "section_end_time": 1,
+                "event_date": 1,
+                "item_type": 1,
+                "line_total": 1,
+                "unit_price": 1,
+                "quantity": 1,
+            },
+        )
+        # event_id ← proposal_id reverse lookup
+        proposal_to_event = {pid: eid for eid, pid in proposals_by_event.items()}
+        # Bucket items by (event_id, date, section_title, section_time)
+        bucket: dict = defaultdict(lambda: {"item_count": 0, "item_types": set(), "total": 0.0, "end_time": None})
+        async for it in items_cursor:
+            eid = proposal_to_event.get(it.get("proposal_id"))
+            if not eid:
+                continue
+            d = _norm_date(it.get("event_date"))
+            t = (it.get("section_time") or "").strip()
+            title = (it.get("section_title") or "").strip()
+            # Skip rows that carry zero scheduling info AND no section title — those
+            # are floating items the user hasn't anchored to a slot yet.
+            if not d and not t and not title:
+                continue
+            key = (eid, d or "", title, t)
+            b = bucket[key]
+            b["item_count"] += 1
+            if it.get("item_type"):
+                b["item_types"].add(it["item_type"])
+            b["total"] += float(it.get("line_total") or (it.get("unit_price", 0) * it.get("quantity", 0)) or 0)
+            if it.get("section_end_time") and not b["end_time"]:
+                b["end_time"] = it["section_end_time"]
+
+        for (eid, d, title, t), agg in bucket.items():
+            services_by_event[eid].append({
+                "date": d or None,
+                "time": t or None,
+                "end_time": agg["end_time"],
+                "title": title or None,
+                "item_count": agg["item_count"],
+                "item_types": sorted(agg["item_types"]),
+                "total": round(agg["total"], 2),
+            })
+        # Sort each event's services by date then time
+        for eid, svcs in services_by_event.items():
+            svcs.sort(key=lambda s: ((s.get("date") or "9999"), (s.get("time") or "99:99"), (s.get("title") or "")))
+
+    calendar_events: List[dict] = []
+    for e in filtered:
         if e.get("client_id"):
             client = await db.clients.find_one({"client_id": e["client_id"]}, {"_id": 0, "display_name": 1})
             e["client_name"] = client.get("display_name") if client else None
-        
-        # Get milestones from operational flow
         flow = await db.operational_flows.find_one({"event_id": e.get("event_id")}, {"_id": 0, "phases": 1})
         e["phases"] = flow.get("phases", []) if flow else []
-        
+        svcs = services_by_event.get(e.get("event_id"), [])
+        # Attach undated services to the event's first calendar date so they still
+        # surface in the calendar (and follow the event when shifted).
+        cdates = e.get("calendar_dates") or []
+        if svcs and cdates:
+            fallback = cdates[0]
+            for s in svcs:
+                if not s.get("date"):
+                    s["date"] = fallback
+            svcs.sort(key=lambda s: ((s.get("date") or "9999"), (s.get("time") or "99:99"), (s.get("title") or "")))
+        e["services"] = svcs
         calendar_events.append(e)
-    
-    # Detect conflicts (events on same day)
-    from collections import defaultdict
-    events_by_date = defaultdict(list)
+
+    # Detect conflicts: two or more events on the same day (use full calendar_dates list).
+    events_by_date: dict = defaultdict(list)
     for e in calendar_events:
-        if e.get("event_date"):
-            date_str = str(e["event_date"])[:10] if isinstance(e["event_date"], str) else e["event_date"].isoformat()[:10]
-            events_by_date[date_str].append(e.get("event_id"))
-    
+        for d in e.get("calendar_dates") or []:
+            events_by_date[d].append(e.get("event_id"))
     conflicts = {date: ids for date, ids in events_by_date.items() if len(ids) > 1}
-    
+
     return {
         "events": calendar_events,
-        "conflicts": conflicts
+        "conflicts": conflicts,
     }
 
 # --- Post-Event Review ---
