@@ -1159,6 +1159,7 @@ class DocumentTemplateCreate(BaseModel):
     primary_color: Optional[str] = "#3A4D3F"
     style_variant: Optional[str] = "classic"  # classic | minimal | editorial | luxury
     show_logo: bool = True
+    logo_size: Optional[str] = "medium"  # small | medium | large — max-height applied to printed/document logo
     show_company_address: bool = True
     show_tax_id: bool = True
     # Packing List / Kitchen Sheet specific
@@ -7755,6 +7756,7 @@ async def update_document_template(template_id: str, data: DocumentTemplateCreat
         "primary_color": data.primary_color,
         "style_variant": data.style_variant or "classic",
         "show_logo": data.show_logo,
+        "logo_size": data.logo_size or "medium",
         "show_company_address": data.show_company_address,
         "show_tax_id": data.show_tax_id,
         "show_quantities": data.show_quantities,

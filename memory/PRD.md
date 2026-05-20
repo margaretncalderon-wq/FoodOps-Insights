@@ -443,4 +443,17 @@ Phase 2 Culinary backend validated 19/19 in iteration_176.json.
 
 **Verified**: PDF preview of `prop_e45ef7945072` now shows items in `sort_order` ascending (Entradas → Principales) exactly matching the editor. No regressions for proposals without sections or with a single section.
 
+### Configurable Logo Size in Documents (Feb 19, 2026)
+**Goal**: Operators can pick how prominent the company logo should look in printed documents (small for compact invoices, large for branded proposals) without touching code.
+
+**Backend** (`/app/backend/server.py`, `DocumentTemplateCreate`)
+- New optional field `logo_size: Optional[str] = "medium"` on `DocumentTemplateCreate` (values: `"small"`, `"medium"`, `"large"`).
+- `update_document_template` persists the field with a safe default. Verified round-trip via curl: setting `logo_size="large"` returns `logo_size: large` on subsequent GET.
+
+**Frontend**
+- `/app/frontend/src/components/DocumentPreview.js`: the header `<img>` now reads the template's `logo_size` and resolves to `max-height` of 40 / 56 / 80 px (small / medium / large). A `data-logo-size` attribute is mirrored on the element so the print-window CSS can apply the same bound when Tailwind isn't loaded. The print stylesheet was extended with three discrete `.doc-logo[data-logo-size="…"]` rules.
+- `/app/frontend/src/pages/SettingsPage.js`: in Settings → Templates, every template card now exposes a "Logo size" (`Tamaño del logo`) `<Select>` directly under the "Show Logo" toggle. The select is hidden when the user disables the logo. Saving fires `handleUpdateTemplate` and shows the "Template updated" toast.
+
+**Tested in preview**: Updated the Proposal template's `logo_size` to "Large (80px)" via the Settings UI, toast confirmed, persistence verified via curl.
+
 Next: Eliminate ProposalEditor.js bloat (now ~4360 lines) by extracting Sortable wrappers and dialogs; finish UX Workstreams A/B/C; Logo Guest Flow; Unified Contact Model.

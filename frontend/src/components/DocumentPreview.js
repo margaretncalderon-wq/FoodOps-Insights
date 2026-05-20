@@ -416,8 +416,11 @@ export default function DocumentPreview({
             ${variantCSS}
             /* Keep the company logo bounded in printed output — Tailwind isn't
                loaded inside the print window, so its natural size could otherwise
-               render huge. */
-            .doc-logo, .doc-root img.doc-logo, .header img { max-height: 56px; max-width: 200px; width: auto; height: auto; object-fit: contain; display: block; }
+               render huge. Three discrete sizes selectable from Settings → Templates. */
+            .doc-logo, .doc-root img.doc-logo, .header img { max-width: 240px; width: auto; height: auto; object-fit: contain; display: block; }
+            .doc-logo[data-logo-size="small"] { max-height: 40px; }
+            .doc-logo[data-logo-size="medium"], .header img:not([data-logo-size]) { max-height: 56px; }
+            .doc-logo[data-logo-size="large"] { max-height: 80px; }
             .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 15px 0; }
             .info-item { display: flex; gap: 8px; }
             .info-label { font-weight: 600; color: #666; }
@@ -515,14 +518,19 @@ export default function DocumentPreview({
               <div className="flex justify-between items-start">
                 <div>
                   {/* Logo - controlled by template */}
-                  {template?.show_logo !== false && company?.logo_url && (
-                    <img
-                      src={company.logo_url}
-                      alt={company.name}
-                      className="doc-logo mb-2"
-                      style={{ maxHeight: '56px', maxWidth: '200px', width: 'auto', height: 'auto', objectFit: 'contain' }}
-                    />
-                  )}
+                  {template?.show_logo !== false && company?.logo_url && (() => {
+                    const sizeMap = { small: 40, medium: 56, large: 80 };
+                    const maxH = sizeMap[template?.logo_size] || sizeMap.medium;
+                    return (
+                      <img
+                        src={company.logo_url}
+                        alt={company.name}
+                        className="doc-logo mb-2"
+                        data-logo-size={template?.logo_size || "medium"}
+                        style={{ maxHeight: `${maxH}px`, maxWidth: '240px', width: 'auto', height: 'auto', objectFit: 'contain' }}
+                      />
+                    );
+                  })()}
                   <h1 className="company-name text-2xl font-bold" style={{ color: company?.primary_color || '#3A4D3F' }}>
                     {company?.name || "Company Name"}
                   </h1>
