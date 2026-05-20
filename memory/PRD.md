@@ -768,3 +768,18 @@ Now content flows: header → catering summary → first service section fills t
 - Seeded an `item_type:'Bebida'` item on a demo proposal → editor surfaced a new "Bebida" group with the warning badge; the total items count matched the badge in the header.
 - DocumentPreview Summary by Type showed `Bebida (1 items)` — correct count instead of `(13 items)` (quantity).
 - After cleanup the orphan was deleted via the existing DELETE endpoint.
+
+
+### Orphan Item Types v2 — Empty/Null item_type Coverage — Feb 20, 2026
+**Reported (follow-up)**: After redeploy to production the user said "todavía no me salen los jugos en el editor". v1 only synthesized orphan groups for items whose `item_type` was a non-empty, non-configured string. Items where `item_type` was literally `""`, `null`, or `undefined` still slipped through — and the production juice items had exactly that shape (PDF falls back to "Other" but the field was empty in the DB).
+
+**Fix v2** (`/app/frontend/src/components/ProposalEditor.js`):
+- `ITEM_TYPES` IIFE: while scanning `proposal.items`, set a `hasUntyped` flag whenever an item has `(item_type || "").trim() === ""`. After the loop, if `hasUntyped` and `"Other"` isn't already configured, append `"Other"` to the list.
+- `ORPHAN_TYPES` mirrors the same logic so the amber "Tipo no configurado" badge appears on the synthetic Other bucket too.
+- `getItemTypeLabel("Other")` returns "Otros (sin tipo)" / "Other (untyped)" when not configured.
+- The grouping filter in `itemsByType` now matches both `""` and the literal `"Other"` under the `Other` bucket: `if (itype === "Other") return raw === "" || raw === "Other"`.
+
+**Validation** (`/app/test_reports/iteration_181.json` — 100% pass):
+- Seeded 3 orphans on a demo proposal: `item_type = "" / null / "Bebida"`.
+- Editor renders both a `Bebida` group and a synthetic `Other (untyped)` group, each with the amber badge. Header pill shows `Items (3)`. Standard types (when present) remain badge-free.
+- Cleanup removed all 3 seeded items.
