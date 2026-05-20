@@ -643,3 +643,29 @@ Phase 2 Culinary backend validated 19/19 in iteration_176.json.
 - Click → toast confirmed, header chips became `Aug 1` `Aug 3` `Aug 5`, item count rose 8→12, section total $220→$660 ✅.
 
 Next: Eliminate ProposalEditor.js bloat (now ~4360 lines) by extracting Sortable wrappers and dialogs; finish UX Workstreams A/B/C; Logo Guest Flow; Unified Contact Model.
+
+
+### Item Types Order Parity (Settings ↔ Proposal Editor) — Feb 20, 2026
+**Reported**: "Los tipos de items salen distintos en settings y en las propuestas". The grouped picklist inside the **Add Item** dialog (Bocadillos / Servicios / Alquileres / Cargos) was rendering in a fixed, hardcoded order regardless of how the user reordered the types in `Settings → Catálogos → Tipos de Ítems`, and was using its own hardcoded ES/EN label map.
+
+**Root cause** (`/app/frontend/src/components/ProposalEditor.js`, picklist block around L3530):
+```js
+// stale code
+const map = language === "es"
+  ? { Food: "Bocadillos & Alimentos", Service: "Servicios", Rental: "Alquileres", Fee: "Cargos", Other: "Otros" }
+  : { Food: "Food & Snacks", Service: "Services", Rental: "Rentals", Fee: "Fees", Other: "Other" };
+const order = ["Food", "Service", "Rental", "Fee", "Other"];
+```
+This bypassed the user's customized `company.proposal_item_types` order entirely.
+
+**Fix**
+- Picklist `sortedKeys` now derives from the shared `ITEM_TYPES` array (already built from `company.proposal_item_types` honoring `sort_order` and `is_active`).
+- Group label now comes from `getItemTypeLabel(k)` (the same helper used by the main section render and the item edit dialog), so renamed types (e.g. `Food` → `Alimentos y Bebidas`) propagate everywhere.
+- Any legacy keys present in picklist data but missing from settings (e.g., `Other`) are appended after the configured order so nothing disappears.
+
+**Already correct** (verified during the fix):
+- Section grouping render (`ITEM_TYPES.map(...)` ~L2138) — uses settings order.
+- Add/Edit item `<Select>` for `item_type` (~L3623) — uses settings order.
+- PDF print (`DocumentPreview.js`) — already sorted by `proposal_item_types` ordinal.
+
+Outcome: the Add-Item picklist, the editor section groups, the edit-item type selector, and the printed PDF all consume the same single source of truth (`company.proposal_item_types`).

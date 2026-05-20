@@ -3519,7 +3519,8 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
                   data-testid="picklist-search-input"
                 />
                 {(() => {
-                  // Group picklist items by item_type (Food/Service/Rental/Fee)
+                  // Group picklist items by item_type using the order/labels
+                  // configured in Settings → Catálogos → Tipos de Ítems.
                   const q = picklistSearch.toLowerCase();
                   const matching = picklist.filter((i) => !q || i.name.toLowerCase().includes(q) || (i.description || "").toLowerCase().includes(q));
                   const groups = matching.reduce((acc, i) => {
@@ -3528,13 +3529,14 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
                     return acc;
                   }, {});
                   const labelFor = (k) => {
-                    const map = language === "es"
-                      ? { Food: "Bocadillos & Alimentos", Service: "Servicios", Rental: "Alquileres", Fee: "Cargos", Other: "Otros" }
-                      : { Food: "Food & Snacks", Service: "Services", Rental: "Rentals", Fee: "Fees", Other: "Other" };
-                    return map[k] || k;
+                    const lbl = getItemTypeLabel(k);
+                    if (lbl && lbl !== k) return lbl;
+                    return k === "Other" ? (language === "es" ? "Otros" : "Other") : k;
                   };
-                  const order = ["Food", "Service", "Rental", "Fee", "Other"];
-                  const sortedKeys = order.filter((k) => groups[k]?.length > 0).concat(Object.keys(groups).filter((k) => !order.includes(k)));
+                  // Order: first follow ITEM_TYPES (from settings), then any
+                  // remaining keys present in items (e.g., legacy "Other").
+                  const sortedKeys = ITEM_TYPES.filter((k) => groups[k]?.length > 0)
+                    .concat(Object.keys(groups).filter((k) => !ITEM_TYPES.includes(k)));
                   if (sortedKeys.length === 0) {
                     return <p className="text-xs text-muted-foreground text-center py-2">{language === "es" ? "Sin resultados" : "No results"}</p>;
                   }
