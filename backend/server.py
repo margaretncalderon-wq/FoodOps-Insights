@@ -4722,6 +4722,39 @@ async def get_events(user: User = Depends(get_current_user), stage: Optional[str
             if eid:
                 invoices_by_event[eid] = invoices_by_event.get(eid, 0) + (inv.get("balance_due") or 0)
     
+    # Compute live proposal totals per event from order_items so the events
+    # list always reflects what's actually inside the proposal — see pipeline
+    # endpoint for the same logic.
+    live_totals = {}
+    events_with_proposal = set()
+    if event_ids:
+        try:
+            agg = [
+                {"$match": {"company_id": user.company_id, "event_id": {"$in": event_ids}}},
+                {"$project": {
+                    "_id": 0,
+                    "event_id": 1,
+                    "line_total": {
+                        "$cond": [
+                            {"$gt": [{"$ifNull": ["$total_price", 0]}, 0]},
+                            "$total_price",
+                            {"$multiply": [{"$ifNull": ["$quantity", 0]}, {"$ifNull": ["$unit_price", 0]}]},
+                        ]
+                    },
+                }},
+                {"$group": {"_id": "$event_id", "total": {"$sum": "$line_total"}}},
+            ]
+            async for row in db.order_items.aggregate(agg):
+                live_totals[row["_id"]] = float(row.get("total") or 0)
+            async for p in db.proposals.find(
+                {"company_id": user.company_id, "event_id": {"$in": event_ids}},
+                {"_id": 0, "event_id": 1},
+            ):
+                if p.get("event_id"):
+                    events_with_proposal.add(p["event_id"])
+        except Exception:
+            pass
+
     for e in events:
         for field in ["event_date", "end_date", "next_followup_date", "created_at", "updated_at"]:
             if e.get(field) and isinstance(e[field], str):
@@ -4742,6 +4775,10 @@ async def get_events(user: User = Depends(get_current_user), stage: Optional[str
         }
         # Add pending balance from invoices
         e["pending_balance"] = invoices_by_event.get(e.get("event_id"), 0)
+        # Override expected_value with the live proposal total when a proposal exists
+        eid = e.get("event_id")
+        if eid and eid in events_with_proposal:
+            e["expected_value"] = live_totals.get(eid, 0)
     return events
 
 @events_router.get("/pipeline")
@@ -4770,7 +4807,53 @@ async def get_events_pipeline(user: User = Depends(get_current_user)):
     
     # Get all events and normalize stages
     events = await db.events.find({"company_id": user.company_id}, {"_id": 0}).sort("created_at", -1).to_list(500)
-    
+
+    # Compute live proposal totals per event from order_items so the card
+    # always reflects what's actually inside the proposal (deleting/editing
+    # items does not auto-update proposal.total_amount, and the duplicated
+    # event used to carry the original's stale expected_value forever).
+    event_ids = [e.get("event_id") for e in events if e.get("event_id")]
+    live_totals = {}
+    if event_ids:
+        try:
+            pipeline_agg = [
+                {"$match": {"company_id": user.company_id, "event_id": {"$in": event_ids}}},
+                {"$project": {
+                    "_id": 0,
+                    "event_id": 1,
+                    "line_total": {
+                        "$cond": [
+                            {"$gt": [{"$ifNull": ["$total_price", 0]}, 0]},
+                            "$total_price",
+                            {"$multiply": [
+                                {"$ifNull": ["$quantity", 0]},
+                                {"$ifNull": ["$unit_price", 0]}
+                            ]},
+                        ]
+                    },
+                }},
+                {"$group": {"_id": "$event_id", "total": {"$sum": "$line_total"}}},
+            ]
+            async for row in db.order_items.aggregate(pipeline_agg):
+                live_totals[row["_id"]] = float(row.get("total") or 0)
+        except Exception:
+            live_totals = {}
+
+    # Look up which events have an attached proposal — we want to override
+    # expected_value with the live items total ONLY for those (events without
+    # a proposal keep their manually-entered expected_value untouched).
+    events_with_proposal = set()
+    if event_ids:
+        try:
+            async for p in db.proposals.find(
+                {"company_id": user.company_id, "event_id": {"$in": event_ids}},
+                {"_id": 0, "event_id": 1},
+            ):
+                if p.get("event_id"):
+                    events_with_proposal.add(p["event_id"])
+        except Exception:
+            pass
+
     for e in events:
         for field in ["event_date", "end_date", "next_followup_date", "created_at", "updated_at"]:
             if e.get(field) and isinstance(e[field], str):
@@ -4786,7 +4869,14 @@ async def get_events_pipeline(user: User = Depends(get_current_user)):
         }
         # Add pending balance from invoices
         e["pending_balance"] = invoices_by_event.get(e.get("event_id"), 0)
-        
+
+        # Override expected_value with the live proposal total when a proposal
+        # is attached. Falls back to 0 when proposal exists but has no items
+        # (e.g. after the user duplicated and deleted everything in the copy).
+        eid = e.get("event_id")
+        if eid and eid in events_with_proposal:
+            e["expected_value"] = live_totals.get(eid, 0)
+
         # Normalize stage and add to correct pipeline bucket
         original_stage = e.get("stage", "Inquiry Received")
         normalized_stage = normalize_stage(original_stage)

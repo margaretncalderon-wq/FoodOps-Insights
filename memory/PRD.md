@@ -603,4 +603,23 @@ Phase 2 Culinary backend validated 19/19 in iteration_176.json.
 - `"2026-05-20"` → `"2026-05-20"` ✅
 - `new Date(2026, 4, 20, 12, 0, 0)` → `"2026-05-20"` ✅
 
+### Live Proposal Total on Event Card (Feb 20, 2026)
+**Bug report**: "I duplicated a proposal, then deleted items inside the copy, but the amount on the card outside still shows the original total. Verify that the amount is updating with what's inside."
+
+**Root cause**: The event card reads `event.expected_value`, a stored field on the `events` document. Two issues compounded:
+1. The proposal item endpoints (`POST/PUT/DELETE /api/proposals/{id}/items`) never recompute `proposal.total_amount`, so any cached aggregate goes stale the moment items are added/removed.
+2. `duplicate_event` cloned the original's `expected_value` verbatim. Combined with #1, the card on the duplicated event kept showing the original's amount forever — even after deleting every item.
+
+**Fix** (`/app/backend/server.py`)
+- Both `GET /api/events` and `GET /api/events/pipeline` now compute `expected_value` **on the fly** via an aggregation over `order_items` per event_id:
+  - `$cond` picks `total_price` when present, otherwise falls back to `quantity * unit_price`.
+  - `$group` by `event_id` sums the line totals.
+- Cross-check against `proposals.find({event_id: {$in: …}})` to know which events actually have a proposal. For those:
+  - Override `expected_value` with the live computed total (or **0** if all items have been deleted — the previous behavior swallowed the empty-proposal case).
+- Events without a proposal keep their manually-entered `expected_value` untouched (CRM lead estimates etc.).
+
+**Verified in preview** with `Reorder Test Event` and `Reorder Test Event (Copy)`:
+- After duplication with 4 items each → original **$285**, copy reflects copy's items.
+- After deleting **all** items in the copy → original stays **$285**, copy shows **$0** ✅. The cards now move independently with their own contents.
+
 Next: Eliminate ProposalEditor.js bloat (now ~4360 lines) by extracting Sortable wrappers and dialogs; finish UX Workstreams A/B/C; Logo Guest Flow; Unified Contact Model.
