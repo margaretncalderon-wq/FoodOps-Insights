@@ -12,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "./ui/select";
-import { toast } from "sonner";
+// toast import removed; print flow now uses an iframe with no UI feedback path
 import { 
   FileText, Download, Printer, Eye, ChefHat, Utensils, 
   Package, Calendar, Users, MapPin, Phone, Mail, Building2,
@@ -419,21 +419,6 @@ export default function DocumentPreview({
   const handlePrint = () => {
     const printContent = printRef.current;
     if (!printContent) return;
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) {
-      // Popup blocked or third-party tab policy refused the open. Inform the
-      // user instead of silently failing.
-      try {
-        toast.error(
-          language === "es"
-            ? "Tu navegador bloqueó la ventana de impresión. Permite ventanas emergentes para este sitio e inténtalo de nuevo."
-            : "Your browser blocked the print window. Allow pop-ups for this site and try again."
-        );
-      } catch (_e) {
-        /* toast not available, swallow */
-      }
-      return;
-    }
     const html = `<!DOCTYPE html>
       <html>
         <head>
@@ -443,7 +428,7 @@ export default function DocumentPreview({
             body { font-family: 'Segoe UI', sans-serif; padding: 20px; color: #1a1a1a; }
             ${variantCSS}
             /* Keep the company logo bounded in printed output — Tailwind isn't
-               loaded inside the print window, so its natural size could otherwise
+               loaded inside the print frame, so its natural size could otherwise
                render huge. Three discrete sizes selectable from Settings → Templates. */
             .doc-logo, .doc-root img.doc-logo, .header img { max-width: 240px; width: auto; height: auto; object-fit: contain; display: block; }
             .doc-logo[data-logo-size="small"] { max-height: 40px; }
@@ -479,36 +464,69 @@ export default function DocumentPreview({
         </body>
       </html>`;
 
-    // Write the document then trigger print AFTER the new tab has finished
-    // parsing/painting. Doing it synchronously left the tab blank in Safari/Firefox
-    // when the print dialog was dismissed (the document hadn't been committed yet)
-    // and made image loading flaky in some browsers. Two safeguards:
-    //   1. onload listener — fires once the tab finishes painting
-    //   2. setTimeout fallback — for browsers that fire onload before write commits
+    // Use a hidden iframe instead of window.open so popup blockers, strict
+    // browser policies (esp. mobile Safari) and corporate environments don't
+    // strand the user with a blank tab. The iframe is removed after printing.
+    const iframe = document.createElement("iframe");
+    iframe.setAttribute("aria-hidden", "true");
+    iframe.style.position = "fixed";
+    iframe.style.right = "0";
+    iframe.style.bottom = "0";
+    iframe.style.width = "0";
+    iframe.style.height = "0";
+    iframe.style.border = "0";
+    iframe.style.visibility = "hidden";
+    document.body.appendChild(iframe);
+
+    const cleanup = () => {
+      // Defer removal so the print dialog has the document still attached.
+      setTimeout(() => {
+        if (iframe.parentNode) iframe.parentNode.removeChild(iframe);
+      }, 800);
+    };
+
     const triggerPrint = () => {
       try {
-        printWindow.focus();
-        printWindow.print();
+        const win = iframe.contentWindow;
+        if (!win) {
+          cleanup();
+          return;
+        }
+        win.focus();
+        win.print();
       } catch (_e) {
-        /* the tab might have been closed by the user */
+        /* swallow */
+      } finally {
+        cleanup();
       }
     };
-    printWindow.document.open();
-    printWindow.document.write(html);
-    printWindow.document.close();
+
+    // Two strategies in parallel — onload (most reliable) and a 500 ms fallback
+    // for browsers that don't fire onload on srcdoc iframes.
     let printed = false;
-    printWindow.onload = () => {
+    iframe.onload = () => {
       if (printed) return;
       printed = true;
-      // Give the browser one extra frame for layout/image decode.
       setTimeout(triggerPrint, 50);
     };
-    // Fallback in case onload never fires (some browsers + about:blank quirks)
     setTimeout(() => {
       if (printed) return;
       printed = true;
       triggerPrint();
-    }, 500);
+    }, 700);
+
+    // srcdoc is the modern, blocker-friendly way to inject HTML into an iframe.
+    // We fall back to document.write if srcdoc is unsupported.
+    if ("srcdoc" in iframe) {
+      iframe.srcdoc = html;
+    } else {
+      const doc = iframe.contentWindow?.document;
+      if (doc) {
+        doc.open();
+        doc.write(html);
+        doc.close();
+      }
+    }
   };
 
   const groupedItems = groupItems();
@@ -902,12 +920,21 @@ export default function DocumentPreview({
                   {language === "es" ? "Resumen por Tipo" : "Summary by Type"}
                 </h4>
                 <div className="space-y-2">
-                  {Object.entries(subtotals).map(([type, data]) => (
-                    <div key={type} className="flex justify-between text-sm">
-                      <span>{type} ({data.count} {language === "es" ? "ítems" : "items"})</span>
-                      <span className="font-mono">{formatCurrency(data.total)}</span>
-                    </div>
-                  ))}
+                  {Object.entries(subtotals).map(([type, data]) => {
+                    // Resolve the user-facing label from company config so the PDF
+                    // honours Spanish/English labels configured in Settings →
+                    // Templates → Proposal Item Types instead of the raw type_key.
+                    const cfg = (company?.proposal_item_types || []).find(t => t.type_key === type);
+                    const label = cfg
+                      ? (language === "es" ? (cfg.label_es || cfg.label_en || type) : (cfg.label_en || cfg.label_es || type))
+                      : type;
+                    return (
+                      <div key={type} className="flex justify-between text-sm">
+                        <span>{label} ({data.count} {language === "es" ? "ítems" : "items"})</span>
+                        <span className="font-mono">{formatCurrency(data.total)}</span>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}

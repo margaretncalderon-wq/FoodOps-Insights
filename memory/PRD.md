@@ -544,4 +544,20 @@ Phase 2 Culinary backend validated 19/19 in iteration_176.json.
 
 **Verified**: Print popup from `prop_e45ef7945072` Proposal/Contract now opens with title `"Proposal / Contract - Reorder Test Event"`, 1 image, 6 table rows, and 772 chars of body text — no longer blank when the print dialog is dismissed.
 
+### Print Now Uses a Hidden Iframe (no popup) + Subtotal Labels Localized (Feb 19, 2026)
+**Two issues batched together:**
+
+**A) Popups blocked / blank tabs**: Even with the load-aware fix, popup blockers and mobile Safari kept stranding users. Replaced `window.open` with a hidden `<iframe>` that lives on the same page.
+
+**B) "Resumen por Tipo" still showed raw English keys** (`Food`, `Service`, `Rental`, `Fee`) even when the document language was Spanish.
+
+**Fix** (`/app/frontend/src/components/DocumentPreview.js`)
+- `handlePrint()` no longer calls `window.open`. It creates a hidden iframe (`position:fixed; right/bottom 0; w/h 0; visibility:hidden`), injects the same HTML via `iframe.srcdoc` (fallback to `document.write`), waits for `onload` (50 ms grace) and a 700 ms safety timer, then calls `iframe.contentWindow.print()`. The iframe is removed 800 ms later so the print dialog stays attached during preview.
+- Subtotals block now resolves each `type_key` to its `label_en` / `label_es` via `company.proposal_item_types`. Falls back to the raw key only when the type was deleted from settings. Fully localized: ES → "Alimentos y Bebidas (4 ítems)", EN → "Food & Beverages (4 items)".
+
+**Verified in preview**:
+- Pages before print: 1 → after print: 1 (no new tab) ✅
+- Iframes on page after print: 0 (cleanup ran) ✅
+- Subtotals rendered `Food & Beverages (4 items)`, `Services & Staff (2 items)`, `Rentals & Equipment (5 items)` instead of raw keys ✅
+
 Next: Eliminate ProposalEditor.js bloat (now ~4360 lines) by extracting Sortable wrappers and dialogs; finish UX Workstreams A/B/C; Logo Guest Flow; Unified Contact Model.
