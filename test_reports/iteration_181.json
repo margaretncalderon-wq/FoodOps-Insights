@@ -1,0 +1,26 @@
+{
+  "summary": "FOLLOW-UP retest of orphan item_type fix v2 (empty/null item_type). Logged in as demo.agency@kora.com, navigated to /events/event_f590b6bb1058 → Items tab on proposal prop_3cb740ffd5c1. Verified all 3 pre-seeded orphan items render in the editor: (1) Items header pill correctly shows 'Items (3)'. (2) data-testid='type-Bebida' group renders with row 'TEST Jugo tipo Bebida' (5 × $100 = $500). (3) data-testid='type-Other' group renders labeled 'Other (untyped)' (2 items, $1000.00) and after expansion shows BOTH 'TEST Jugo SIN TIPO (item_type vacío)' and 'TEST Jugo NULL (item_type null)' (each 5 × $100 = $500). (4) Both groups display the amber 'Unconfigured type' badge — data-testid='orphan-type-warning-Bebida' and data-testid='orphan-type-warning-Other' both present in DOM. (5) Standard types (Food/Service/Rental/Fee) have NO orphan badge (regression check passed). (6) Editor Subtotal = $1500.00 (3 × $500) matches expected. Backend regression: GET /api/proposals/event/event_f590b6bb1058 returned all 3 items with correct item_type values ('', None, 'Bebida'). Cleanup: DELETE on all 3 items (oitm_orphan_empty, oitm_orphan_null, oitm_orphan_bebida) via /api/proposals/prop_3cb740ffd5c1/items/{id} returned HTTP 200; subsequent GET confirms items=[].",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "ProposalEditor orphan badge i18n", "issues": ["UI rendered in EN this session — badge text reads 'Unconfigured type' and group label 'Other (untyped)'. ES strings 'Tipo no configurado' / 'Otros (sin tipo)' were not exercised because session language was English. Not a blocker; code path at L367-L376 returns the localized labels per language state."]}
+    ]
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "ProposalEditor.js still recomputes ITEM_TYPES + ORPHAN_TYPES on every render via IIFE (L264-L314). With orphan handling now scanning proposal.items twice per render, useMemo([itemTypes, proposal?.items]) would be a small but worthwhile optimization on large proposals.",
+    "Items header in screenshot reads 'Items (3)' but the playwright text-content regex for /^Items\\s*\\(\\d+\\)$/ returned empty matches — likely because the count is rendered in a separate child element (badge) split from the 'Items' label. Visually it is correct. Consider adding a data-testid='items-tab-count' to the count badge for easier automated assertions.",
+    "Three orphan items had item_name=null in the DB (data lives in 'description'). The editor row title fell back to 'description' correctly, but ensure backend POST /api/proposals/{id}/items either rejects null item_name or auto-derives it from description, otherwise future imports may produce rows with no display name in places that do NOT have the fallback."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a (frontend-only request)", "frontend": "100%"},
+  "test_credentials": "demo.agency@kora.com / Evoque2024!",
+  "seed_data_creation": "Did NOT seed; used pre-seeded items oitm_orphan_empty (item_type=''), oitm_orphan_null (item_type=null), oitm_orphan_bebida (item_type='Bebida') on prop_3cb740ffd5c1. Cleaned up all 3 via DELETE /api/proposals/prop_3cb740ffd5c1/items/{id} (all HTTP 200). Final state: items=[] on proposal.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Orphan v2 fix is verified end-to-end. Cleanup complete — prop_3cb740ffd5c1 / event_f590b6bb1058 (demo.agency) has 0 items. If retesting again, re-seed order_items with item_type in {'', null, non-configured-string}. To validate ES localization for orphan badge text, switch the user language to es before navigating to the editor and assert 'Tipo no configurado' / 'Otros (sin tipo)' (logic at ProposalEditor.js L367-L376).",
+  "rca of the issue": "Previous v1 fix only synthesized orphan groups for items with a non-empty/non-configured item_type, so rows with item_type='' or null silently dropped out of itemsByType (no matching itype). v2 fix adds a 'hasUntyped' flag in the ITEM_TYPES + ORPHAN_TYPES IIFEs (L282-L294 / L306-L312) that appends a synthetic 'Other' bucket when any item has empty/null item_type, and the itemsByType matcher (L1690-L1702) now matches both raw==='' and raw==='Other' under that bucket. Verified: all 3 orphans (Bebida + 2 untyped) now visible in the editor with the amber 'Unconfigured type' badge."
+}

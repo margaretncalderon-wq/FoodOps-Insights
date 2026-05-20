@@ -275,18 +275,23 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
       }
     }
     // Append any "orphan" types present in the current proposal items that
-    // aren't configured in settings (e.g., legacy "Other", "Bebida", typos).
-    // Otherwise those items would be silently hidden from the editor while
-    // still rendering in the printed PDF — causing the totals to drift.
-    const orphanSet = new Set();
+    // aren't configured in settings (e.g., legacy "Other", "Bebida", typos,
+    // or items with an EMPTY/NULL item_type). Otherwise those items would
+    // be silently hidden from the editor while still rendering in the
+    // printed PDF — causing totals to drift.
+    let hasUntyped = false;
     (proposal?.items || []).forEach((it) => {
       const k = (it.item_type || "").trim();
-      if (k && !seen.has(k)) {
-        orphanSet.add(k);
+      if (!k) { hasUntyped = true; return; }
+      if (!seen.has(k)) {
         seen.add(k);
+        out.push(k);
       }
     });
-    orphanSet.forEach((k) => out.push(k));
+    if (hasUntyped && !seen.has("Other")) {
+      seen.add("Other");
+      out.push("Other");
+    }
     return out;
   })();
 
@@ -298,10 +303,13 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
       itemTypes.forEach((t) => { if (t.is_active !== false) configured.add(t.type_key); });
     }
     const out = new Set();
+    let hasUntyped = false;
     (proposal?.items || []).forEach((it) => {
       const k = (it.item_type || "").trim();
-      if (k && !configured.has(k)) out.add(k);
+      if (!k) { hasUntyped = true; return; }
+      if (!configured.has(k)) out.add(k);
     });
+    if (hasUntyped && !configured.has("Other")) out.add("Other");
     return out;
   })();
   
@@ -393,6 +401,7 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
     if (itemType) {
       return language === "es" ? itemType.label_es : itemType.label_en;
     }
+    if (typeKey === "Other") return language === "es" ? "Otros (sin tipo)" : "Other (untyped)";
     return typeKey;
   };
 
@@ -1676,13 +1685,19 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
     }
   };
 
-  // Group items by item_type
+  // Group items by item_type. The "Other" bucket also collects items with
+  // an empty/null item_type (legacy / imported rows) so nothing is hidden.
   const itemsByType = {};
   ITEM_TYPES.forEach(itype => {
+    const matcher = (i) => {
+      const raw = (i.item_type || "").trim();
+      if (itype === "Other") return raw === "" || raw === "Other";
+      return raw === itype;
+    };
     itemsByType[itype] = {
-      items: proposal?.items?.filter(i => i.item_type === itype) || [],
+      items: proposal?.items?.filter(matcher) || [],
       color: getItemTypeColor(itype),
-      label: getItemTypeLabel(itype)
+      label: getItemTypeLabel(itype),
     };
   });
 
