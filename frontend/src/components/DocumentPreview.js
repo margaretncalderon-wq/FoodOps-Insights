@@ -197,11 +197,23 @@ export default function DocumentPreview({
   const groupItems = () => {
     if (!proposal?.items) return {};
     
-    // Sort items by sort_order so sections and items keep the same order
-    // the user arranged in the editor (drag/drop or arrow buttons).
-    let items = [...proposal.items].sort(
-      (a, b) => (a.sort_order || 0) - (b.sort_order || 0)
-    );
+    // Build the item_type → ordinal map from the company's configured order
+    // (Settings → Catalogs → Item Types). Items whose type is unknown (deleted
+    // or legacy) sort to the end but still keep their relative sort_order.
+    const typeOrder = {};
+    (company?.proposal_item_types || []).forEach((t, idx) => {
+      typeOrder[t.type_key] = idx;
+    });
+    const typeOrdinal = (t) => (t in typeOrder ? typeOrder[t] : 999);
+    
+    // Sort items first by item_type (matching the editor's tabs / configured
+    // order) and then by sort_order — so the PDF mirrors what the user sees.
+    let items = [...proposal.items].sort((a, b) => {
+      const ta = typeOrdinal(a.item_type || "");
+      const tb = typeOrdinal(b.item_type || "");
+      if (ta !== tb) return ta - tb;
+      return (a.sort_order || 0) - (b.sort_order || 0);
+    });
     
     // Filter by item types if configured
     if (config.filterItemTypes) {

@@ -498,4 +498,15 @@ Phase 2 Culinary backend validated 19/19 in iteration_176.json.
 
 **Verified**: Duplicated `event_42ccd0133529` (PROP-2026-0027 with 4 items across "Entradas" and "Principales"). The new event got proposal PROP-2026-0028 (Draft) with the same 4 items, preserving sort_order (0,1,1000,1001) and section grouping. Mutating an item in the copy left the original untouched (no shared `_id`).
 
+### PDF Items Ordered by Configured item_type (Feb 19, 2026)
+**Bug report**: "Items in the proposal PDF don't come out in the same item_type order I see in the editor."
+
+**Root cause**: `DocumentPreview.groupItems()` sorted items only by `sort_order` globally. The editor groups items by `item_type` (Food → Service → Rental → Fee, in the order configured in Settings → Catalogs → Item Types), which produced a visual mismatch when items of different types had overlapping `sort_order` values (e.g., a freshly-added Service item with `sort_order=0` rendered before a Food item with `sort_order=1`).
+
+**Fix** (`/app/frontend/src/components/DocumentPreview.js`)
+- Built a `typeOrder` map from `company.proposal_item_types` (already returned by `GET /api/settings/company`).
+- Updated the items sort to `(typeOrdinal(item.item_type), sort_order)` so the PDF mirrors the editor's tab order exactly. Items whose `item_type` is missing or has been deleted from settings sort to the end (`999`) while preserving relative `sort_order`.
+
+**Verified in preview**: A test proposal with 4 Food items, 1 Service item, and 1 Rental item now renders in the exact configured order — Entradas → Principales (Food) → Staff (Service) → Mobiliario (Rental) — independent of individual `sort_order` values. Subtotals already use insertion order so they automatically reflect the same ordering.
+
 Next: Eliminate ProposalEditor.js bloat (now ~4360 lines) by extracting Sortable wrappers and dialogs; finish UX Workstreams A/B/C; Logo Guest Flow; Unified Contact Model.
