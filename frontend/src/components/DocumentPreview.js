@@ -570,8 +570,8 @@ export default function DocumentPreview({
             @media print {
               body { padding: 0; }
               /* Keep small atomic units together (table rows, single service
-                 section, notes, totals). Do NOT mark `.date-group` as
-                 unbreakable — a whole day with many services can easily exceed
+                 section, notes, totals). Do NOT mark .date-group as
+                 unbreakable - a whole day with many services can easily exceed
                  a page and would otherwise push to the next page, leaving the
                  previous page mostly empty. */
               tr, .category-section, .notes, .terms, .payment-info { page-break-inside: avoid; break-inside: avoid; }
@@ -588,9 +588,10 @@ export default function DocumentPreview({
         </body>
       </html>`;
 
-    // Use a hidden iframe instead of window.open so popup blockers, strict
-    // browser policies (esp. mobile Safari) and corporate environments don't
-    // strand the user with a blank tab. The iframe is removed after printing.
+    // Strategy: write the HTML into the iframe SYNCHRONOUSLY (no srcdoc) and
+    // call `win.print()` immediately so the print dialog opens inside the
+    // user-gesture stack. Safari otherwise blocks `print()` triggered from
+    // an async `iframe.onload` or setTimeout.
     const iframe = document.createElement("iframe");
     iframe.setAttribute("aria-hidden", "true");
     iframe.style.position = "fixed";
@@ -603,53 +604,27 @@ export default function DocumentPreview({
     document.body.appendChild(iframe);
 
     const cleanup = () => {
-      // Defer removal so the print dialog has the document still attached.
       setTimeout(() => {
         if (iframe.parentNode) iframe.parentNode.removeChild(iframe);
-      }, 800);
+      }, 1200);
     };
 
-    const triggerPrint = () => {
-      try {
-        const win = iframe.contentWindow;
-        if (!win) {
-          cleanup();
-          return;
-        }
-        win.focus();
+    try {
+      const doc = iframe.contentDocument || iframe.contentWindow?.document;
+      if (!doc) { cleanup(); return; }
+      doc.open();
+      doc.write(html);
+      doc.close();
+      // Print synchronously while still inside the user-initiated click.
+      const win = iframe.contentWindow;
+      if (win) {
+        try { win.focus(); } catch (_e) { /* iOS Safari may throw */ }
         win.print();
-      } catch (_e) {
-        /* swallow */
-      } finally {
-        cleanup();
       }
-    };
-
-    // Two strategies in parallel — onload (most reliable) and a 500 ms fallback
-    // for browsers that don't fire onload on srcdoc iframes.
-    let printed = false;
-    iframe.onload = () => {
-      if (printed) return;
-      printed = true;
-      setTimeout(triggerPrint, 50);
-    };
-    setTimeout(() => {
-      if (printed) return;
-      printed = true;
-      triggerPrint();
-    }, 700);
-
-    // srcdoc is the modern, blocker-friendly way to inject HTML into an iframe.
-    // We fall back to document.write if srcdoc is unsupported.
-    if ("srcdoc" in iframe) {
-      iframe.srcdoc = html;
-    } else {
-      const doc = iframe.contentWindow?.document;
-      if (doc) {
-        doc.open();
-        doc.write(html);
-        doc.close();
-      }
+    } catch (_e) {
+      /* swallow — cleanup runs in finally */
+    } finally {
+      cleanup();
     }
   };
 

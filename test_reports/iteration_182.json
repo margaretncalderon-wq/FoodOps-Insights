@@ -1,0 +1,30 @@
+{
+  "summary": "Tested the Safari Imprimir/Print regression fix in DocumentPreview.js. FIRST PASS FAILED: clicking Imprimir threw 'ReferenceError: group is not defined' from handlePrint, window.print() never called, no iframe injected, and the React red error overlay locked the screen so Cerrar was unreachable. RCA: lines 573-577 of /app/frontend/src/components/DocumentPreview.js had a `/* ... `.date-group` ... */` block-comment inside the html template literal whose UN-ESCAPED backticks closed the outer template literal early. Babel/webpack happily compiled this — the bundled chunk at src_pages_EventDetails_js.chunk.js:1336 shows the text was emitted as the JS expression `.date - group`, which at runtime evaluates `date - group` (both undeclared). Applied a one-line fix: removed the backticks around `.date-group` inside that CSS comment (kept the wording as `.date-group`). Re-ran the Playwright suite — clicking Imprimir now: (a) injects an aria-hidden iframe (verified via MutationObserver), (b) calls win.print() synchronously within the click stack (verified by patching HTMLIFrameElement.prototype.contentWindow getter to wrap print), (c) produces NO console / page errors, (d) cleans up the iframe within ~1.2s, and (e) is reproducible across two consecutive clicks. Regression PASSED: Cerrar/Close still dismisses the preview modal. Note: this regression was the original Safari production failure — Safari likely also threw the same ReferenceError (Safari and Chrome share the same JS parsing on this point); the previous re-deploy did not regress Safari specifically, it regressed ALL browsers, just nobody else had clicked Print after the comment was introduced.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [
+    "Confirm the backtick fix matches the team's preferred phrasing — I replaced em-dash with hyphen on the same line as a side-effect of search/replace; functionally identical, but if the styleguide cares about em-dash punctuation in comments, revisit /app/frontend/src/components/DocumentPreview.js L573-577.",
+    "Add ESLint rule no-template-curly-in-string OR a project lint that flags un-escaped backticks inside template literals — this same class of bug bricked the production Print silently because compile-time parsing succeeded.",
+    "Add a smoke-test for Print: render DocumentPreview with seeded items and assert window.print is called once on click. Even a simple jest+@testing-library test would catch this regression next time.",
+    "Consider adding data-testid='document-preview-print-btn' and data-testid='document-preview-close-btn' on /app/frontend/src/components/DocumentPreview.js L685 and L689 for stable automation (right now we query by visible Imprimir/Print text)."
+  ],
+  "critical_code_review_comments": [
+    "BUG (fixed): /app/frontend/src/components/DocumentPreview.js L573-577 — backticks around `.date-group` inside an html-template-literal closed the outer literal and emitted live JS (`.date - group`) into the compiled bundle, throwing ReferenceError at click time. Any future inline backticks inside the html string (e.g., to highlight CSS class names in comments) must be escaped with \\` or rewritten without backticks.",
+    "The handlePrint refactor (synchronous doc.open/write/close + immediate win.print) is correct and Safari-safe in principle, but it would not have worked in production regardless because of the bug above. Once that bug was removed, the new strategy works as intended in Chromium.",
+    "Iframe cleanup uses setTimeout(1200ms). If the user clicks Print rapidly multiple times, several aria-hidden iframes co-exist briefly. Not a real bug, but consider tracking the previous iframe in a ref and removing it before creating the next.",
+    "try/catch around `doc.open/write/close + win.print()` swallows errors silently (L624 '/* swallow */'). For dev mode at least, console.warn(_e) would have surfaced this bug instead of failing silently."
+  ],
+  "updated_files": ["/app/frontend/src/components/DocumentPreview.js"],
+  "success_rate": {"backend": "n/a (frontend-only request)", "frontend": "100% after fix (0% before fix)"},
+  "test_credentials": "demo.agency@kora.com / Evoque2024!",
+  "seed_data_creation": "None — used pre-existing event_14c8a303ed44 (Wedding - TEST - Boda Garcia-Lopez, prop_4ef3ab9801cc with 7 items) for the demo.agency company.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "The print path is now: click Imprimir -> handlePrint creates <iframe aria-hidden=true>, document.body.appendChild(iframe), doc.open/write(html)/close, win.focus(), win.print(). All synchronous in the user-gesture stack. Cleanup runs after 1200ms. To re-verify, use the same MutationObserver + HTMLIFrameElement.prototype.contentWindow patch from this iteration to count print() calls (Playwright Chromium does NOT show a print dialog in headless mode, so the only way to verify is to instrument). Note that this exact fix cannot be validated against a real WebKit/Safari from headless Chromium — recommend a manual Safari spot-check on the deployed preview URL.",
+  "rca of the issue": "Unescaped backticks around `.date-group` inside a JS template literal at DocumentPreview.js:573 closed the outer literal mid-string. Babel/webpack accepted the resulting expression (`.date-group` parsed as `date - group` subtraction) and emitted live code into the compiled chunk. At runtime, clicking Imprimir invoked handlePrint, which threw ReferenceError: group is not defined before `win.print()` was reached. The previous testing iteration did not exercise the Print button, so this slipped through. Fix: remove the inline backticks from the comment (now reads 'Do NOT mark .date-group as ...'). Verified end-to-end: window.print is called and the aria-hidden iframe is injected and torn down cleanly on every click."
+}
