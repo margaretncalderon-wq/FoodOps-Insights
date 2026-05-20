@@ -4166,23 +4166,43 @@ export default function SettingsPage() {
                                 </div>
                               </div>
                               {template.show_logo !== false && (
-                                <div className="mt-3 flex items-center gap-2" data-testid={`logo-size-row-${template.template_id}`}>
-                                  <Label className="text-xs whitespace-nowrap">
-                                    {language === "es" ? "Tamaño del logo" : "Logo size"}
-                                  </Label>
-                                  <Select
-                                    value={template.logo_size || "medium"}
-                                    onValueChange={(v) => handleUpdateTemplate(template.template_id, { ...template, logo_size: v })}
-                                  >
-                                    <SelectTrigger className="h-8 w-[160px] text-xs" data-testid={`logo-size-select-${template.template_id}`}>
-                                      <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      <SelectItem value="small" className="text-xs">{language === "es" ? "Pequeño (40px)" : "Small (40px)"}</SelectItem>
-                                      <SelectItem value="medium" className="text-xs">{language === "es" ? "Mediano (56px)" : "Medium (56px)"}</SelectItem>
-                                      <SelectItem value="large" className="text-xs">{language === "es" ? "Grande (80px)" : "Large (80px)"}</SelectItem>
-                                    </SelectContent>
-                                  </Select>
+                                <div className="mt-3 flex flex-wrap items-center gap-x-6 gap-y-2" data-testid={`logo-size-row-${template.template_id}`}>
+                                  <div className="flex items-center gap-2">
+                                    <Label className="text-xs whitespace-nowrap">
+                                      {language === "es" ? "Tamaño del logo" : "Logo size"}
+                                    </Label>
+                                    <Select
+                                      value={template.logo_size || "medium"}
+                                      onValueChange={(v) => handleUpdateTemplate(template.template_id, { ...template, logo_size: v })}
+                                    >
+                                      <SelectTrigger className="h-8 w-[160px] text-xs" data-testid={`logo-size-select-${template.template_id}`}>
+                                        <SelectValue />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="small" className="text-xs">{language === "es" ? "Pequeño (40px)" : "Small (40px)"}</SelectItem>
+                                        <SelectItem value="medium" className="text-xs">{language === "es" ? "Mediano (56px)" : "Medium (56px)"}</SelectItem>
+                                        <SelectItem value="large" className="text-xs">{language === "es" ? "Grande (80px)" : "Large (80px)"}</SelectItem>
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <Label className="text-xs whitespace-nowrap">
+                                      {language === "es" ? "Posición" : "Position"}
+                                    </Label>
+                                    <Select
+                                      value={template.logo_position || "left"}
+                                      onValueChange={(v) => handleUpdateTemplate(template.template_id, { ...template, logo_position: v })}
+                                    >
+                                      <SelectTrigger className="h-8 w-[140px] text-xs" data-testid={`logo-position-select-${template.template_id}`}>
+                                        <SelectValue />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="left" className="text-xs">{language === "es" ? "Izquierda" : "Left"}</SelectItem>
+                                        <SelectItem value="center" className="text-xs">{language === "es" ? "Centro" : "Center"}</SelectItem>
+                                        <SelectItem value="right" className="text-xs">{language === "es" ? "Derecha" : "Right"}</SelectItem>
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
                                 </div>
                               )}
                             </div>

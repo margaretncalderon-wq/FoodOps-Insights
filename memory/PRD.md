@@ -456,4 +456,18 @@ Phase 2 Culinary backend validated 19/19 in iteration_176.json.
 
 **Tested in preview**: Updated the Proposal template's `logo_size` to "Large (80px)" via the Settings UI, toast confirmed, persistence verified via curl.
 
+### Logo Position Selector (Feb 19, 2026 — follow-up)
+**Goal**: Decide where the company logo sits in the document header — left (default), center (banner-style), or right (corporate-style).
+
+**Backend** — `DocumentTemplateCreate` gained `logo_position: Optional[str] = "left"`. The update endpoint persists it with a safe default. Curl round-trip with `{"logo_position":"center"}` returned `logo_position: center` ✅.
+
+**Frontend** (`/app/frontend/src/components/DocumentPreview.js`)
+- Lifted the logo `<img>` out of the left header column into its own `.doc-logo-wrap` block above the two-column row so it can be aligned independently without disturbing the company-info / doc-info layout.
+- The wrapper sets `display: flex; justifyContent` via inline style **and** mirrors `data-logo-position` so the print-window CSS (3 `.doc-logo-wrap[data-logo-position="…"]` rules) can apply the same alignment when Tailwind isn't loaded.
+
+**Frontend UI** (`/app/frontend/src/pages/SettingsPage.js`)
+- Added a "Posición / Position" `<Select>` (Left / Center / Right) next to the Logo Size select. Same hide-when-logo-disabled behavior. data-testid `logo-position-select-<template_id>`.
+
+**Verified**: Both selects render side-by-side in Settings → Templates and persist correctly through `PUT /api/settings/document-templates/{id}`.
+
 Next: Eliminate ProposalEditor.js bloat (now ~4360 lines) by extracting Sortable wrappers and dialogs; finish UX Workstreams A/B/C; Logo Guest Flow; Unified Contact Model.

@@ -421,6 +421,12 @@ export default function DocumentPreview({
             .doc-logo[data-logo-size="small"] { max-height: 40px; }
             .doc-logo[data-logo-size="medium"], .header img:not([data-logo-size]) { max-height: 56px; }
             .doc-logo[data-logo-size="large"] { max-height: 80px; }
+            /* Logo horizontal alignment — left | center | right. The wrapper is flex; we keep this
+               redundant CSS so output looks correct even if the inline style is stripped. */
+            .doc-logo-wrap { display: flex; margin-bottom: 12px; }
+            .doc-logo-wrap[data-logo-position="left"] { justify-content: flex-start; }
+            .doc-logo-wrap[data-logo-position="center"] { justify-content: center; }
+            .doc-logo-wrap[data-logo-position="right"] { justify-content: flex-end; }
             .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 15px 0; }
             .info-item { display: flex; gap: 8px; }
             .info-label { font-weight: 600; color: #666; }
@@ -515,22 +521,31 @@ export default function DocumentPreview({
           <CardContent className="p-8 doc-root" data-style-variant={styleVariant} ref={printRef}>
             {/* Header */}
             <div className="header border-b-2 pb-6 mb-6" style={{ borderColor: company?.primary_color || '#3A4D3F' }}>
+              {/* Logo block — lifted above the two-column layout so it can be
+                  left/center/right-aligned independently of the text columns. */}
+              {template?.show_logo !== false && company?.logo_url && (() => {
+                const sizeMap = { small: 40, medium: 56, large: 80 };
+                const maxH = sizeMap[template?.logo_size] || sizeMap.medium;
+                const pos = template?.logo_position || "left";
+                const justifyMap = { left: "flex-start", center: "center", right: "flex-end" };
+                return (
+                  <div
+                    className="doc-logo-wrap mb-3"
+                    data-logo-position={pos}
+                    style={{ display: "flex", justifyContent: justifyMap[pos] || "flex-start" }}
+                  >
+                    <img
+                      src={company.logo_url}
+                      alt={company.name}
+                      className="doc-logo"
+                      data-logo-size={template?.logo_size || "medium"}
+                      style={{ maxHeight: `${maxH}px`, maxWidth: '240px', width: 'auto', height: 'auto', objectFit: 'contain' }}
+                    />
+                  </div>
+                );
+              })()}
               <div className="flex justify-between items-start">
                 <div>
-                  {/* Logo - controlled by template */}
-                  {template?.show_logo !== false && company?.logo_url && (() => {
-                    const sizeMap = { small: 40, medium: 56, large: 80 };
-                    const maxH = sizeMap[template?.logo_size] || sizeMap.medium;
-                    return (
-                      <img
-                        src={company.logo_url}
-                        alt={company.name}
-                        className="doc-logo mb-2"
-                        data-logo-size={template?.logo_size || "medium"}
-                        style={{ maxHeight: `${maxH}px`, maxWidth: '240px', width: 'auto', height: 'auto', objectFit: 'contain' }}
-                      />
-                    );
-                  })()}
                   <h1 className="company-name text-2xl font-bold" style={{ color: company?.primary_color || '#3A4D3F' }}>
                     {company?.name || "Company Name"}
                   </h1>
