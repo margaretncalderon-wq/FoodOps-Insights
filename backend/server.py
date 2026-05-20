@@ -1140,6 +1140,8 @@ class DocumentTemplateCreate(BaseModel):
     custom_fields: List[CustomFieldDefinition] = []
     header_text_en: Optional[str] = None
     header_text_es: Optional[str] = None
+    tagline_en: Optional[str] = None  # Short slogan rendered directly under the company logo in documents
+    tagline_es: Optional[str] = None
     footer_text_en: Optional[str] = None
     footer_text_es: Optional[str] = None
     # Section titles customization
@@ -7712,6 +7714,8 @@ async def create_document_template(data: DocumentTemplateCreate, user: User = De
         "custom_fields": custom_fields,
         "header_text_en": data.header_text_en,
         "header_text_es": data.header_text_es,
+        "tagline_en": data.tagline_en,
+        "tagline_es": data.tagline_es,
         "footer_text_en": data.footer_text_en,
         "footer_text_es": data.footer_text_es,
         "created_at": now.isoformat(),
@@ -7740,6 +7744,8 @@ async def update_document_template(template_id: str, data: DocumentTemplateCreat
         "custom_fields": custom_fields,
         "header_text_en": data.header_text_en,
         "header_text_es": data.header_text_es,
+        "tagline_en": data.tagline_en,
+        "tagline_es": data.tagline_es,
         "footer_text_en": data.footer_text_en,
         "footer_text_es": data.footer_text_es,
         "food_section_title_en": data.food_section_title_en,

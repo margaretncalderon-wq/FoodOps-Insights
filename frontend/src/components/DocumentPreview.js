@@ -544,6 +544,23 @@ export default function DocumentPreview({
                   </div>
                 );
               })()}
+              {/* Tagline — short slogan rendered directly under the logo, aligned to match. */}
+              {(template?.tagline_es || template?.tagline_en) && (() => {
+                const pos = template?.logo_position || "left";
+                const textAlignMap = { left: "left", center: "center", right: "right" };
+                const tagline = language === "es"
+                  ? (template.tagline_es || template.tagline_en)
+                  : (template.tagline_en || template.tagline_es);
+                return (
+                  <p
+                    className="doc-tagline mb-3 text-xs italic text-muted-foreground"
+                    data-logo-position={pos}
+                    style={{ textAlign: textAlignMap[pos] || "left", color: company?.primary_color || '#3A4D3F', opacity: 0.85 }}
+                  >
+                    {tagline}
+                  </p>
+                );
+              })()}
               <div className="flex justify-between items-start">
                 <div>
                   <h1 className="company-name text-2xl font-bold" style={{ color: company?.primary_color || '#3A4D3F' }}>

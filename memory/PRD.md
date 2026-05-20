@@ -470,4 +470,19 @@ Phase 2 Culinary backend validated 19/19 in iteration_176.json.
 
 **Verified**: Both selects render side-by-side in Settings → Templates and persist correctly through `PUT /api/settings/document-templates/{id}`.
 
+### Template Tagline + Persistence Hardening (Feb 19, 2026)
+**Goal**: Per-template short slogan that renders directly under the company logo in every printed document (e.g. "Crafting unforgettable events").
+
+**Backend** — `DocumentTemplateCreate.tagline_en` / `tagline_es` (`Optional[str]`). Persisted in both `create_document_template` and `update_document_template`. Curl round-trip verified ✅.
+
+**Frontend** (`/app/frontend/src/components/DocumentPreview.js`)
+- New `<p class="doc-tagline">` rendered immediately below the logo wrapper. Picks `tagline_es` or `tagline_en` based on the current language with sensible fallback. Reuses `logo_position` to align the tagline so it sits naturally under the logo (left/center/right).
+- Inline `textAlign` + `data-logo-position` mirroring so the print window honors the alignment without Tailwind.
+
+**Frontend UI** (`/app/frontend/src/pages/SettingsPage.js`)
+- Added two `<Input>` fields **Tagline (EN)** and **Tagline (ES)** in the Header/Footer grid of every template card with helper text "Shown directly under the document logo". data-testids `tagline-en-input-<template_id>` / `tagline-es-input-<template_id>`.
+- **Persistence bug fix**: `handleUpdateTemplate` previously sent only ~10 fields in the PUT body, which meant **any field not explicitly listed (logo_size, logo_position, show_logo, show_tax_id, etc.) was silently reset to its default on every save**. Replaced the payload with the full list of editable fields so toggles and selects added in this session and earlier ones actually round-trip through the UI.
+
+**Verified**: Tagline inputs accept text, save fires "Template updated" toast, value reloads from backend on page refresh. Curl confirmed both EN/ES strings stored. The persistence-hardening fix also rescues `logo_size` / `logo_position` / address & tax-id toggles from accidental resets.
+
 Next: Eliminate ProposalEditor.js bloat (now ~4360 lines) by extracting Sortable wrappers and dialogs; finish UX Workstreams A/B/C; Logo Guest Flow; Unified Contact Model.

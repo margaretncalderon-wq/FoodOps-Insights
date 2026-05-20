@@ -450,6 +450,8 @@ export default function SettingsPage() {
   const handleUpdateTemplate = async (templateId, templateData) => {
     setSavingTemplate(templateId);
     try {
+      // Forward every editable field so the backend's DocumentTemplateCreate
+      // never resets a value to its default just because the UI omitted it.
       await axios.put(`${API}/settings/document-templates/${templateId}`, {
         template_type: templateData.template_type,
         name: templateData.name,
@@ -457,10 +459,32 @@ export default function SettingsPage() {
         custom_fields: templateData.custom_fields || [],
         header_text_en: templateData.header_text_en,
         header_text_es: templateData.header_text_es,
+        tagline_en: templateData.tagline_en,
+        tagline_es: templateData.tagline_es,
         footer_text_en: templateData.footer_text_en,
         footer_text_es: templateData.footer_text_es,
+        food_section_title_en: templateData.food_section_title_en,
+        food_section_title_es: templateData.food_section_title_es,
+        service_section_title_en: templateData.service_section_title_en,
+        service_section_title_es: templateData.service_section_title_es,
+        rental_section_title_en: templateData.rental_section_title_en,
+        rental_section_title_es: templateData.rental_section_title_es,
+        terms_and_conditions_en: templateData.terms_and_conditions_en,
+        terms_and_conditions_es: templateData.terms_and_conditions_es,
+        payment_instructions_en: templateData.payment_instructions_en,
+        payment_instructions_es: templateData.payment_instructions_es,
+        bank_details: templateData.bank_details,
         style_variant: templateData.style_variant || "classic",
         primary_color: templateData.primary_color,
+        show_logo: templateData.show_logo,
+        logo_size: templateData.logo_size,
+        logo_position: templateData.logo_position,
+        show_company_address: templateData.show_company_address,
+        show_tax_id: templateData.show_tax_id,
+        show_quantities: templateData.show_quantities,
+        show_notes_column: templateData.show_notes_column,
+        show_checkboxes: templateData.show_checkboxes,
+        group_by_category: templateData.group_by_category,
       }, { withCredentials: true });
       
       // Update local state
@@ -3937,6 +3961,32 @@ export default function SettingsPage() {
                                 value={template.header_text_es || ""}
                                 onChange={(e) => handleUpdateTemplate(template.template_id, { ...template, header_text_es: e.target.value })}
                               />
+                            </div>
+                            <div>
+                              <Label className="text-xs">{language === "es" ? "Tagline / Lema (EN)" : "Tagline (EN)"}</Label>
+                              <Input
+                                className="text-sm"
+                                placeholder={language === "es" ? "Lema corto en inglés (ej: \"Crafting unforgettable events\")" : "Short tagline in English (e.g. \"Crafting unforgettable events\")"}
+                                value={template.tagline_en || ""}
+                                onChange={(e) => handleUpdateTemplate(template.template_id, { ...template, tagline_en: e.target.value })}
+                                data-testid={`tagline-en-input-${template.template_id}`}
+                              />
+                              <p className="text-[10px] text-muted-foreground mt-1">
+                                {language === "es" ? "Se muestra bajo el logo del documento" : "Shown directly under the document logo"}
+                              </p>
+                            </div>
+                            <div>
+                              <Label className="text-xs">{language === "es" ? "Tagline / Lema (ES)" : "Tagline (ES)"}</Label>
+                              <Input
+                                className="text-sm"
+                                placeholder={language === "es" ? "Lema corto en español (ej: \"Creamos eventos memorables\")" : "Short tagline in Spanish (e.g. \"Creamos eventos memorables\")"}
+                                value={template.tagline_es || ""}
+                                onChange={(e) => handleUpdateTemplate(template.template_id, { ...template, tagline_es: e.target.value })}
+                                data-testid={`tagline-es-input-${template.template_id}`}
+                              />
+                              <p className="text-[10px] text-muted-foreground mt-1">
+                                {language === "es" ? "Se muestra bajo el logo del documento" : "Shown directly under the document logo"}
+                              </p>
                             </div>
                             <div>
                               <Label className="text-xs">{language === "es" ? "Pie de Página (EN)" : "Footer (EN)"}</Label>
