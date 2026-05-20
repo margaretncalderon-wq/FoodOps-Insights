@@ -9950,6 +9950,95 @@ async def bulk_reorder_order_items(
 
     return {"updated": updated, "total": len(payload.items)}
 
+
+@orchestration_router.post("/calendar/reschedule-service")
+async def reschedule_service(
+    payload: dict,
+    user: User = Depends(get_current_user),
+):
+    """Reschedule a service slot (all order_items sharing the same
+    `event_date` + `section_title` + `section_time` inside an event's
+    proposal) to a new time / date. Used by the Week-timeline drag-to-
+    reschedule UI.
+
+    Body: ``{event_id, section_title, event_date, old_time, new_time,
+              new_end_time?, new_date?}``
+    """
+    event_id = (payload or {}).get("event_id")
+    if not event_id:
+        raise HTTPException(status_code=400, detail="event_id is required")
+
+    event = await db.events.find_one({"event_id": event_id, "company_id": user.company_id})
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+    if event.get("operational_status") == "Closed":
+        raise HTTPException(status_code=400, detail="Cannot edit items in a closed event")
+
+    proposal = await db.proposals.find_one(
+        {"event_id": event_id, "company_id": user.company_id},
+        {"_id": 0, "proposal_id": 1},
+    )
+    if not proposal:
+        raise HTTPException(status_code=404, detail="Proposal not found for this event")
+
+    def _norm(v):
+        return (v or "").strip() if isinstance(v, str) else (v or "")
+
+    section_title = _norm(payload.get("section_title"))
+    event_date = _norm(payload.get("event_date"))
+    old_time = _norm(payload.get("old_time"))
+    new_time = _norm(payload.get("new_time"))
+    new_end_time = payload.get("new_end_time")
+    new_date = _norm(payload.get("new_date"))
+
+    # Build a permissive match on the source slot. Items may store the date
+    # as ``YYYY-MM-DD`` or as a full ISO string (legacy), so we try both.
+    date_clauses = []
+    if event_date:
+        date_clauses.append({"event_date": event_date})
+        date_clauses.append({"event_date": {"$regex": f"^{event_date}"}})
+    else:
+        date_clauses.append({"event_date": {"$in": ["", None]}})
+
+    title_clauses = (
+        [{"section_title": section_title}]
+        if section_title
+        else [{"section_title": {"$in": ["", None]}}]
+    )
+
+    time_clauses = (
+        [{"section_time": old_time}]
+        if old_time
+        else [{"section_time": {"$in": ["", None]}}]
+    )
+
+    query = {
+        "proposal_id": proposal["proposal_id"],
+        "company_id": user.company_id,
+        "$and": [
+            {"$or": date_clauses},
+            {"$or": title_clauses},
+            {"$or": time_clauses},
+        ],
+    }
+
+    now_iso = datetime.now(timezone.utc).isoformat()
+    patch = {"updated_at": now_iso, "section_time": new_time}
+    if new_end_time is not None:
+        patch["section_end_time"] = (_norm(new_end_time) or None)
+    if new_date:
+        patch["event_date"] = new_date
+
+    result = await db.order_items.update_many(query, {"$set": patch})
+    return {
+        "matched": result.matched_count,
+        "modified": result.modified_count,
+        "new_time": new_time,
+        "new_end_time": new_end_time,
+        "new_date": new_date or event_date,
+    }
+
+
 @proposals_router.delete("/{proposal_id}/items/{item_id}")
 async def delete_order_item(proposal_id: str, item_id: str, user: User = Depends(get_current_user)):
     """Delete an order item"""

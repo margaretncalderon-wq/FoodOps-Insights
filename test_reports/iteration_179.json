@@ -1,0 +1,25 @@
+{
+  "summary": "Tested POST /api/orchestration/calendar/reschedule-service backend endpoint and the Week-timeline drag-to-reschedule UI. Backend: 5/5 pytest tests pass (1 skipped — no Closed event in fixtures). Endpoint correctly moved Desayuno 08:00→10:30 with matched=2/modified=2, reverted cleanly, supported cross-day move with new_date='2026-05-21', and returned 400 for missing event_id / 404 for unknown event_id. Frontend: /event-orchestration/calendar Semana view rendered 3 draggable service blocks (draggable=true, cursor=grab). Native HTML5 drag via page.mouse.down/move/up successfully triggered the dragstart→drop pipeline. Toast 'Service rescheduled to 10:30–12:30 · 2 item(s)' appeared (screenshot confirms), block re-rendered at the new 10:30 row, and a follow-up calendar GET confirmed Desayuno section_time='10:30' with Almuerzo/Coffee Break unchanged. State was reverted via API at the end so DB stays deterministic. Regression: Month view still shows the 3 service chips and clicking a chip opens the side panel.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_calendar_reschedule.py",
+    "/app/test_reports/pytest/calendar_reschedule.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "WeekTimelineView.handleDrop preserves original duration when computing new_end_time (origEnd - origStart) — this overrides any new_end_time the caller might want to set. That's intentional for drag-to-move, but for a future drag-to-resize feature you'll need a separate handler.",
+    "The backend reschedule endpoint applies a permissive $or on event_date (string vs ISO prefix). This is good for legacy data but means a bad client request with stale date format could still match unintended rows in edge cases. Consider logging the matched_count when matched>expected (>=2 typically).",
+    "Frontend toast message is rendered in English in the screenshot despite the i18n isEs flag — verify isEs reflects company locale correctly across components; not a bug in this PR but worth confirming."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_calendar_reschedule.py"
+  ],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "demo.agency@kora.com / Evoque2024!",
+  "seed_data_creation": "None — used existing seeded event_test_timed_services. State restored to 08:00–10:00 Desayuno / 12:00–14:00 Almuerzo / 16:00–17:00 Coffee Break PM on 2026-05-20.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "POST /api/orchestration/calendar/reschedule-service body: {event_id, section_title, event_date(YYYY-MM-DD), old_time(HH:MM), new_time(HH:MM), new_end_time?(HH:MM|null), new_date?(YYYY-MM-DD)}. Returns {matched, modified, new_time, new_end_time, new_date}. WeekTimelineView blocks have data-testid='calendar-week-block-{event_id}-{i}' draggable=true cursor=grab; day columns 'calendar-week-day-{YYYY-MM-DD}' with onDrop. Native HTML5 drag works via Playwright's page.mouse.down/move(steps=20)/up sequence — no need for synthetic DragEvent fallback. Default Today view in this environment is already May 17–23, 2026 so 0 chevron clicks needed to reach 2026-05-20.",
+  "rca of the issue": "N/A — feature works as specified."
+}

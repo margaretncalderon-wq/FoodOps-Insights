@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useLanguage } from "../../contexts/LanguageContext";
 import axios from "axios";
+import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
@@ -139,6 +140,37 @@ export default function EventCalendarTab({ eventId, isGlobal = false }) {
   }, [currentDate, view]);
 
   useEffect(() => { fetchCalendar(); }, [fetchCalendar]);
+
+  // Reschedule a service slot (drag-to-reschedule on the Week timeline).
+  // Optimistically applies the new time then refetches.
+  const handleRescheduleService = useCallback(async ({ entry, new_time, new_end_time, new_date }) => {
+    try {
+      const body = {
+        event_id: entry.event_id,
+        section_title: entry.title || "",
+        event_date: entry.date,
+        old_time: entry.time || "",
+        new_time: new_time || "",
+        new_end_time: new_end_time || null,
+      };
+      if (new_date && new_date !== entry.date) body.new_date = new_date;
+      const res = await axios.post(
+        `${API}/api/orchestration/calendar/reschedule-service`,
+        body,
+        { withCredentials: true }
+      );
+      const modified = res.data?.modified ?? 0;
+      toast.success(
+        isEs
+          ? `Servicio reagendado a ${new_time}${new_end_time ? `–${new_end_time}` : ""}${new_date && new_date !== entry.date ? ` (${new_date})` : ""} · ${modified} ítem(s)`
+          : `Service rescheduled to ${new_time}${new_end_time ? `–${new_end_time}` : ""}${new_date && new_date !== entry.date ? ` (${new_date})` : ""} · ${modified} item(s)`
+      );
+      fetchCalendar();
+    } catch (err) {
+      console.error(err);
+      toast.error(isEs ? "No se pudo reagendar el servicio" : "Could not reschedule the service");
+    }
+  }, [fetchCalendar, isEs]);
 
   // Pre-explode events into per-date entries (service-level granularity)
   const entriesByDate = useMemo(() => {
@@ -282,6 +314,7 @@ export default function EventCalendarTab({ eventId, isGlobal = false }) {
           conflicts={conflicts}
           isEs={isEs}
           onSelect={(ev) => setSelectedEvent(ev)}
+          onReschedule={handleRescheduleService}
         />
       )}
 
@@ -449,8 +482,10 @@ function MonthView({ days, weekdayNames, entriesByDate, isConflictDate, isToday,
 
 // =========================================================================
 // Week view — timeline with hour rows + positioned service blocks
+// Supports drag-to-reschedule: drag a block vertically to change its start
+// time (snapped to 15-min) or horizontally to move it to a different day.
 // =========================================================================
-function WeekTimelineView({ currentDate, weekdayNames, entriesByDate, conflicts, isEs, onSelect }) {
+function WeekTimelineView({ currentDate, weekdayNames, entriesByDate, conflicts, isEs, onSelect, onReschedule }) {
   // Start at Sunday of the week containing currentDate
   const weekStart = new Date(currentDate);
   weekStart.setHours(0, 0, 0, 0);
@@ -464,6 +499,60 @@ function WeekTimelineView({ currentDate, weekdayNames, entriesByDate, conflicts,
   const endHour = 22;
   const hours = Array.from({ length: endHour - startHour + 1 }, (_, i) => startHour + i);
   const ROW_PX = 56;
+  const SNAP_MIN = 15;
+  // 15-min snap → ROW_PX/4 px per quarter
+  const PX_PER_MIN = ROW_PX / 60;
+
+  const fmtHHmm = (decimal) => {
+    const total = Math.round(decimal * 60 / SNAP_MIN) * SNAP_MIN;
+    const h = Math.floor(total / 60);
+    const m = total % 60;
+    return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+  };
+
+  const handleDragStart = (e, entry) => {
+    e.dataTransfer.effectAllowed = "move";
+    // Calculate offset within the block so we can compensate on drop.
+    const rect = e.currentTarget.getBoundingClientRect();
+    const offsetY = e.clientY - rect.top;
+    e.dataTransfer.setData(
+      "application/json",
+      JSON.stringify({ entry, offsetY })
+    );
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+  };
+
+  const handleDrop = (e, targetDate) => {
+    e.preventDefault();
+    let payload;
+    try { payload = JSON.parse(e.dataTransfer.getData("application/json")); }
+    catch { return; }
+    if (!payload?.entry || !onReschedule) return;
+    const { entry, offsetY } = payload;
+    const colRect = e.currentTarget.getBoundingClientRect();
+    const yWithin = e.clientY - colRect.top - (offsetY || 0);
+    const minutesFromTop = Math.max(0, yWithin / PX_PER_MIN);
+    const snapped = Math.round(minutesFromTop / SNAP_MIN) * SNAP_MIN;
+    const newStartDecimal = startHour + (snapped / 60);
+    if (newStartDecimal >= endHour + 1) return;
+
+    const new_time = fmtHHmm(newStartDecimal);
+    // Preserve duration if we knew the original end time
+    const origStart = parseHHmm(entry.time);
+    const origEnd = parseHHmm(entry.end_time);
+    let new_end_time = null;
+    if (origStart !== null && origEnd !== null && origEnd > origStart) {
+      const duration = origEnd - origStart;
+      const endDecimal = Math.min(24, newStartDecimal + duration);
+      new_end_time = fmtHHmm(endDecimal);
+    }
+    if (new_time === entry.time && targetDate === entry.date) return; // no-op
+    onReschedule({ entry, new_time, new_end_time, new_date: targetDate });
+  };
 
   // For each day, get sorted entries that have a time (timed) and untimed
   const todayISO = toLocalISO(new Date());
@@ -529,7 +618,13 @@ function WeekTimelineView({ currentDate, weekdayNames, entriesByDate, conflicts,
             const key = toLocalISO(d);
             const timed = (entriesByDate[key] || []).filter((e) => parseHHmm(e.time) !== null);
             return (
-              <div key={idx} className="border-l relative">
+              <div
+                key={idx}
+                className="border-l relative"
+                onDragOver={handleDragOver}
+                onDrop={(e) => handleDrop(e, key)}
+                data-testid={`calendar-week-day-${key}`}
+              >
                 {/* Background hour lines */}
                 {hours.map((h) => (
                   <div key={h} className="border-b" style={{ height: ROW_PX }} />
@@ -560,20 +655,24 @@ function WeekTimelineView({ currentDate, weekdayNames, entriesByDate, conflicts,
                   const height = Math.max(20, duration * ROW_PX - 2);
                   const bg = stageColor(entry.stage);
                   return (
-                    <button
+                    <div
                       key={i}
+                      draggable
+                      onDragStart={(e) => handleDragStart(e, entry)}
                       onClick={() => onSelect(entry.event)}
-                      className="absolute left-1 right-1 rounded text-left p-1 text-[10px] leading-tight text-white shadow-sm hover:brightness-110"
+                      className="absolute left-1 right-1 rounded text-left p-1 text-[10px] leading-tight text-white shadow-sm hover:brightness-110 cursor-grab active:cursor-grabbing select-none"
                       style={{ top, height, backgroundColor: bg }}
-                      title={`${entry.event_name} · ${entry.title || ""} ${fmtTime(entry.time)}${entry.end_time ? "-" + fmtTime(entry.end_time) : ""}`}
+                      title={`${entry.event_name} · ${entry.title || ""} ${fmtTime(entry.time)}${entry.end_time ? "-" + fmtTime(entry.end_time) : ""}\n${isEs ? "Arrastra para reagendar" : "Drag to reschedule"}`}
                       data-testid={`calendar-week-block-${entry.event_id}-${i}`}
+                      role="button"
+                      tabIndex={0}
                     >
                       <div className="font-mono text-[9px] opacity-90">
                         {fmtTime(entry.time)}{entry.end_time ? `–${fmtTime(entry.end_time)}` : ""}
                       </div>
                       <div className="font-semibold truncate">{entry.title || entry.event_name}</div>
                       {entry.title && <div className="opacity-90 truncate">{entry.event_name}</div>}
-                    </button>
+                    </div>
                   );
                 })}
               </div>
