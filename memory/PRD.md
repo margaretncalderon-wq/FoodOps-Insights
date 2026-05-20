@@ -783,3 +783,18 @@ Now content flows: header → catering summary → first service section fills t
 - Seeded 3 orphans on a demo proposal: `item_type = "" / null / "Bebida"`.
 - Editor renders both a `Bebida` group and a synthetic `Other (untyped)` group, each with the amber badge. Header pill shows `Items (3)`. Standard types (when present) remain badge-free.
 - Cleanup removed all 3 seeded items.
+
+
+### Print Button Regression (Safari + ALL browsers) — Feb 20, 2026
+**Reported (production)**: "Ahora cuando le doy a imprimir la cotización el botón no funciona" — Safari, production (`ourkora.com`).
+
+**Real root cause** (discovered by testing agent, iteration 182):
+The page-break CSS fix earlier in the day introduced a CSS comment inside the `html` template literal that wrapped `.date-group` in backticks. The un-escaped backticks closed the surrounding JS template literal mid-string. Babel/webpack accepted it; the resulting bundle evaluated `.date-group` as `.date - group` (subtraction). At click time, `handlePrint` threw `ReferenceError: group is not defined` BEFORE `win.print()` could run. Print silently died in every browser — Safari was just the first user to notice.
+
+**Fix** (`/app/frontend/src/components/DocumentPreview.js` L573-575): removed the inline backticks from the CSS comment.
+
+**Bonus refactor** (same iteration): rewrote `handlePrint` to be fully synchronous within the click handler — `doc.open/write/close` then immediate `win.print()` — so the print dialog stays inside the user-gesture stack on Safari.
+
+**Validation** (`/app/test_reports/iteration_182.json` — 100% pass after fix): clicking Imprimir injects the aria-hidden iframe, calls `win.print()` exactly once, no console errors, iframe cleaned up after ~1.2s. Cerrar still closes the modal.
+
+**Lesson**: never put un-escaped backticks inside a template-literal html string, even in comments.
