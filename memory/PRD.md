@@ -485,4 +485,17 @@ Phase 2 Culinary backend validated 19/19 in iteration_176.json.
 
 **Verified**: Tagline inputs accept text, save fires "Template updated" toast, value reloads from backend on page refresh. Curl confirmed both EN/ES strings stored. The persistence-hardening fix also rescues `logo_size` / `logo_position` / address & tax-id toggles from accidental resets.
 
+### Deep-Copy Event Duplication (Feb 19, 2026)
+**Bug report**: "When I duplicate a proposal, only the name is duplicated — items, sections, etc. are lost."
+
+**Root cause**: `POST /api/events/{id}/duplicate` only cloned the `events` document. It never touched the `proposals` collection or `order_items` collection that hang off the event, so the copied event landed with an empty proposal.
+
+**Fix** (`/app/backend/server.py` — `duplicate_event`)
+- After cloning the event we now:
+  1. Find the original proposal for the source event and create a new proposal document with fresh `proposal_id` + `proposal_number`, status reset to `Draft`, `sent_at` / `accepted_at` / `rejected_at` cleared, and all other fields (financial totals, day_logistics, custom_field_values, terms, etc.) preserved.
+  2. Find every `order_items` row linked to the original proposal, regenerate `item_id`, retarget `proposal_id` + `event_id`, refresh timestamps, and bulk-insert via `insert_many`. Sort order, sections, allergens, pricing, discounts, long descriptions, and recipe/menu references all survive.
+- `_id` is stripped before reuse to avoid MongoDB duplicate-key errors.
+
+**Verified**: Duplicated `event_42ccd0133529` (PROP-2026-0027 with 4 items across "Entradas" and "Principales"). The new event got proposal PROP-2026-0028 (Draft) with the same 4 items, preserving sort_order (0,1,1000,1001) and section grouping. Mutating an item in the copy left the original untouched (no shared `_id`).
+
 Next: Eliminate ProposalEditor.js bloat (now ~4360 lines) by extracting Sortable wrappers and dialogs; finish UX Workstreams A/B/C; Logo Guest Flow; Unified Contact Model.

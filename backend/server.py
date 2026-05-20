@@ -4871,20 +4871,69 @@ async def duplicate_event(event_id: str, user: User = Depends(get_current_user))
     original = await db.events.find_one({"event_id": event_id, "company_id": user.company_id}, {"_id": 0})
     if not original:
         raise HTTPException(status_code=404, detail="Event not found")
-    
+
     now = datetime.now(timezone.utc)
     new_event_id = f"event_{uuid.uuid4().hex[:12]}"
-    
+
     new_event = {**original, "event_id": new_event_id, "name": f"{original['name']} (Copy)", "status": "planning", "tasks": [], "documents": [], "created_at": now.isoformat(), "updated_at": now.isoformat()}
-    
+
     await db.events.insert_one(new_event)
     await db.clients.update_one({"client_id": original["client_id"]}, {"$inc": {"events_count": 1}})
-    
+
+    # Duplicate the proposal (sections, day logistics, financials, etc.) and ALL its line items.
+    # Status is reset to Draft; identifiers and timestamps are regenerated.
+    original_proposal = await db.proposals.find_one(
+        {"event_id": event_id, "company_id": user.company_id}, {"_id": 0}
+    )
+    if original_proposal:
+        new_proposal_id = f"prop_{uuid.uuid4().hex[:12]}"
+        try:
+            new_proposal_number = await generate_proposal_number(user.company_id)
+        except Exception:
+            new_proposal_number = f"PROP-{now.year}-{uuid.uuid4().hex[:6].upper()}"
+        new_proposal = {
+            **original_proposal,
+            "proposal_id": new_proposal_id,
+            "proposal_number": new_proposal_number,
+            "event_id": new_event_id,
+            "status": "Draft",
+            "sent_at": None,
+            "accepted_at": None,
+            "rejected_at": None,
+            "last_edited_at": now.isoformat(),
+            "created_at": now.isoformat(),
+            "updated_at": now.isoformat(),
+        }
+        new_proposal.pop("_id", None)
+        await db.proposals.insert_one(new_proposal)
+
+        # Clone every line item, generating fresh item_ids while preserving sort_order,
+        # section grouping, pricing, allergens, and notes. We don't carry across
+        # transient run-time fields if any leaked into the doc.
+        original_items = await db.order_items.find(
+            {"proposal_id": original_proposal["proposal_id"]}, {"_id": 0}
+        ).to_list(2000)
+        cloned = []
+        for it in original_items:
+            new_item = {
+                **it,
+                "item_id": f"oi_{uuid.uuid4().hex[:12]}",
+                "proposal_id": new_proposal_id,
+                "event_id": new_event_id,
+                "created_at": now.isoformat(),
+                "updated_at": now.isoformat(),
+            }
+            new_item.pop("_id", None)
+            cloned.append(new_item)
+        if cloned:
+            await db.order_items.insert_many(cloned)
+
+    # Normalize for the response model
     del new_event["_id"]
     for field in ["event_date", "end_date", "created_at", "updated_at"]:
         if new_event.get(field) and isinstance(new_event[field], str):
             new_event[field] = datetime.fromisoformat(new_event[field])
-    
+
     return Event(**new_event)
 
 @events_router.get("/{event_id}")
