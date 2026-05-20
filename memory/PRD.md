@@ -429,4 +429,18 @@ Phase 2 Culinary backend validated 19/19 in iteration_176.json.
 
 **Compatibility**: When `event_dates` is empty the form stays in legacy single/range mode and behaves exactly as before.
 
+### Document PDF Fixes — Order & Logo Size (Feb 19, 2026)
+**Bug reports from user**: (1) items printed out of order in proposal PDFs; (2) company logo rendered huge in the printed PDF.
+
+**Root cause**
+- `DocumentPreview.groupItems()` iterated `proposal.items` without sorting by `sort_order`. The grouping bucket insertion order ended up dictating output, which usually matched the editor but could drift when items had identical sort_orders or the array was mutated.
+- The logo `<img>` only had Tailwind class `h-12` (48px). Tailwind isn't loaded inside the print window opened by `handlePrint()`, so the image fell back to its natural size — which for typical brand logos is 800-2000px wide.
+
+**Fix** (`/app/frontend/src/components/DocumentPreview.js`)
+- `groupItems()` now starts with `proposal.items.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))` so every section and item lands in the exact order the user arranged with drag/drop or arrow buttons.
+- The header logo `<img>` got explicit inline `style` (max-height 56px, max-width 200px, `object-fit: contain`) so the constraint travels with the element into any context.
+- The print-window CSS gained a `.doc-logo, .header img { max-height: 56px; max-width: 200px; … }` rule as a belt-and-suspenders safety net for any other img elements in the printed doc.
+
+**Verified**: PDF preview of `prop_e45ef7945072` now shows items in `sort_order` ascending (Entradas → Principales) exactly matching the editor. No regressions for proposals without sections or with a single section.
+
 Next: Eliminate ProposalEditor.js bloat (now ~4360 lines) by extracting Sortable wrappers and dialogs; finish UX Workstreams A/B/C; Logo Guest Flow; Unified Contact Model.

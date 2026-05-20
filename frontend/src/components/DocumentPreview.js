@@ -197,7 +197,11 @@ export default function DocumentPreview({
   const groupItems = () => {
     if (!proposal?.items) return {};
     
-    let items = [...proposal.items];
+    // Sort items by sort_order so sections and items keep the same order
+    // the user arranged in the editor (drag/drop or arrow buttons).
+    let items = [...proposal.items].sort(
+      (a, b) => (a.sort_order || 0) - (b.sort_order || 0)
+    );
     
     // Filter by item types if configured
     if (config.filterItemTypes) {
@@ -410,6 +414,10 @@ export default function DocumentPreview({
           <style>
             body { font-family: 'Segoe UI', sans-serif; padding: 20px; color: #1a1a1a; }
             ${variantCSS}
+            /* Keep the company logo bounded in printed output — Tailwind isn't
+               loaded inside the print window, so its natural size could otherwise
+               render huge. */
+            .doc-logo, .doc-root img.doc-logo, .header img { max-height: 56px; max-width: 200px; width: auto; height: auto; object-fit: contain; display: block; }
             .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 15px 0; }
             .info-item { display: flex; gap: 8px; }
             .info-label { font-weight: 600; color: #666; }
@@ -508,7 +516,12 @@ export default function DocumentPreview({
                 <div>
                   {/* Logo - controlled by template */}
                   {template?.show_logo !== false && company?.logo_url && (
-                    <img src={company.logo_url} alt={company.name} className="h-12 mb-2" />
+                    <img
+                      src={company.logo_url}
+                      alt={company.name}
+                      className="doc-logo mb-2"
+                      style={{ maxHeight: '56px', maxWidth: '200px', width: 'auto', height: 'auto', objectFit: 'contain' }}
+                    />
                   )}
                   <h1 className="company-name text-2xl font-bold" style={{ color: company?.primary_color || '#3A4D3F' }}>
                     {company?.name || "Company Name"}
