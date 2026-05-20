@@ -11,6 +11,7 @@ import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { Badge } from "../components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
+import { formatDateOnly } from "../utils/dates";
 import {
   Dialog,
   DialogContent,
@@ -684,7 +685,7 @@ export default function CRMPage() {
                       <TableCell className="capitalize">{lead.event_type}</TableCell>
                       <TableCell>
                         {lead.event_date && lead.event_date !== "TBD" 
-                          ? new Date(lead.event_date).toLocaleDateString() 
+                          ? formatDateOnly(lead.event_date, language) 
                           : "TBD"}
                       </TableCell>
                       <TableCell>
@@ -918,7 +919,7 @@ export default function CRMPage() {
                     <Label className="text-muted-foreground">{dateLabel}</Label>
                     <p className="font-medium">
                       {selectedLead.event_date && selectedLead.event_date !== "TBD"
-                        ? new Date(selectedLead.event_date).toLocaleDateString()
+                        ? formatDateOnly(selectedLead.event_date, language)
                         : "TBD"}
                     </p>
                   </div>

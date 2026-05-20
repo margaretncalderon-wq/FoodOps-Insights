@@ -9,6 +9,7 @@ import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
 import { toast } from "sonner";
 import { ArrowLeft, Mail, Phone, MapPin, Building2, Calendar, Edit, Trash2 } from "lucide-react";
+import { formatDateOnly } from "../utils/dates";
 
 
 export default function ClientDetails() {
@@ -222,7 +223,7 @@ export default function ClientDetails() {
                     <div className="flex-1">
                       <p className="font-medium">{event.name}</p>
                       <p className="text-sm text-muted-foreground">
-                        {new Date(event.event_date).toLocaleDateString(language === "es" ? "es-ES" : "en-US")}
+                        {formatDateOnly(event.event_date, language)}
                       </p>
                     </div>
                     <Badge>{t(event.status)}</Badge>

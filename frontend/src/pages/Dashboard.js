@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import { Link } from "react-router-dom";
 import axios from "axios";
 import { API } from "../utils/api";
+import { parseDateOnly, formatDateOnly } from "../utils/dates";
 import { Layout } from "../components/Layout";
 import { useLanguage } from "../contexts/LanguageContext";
 import { useModules } from "../contexts/ModulesContext";
@@ -78,7 +79,7 @@ export default function SystemPulse() {
       // Process Active Events (from Event Orchestration)
       const now = new Date();
       const activeEvents = events.map(event => {
-        const eventDate = event.event_date ? new Date(event.event_date) : null;
+        const eventDate = event.event_date ? parseDateOnly(event.event_date) : null;
         const daysUntil = eventDate ? Math.ceil((eventDate - now) / (1000 * 60 * 60 * 24)) : null;
         
         // Determine status
@@ -111,7 +112,7 @@ export default function SystemPulse() {
       // Events without team assigned (within 14 days)
       events.filter(e => {
         if (e.has_team) return false;
-        const eventDate = e.event_date ? new Date(e.event_date) : null;
+        const eventDate = e.event_date ? parseDateOnly(e.event_date) : null;
         if (!eventDate) return false;
         const daysUntil = Math.ceil((eventDate - now) / (1000 * 60 * 60 * 24));
         return daysUntil <= 14 && daysUntil >= 0;
@@ -466,7 +467,7 @@ export default function SystemPulse() {
                             <Calendar className="w-3 h-3" />
                             <span>
                               {event.event_date 
-                                ? new Date(event.event_date).toLocaleDateString(isEs ? "es-ES" : "en-US")
+                                ? formatDateOnly(event.event_date, isEs ? "es" : "en")
                                 : "TBD"}
                             </span>
                             {event.daysUntil !== null && event.daysUntil >= 0 && (

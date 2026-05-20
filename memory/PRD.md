@@ -577,4 +577,30 @@ Phase 2 Culinary backend validated 19/19 in iteration_176.json.
 
 **Verified in preview**: Print iframe of `prop_e45ef7945072` now renders a polished proposal with branded tables, section banners, info grid, and tagline — visually indistinguishable from the on-screen preview.
 
+### Timezone Date Offset — Full Sweep (Feb 19, 2026)
+**Bug report**: "I set May 20 in the event but it shows May 21. Same with non-consecutive days."
+
+**Root cause** (two bugs combined):
+1. **`utils/dates.js → toDateOnly`** used `new Date(value).getFullYear/Month/Date()` for string input. When the value was an ISO string with UTC midnight (`"2026-05-20T00:00:00Z"`, the backend's storage format), `new Date()` shifted it to the previous day in any UTC-X timezone and `getFullYear` returned that shifted local date. So `"2026-05-20T00:00:00Z"` round-tripped to `"2026-05-19"` (UTC-5) or `"2026-05-21"` (UTC+1).
+2. **15+ call-sites** still used `new Date(event.event_date).toLocaleDateString(...)` directly instead of the safe helpers, so even with the helper fixed those screens kept showing the wrong day.
+
+**Fix**
+- **`/app/frontend/src/utils/dates.js`** → `toDateOnly` now extracts the calendar date directly from any string that starts with `YYYY-MM-DD` (regardless of trailing time/UTC), bypassing `new Date()` entirely. Falls back to local-Date extraction only for genuine `Date` instances. Verified with Node test: `toDateOnly("2026-05-20T00:00:00Z")` → `"2026-05-20"` in every timezone.
+- **Replaced `new Date(...).toLocaleDateString()`** with `formatDateOnly(...)` (and `new Date(...)` with `parseDateOnly(...)` for duration math) across all user-facing event displays:
+  - `EventsPage.js` (card display + getDuration)
+  - `EventDetails.js` (getDuration)
+  - `Dashboard.js` (activeEvents map, upcoming-without-team filter, event card)
+  - `EventOrchestrationPage.js` (time-window filter, two date displays)
+  - `CRMPage.js` (lead list + lead detail)
+  - `ClientDetails.js`, `ClientEventPortal.js`, `ClientPortal.js`, `ClientPortalMain.js`
+  - `DocumentPreview.js` page + component (event_date display in header, section date headers, formatDate helper)
+  - `EngagementCalendar.js` (3 spots — month-jump filter, multi-day display, selected-event dialog)
+  - `Partners/PartnerDetailPage.js` (event card)
+  - `FoodOpsPage.js` (event selector)
+
+**Verified in preview** with Node round-trip test:
+- `"2026-05-20T00:00:00Z"` → `"2026-05-20"` ✅
+- `"2026-05-20"` → `"2026-05-20"` ✅
+- `new Date(2026, 4, 20, 12, 0, 0)` → `"2026-05-20"` ✅
+
 Next: Eliminate ProposalEditor.js bloat (now ~4360 lines) by extracting Sortable wrappers and dialogs; finish UX Workstreams A/B/C; Logo Guest Flow; Unified Contact Model.

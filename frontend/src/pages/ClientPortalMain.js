@@ -10,6 +10,7 @@ import {
   FileSignature, Receipt, ChevronRight, Clock,
   CheckCircle, AlertCircle, CreditCard, DollarSign
 } from "lucide-react";
+import { formatDateOnly } from "../utils/dates";
 
 export default function ClientPortalMain() {
   const { clientId } = useParams();
@@ -189,7 +190,7 @@ export default function ClientPortalMain() {
                           <div className="flex items-center gap-3 text-sm text-muted-foreground mt-1">
                             <span className="flex items-center gap-1">
                               <Clock className="w-3 h-3" />
-                              {event.event_date ? new Date(event.event_date).toLocaleDateString() : "TBD"}
+                              {event.event_date ? formatDateOnly(event.event_date) : "TBD"}
                             </span>
                             {event.venue && (
                               <span className="truncate max-w-[200px]">{event.venue}</span>

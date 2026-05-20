@@ -10,6 +10,7 @@ import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
 import { toast } from "sonner";
 import { ArrowLeft, Download, FileText, CheckCircle, Calendar, Users, MapPin, DollarSign, ChefHat, Package } from "lucide-react";
+import { formatDateOnly } from "../utils/dates";
 
 
 export default function DocumentPreview() {
@@ -201,9 +202,9 @@ export default function DocumentPreview() {
               <p className="font-medium text-lg">{event.name}</p>
               <p className="flex items-center gap-2 text-muted-foreground">
                 <Calendar className="w-4 h-4" />
-                {event.event_date ? new Date(event.event_date).toLocaleDateString() : "-"}
+                {event.event_date ? formatDateOnly(event.event_date) : "-"}
                 {event.end_date && event.is_booking && (
-                  <span> - {new Date(event.end_date).toLocaleDateString()}</span>
+                  <span> - {formatDateOnly(event.end_date)}</span>
                 )}
               </p>
               {event.venue && (

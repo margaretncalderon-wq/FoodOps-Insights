@@ -18,6 +18,7 @@ import {
   Package, Calendar, Users, MapPin, Phone, Mail, Building2,
   ClipboardList, ScrollText, Receipt, MenuSquare, Clock
 } from "lucide-react";
+import { parseDateOnly } from "../utils/dates";
 
 
 // Document type configurations
@@ -617,8 +618,12 @@ export default function DocumentPreview({
   // Format date
   const formatDate = (dateStr) => {
     if (!dateStr) return "";
+    // Use parseDateOnly so YYYY-MM-DD doesn't get interpreted as midnight UTC
+    // (which would render the previous day in any UTC-X timezone).
+    const d = parseDateOnly(dateStr);
+    if (!d) return dateStr;
     try {
-      return new Date(dateStr).toLocaleDateString(language === "es" ? "es-ES" : "en-US", {
+      return d.toLocaleDateString(language === "es" ? "es-ES" : "en-US", {
         weekday: 'long',
         year: 'numeric',
         month: 'long',
@@ -862,7 +867,12 @@ export default function DocumentPreview({
                             {sectionDate && (
                               <span className="flex items-center gap-1">
                                 <Calendar className="w-3 h-3" />
-                                {new Date(sectionDate).toLocaleDateString(language === "es" ? "es" : "en", { weekday: "short", day: "2-digit", month: "2-digit", year: "numeric" })}
+                                {(() => {
+                                  const d = parseDateOnly(sectionDate);
+                                  return d
+                                    ? d.toLocaleDateString(language === "es" ? "es" : "en", { weekday: "short", day: "2-digit", month: "2-digit", year: "numeric" })
+                                    : sectionDate;
+                                })()}
                               </span>
                             )}
                             {sectionTime && (

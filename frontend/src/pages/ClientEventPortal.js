@@ -11,6 +11,7 @@ import {
   FileSignature, Receipt, ClipboardList, Truck, Clock, 
   CheckCircle, ExternalLink, PlayCircle, ChefHat
 } from "lucide-react";
+import { formatDateOnly } from "../utils/dates";
 
 export default function ClientEventPortal() {
   const { eventId } = useParams();
@@ -133,7 +134,7 @@ export default function ClientEventPortal() {
             </div>
             <Badge variant="outline" className="text-base px-3 py-1">
               <Calendar className="w-4 h-4 mr-2" />
-              {event.event_date ? new Date(event.event_date).toLocaleDateString() : "-"}
+              {event.event_date ? formatDateOnly(event.event_date) : "-"}
             </Badge>
           </div>
         </div>

@@ -13,6 +13,13 @@
 /** Convert a `Date` (or string) to "YYYY-MM-DD" in the user's local calendar. */
 export function toDateOnly(value) {
   if (!value) return null;
+  // For strings, prefer extracting the calendar date directly from "YYYY-MM-DD…"
+  // so an ISO with UTC time (e.g. "2026-05-20T00:00:00Z") doesn't get shifted
+  // into the previous day by `new Date()` when the user is in a UTC-X timezone.
+  if (typeof value === "string") {
+    const m = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (m) return `${m[1]}-${m[2]}-${m[3]}`;
+  }
   const d = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(d.getTime())) return null;
   const y = d.getFullYear();

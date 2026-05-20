@@ -21,6 +21,7 @@ import { SortSelect, applySort, readStoredSort } from "../components/ui/sort-sel
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui/table";
 import { Textarea } from "../components/ui/textarea";
 import { Checkbox } from "../components/ui/checkbox";
+import { formatDateOnly } from "../utils/dates";
 
 // Custom Components
 import RecipeBuilder from "../components/RecipeBuilder";
@@ -2366,7 +2367,7 @@ function PurchasesSection() {
             <SelectTrigger className="w-full max-w-md"><SelectValue placeholder={language === "es" ? "Seleccionar evento..." : "Select event..."} /></SelectTrigger>
             <SelectContent>
               {events.map(event => (
-                <SelectItem key={event.event_id} value={event.event_id}>{event.name} - {event.event_date ? new Date(event.event_date).toLocaleDateString() : "TBD"}</SelectItem>
+                <SelectItem key={event.event_id} value={event.event_id}>{event.name} - {event.event_date ? formatDateOnly(event.event_date) : "TBD"}</SelectItem>
               ))}
             </SelectContent>
           </Select>

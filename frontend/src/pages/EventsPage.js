@@ -409,8 +409,9 @@ export default function EventsPage({ embedded = false }) {
 
   const getDuration = (event) => {
     if (!event.is_booking || !event.end_date) return null;
-    const start = new Date(event.event_date);
-    const end = new Date(event.end_date);
+    const start = parseDateOnly(event.event_date);
+    const end = parseDateOnly(event.end_date);
+    if (!start || !end) return null;
     const days = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
     return `${days} ${isEs ? "días" : "days"}`;
   };
@@ -1191,9 +1192,9 @@ export default function EventsPage({ embedded = false }) {
                           </Link>
                           <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
                             <CalendarIcon className="w-3 h-3" />
-                            {event.event_date_tbd || !event.event_date || new Date(event.event_date).getTime() < 86400000
+                            {event.event_date_tbd || !event.event_date
                               ? "TBD" 
-                              : new Date(event.event_date).toLocaleDateString()}
+                              : formatDateOnly(event.event_date, language)}
                           </div>
                           {event.expected_value && (
                             <div className="flex items-center gap-1 text-xs font-medium text-green-600">

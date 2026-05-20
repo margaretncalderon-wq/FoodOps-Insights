@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../..
 import { Button } from "../../components/ui/button";
 import { Badge } from "../../components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs";
+import { formatDateOnly } from "../../utils/dates";
 import { Separator } from "../../components/ui/separator";
 import { ScrollArea } from "../../components/ui/scroll-area";
 import {
@@ -937,7 +938,7 @@ export default function PartnerDetailPage() {
                                   <p className="text-sm text-muted-foreground">{event.client_name}</p>
                                 </div>
                                 <div className="text-right">
-                                  <p className="text-sm">{event.event_date ? new Date(event.event_date).toLocaleDateString() : "-"}</p>
+                                  <p className="text-sm">{event.event_date ? formatDateOnly(event.event_date) : "-"}</p>
                                   <Badge variant="outline">{event.status}</Badge>
                                 </div>
                               </div>

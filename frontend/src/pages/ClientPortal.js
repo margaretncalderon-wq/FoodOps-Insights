@@ -14,6 +14,7 @@ import {
   FileText, CheckCircle, Calendar, Users, MapPin, ChefHat, Loader2,
   Utensils, Wine, Armchair, Package, Clock, DollarSign, CalendarDays
 } from "lucide-react";
+import { formatDateOnly } from "../utils/dates";
 
 
 // Item type icons
@@ -477,9 +478,9 @@ export default function ClientPortal() {
                   <p className="font-medium text-lg">{event.name}</p>
                   <p className="flex items-center gap-2 text-muted-foreground">
                     <Calendar className="w-4 h-4" />
-                    {event.event_date ? new Date(event.event_date).toLocaleDateString() : "-"}
+                    {event.event_date ? formatDateOnly(event.event_date) : "-"}
                     {isMultiday && event.end_date && (
-                      <span> - {new Date(event.end_date).toLocaleDateString()}</span>
+                      <span> - {formatDateOnly(event.end_date)}</span>
                     )}
                   </p>
                   {event.start_time && (

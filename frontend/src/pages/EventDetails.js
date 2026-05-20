@@ -7,7 +7,7 @@ import ProposalEditor from "../components/ProposalEditor";
 import EventPurchaseList from "../components/EventPurchaseList";
 import EventPayments from "../components/EventPayments";
 import { useLanguage } from "../contexts/LanguageContext";
-import { formatDateOnly } from "../utils/dates";
+import { formatDateOnly, parseDateOnly } from "../utils/dates";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
@@ -226,8 +226,9 @@ export default function EventDetails() {
 
   const getDuration = () => {
     if (!event?.is_booking || !event?.end_date) return null;
-    const start = new Date(event.event_date);
-    const end = new Date(event.end_date);
+    const start = parseDateOnly(event.event_date);
+    const end = parseDateOnly(event.end_date);
+    if (!start || !end) return null;
     const days = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
     return `${days} ${language === "es" ? "días" : "days"}`;
   };

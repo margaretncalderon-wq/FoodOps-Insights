@@ -5,6 +5,7 @@ import { Routes, Route, NavLink, Navigate, useParams, useNavigate, useLocation }
 import axios from "axios";
 import { toast } from "sonner";
 import { Layout } from "../components/Layout";
+import { parseDateOnly, formatDateOnly } from "../utils/dates";
 
 // UI Components
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../components/ui/card";
@@ -82,7 +83,7 @@ function EventsList() {
     
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const eventDate = event.event_date ? new Date(event.event_date) : null;
+    const eventDate = event.event_date ? parseDateOnly(event.event_date) : null;
     
     if (!eventDate) return timeWindow === "all"; // Events without date only show in "All"
     
@@ -108,7 +109,7 @@ function EventsList() {
   const getMicroSignals = (event) => {
     const signals = [];
     const today = new Date();
-    const eventDate = event.event_date ? new Date(event.event_date) : null;
+    const eventDate = event.event_date ? parseDateOnly(event.event_date) : null;
     
     if (eventDate) {
       const diffDays = Math.ceil((eventDate - today) / (1000 * 60 * 60 * 24));
@@ -276,7 +277,7 @@ function EventsList() {
                   <div className="flex items-center gap-2 text-muted-foreground">
                     <Calendar className="w-4 h-4" />
                     {event.event_date 
-                      ? new Date(event.event_date).toLocaleDateString()
+                      ? formatDateOnly(event.event_date, isEs ? "es" : "en")
                       : (isEs ? "Fecha por definir" : "Date TBD")}
                   </div>
                   {event.venue && (
@@ -464,7 +465,7 @@ function EventDetail() {
           <div className="flex items-center gap-4 mt-1 text-muted-foreground">
             <span className="flex items-center gap-1">
               <Calendar className="w-4 h-4" />
-              {event.event_date ? new Date(event.event_date).toLocaleDateString() : "TBD"}
+              {event.event_date ? formatDateOnly(event.event_date, isEs ? "es" : "en") : "TBD"}
             </span>
             <span className="flex items-center gap-1">
               <Users className="w-4 h-4" />

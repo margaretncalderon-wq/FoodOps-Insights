@@ -7,6 +7,7 @@ import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../components/ui/dialog";
+import { parseDateOnly, formatDateOnly } from "../utils/dates";
 import { 
   ChevronLeft, ChevronRight, Plus, Calendar as CalendarIcon, 
   RefreshCw, Filter, Users, MapPin, Clock, DollarSign, CalendarClock
@@ -91,7 +92,7 @@ export default function EngagementCalendar({ embedded = false }) {
     const monthKey = (d) => `${d.getFullYear()}-${d.getMonth()}`;
     const currentKey = monthKey(currentDate);
     const dates = events
-      .map((e) => (e.event_date ? new Date(e.event_date) : null))
+      .map((e) => (e.event_date ? parseDateOnly(e.event_date) : null))
       .filter((d) => d && !isNaN(d.getTime()));
     const hasInCurrent = dates.some((d) => monthKey(d) === currentKey);
     if (!hasInCurrent && dates.length > 0) {
@@ -680,7 +681,7 @@ export default function EngagementCalendar({ embedded = false }) {
                             {isMultiDay && (
                               <div className="mt-2 text-sm text-muted-foreground">
                                 <CalendarIcon className="w-4 h-4 inline mr-1" />
-                                {new Date(event.event_date).toLocaleDateString(isEs ? 'es-ES' : 'en-US')} - {new Date(event.end_date).toLocaleDateString(isEs ? 'es-ES' : 'en-US')}
+                                {formatDateOnly(event.event_date, isEs ? 'es' : 'en')} - {formatDateOnly(event.end_date, isEs ? 'es' : 'en')}
                               </div>
                             )}
                             
@@ -788,10 +789,10 @@ export default function EngagementCalendar({ embedded = false }) {
                   <p className="text-muted-foreground">{isEs ? "Fecha" : "Date"}</p>
                   <p className="font-medium">
                     {selectedEvent.event_date 
-                      ? new Date(selectedEvent.event_date).toLocaleDateString(isEs ? 'es-ES' : 'en-US')
+                      ? formatDateOnly(selectedEvent.event_date, isEs ? 'es' : 'en')
                       : "TBD"}
                     {selectedEvent.end_date && selectedEvent.end_date !== selectedEvent.event_date && (
-                      <> - {new Date(selectedEvent.end_date).toLocaleDateString(isEs ? 'es-ES' : 'en-US')}</>
+                      <> - {formatDateOnly(selectedEvent.end_date, isEs ? 'es' : 'en')}</>
                     )}
                   </p>
                 </div>
