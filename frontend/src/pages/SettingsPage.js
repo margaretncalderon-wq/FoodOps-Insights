@@ -35,6 +35,10 @@ import { toast } from "sonner";
 import { Building2, Palette, Globe, DollarSign, FileText, Loader2, Check, Plus, Trash2, Tag, ListChecks, Percent, Package, FormInput, Copy, ExternalLink, Edit, ToggleLeft, Utensils, Calculator, FileStack, ChefHat, ShoppingCart, Users, Shield, Zap, Plug, Clock, Languages, Upload, MapPin, Phone, Mail, Globe2, Eye, CreditCard, Landmark, X, Pencil, RefreshCw, ChevronDown, ChevronRight, Settings, Database, TrendingUp, Sliders } from "lucide-react";
 import { Textarea } from "../components/ui/textarea";
 import { Badge } from "../components/ui/badge";
+import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
+import { SortableContext, useSortable, verticalListSortingStrategy, arrayMove } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import { GripVertical } from "lucide-react";
 
 // New Settings Sections
 import RolesSettingsSection from "../components/settings/RolesSettingsSection";
@@ -69,12 +73,35 @@ const DEFAULT_FORM_FIELDS = [
   { field_name: "message", label: "Message", label_es: "Mensaje", enabled: true, required: false },
 ];
 
+// Sortable row wrapper for the proposal-item-types list (Settings → Catalogs → Item Types).
+// Exposes drag attributes/listeners via render-prop so the caller can attach them
+// to its own grip button without losing keyboard accessibility.
+const SortableItemTypeRow = ({ id, children }) => {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+  return (
+    <div ref={setNodeRef} style={style}>
+      {children({ ...attributes, ...listeners })}
+    </div>
+  );
+};
+
 export default function SettingsPage() {
   const { t, language, changeLanguage } = useLanguage();
   const { term } = useTerminology();
   
   // Active settings tab state for dropdown navigation
   const [activeSettingsTab, setActiveSettingsTab] = useState("branding");
+
+  // Sensors for the Item-Types drag-to-reorder list. 8px activation distance
+  // prevents the click on the drag handle from triggering an immediate drag.
+  const itemTypeSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } })
+  );
   
   // Dynamic terminology
   const clientLabel = term("events", "client");
@@ -4441,8 +4468,37 @@ export default function SettingsPage() {
               <CardContent className="space-y-4">
                 {/* Current Item Types */}
                 <div className="space-y-2">
+                  <DndContext
+                    sensors={itemTypeSensors}
+                    collisionDetection={closestCenter}
+                    onDragEnd={(ev) => {
+                      const { active, over } = ev;
+                      if (!over || active.id === over.id) return;
+                      const list = company?.proposal_item_types || [];
+                      const oldIdx = list.findIndex((t) => t.type_key === active.id);
+                      const newIdx = list.findIndex((t) => t.type_key === over.id);
+                      if (oldIdx < 0 || newIdx < 0) return;
+                      const reordered = arrayMove(list, oldIdx, newIdx).map((t, i) => ({ ...t, sort_order: i }));
+                      setCompany({ ...company, proposal_item_types: reordered });
+                    }}
+                  >
+                    <SortableContext
+                      items={(company?.proposal_item_types || []).map((t) => t.type_key)}
+                      strategy={verticalListSortingStrategy}
+                    >
                   {(company?.proposal_item_types || []).map((itemType, idx) => (
-                    <div key={itemType.type_key} className="flex items-center gap-3 p-3 border rounded-lg bg-muted/30">
+                    <SortableItemTypeRow key={itemType.type_key} id={itemType.type_key}>
+                      {(dragProps) => (
+                    <div className="flex items-center gap-3 p-3 border rounded-lg bg-muted/30">
+                      <button
+                        type="button"
+                        {...dragProps}
+                        className="flex items-center justify-center w-6 h-6 cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground touch-none rounded hover:bg-muted"
+                        title={language === "es" ? "Arrastrar para reordenar" : "Drag to reorder"}
+                        data-testid={`item-type-drag-${itemType.type_key}`}
+                      >
+                        <GripVertical className="w-4 h-4" />
+                      </button>
                       <div 
                         className="w-8 h-8 rounded-lg flex items-center justify-center"
                         style={{ backgroundColor: `${itemType.color}20`, color: itemType.color }}
@@ -4513,7 +4569,11 @@ export default function SettingsPage() {
                         </Button>
                       )}
                     </div>
+                      )}
+                    </SortableItemTypeRow>
                   ))}
+                    </SortableContext>
+                  </DndContext>
                 </div>
 
                 {/* Add New Item Type */}

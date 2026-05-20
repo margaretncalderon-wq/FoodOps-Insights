@@ -509,4 +509,15 @@ Phase 2 Culinary backend validated 19/19 in iteration_176.json.
 
 **Verified in preview**: A test proposal with 4 Food items, 1 Service item, and 1 Rental item now renders in the exact configured order — Entradas → Principales (Food) → Staff (Service) → Mobiliario (Rental) — independent of individual `sort_order` values. Subtotals already use insertion order so they automatically reflect the same ordering.
 
+### Drag-Reorder for Proposal Item Types (Feb 19, 2026 — follow-up)
+**Goal**: Let users reorder the Proposal Item Types (Food / Service / Rental / Fee / custom types) by dragging in Settings → Company → Templates → Proposal Item Types, since the PDF now respects this configured order.
+
+**Frontend** (`/app/frontend/src/pages/SettingsPage.js`)
+- New `SortableItemTypeRow` component using `@dnd-kit/sortable` + `useSortable`. Drag attributes/listeners are exposed via render-prop and attached to a `GripVertical` button placed at the start of each row (data-testid `item-type-drag-<type_key>`).
+- The list is wrapped in `DndContext` + `SortableContext` using each row's `type_key` as the sortable id.
+- `onDragEnd` uses `arrayMove` to compute the new ordering and rewrites `sort_order` for every entry sequentially. State is updated via `setCompany` so the existing "Save Item Types" button persists the change through the standard company-settings save flow.
+- A dedicated `PointerSensor` with `activationConstraint: { distance: 6 }` prevents accidental drags when clicking the handle.
+
+**Verified in preview**: Dragged "Food" (idx 0) past "Rental" (idx 2) — order shifted to Service → Rental → Food → Fee instantly. Save button persists the new `sort_order` array, which `DocumentPreview` reads to drive the PDF output.
+
 Next: Eliminate ProposalEditor.js bloat (now ~4360 lines) by extracting Sortable wrappers and dialogs; finish UX Workstreams A/B/C; Logo Guest Flow; Unified Contact Model.
