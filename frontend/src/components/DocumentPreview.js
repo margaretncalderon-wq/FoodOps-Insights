@@ -268,7 +268,7 @@ export default function DocumentPreview({
       if (!subtotals[type]) {
         subtotals[type] = { count: 0, total: 0 };
       }
-      subtotals[type].count += item.quantity || 1;
+      subtotals[type].count += 1;
       subtotals[type].total += item.total_price || 0;
     });
     

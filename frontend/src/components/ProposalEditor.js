@@ -262,15 +262,46 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
   // Customizable item types from company settings (deduped by type_key)
   const [itemTypes, setItemTypes] = useState([]);
   const ITEM_TYPES = (() => {
-    if (itemTypes.length === 0) return ITEM_TYPES_DEFAULT;
     const seen = new Set();
     const out = [];
-    for (const t of itemTypes) {
-      if (t.is_active === false) continue;
-      if (seen.has(t.type_key)) continue;
-      seen.add(t.type_key);
-      out.push(t.type_key);
+    if (itemTypes.length === 0) {
+      ITEM_TYPES_DEFAULT.forEach((k) => { seen.add(k); out.push(k); });
+    } else {
+      for (const t of itemTypes) {
+        if (t.is_active === false) continue;
+        if (seen.has(t.type_key)) continue;
+        seen.add(t.type_key);
+        out.push(t.type_key);
+      }
     }
+    // Append any "orphan" types present in the current proposal items that
+    // aren't configured in settings (e.g., legacy "Other", "Bebida", typos).
+    // Otherwise those items would be silently hidden from the editor while
+    // still rendering in the printed PDF — causing the totals to drift.
+    const orphanSet = new Set();
+    (proposal?.items || []).forEach((it) => {
+      const k = (it.item_type || "").trim();
+      if (k && !seen.has(k)) {
+        orphanSet.add(k);
+        seen.add(k);
+      }
+    });
+    orphanSet.forEach((k) => out.push(k));
+    return out;
+  })();
+
+  const ORPHAN_TYPES = (() => {
+    const configured = new Set();
+    if (itemTypes.length === 0) {
+      ITEM_TYPES_DEFAULT.forEach((k) => configured.add(k));
+    } else {
+      itemTypes.forEach((t) => { if (t.is_active !== false) configured.add(t.type_key); });
+    }
+    const out = new Set();
+    (proposal?.items || []).forEach((it) => {
+      const k = (it.item_type || "").trim();
+      if (k && !configured.has(k)) out.add(k);
+    });
     return out;
   })();
   
@@ -2168,7 +2199,21 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
                         {!["Food", "Service", "Rental", "Fee"].includes(itype) && <Package className="w-4 h-4" style={{ color: typeData.color }} />}
                       </div>
                       <div>
-                        <CardTitle className="text-base font-medium">{typeData.label || itype}</CardTitle>
+                        <CardTitle className="text-base font-medium flex items-center gap-2">
+                          {typeData.label || itype}
+                          {ORPHAN_TYPES.has(itype) && (
+                            <Badge
+                              variant="outline"
+                              className="text-[10px] h-5 px-1.5 border-amber-400 bg-amber-50 text-amber-700"
+                              title={language === "es"
+                                ? `Tipo "${itype}" no está en Settings → Tipos de Ítems. Estos ítems salen en el PDF pero antes no se veían en el editor. Reasígnalos a un tipo válido.`
+                                : `Type "${itype}" is not in Settings → Item Types. These items appear in the PDF but were previously hidden in the editor. Reassign them to a valid type.`}
+                              data-testid={`orphan-type-warning-${itype}`}
+                            >
+                              {language === "es" ? "Tipo no configurado" : "Unconfigured type"}
+                            </Badge>
+                          )}
+                        </CardTitle>
                         <p className="text-xs text-muted-foreground">
                           {typeData.items.length} {language === "es" ? "ítems" : "items"}
                         </p>

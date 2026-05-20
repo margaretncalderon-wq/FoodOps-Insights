@@ -1,0 +1,25 @@
+{
+  "summary": "Frontend-only verification of orphan item_type handling in ProposalEditor + DocumentPreview count fix. Logged in as demo.agency@kora.com, opened /events/event_f590b6bb1058, confirmed (a) Items tab badge shows 'Items (1)' including the seeded orphan, (b) a 6th group rendered as data-testid='type-Bebida' with the 'TEST Jugo fantasma' row (13 x $1440 = $18720), (c) data-testid='orphan-type-warning-Bebida' badge is visible (text 'Unconfigured type' in EN, code shows 'Tipo no configurado' in ES). DocumentPreview ('Summary by Type') shows 'Bebida (1 items) $18720.00' confirming calculateSubtotals now counts items (was previously summing quantities — would have shown '13 items'). After verification, the orphan order_item was deleted via DELETE /api/proposals/prop_3cb740ffd5c1/items/oitm_orphan_ghost_test (HTTP 200) and re-fetch of the proposal confirmed items=[]. Regression on the 4 standard groups (Food/Service/Rental/Fee) could not be directly observed in this proposal because it only contained the orphan item (groups with items.length===0 render null at L2171); however the ORPHAN_TYPES set (L293-306) is correctly built from items where item_type is NOT in the configured set, so default types are guaranteed not to receive the warning badge.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "DocumentPreview Summary by Type", "issues": ["Minor i18n grammar: 'Bebida (1 items)' uses plural 'items' for count of 1; should ideally show 'item' for 1 and 'items' for >1. Not a blocker."]}
+    ]
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "ProposalEditor.js ITEM_TYPES and ORPHAN_TYPES are recomputed on every render via IIFE (L264-L306). For large proposals this iterates proposal.items twice per render. Consider useMemo([itemTypes, proposal?.items]) to avoid wasted work.",
+    "DocumentPreview.js calculateSubtotals (L262-L276) uses 'Other' as fallback when item.item_type is missing — make sure PDF section rendering uses the same fallback so subtotals key always matches a rendered section, otherwise the Summary by Type could surface ghost 'Other' rows."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a", "frontend": "100%"},
+  "test_credentials": "demo.agency@kora.com / Evoque2024!",
+  "seed_data_creation": "No new seed. Used pre-seeded orphan item (oitm_orphan_ghost_test on prop_3cb740ffd5c1) and DELETED it post-test (HTTP 200, items=[] confirmed).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Orphan test data has been cleaned. Proposal prop_3cb740ffd5c1 / event_f590b6bb1058 (demo.agency) now has 0 items. If retesting orphan-type rendering, re-seed via order_items insert with item_type not in company.proposal_item_types (default 4: Food/Service/Rental/Fee).",
+  "rca of the issue": "Editor previously dropped items whose item_type was not in company.proposal_item_types (ITEM_TYPES.forEach silently filtered). Fix: append any non-configured types from proposal.items to ITEM_TYPES and surface them with an 'orphan-type-warning' badge. Separately, DocumentPreview was summing item.quantity for type counts, inflating counts; fixed to +=1 per item."
+}
