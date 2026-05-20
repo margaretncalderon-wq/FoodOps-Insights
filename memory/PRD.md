@@ -669,3 +669,28 @@ This bypassed the user's customized `company.proposal_item_types` order entirely
 - PDF print (`DocumentPreview.js`) — already sorted by `proposal_item_types` ordinal.
 
 Outcome: the Add-Item picklist, the editor section groups, the edit-item type selector, and the printed PDF all consume the same single source of truth (`company.proposal_item_types`).
+
+
+### Calendar Service-Level Granularity + Week Timeline — Feb 20, 2026
+**Reported**: "Cuando agrego varios servicios en diferentes horarios en la propuesta no me salen en el calendario… por ejemplo si una propuesta tiene un desayuno a las 8 y almuerzo a las 12 que salga." Calendar only showed a single block per event/day, ignoring proposal sections, section times, and multi-day `event_dates`.
+
+**Backend** (`/api/orchestration/calendar`, server.py L15185):
+- Rewrote the endpoint to compute `calendar_dates` per event (union of `event_date`, `end_date` range, and `event_dates`).
+- Window filter is now overlap-based (any date in `calendar_dates` ∈ [start, end]) instead of equality on `event_date`.
+- Loads each event's proposal `order_items`, groups them by `(event_id, event_date, section_title, section_time)` and returns a `services` array per event: `{date, time, end_time, title, item_count, item_types, total}` sorted by date+time.
+- Undated services (no `event_date` on the item) fall back to the event's first calendar date so they still surface.
+- Conflicts now derived from `calendar_dates` (so multi-day overlaps are detected).
+
+**Frontend** (`/app/frontend/src/components/orchestration/EventCalendarTab.js`, full rewrite):
+- New view toggle: **Mes** (default) / **Semana** (`calendar-view-month` / `calendar-view-week`).
+- **Mes**: each day cell now lists time-prefixed service chips (`08:00 Desayuno`) instead of a single event pill — events without services still show as a stage-colored pill. Multi-day events appear on every day in their range.
+- **Semana**: Sunday-start 7-column timeline with hour rows 07:00–22:00 (56px each). Each timed service is a positioned colored block using `section_time` as top offset and `section_end_time` (or default 1h) as height. An all-day strip at the top renders services without a time. Services outside the visible 07–22 window collapse into ↑ / ↓ overflow chips at the day column edges.
+- Side panel now includes a **Servicios** subsection enumerating each service (time, title, date).
+- All date math uses local-tz `toLocalISO` to avoid the previous UTC shift bug.
+
+**Test data seeded** for verification (company `company_3ab116c0994d` / demo.agency@kora.com):
+- `event_test_timed_services` (Servicio Multi-Horario Test) on 2026-05-20 with `prop_test_timed_services` and 5 order_items in 3 sections — Desayuno 08:00→10:00, Almuerzo 12:00→14:00, Coffee Break PM 16:00→17:00.
+
+**Validation** (`/app/test_reports/iteration_178.json` — testing_agent_v3_fork, 100% pass):
+- Backend pytest: 4/4 — calendar_dates populated, multi-day expansion (Reorder Test Event 08-01/03/05), services returned with correct times, conflicts still detected.
+- Frontend: Month view shows the 3 time-prefixed chips on the correct day. Week view renders the 3 positioned blocks with their times. Clicking a service block opens the details side panel with the Services subsection.

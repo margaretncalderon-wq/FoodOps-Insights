@@ -539,9 +539,25 @@ function WeekTimelineView({ currentDate, weekdayNames, entriesByDate, conflicts,
                   const start = parseHHmm(entry.time);
                   const end = parseHHmm(entry.end_time);
                   const duration = end && end > start ? (end - start) : 1; // default 1h
+                  const outOfRange = start < startHour || start > endHour;
+                  if (outOfRange) {
+                    // Clamp into a tiny chip at top or bottom so the service isn't lost.
+                    const atTop = start < startHour;
+                    return (
+                      <button
+                        key={i}
+                        onClick={() => onSelect(entry.event)}
+                        className="absolute left-1 right-1 rounded text-left px-1 py-0.5 text-[9px] text-white shadow-sm hover:brightness-110 truncate"
+                        style={{ [atTop ? "top" : "bottom"]: 2, backgroundColor: stageColor(entry.stage) }}
+                        title={`${entry.event_name} · ${entry.title || ""} ${fmtTime(entry.time)}`}
+                        data-testid={`calendar-week-block-${entry.event_id}-${i}`}
+                      >
+                        {atTop ? "↑ " : "↓ "}{fmtTime(entry.time)} · {entry.title || entry.event_name}
+                      </button>
+                    );
+                  }
                   const top = (start - startHour) * ROW_PX;
                   const height = Math.max(20, duration * ROW_PX - 2);
-                  if (start < startHour || start > endHour) return null;
                   const bg = stageColor(entry.stage);
                   return (
                     <button
