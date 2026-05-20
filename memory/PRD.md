@@ -531,4 +531,17 @@ Phase 2 Culinary backend validated 19/19 in iteration_176.json.
 
 **Smoke-tested**: Clicked ↑ on Fee → order shifted from `[Food, Service, Rental, Fee]` to `[Food, Service, Fee, Rental]`. ↑ on Food correctly disabled at first position.
 
+### Print Tab Stays Blank — Fixed (Feb 19, 2026)
+**Bug report**: "When the PDF opens in another tab it stays blank."
+
+**Root cause**: `handlePrint()` in `DocumentPreview.js` called `printWindow.print()` synchronously right after `document.write()` + `document.close()`. In Safari/Firefox the print dialog opened before the document was committed/painted, and once the user dismissed the dialog the new tab was left blank. There was also no null check on `window.open`, so popup-blocked browsers crashed silently.
+
+**Fix** (`/app/frontend/src/components/DocumentPreview.js` → `handlePrint`)
+- Bail out early with a Spanish/English toast when `window.open(...)` returns `null` (popup blocked).
+- Added a proper `<!DOCTYPE html>` + `<meta charset="utf-8" />` to the written document so browsers don't render in quirks mode.
+- Defer `printWindow.print()` until **after** the new tab paints: attach `printWindow.onload` and call `print()` inside a 50 ms `setTimeout` so layout/image-decode have a frame to settle. Belt-and-suspenders: a 500 ms `setTimeout` fallback fires the print only if `onload` never does (Safari + `about:blank` quirk).
+- Wrap the `print()` call in try/catch so a closed tab doesn't throw.
+
+**Verified**: Print popup from `prop_e45ef7945072` Proposal/Contract now opens with title `"Proposal / Contract - Reorder Test Event"`, 1 image, 6 table rows, and 772 chars of body text — no longer blank when the print dialog is dismissed.
+
 Next: Eliminate ProposalEditor.js bloat (now ~4360 lines) by extracting Sortable wrappers and dialogs; finish UX Workstreams A/B/C; Logo Guest Flow; Unified Contact Model.

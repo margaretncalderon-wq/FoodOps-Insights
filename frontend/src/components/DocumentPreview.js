@@ -418,10 +418,26 @@ export default function DocumentPreview({
 
   const handlePrint = () => {
     const printContent = printRef.current;
+    if (!printContent) return;
     const printWindow = window.open('', '_blank');
-    printWindow.document.write(`
+    if (!printWindow) {
+      // Popup blocked or third-party tab policy refused the open. Inform the
+      // user instead of silently failing.
+      try {
+        toast.error(
+          language === "es"
+            ? "Tu navegador bloqueó la ventana de impresión. Permite ventanas emergentes para este sitio e inténtalo de nuevo."
+            : "Your browser blocked the print window. Allow pop-ups for this site and try again."
+        );
+      } catch (_e) {
+        /* toast not available, swallow */
+      }
+      return;
+    }
+    const html = `<!DOCTYPE html>
       <html>
         <head>
+          <meta charset="utf-8" />
           <title>${config.name[language]} - ${event?.name || 'Document'}</title>
           <style>
             body { font-family: 'Segoe UI', sans-serif; padding: 20px; color: #1a1a1a; }
@@ -461,10 +477,38 @@ export default function DocumentPreview({
             ${printContent.innerHTML}
           </div>
         </body>
-      </html>
-    `);
+      </html>`;
+
+    // Write the document then trigger print AFTER the new tab has finished
+    // parsing/painting. Doing it synchronously left the tab blank in Safari/Firefox
+    // when the print dialog was dismissed (the document hadn't been committed yet)
+    // and made image loading flaky in some browsers. Two safeguards:
+    //   1. onload listener — fires once the tab finishes painting
+    //   2. setTimeout fallback — for browsers that fire onload before write commits
+    const triggerPrint = () => {
+      try {
+        printWindow.focus();
+        printWindow.print();
+      } catch (_e) {
+        /* the tab might have been closed by the user */
+      }
+    };
+    printWindow.document.open();
+    printWindow.document.write(html);
     printWindow.document.close();
-    printWindow.print();
+    let printed = false;
+    printWindow.onload = () => {
+      if (printed) return;
+      printed = true;
+      // Give the browser one extra frame for layout/image decode.
+      setTimeout(triggerPrint, 50);
+    };
+    // Fallback in case onload never fires (some browsers + about:blank quirks)
+    setTimeout(() => {
+      if (printed) return;
+      printed = true;
+      triggerPrint();
+    }, 500);
   };
 
   const groupedItems = groupItems();
