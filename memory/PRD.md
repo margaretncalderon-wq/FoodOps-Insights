@@ -520,4 +520,15 @@ Phase 2 Culinary backend validated 19/19 in iteration_176.json.
 
 **Verified in preview**: Dragged "Food" (idx 0) past "Rental" (idx 2) — order shifted to Service → Rental → Food → Fee instantly. Save button persists the new `sort_order` array, which `DocumentPreview` reads to drive the PDF output.
 
+### Item-Type ↑ ↓ Arrow Buttons (Feb 19, 2026 — follow-up)
+**Goal**: Same mobile/keyboard-friendly fallback we added for proposal sections, now for the Proposal Item Types list.
+
+**Frontend** (`/app/frontend/src/pages/SettingsPage.js`)
+- Each Item Type row now has small **ArrowUp / ArrowDown** buttons directly after the drag handle.
+- First row's ↑ and last row's ↓ render `disabled` with reduced opacity (`disabled:opacity-30`).
+- Both arrows call the same `arrayMove` + `sort_order` re-stamp logic used by `onDragEnd`, then update `setCompany` so the existing "Save Item Types" button persists.
+- data-testids: `item-type-up-<type_key>` / `item-type-down-<type_key>`.
+
+**Smoke-tested**: Clicked ↑ on Fee → order shifted from `[Food, Service, Rental, Fee]` to `[Food, Service, Fee, Rental]`. ↑ on Food correctly disabled at first position.
+
 Next: Eliminate ProposalEditor.js bloat (now ~4360 lines) by extracting Sortable wrappers and dialogs; finish UX Workstreams A/B/C; Logo Guest Flow; Unified Contact Model.

@@ -38,7 +38,7 @@ import { Badge } from "../components/ui/badge";
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { SortableContext, useSortable, verticalListSortingStrategy, arrayMove } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { GripVertical } from "lucide-react";
+import { GripVertical, ArrowUp, ArrowDown } from "lucide-react";
 
 // New Settings Sections
 import RolesSettingsSection from "../components/settings/RolesSettingsSection";
@@ -4499,6 +4499,39 @@ export default function SettingsPage() {
                       >
                         <GripVertical className="w-4 h-4" />
                       </button>
+                      {/* Up/down arrows — keyboard- and mobile-friendly fallback to drag */}
+                      <div className="flex items-center -ml-1">
+                        <button
+                          type="button"
+                          disabled={idx === 0}
+                          onClick={() => {
+                            const list = company?.proposal_item_types || [];
+                            if (idx === 0) return;
+                            const reordered = arrayMove(list, idx, idx - 1).map((t, i) => ({ ...t, sort_order: i }));
+                            setCompany({ ...company, proposal_item_types: reordered });
+                          }}
+                          className="inline-flex items-center justify-center w-5 h-5 rounded text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed"
+                          title={language === "es" ? "Subir" : "Move up"}
+                          data-testid={`item-type-up-${itemType.type_key}`}
+                        >
+                          <ArrowUp className="w-3 h-3" />
+                        </button>
+                        <button
+                          type="button"
+                          disabled={idx === (company?.proposal_item_types || []).length - 1}
+                          onClick={() => {
+                            const list = company?.proposal_item_types || [];
+                            if (idx >= list.length - 1) return;
+                            const reordered = arrayMove(list, idx, idx + 1).map((t, i) => ({ ...t, sort_order: i }));
+                            setCompany({ ...company, proposal_item_types: reordered });
+                          }}
+                          className="inline-flex items-center justify-center w-5 h-5 rounded text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed"
+                          title={language === "es" ? "Bajar" : "Move down"}
+                          data-testid={`item-type-down-${itemType.type_key}`}
+                        >
+                          <ArrowDown className="w-3 h-3" />
+                        </button>
+                      </div>
                       <div 
                         className="w-8 h-8 rounded-lg flex items-center justify-center"
                         style={{ backgroundColor: `${itemType.color}20`, color: itemType.color }}
