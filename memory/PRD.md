@@ -560,4 +560,21 @@ Phase 2 Culinary backend validated 19/19 in iteration_176.json.
 - Iframes on page after print: 0 (cleanup ran) ✅
 - Subtotals rendered `Food & Beverages (4 items)`, `Services & Staff (2 items)`, `Rentals & Equipment (5 items)` instead of raw keys ✅
 
+### PDF Visual Parity with Screen (Feb 19, 2026)
+**Bug report (with reference PDF)**: "El PDF se ve feo, quiero que se vea como se ve en el sistema." Analysis showed the exported PDF looked like raw unstyled HTML — no table borders, no padding, missing visual hierarchy, raw English type_keys in subtotals, plus the browser's `about:srcdoc` + timestamp artifacts in the printed footer.
+
+**Root cause**: The iframe used for printing had a minimal `<style>` block (~30 lines). Tailwind utility classes from the React tree weren't honored, so tables rendered as naked HTML and section banners disappeared. The browser also auto-injected the source URL and the current date/time into the printed header/footer because no `@page` margin rules were declared.
+
+**Fix** (`/app/frontend/src/components/DocumentPreview.js` → print stylesheet)
+- Rewrote the print stylesheet (~120 lines) to fully replicate what the user sees on screen:
+  - Branded `h1` / `h2` / `h3` / `h4` typography with proper weight + color.
+  - Table styling: header bar in `primaryColor` with white text, 8/10 px cell padding, 1 px bottom borders, zebra rows (`#fafafa` on even).
+  - Section title bars with a left-border accent in the primary color and tinted background.
+  - Box treatments for Notes (amber), Terms (gray), Payment Info (mint), Bank Details (blue monospace), Subtotals (gray).
+  - Logo bounds + alignment (already shipped) merged into the same stylesheet.
+  - Fallback rules for the Tailwind utility classes the React tree relies on (`text-muted-foreground`, `font-medium`, `space-y-*`, `gap-*`, `rounded-lg`, `bg-muted/*`).
+- Added `@page { margin: 14mm 12mm; size: auto; }` plus `@media print` rules to keep rows from breaking across pages (`page-break-inside: avoid`) and ensure table headers repeat (`thead { display: table-header-group; }`). The `@page` rule also removes the browser-injected URL/date artifacts in modern browsers.
+
+**Verified in preview**: Print iframe of `prop_e45ef7945072` now renders a polished proposal with branded tables, section banners, info grid, and tagline — visually indistinguishable from the on-screen preview.
+
 Next: Eliminate ProposalEditor.js bloat (now ~4360 lines) by extracting Sortable wrappers and dialogs; finish UX Workstreams A/B/C; Logo Guest Flow; Unified Contact Model.

@@ -425,36 +425,117 @@ export default function DocumentPreview({
           <meta charset="utf-8" />
           <title>${config.name[language]} - ${event?.name || 'Document'}</title>
           <style>
-            body { font-family: 'Segoe UI', sans-serif; padding: 20px; color: #1a1a1a; }
+            * { box-sizing: border-box; }
+            html, body { margin: 0; }
+            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; padding: 24px 28px; color: #1a1a1a; font-size: 13px; line-height: 1.5; }
             ${variantCSS}
-            /* Keep the company logo bounded in printed output — Tailwind isn't
-               loaded inside the print frame, so its natural size could otherwise
-               render huge. Three discrete sizes selectable from Settings → Templates. */
+            /* Strip Tailwind utility chrome the React tree relies on so the
+               printed output looks identical to what the user sees on screen.
+               The iframe doesn't have Tailwind, so any utility classes we
+               render need an explicit print fallback here. */
+            h1 { font-size: 22px; font-weight: 700; margin: 0 0 4px; color: ${primaryColor}; }
+            h2 { font-size: 18px; font-weight: 600; margin: 16px 0 8px; }
+            h3 { font-size: 15px; font-weight: 600; margin: 12px 0 6px; }
+            h4 { font-size: 14px; font-weight: 600; margin: 10px 0 6px; }
+            p { margin: 4px 0; }
+
+            /* Header */
+            .header { border-bottom: 2px solid ${primaryColor}; padding-bottom: 18px; margin-bottom: 20px; }
+            .company-name { color: ${primaryColor} !important; font-size: 22px; font-weight: 700; }
+            .text-muted-foreground, .text-xs.text-muted-foreground { color: #6b7280; }
+            .text-sm { font-size: 13px; }
+            .text-xs { font-size: 11px; }
+            .text-2xl { font-size: 22px; }
+            .text-right { text-align: right; }
+            .font-bold { font-weight: 700; }
+            .font-semibold { font-weight: 600; }
+            .font-medium { font-weight: 500; }
+            .font-mono { font-family: "SF Mono", "Menlo", "Consolas", monospace; }
+            .italic { font-style: italic; }
+            .uppercase { text-transform: uppercase; }
+            .tracking-wider { letter-spacing: 0.05em; }
+
+            /* Logo */
             .doc-logo, .doc-root img.doc-logo, .header img { max-width: 240px; width: auto; height: auto; object-fit: contain; display: block; }
             .doc-logo[data-logo-size="small"] { max-height: 40px; }
             .doc-logo[data-logo-size="medium"], .header img:not([data-logo-size]) { max-height: 56px; }
             .doc-logo[data-logo-size="large"] { max-height: 80px; }
-            /* Logo horizontal alignment — left | center | right. The wrapper is flex; we keep this
-               redundant CSS so output looks correct even if the inline style is stripped. */
             .doc-logo-wrap { display: flex; margin-bottom: 12px; }
             .doc-logo-wrap[data-logo-position="left"] { justify-content: flex-start; }
             .doc-logo-wrap[data-logo-position="center"] { justify-content: center; }
             .doc-logo-wrap[data-logo-position="right"] { justify-content: flex-end; }
-            .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 15px 0; }
-            .info-item { display: flex; gap: 8px; }
-            .info-label { font-weight: 600; color: #666; }
-            .section { margin: 20px 0; }
-            .date-group { margin: 15px 0; padding: 10px; background: #f9f9f9; border-radius: 4px; }
-            .date-title { font-weight: 600; color: ${primaryColor}; margin-bottom: 10px; }
-            table { width: 100%; border-collapse: collapse; margin: 10px 0; }
-            .notes { margin-top: 20px; padding: 15px; background: #fffde7; border-left: 4px solid #ffc107; }
-            .terms { margin-top: 20px; padding: 15px; background: #f5f5f5; font-size: 12px; }
-            .payment-info { margin-top: 15px; padding: 15px; background: #e8f5e9; border-left: 4px solid ${primaryColor}; font-size: 12px; }
-            .bank-details { margin-top: 15px; padding: 15px; background: #e3f2fd; border-radius: 4px; font-size: 12px; font-family: monospace; white-space: pre-wrap; }
-            .footer { margin-top: 30px; text-align: center; font-size: 11px; color: #666; border-top: 1px solid #ddd; padding-top: 15px; }
-            .menu-item { font-size: 14px; padding: 5px 0; border-bottom: 1px dotted #ddd; }
-            .checkbox { width: 14px; height: 14px; border: 1px solid #999; display: inline-block; margin-right: 8px; }
-            @media print { body { padding: 0; } }
+            .doc-tagline { font-style: italic; color: ${primaryColor}; opacity: 0.85; margin: 0 0 12px; font-size: 12px; }
+
+            /* Layout helpers */
+            .flex { display: flex; }
+            .flex.items-start { align-items: flex-start; }
+            .flex.items-center { align-items: center; }
+            .flex.justify-between { justify-content: space-between; }
+            .flex.gap-2 > * + * { margin-left: 8px; }
+            .grid { display: grid; }
+            .grid.grid-cols-2 { grid-template-columns: 1fr 1fr; gap: 16px; }
+            .grid.grid-cols-3 { grid-template-columns: repeat(3, 1fr); gap: 16px; }
+            .space-y-2 > * + * { margin-top: 8px; }
+            .space-y-4 > * + * { margin-top: 16px; }
+            .gap-2 { gap: 8px; }
+            .gap-3 { gap: 12px; }
+            .gap-4 { gap: 16px; }
+
+            /* Info block (Client / Event / etc.) */
+            .info-item { display: flex; gap: 8px; align-items: center; padding: 2px 0; }
+            .info-label { font-weight: 600; color: #4b5563; min-width: 90px; }
+            .info-item svg { width: 14px; height: 14px; flex-shrink: 0; color: #6b7280; }
+
+            /* Tables — full polish: borders, headers with brand color, padding, zebra rows */
+            table { width: 100%; border-collapse: collapse; margin: 8px 0 16px; font-size: 12.5px; }
+            table thead th { background: ${primaryColor}; color: white !important; padding: 8px 10px; text-align: left; font-weight: 600; font-size: 12px; }
+            table thead th:last-child { text-align: right; }
+            table tbody td { padding: 7px 10px; border-bottom: 1px solid #e5e7eb; vertical-align: top; }
+            table tbody tr:nth-child(even) td { background: #fafafa; }
+            table tbody tr:last-child td { border-bottom: none; }
+            table tbody td.text-right, table tbody td:last-child { text-align: right; }
+            table th.text-right { text-align: right; }
+
+            /* Section titles within items list (date-group / category) */
+            .date-group, .section-title { margin: 18px 0 8px; padding: 8px 12px; background: ${primaryColor}15; border-left: 3px solid ${primaryColor}; border-radius: 4px; font-weight: 600; color: ${primaryColor}; font-size: 14px; }
+
+            /* Boxes — notes / terms / payment / bank details */
+            .notes, .terms, .payment-info, .bank-details, .subtotals {
+              margin-top: 16px; padding: 14px 16px; border-radius: 6px; font-size: 12.5px; line-height: 1.55;
+            }
+            .notes { background: #fffbeb; border-left: 4px solid #f59e0b; }
+            .terms { background: #f9fafb; border-left: 4px solid #6b7280; font-size: 11.5px; }
+            .payment-info { background: #ecfdf5; border-left: 4px solid ${primaryColor}; }
+            .bank-details { background: #eff6ff; border-radius: 6px; font-family: "SF Mono", "Menlo", monospace; white-space: pre-wrap; font-size: 11.5px; }
+            .subtotals { background: #f3f4f6; }
+            .subtotals h4 { margin-top: 0; }
+
+            /* Totals row */
+            .total-row { font-weight: 700; font-size: 14px; border-top: 2px solid ${primaryColor}; padding-top: 8px; margin-top: 8px; }
+
+            /* Footer */
+            .footer { margin-top: 36px; text-align: center; font-size: 10.5px; color: #6b7280; border-top: 1px solid #e5e7eb; padding-top: 14px; }
+
+            /* Tailwind muted background helpers */
+            .bg-muted\\/30, .bg-muted\\/40, .bg-muted\\/50 { background-color: #f3f4f6; }
+            .border, .border-b { border-color: #e5e7eb; }
+            .rounded-lg { border-radius: 8px; }
+            .rounded { border-radius: 6px; }
+            .p-4 { padding: 16px; }
+            .px-3 { padding-left: 12px; padding-right: 12px; }
+            .py-2 { padding-top: 8px; padding-bottom: 8px; }
+            .mt-6 { margin-top: 24px; }
+            .mb-2 { margin-bottom: 8px; }
+            .mb-3 { margin-bottom: 12px; }
+
+            /* Page-level print rules — remove browser-injected URL and date in the
+               header/footer of the print, set proper margins, avoid breaking rows. */
+            @page { margin: 14mm 12mm; size: auto; }
+            @media print {
+              body { padding: 0; }
+              tr, .date-group, .notes, .terms, .payment-info { page-break-inside: avoid; }
+              thead { display: table-header-group; }
+            }
           </style>
         </head>
         <body>
