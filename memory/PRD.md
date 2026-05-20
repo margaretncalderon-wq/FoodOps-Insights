@@ -747,3 +747,24 @@ Now content flows: header → catering summary → first service section fills t
 - Density vars are interpolated into the injected `<style>` block of the print iframe; consumed by `table`, `.section-title / .date-group`, `.notes / .terms / .payment-info`, and `@page`.
 
 **Validated**: backend curl round-trips `compact` / `normal` / `spacious` correctly.
+
+
+### Orphan Item Types — Visible in Editor, Counted Correctly in PDF — Feb 20, 2026
+**Reported**: "Algunos items que me salen cuando imprimo el documento pero no en edición." Sample PDFs (ONAPI, PROP-2026-0019) showed an extra section "Bebidas sin Alcohol — Jugo Fruit Punch (Galón) RD$18,720" in the printed PDF that was completely hidden from the proposal editor. Editor badge said "Ítems (16)" but only 15 visible.
+
+**Root cause**:
+- `ProposalEditor.js` built its `ITEM_TYPES` array exclusively from `company.proposal_item_types` (the 4 configured types). Then it iterated those types to render each group — meaning items whose `item_type` was *not* in that list (e.g., a legacy "Other", "Bebida", or anything created/imported with a non-standard tag) silently disappeared from the editor.
+- `DocumentPreview.js` does not filter by configured types, so those items reappeared in the printed PDF — causing the "ghost item" discrepancy.
+- Secondary: `calculateSubtotals` summed `item.quantity` for the count (showed "Alimentos y Bebidas (336 ítems)" — actually quantities, not item count).
+
+**Fix** (`/app/frontend/src/components/ProposalEditor.js`):
+- After building `ITEM_TYPES` from `proposal_item_types`, append any *additional* `item_type` values present in `proposal.items` that are not configured. Build a parallel `ORPHAN_TYPES` Set.
+- In the group `CardTitle`, when `ORPHAN_TYPES.has(itype)` is true, render an amber `Tipo no configurado` badge (`data-testid='orphan-type-warning-{type}'`) with a tooltip explaining the situation.
+
+**Fix** (`/app/frontend/src/components/DocumentPreview.js`):
+- `calculateSubtotals` now `subtotals[type].count += 1` instead of `+= item.quantity`. Resumen por Tipo now reports actual item counts.
+
+**Validation** (`/app/test_reports/iteration_180.json` — testing_agent_v3_fork, 100% pass):
+- Seeded an `item_type:'Bebida'` item on a demo proposal → editor surfaced a new "Bebida" group with the warning badge; the total items count matched the badge in the header.
+- DocumentPreview Summary by Type showed `Bebida (1 items)` — correct count instead of `(13 items)` (quantity).
+- After cleanup the orphan was deleted via the existing DELETE endpoint.
