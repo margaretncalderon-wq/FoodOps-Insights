@@ -694,3 +694,23 @@ Outcome: the Add-Item picklist, the editor section groups, the edit-item type se
 **Validation** (`/app/test_reports/iteration_178.json` — testing_agent_v3_fork, 100% pass):
 - Backend pytest: 4/4 — calendar_dates populated, multi-day expansion (Reorder Test Event 08-01/03/05), services returned with correct times, conflicts still detected.
 - Frontend: Month view shows the 3 time-prefixed chips on the correct day. Week view renders the 3 positioned blocks with their times. Clicking a service block opens the details side panel with the Services subsection.
+
+
+### Drag-to-Reschedule on Week Timeline — Feb 20, 2026
+**Goal**: Let the user move a service slot to a new start time (or different day) by dragging its block in the Week view of the orchestration calendar.
+
+**Backend** (`/app/backend/server.py`, near `orchestration_router`):
+- New endpoint `POST /api/orchestration/calendar/reschedule-service`.
+- Body: `{event_id, section_title, event_date, old_time, new_time, new_end_time?, new_date?}`.
+- Finds the proposal of the event, then `update_many` on `order_items` matching `(proposal_id, $or date clauses, $or section_title clauses, $or section_time clauses)` — permissive enough to handle legacy items where `event_date` is stored as a full ISO timestamp.
+- Returns `{matched, modified, new_time, new_end_time, new_date}`.
+- Guards: 400 missing `event_id`, 404 unknown event / no proposal, 400 when event is `Closed`.
+
+**Frontend** (`EventCalendarTab.js`):
+- `handleRescheduleService` callback POSTs the change and refetches the calendar, surfacing a sonner toast `"Servicio reagendado a HH:MM…"`.
+- `WeekTimelineView` blocks are now `draggable` with `cursor-grab` — `onDragStart` serializes the entry and the mouse offset; `onDrop` on the target day column computes the new start time snapped to 15-min increments, preserves the original duration when computing `new_end_time`, and triggers the callback.
+- Cross-day drops switch `event_date` automatically.
+
+**Validation** (`/app/test_reports/iteration_179.json` — testing_agent_v3_fork, 100% pass):
+- Backend pytest 5/5: move Desayuno 08:00→10:30 (`matched=2/modified=2`), cross-day move, 400/404 guards, revert OK.
+- Frontend: dragging the Desayuno block down ~2.5 rows fired the dragstart→drop pipeline, a toast appeared, block re-rendered at the new time, and a follow-up GET confirmed the section_time was persisted with the other two services unchanged.
