@@ -729,3 +729,21 @@ The print stylesheet declared `tr, .date-group, .notes, .terms, .payment-info { 
 - Added the modern `break-inside / break-after` aliases alongside the legacy `page-break-*` properties for Chrome/WebKit compatibility.
 
 Now content flows: header → catering summary → first service section fills the rest of page 1 → subsequent sections continue on page 2 — no big gaps.
+
+
+### Settings → Templates → PDF Density Selector — Feb 20, 2026
+**Goal**: Tune PDF spacing per template so long proposals fit on fewer pages and short ones look elegant — no code changes needed per proposal.
+
+**Backend** (`/app/backend/server.py`):
+- Added `pdf_density: Optional[str] = "normal"` to `DocumentTemplateCreate` (values: `compact | normal | spacious`).
+- `PUT /api/settings/document-templates/{id}` persists `pdf_density` and echoes it back. Stored on `db.document_templates`.
+
+**Frontend Settings** (`SettingsPage.js`):
+- New `<Select>` next to "Posición" in the Proposal/Quote template editor: data-testid `pdf-density-select-{template_id}`. Spanish labels Compacta / Normal / Espaciada.
+- `handleUpdateTemplate` forwards `pdf_density` in the PUT payload.
+
+**Frontend Print** (`DocumentPreview.js`):
+- New `density` object computed from `template.pdf_density` controls: base font size (11 / 13 / 14 px), line height (1.35 / 1.5 / 1.7), section gap-top (12 / 18 / 26 px), section gap-bottom (4 / 8 / 12 px), table cell padding (4×8 / 8×12 / 12×16 px), and `@page` margin (10mm / 14mm / 18mm).
+- Density vars are interpolated into the injected `<style>` block of the print iframe; consumed by `table`, `.section-title / .date-group`, `.notes / .terms / .payment-info`, and `@page`.
+
+**Validated**: backend curl round-trips `compact` / `normal` / `spacious` correctly.

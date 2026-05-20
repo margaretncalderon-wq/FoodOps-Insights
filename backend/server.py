@@ -1163,6 +1163,7 @@ class DocumentTemplateCreate(BaseModel):
     show_logo: bool = True
     logo_size: Optional[str] = "medium"  # small | medium | large — max-height applied to printed/document logo
     logo_position: Optional[str] = "left"  # left | center | right — horizontal alignment of logo in the document header
+    pdf_density: Optional[str] = "normal"  # compact | normal | spacious — controls section/row spacing & font size for the printed PDF
     show_company_address: bool = True
     show_tax_id: bool = True
     # Packing List / Kitchen Sheet specific
@@ -7904,6 +7905,7 @@ async def update_document_template(template_id: str, data: DocumentTemplateCreat
         "show_logo": data.show_logo,
         "logo_size": data.logo_size or "medium",
         "logo_position": data.logo_position or "left",
+        "pdf_density": data.pdf_density or "normal",
         "show_company_address": data.show_company_address,
         "show_tax_id": data.show_tax_id,
         "show_quantities": data.show_quantities,

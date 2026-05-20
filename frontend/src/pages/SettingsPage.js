@@ -506,6 +506,7 @@ export default function SettingsPage() {
         show_logo: templateData.show_logo,
         logo_size: templateData.logo_size,
         logo_position: templateData.logo_position,
+        pdf_density: templateData.pdf_density || "normal",
         show_company_address: templateData.show_company_address,
         show_tax_id: templateData.show_tax_id,
         show_quantities: templateData.show_quantities,
@@ -4277,6 +4278,24 @@ export default function SettingsPage() {
                                         <SelectItem value="left" className="text-xs">{language === "es" ? "Izquierda" : "Left"}</SelectItem>
                                         <SelectItem value="center" className="text-xs">{language === "es" ? "Centro" : "Center"}</SelectItem>
                                         <SelectItem value="right" className="text-xs">{language === "es" ? "Derecha" : "Right"}</SelectItem>
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <Label className="text-xs whitespace-nowrap">
+                                      {language === "es" ? "Densidad PDF" : "PDF density"}
+                                    </Label>
+                                    <Select
+                                      value={template.pdf_density || "normal"}
+                                      onValueChange={(v) => handleUpdateTemplate(template.template_id, { ...template, pdf_density: v })}
+                                    >
+                                      <SelectTrigger className="h-8 w-[160px] text-xs" data-testid={`pdf-density-select-${template.template_id}`}>
+                                        <SelectValue />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="compact" className="text-xs">{language === "es" ? "Compacta" : "Compact"}</SelectItem>
+                                        <SelectItem value="normal" className="text-xs">{language === "es" ? "Normal" : "Normal"}</SelectItem>
+                                        <SelectItem value="spacious" className="text-xs">{language === "es" ? "Espaciada" : "Spacious"}</SelectItem>
                                       </SelectContent>
                                     </Select>
                                   </div>

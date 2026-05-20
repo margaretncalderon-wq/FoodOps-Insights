@@ -277,6 +277,41 @@ export default function DocumentPreview({
 
   const styleVariant = template?.style_variant || "classic";
   const primaryColor = company?.primary_color || '#3A4D3F';
+  const pdfDensity = template?.pdf_density || "normal"; // compact | normal | spacious
+
+  // Density CSS variables — applied at the document root and consumed by
+  // section/table padding rules in `printStyles`. Compact tightens spacing
+  // and shrinks the body font slightly; spacious opens everything up.
+  const densityCSS = {
+    compact: {
+      base: 11,
+      lineHeight: 1.35,
+      sectionGapTop: 12,
+      sectionGapBottom: 4,
+      cellY: 4, cellX: 8,
+      pageMargin: "10mm 10mm",
+    },
+    normal: {
+      base: 13,
+      lineHeight: 1.5,
+      sectionGapTop: 18,
+      sectionGapBottom: 8,
+      cellY: 8, cellX: 12,
+      pageMargin: "14mm 12mm",
+    },
+    spacious: {
+      base: 14,
+      lineHeight: 1.7,
+      sectionGapTop: 26,
+      sectionGapBottom: 12,
+      cellY: 12, cellX: 16,
+      pageMargin: "18mm 14mm",
+    },
+  }[pdfDensity] || null;
+  const density = densityCSS || {
+    base: 13, lineHeight: 1.5, sectionGapTop: 18, sectionGapBottom: 8,
+    cellY: 8, cellX: 12, pageMargin: "14mm 12mm",
+  };
 
   // CSS for each visual variant — applied to both preview and print
   const variantCSS = `
@@ -428,7 +463,7 @@ export default function DocumentPreview({
           <style>
             * { box-sizing: border-box; }
             html, body { margin: 0; }
-            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; padding: 24px 28px; color: #1a1a1a; font-size: 13px; line-height: 1.5; }
+            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; padding: 24px 28px; color: #1a1a1a; font-size: ${density.base}px; line-height: ${density.lineHeight}; }
             ${variantCSS}
             /* Strip Tailwind utility chrome the React tree relies on so the
                printed output looks identical to what the user sees on screen.
@@ -488,21 +523,21 @@ export default function DocumentPreview({
             .info-item svg { width: 14px; height: 14px; flex-shrink: 0; color: #6b7280; }
 
             /* Tables — full polish: borders, headers with brand color, padding, zebra rows */
-            table { width: 100%; border-collapse: collapse; margin: 8px 0 16px; font-size: 12.5px; }
-            table thead th { background: ${primaryColor}; color: white !important; padding: 8px 10px; text-align: left; font-weight: 600; font-size: 12px; }
+            table { width: 100%; border-collapse: collapse; margin: ${Math.round(density.sectionGapBottom)}px 0 ${Math.round(density.sectionGapTop * 0.6)}px; font-size: ${density.base - 0.5}px; }
+            table thead th { background: ${primaryColor}; color: white !important; padding: ${density.cellY}px ${density.cellX}px; text-align: left; font-weight: 600; font-size: ${density.base - 1}px; }
             table thead th:last-child { text-align: right; }
-            table tbody td { padding: 7px 10px; border-bottom: 1px solid #e5e7eb; vertical-align: top; }
+            table tbody td { padding: ${Math.max(3, density.cellY - 1)}px ${density.cellX}px; border-bottom: 1px solid #e5e7eb; vertical-align: top; }
             table tbody tr:nth-child(even) td { background: #fafafa; }
             table tbody tr:last-child td { border-bottom: none; }
             table tbody td.text-right, table tbody td:last-child { text-align: right; }
             table th.text-right { text-align: right; }
 
             /* Section titles within items list (date-group / category) */
-            .date-group, .section-title { margin: 18px 0 8px; padding: 8px 12px; background: ${primaryColor}15; border-left: 3px solid ${primaryColor}; border-radius: 4px; font-weight: 600; color: ${primaryColor}; font-size: 14px; }
+            .date-group, .section-title { margin: ${density.sectionGapTop}px 0 ${density.sectionGapBottom}px; padding: ${density.cellY}px ${density.cellX}px; background: ${primaryColor}15; border-left: 3px solid ${primaryColor}; border-radius: 4px; font-weight: 600; color: ${primaryColor}; font-size: ${density.base + 1}px; }
 
             /* Boxes — notes / terms / payment / bank details */
             .notes, .terms, .payment-info, .bank-details, .subtotals {
-              margin-top: 16px; padding: 14px 16px; border-radius: 6px; font-size: 12.5px; line-height: 1.55;
+              margin-top: ${Math.round(density.sectionGapTop * 0.9)}px; padding: ${density.cellY + 4}px ${density.cellX + 4}px; border-radius: 6px; font-size: ${density.base - 0.5}px; line-height: ${density.lineHeight};
             }
             .notes { background: #fffbeb; border-left: 4px solid #f59e0b; }
             .terms { background: #f9fafb; border-left: 4px solid #6b7280; font-size: 11.5px; }
@@ -531,7 +566,7 @@ export default function DocumentPreview({
 
             /* Page-level print rules — remove browser-injected URL and date in the
                header/footer of the print, set proper margins, avoid breaking rows. */
-            @page { margin: 14mm 12mm; size: auto; }
+            @page { margin: ${density.pageMargin}; size: auto; }
             @media print {
               body { padding: 0; }
               /* Keep small atomic units together (table rows, single service
