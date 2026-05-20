@@ -714,3 +714,18 @@ Outcome: the Add-Item picklist, the editor section groups, the edit-item type se
 **Validation** (`/app/test_reports/iteration_179.json` — testing_agent_v3_fork, 100% pass):
 - Backend pytest 5/5: move Desayuno 08:00→10:30 (`matched=2/modified=2`), cross-day move, 400/404 guards, revert OK.
 - Frontend: dragging the Desayuno block down ~2.5 rows fired the dragstart→drop pipeline, a toast appeared, block re-rendered at the new time, and a follow-up GET confirmed the section_time was persisted with the other two services unchanged.
+
+
+### PDF Proposal — Blank Bottom-Half Page Fix — Feb 20, 2026
+**Reported**: "Mira como me salen las propuestas con una pagina entera vacía" (Magnolia.pdf attached). Analysis of the PDF showed page 1 contained only the header + "Resumen de Catering" (1 row table) and then **~70% of the page was empty whitespace**, while all the actual service sections jumped to page 2.
+
+**Root cause** (`/app/frontend/src/components/DocumentPreview.js`):
+The print stylesheet declared `tr, .date-group, .notes, .terms, .payment-info { page-break-inside: avoid; }`. Each `.date-group` wraps an entire day's services (multiple `.category-section` tables). When the first day didn't fit in the space remaining after the catering summary, the browser honored `page-break-inside: avoid` and pushed the **entire day-block** to the next page, leaving page 1 mostly empty.
+
+**Fix**:
+- Removed `.date-group` from the `page-break-inside: avoid` list.
+- Added `.category-section` (each individual service) as the keep-together unit — small enough to fit on a page, big enough to look intentional.
+- Added `page-break-after: avoid` to `.date-title`, `.section-title`, and `h4` so section headers stay attached to their first content row.
+- Added the modern `break-inside / break-after` aliases alongside the legacy `page-break-*` properties for Chrome/WebKit compatibility.
+
+Now content flows: header → catering summary → first service section fills the rest of page 1 → subsequent sections continue on page 2 — no big gaps.

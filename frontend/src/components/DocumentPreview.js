@@ -534,7 +534,14 @@ export default function DocumentPreview({
             @page { margin: 14mm 12mm; size: auto; }
             @media print {
               body { padding: 0; }
-              tr, .date-group, .notes, .terms, .payment-info { page-break-inside: avoid; }
+              /* Keep small atomic units together (table rows, single service
+                 section, notes, totals). Do NOT mark `.date-group` as
+                 unbreakable — a whole day with many services can easily exceed
+                 a page and would otherwise push to the next page, leaving the
+                 previous page mostly empty. */
+              tr, .category-section, .notes, .terms, .payment-info { page-break-inside: avoid; break-inside: avoid; }
+              /* Keep section/date headers attached to their first content row. */
+              .date-title, .section-title, h4 { page-break-after: avoid; break-after: avoid; }
               thead { display: table-header-group; }
             }
           </style>
