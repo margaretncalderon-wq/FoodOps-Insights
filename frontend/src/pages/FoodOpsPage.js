@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Layout } from "../components/Layout";
 import { PhysicalCountSection } from "../components/culinary/PhysicalCountSection";
 import ImportExportSection from "../components/settings/ImportExportSection";
+import KitchenSheetsBatch from "../components/KitchenSheetsBatch";
 
 // UI Components
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../components/ui/card";
@@ -2547,6 +2548,7 @@ export default function FoodOpsPage() {
     { path: "/food-ops/consolidated", label: isEs ? "Costos" : "Costs", icon: Layers },
     { path: "/food-ops/purchase-orders", label: isEs ? "Órdenes" : "Orders", icon: Truck },
     { path: "/food-ops/physical-count", label: isEs ? "Conteo Físico" : "Physical Count", icon: ClipboardList },
+    { path: "/food-ops/kitchen-sheets", label: isEs ? "Hojas de Cocina" : "Kitchen Sheets", icon: Printer },
     { path: "/food-ops/import-export", label: isEs ? "Importar/Exportar" : "Import/Export", icon: FileUp },
   ];
 
@@ -2598,6 +2600,7 @@ export default function FoodOpsPage() {
           <Route path="purchase-orders" element={<PurchaseOrdersSectionWrapper />} />
           <Route path="consolidated" element={<ConsolidatedPurchaseSectionWrapper />} />
           <Route path="physical-count" element={<PhysicalCountSection />} />
+          <Route path="kitchen-sheets" element={<KitchenSheetsBatch />} />
           <Route path="import-export" element={<ImportExportSection filter="culinary" />} />
         </Routes>
       </div>

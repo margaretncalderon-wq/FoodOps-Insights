@@ -455,143 +455,46 @@ export default function DocumentPreview({
   const handlePrint = () => {
     const printContent = printRef.current;
     if (!printContent) return;
+
+    // Pixel-perfect strategy: instead of hand-building a separate HTML string
+    // (which always drifted from the preview), we CLONE the preview DOM and
+    // copy every <link rel="stylesheet"> + <style> tag from the parent doc
+    // into the iframe head. Browsers cache same-origin stylesheets so this
+    // is effectively instant. The result: the printed PDF looks identical
+    // to what the user sees on screen.
+    const headStyles = Array.from(
+      document.head.querySelectorAll('link[rel="stylesheet"], style')
+    ).map((node) => node.outerHTML).join("\n");
+
+    const previewHtml = printContent.outerHTML;
+
     const html = `<!DOCTYPE html>
-      <html>
-        <head>
-          <meta charset="utf-8" />
-          <title>${config.name[language]} - ${event?.name || 'Document'}</title>
-          <style>
-            * { box-sizing: border-box; }
-            html, body { margin: 0; }
-            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; padding: 24px 28px; color: #1a1a1a; font-size: ${density.base}px; line-height: ${density.lineHeight}; }
-            ${variantCSS}
-            /* Strip Tailwind utility chrome the React tree relies on so the
-               printed output looks identical to what the user sees on screen.
-               The iframe doesn't have Tailwind, so any utility classes we
-               render need an explicit print fallback here. */
-            h1 { font-size: 22px; font-weight: 700; margin: 0 0 4px; color: ${primaryColor}; }
-            h2 { font-size: 18px; font-weight: 600; margin: 16px 0 8px; }
-            h3 { font-size: 15px; font-weight: 600; margin: 12px 0 6px; }
-            h4 { font-size: 14px; font-weight: 600; margin: 10px 0 6px; }
-            p { margin: 4px 0; }
+<html lang="${language}">
+  <head>
+    <meta charset="utf-8" />
+    <title>${config.name[language]} - ${event?.name || "Document"}</title>
+    ${headStyles}
+    <style>
+      /* Print-only overrides applied on top of the cloned app CSS. These
+         tune the page geometry per the user's selected pdf_density setting
+         and remove the browser-injected URL/footer from the print. */
+      @page { margin: ${density.pageMargin}; size: auto; }
+      html, body { margin: 0; background: #fff; }
+      body { font-size: ${density.base}px; line-height: ${density.lineHeight}; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      /* Keep small atomic units together; the date-group can break across pages. */
+      tr, .category-section, .notes, .terms, .payment-info, .bank-details, .subtotals { page-break-inside: avoid; break-inside: avoid; }
+      .date-title, .section-title, h4 { page-break-after: avoid; break-after: avoid; }
+      thead { display: table-header-group; }
+      /* Hide the print toolbar (selectors, buttons) if it slipped into the clone. */
+      [data-print-hidden="true"] { display: none !important; }
+      /* The fixed positioning of the preview container would break printing — flatten it. */
+      .fixed.inset-0 { position: static !important; background: #fff !important; backdrop-filter: none !important; }
+      .container { max-width: none !important; padding: 0 !important; }
+    </style>
+  </head>
+  <body>${previewHtml}</body>
+</html>`;
 
-            /* Header */
-            .header { border-bottom: 2px solid ${primaryColor}; padding-bottom: 18px; margin-bottom: 20px; }
-            .company-name { color: ${primaryColor} !important; font-size: 22px; font-weight: 700; }
-            .text-muted-foreground, .text-xs.text-muted-foreground { color: #6b7280; }
-            .text-sm { font-size: 13px; }
-            .text-xs { font-size: 11px; }
-            .text-2xl { font-size: 22px; }
-            .text-right { text-align: right; }
-            .font-bold { font-weight: 700; }
-            .font-semibold { font-weight: 600; }
-            .font-medium { font-weight: 500; }
-            .font-mono { font-family: "SF Mono", "Menlo", "Consolas", monospace; }
-            .italic { font-style: italic; }
-            .uppercase { text-transform: uppercase; }
-            .tracking-wider { letter-spacing: 0.05em; }
-
-            /* Logo */
-            .doc-logo, .doc-root img.doc-logo, .header img { max-width: 240px; width: auto; height: auto; object-fit: contain; display: block; }
-            .doc-logo[data-logo-size="small"] { max-height: 40px; }
-            .doc-logo[data-logo-size="medium"], .header img:not([data-logo-size]) { max-height: 56px; }
-            .doc-logo[data-logo-size="large"] { max-height: 80px; }
-            .doc-logo-wrap { display: flex; margin-bottom: 12px; }
-            .doc-logo-wrap[data-logo-position="left"] { justify-content: flex-start; }
-            .doc-logo-wrap[data-logo-position="center"] { justify-content: center; }
-            .doc-logo-wrap[data-logo-position="right"] { justify-content: flex-end; }
-            .doc-tagline { font-style: italic; color: ${primaryColor}; opacity: 0.85; margin: 0 0 12px; font-size: 12px; }
-
-            /* Layout helpers */
-            .flex { display: flex; }
-            .flex.items-start { align-items: flex-start; }
-            .flex.items-center { align-items: center; }
-            .flex.justify-between { justify-content: space-between; }
-            .flex.gap-2 > * + * { margin-left: 8px; }
-            .grid { display: grid; }
-            .grid.grid-cols-2 { grid-template-columns: 1fr 1fr; gap: 16px; }
-            .grid.grid-cols-3 { grid-template-columns: repeat(3, 1fr); gap: 16px; }
-            .space-y-2 > * + * { margin-top: 8px; }
-            .space-y-4 > * + * { margin-top: 16px; }
-            .gap-2 { gap: 8px; }
-            .gap-3 { gap: 12px; }
-            .gap-4 { gap: 16px; }
-
-            /* Info block (Client / Event / etc.) */
-            .info-item { display: flex; gap: 8px; align-items: center; padding: 2px 0; }
-            .info-label { font-weight: 600; color: #4b5563; min-width: 90px; }
-            .info-item svg { width: 14px; height: 14px; flex-shrink: 0; color: #6b7280; }
-
-            /* Tables — full polish: borders, headers with brand color, padding, zebra rows */
-            table { width: 100%; border-collapse: collapse; margin: ${Math.round(density.sectionGapBottom)}px 0 ${Math.round(density.sectionGapTop * 0.6)}px; font-size: ${density.base - 0.5}px; }
-            table thead th { background: ${primaryColor}; color: white !important; padding: ${density.cellY}px ${density.cellX}px; text-align: left; font-weight: 600; font-size: ${density.base - 1}px; }
-            table thead th:last-child { text-align: right; }
-            table tbody td { padding: ${Math.max(3, density.cellY - 1)}px ${density.cellX}px; border-bottom: 1px solid #e5e7eb; vertical-align: top; }
-            table tbody tr:nth-child(even) td { background: #fafafa; }
-            table tbody tr:last-child td { border-bottom: none; }
-            table tbody td.text-right, table tbody td:last-child { text-align: right; }
-            table th.text-right { text-align: right; }
-
-            /* Section titles within items list (date-group / category) */
-            .date-group, .section-title { margin: ${density.sectionGapTop}px 0 ${density.sectionGapBottom}px; padding: ${density.cellY}px ${density.cellX}px; background: ${primaryColor}15; border-left: 3px solid ${primaryColor}; border-radius: 4px; font-weight: 600; color: ${primaryColor}; font-size: ${density.base + 1}px; }
-
-            /* Boxes — notes / terms / payment / bank details */
-            .notes, .terms, .payment-info, .bank-details, .subtotals {
-              margin-top: ${Math.round(density.sectionGapTop * 0.9)}px; padding: ${density.cellY + 4}px ${density.cellX + 4}px; border-radius: 6px; font-size: ${density.base - 0.5}px; line-height: ${density.lineHeight};
-            }
-            .notes { background: #fffbeb; border-left: 4px solid #f59e0b; }
-            .terms { background: #f9fafb; border-left: 4px solid #6b7280; font-size: 11.5px; }
-            .payment-info { background: #ecfdf5; border-left: 4px solid ${primaryColor}; }
-            .bank-details { background: #eff6ff; border-radius: 6px; font-family: "SF Mono", "Menlo", monospace; white-space: pre-wrap; font-size: 11.5px; }
-            .subtotals { background: #f3f4f6; }
-            .subtotals h4 { margin-top: 0; }
-
-            /* Totals row */
-            .total-row { font-weight: 700; font-size: 14px; border-top: 2px solid ${primaryColor}; padding-top: 8px; margin-top: 8px; }
-
-            /* Footer */
-            .footer { margin-top: 36px; text-align: center; font-size: 10.5px; color: #6b7280; border-top: 1px solid #e5e7eb; padding-top: 14px; }
-
-            /* Tailwind muted background helpers */
-            .bg-muted\\/30, .bg-muted\\/40, .bg-muted\\/50 { background-color: #f3f4f6; }
-            .border, .border-b { border-color: #e5e7eb; }
-            .rounded-lg { border-radius: 8px; }
-            .rounded { border-radius: 6px; }
-            .p-4 { padding: 16px; }
-            .px-3 { padding-left: 12px; padding-right: 12px; }
-            .py-2 { padding-top: 8px; padding-bottom: 8px; }
-            .mt-6 { margin-top: 24px; }
-            .mb-2 { margin-bottom: 8px; }
-            .mb-3 { margin-bottom: 12px; }
-
-            /* Page-level print rules — remove browser-injected URL and date in the
-               header/footer of the print, set proper margins, avoid breaking rows. */
-            @page { margin: ${density.pageMargin}; size: auto; }
-            @media print {
-              body { padding: 0; }
-              /* Keep small atomic units together (table rows, single service
-                 section, notes, totals). Do NOT mark .date-group as
-                 unbreakable - a whole day with many services can easily exceed
-                 a page and would otherwise push to the next page, leaving the
-                 previous page mostly empty. */
-              tr, .category-section, .notes, .terms, .payment-info { page-break-inside: avoid; break-inside: avoid; }
-              /* Keep section/date headers attached to their first content row. */
-              .date-title, .section-title, h4 { page-break-after: avoid; break-after: avoid; }
-              thead { display: table-header-group; }
-            }
-          </style>
-        </head>
-        <body>
-          <div class="doc-root" data-style-variant="${styleVariant}">
-            ${printContent.innerHTML}
-          </div>
-        </body>
-      </html>`;
-
-    // Strategy: write the HTML into the iframe SYNCHRONOUSLY (no srcdoc) and
-    // call `win.print()` immediately so the print dialog opens inside the
-    // user-gesture stack. Safari otherwise blocks `print()` triggered from
-    // an async `iframe.onload` or setTimeout.
     const iframe = document.createElement("iframe");
     iframe.setAttribute("aria-hidden", "true");
     iframe.style.position = "fixed";
@@ -606,7 +509,7 @@ export default function DocumentPreview({
     const cleanup = () => {
       setTimeout(() => {
         if (iframe.parentNode) iframe.parentNode.removeChild(iframe);
-      }, 1200);
+      }, 1500);
     };
 
     try {
@@ -615,14 +518,15 @@ export default function DocumentPreview({
       doc.open();
       doc.write(html);
       doc.close();
-      // Print synchronously while still inside the user-initiated click.
+      // Stylesheets in head are cached → already applied. Print right away
+      // to stay inside the user-gesture stack (Safari requirement).
       const win = iframe.contentWindow;
       if (win) {
-        try { win.focus(); } catch (_e) { /* iOS Safari may throw */ }
+        try { win.focus(); } catch (_e) { /* iOS may throw */ }
         win.print();
       }
     } catch (_e) {
-      /* swallow — cleanup runs in finally */
+      /* swallow */
     } finally {
       cleanup();
     }

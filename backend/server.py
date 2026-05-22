@@ -4136,14 +4136,23 @@ async def get_plated_menu_projected_cost(menu_id: str, user: User = Depends(get_
 
 @kitchen_beo_router.get("/event/{event_id}")
 async def get_kitchen_beo(event_id: str, user: User = Depends(get_current_user)):
-    """Feature 2 — Kitchen BEO (Banquet Event Order).
+    """Kitchen BEO (Banquet Event Order) — structured for the chef.
 
-    Returns a print-ready structured payload for the chef:
-      - Event header (name, date, guest count, venue, menu type)
-      - Recipes scaled by guest_count + buffet factor (if applicable)
-      - Aggregated allergens across all recipes
-      - Dietary tag summary for chef awareness
+    Source of truth: the proposal's `order_items` (what was actually
+    confirmed/sold), NOT the original `plated_menus.courses` template.
+    Items are grouped into **tandas** by `(event_date, section_title,
+    section_time)`. For multi-day events (`event_dates`), each date becomes
+    its own block and tandas live inside.
+
+    For every item that has a `loaded_from_course_id`, we resolve the recipe
+    and scale ingredients by guest_count × buffet factor. Items without a
+    recipe link are still surfaced as line entries so the chef sees them
+    (e.g. "80x Jugo Galón"). Prices are intentionally omitted from this
+    payload — cocina no necesita ver costos.
     """
+    from hashlib import sha256
+    from collections import defaultdict
+
     event = await db.events.find_one(
         {"event_id": event_id, "company_id": user.company_id},
         {"_id": 0},
@@ -4155,100 +4164,152 @@ async def get_kitchen_beo(event_id: str, user: User = Depends(get_current_user))
     if guest_count <= 0:
         guest_count = 1
 
-    menu = None
-    menu_type = "plated"
-    courses = []
-    if event.get("menu_id"):
-        menu = await db.plated_menus.find_one(
-            {"menu_id": event["menu_id"], "company_id": user.company_id},
-            {"_id": 0},
-        )
-        if menu:
-            menu_type = menu.get("menu_type", "plated")
-            courses = menu.get("courses", [])
-
-    allergens_set = set()
-    dietary_set = set()
-    recipe_breakdown = []  # one entry per recipe instance (course + item)
-    total_input_cost = 0.0
-    courses_out = []
-
-    # Find proposal items for this event to pull service_time per course
-    section_time_by_course = {}
-    section_end_by_course = {}
     proposal = await db.proposals.find_one(
         {"event_id": event_id, "company_id": user.company_id},
         {"_id": 0, "proposal_id": 1},
         sort=[("created_at", -1)],
     )
+
+    # Pre-resolve menu (used for menu_type → buffet factor)
+    menu = None
+    menu_type = "plated"
+    if event.get("menu_id"):
+        menu = await db.plated_menus.find_one(
+            {"menu_id": event["menu_id"], "company_id": user.company_id},
+            {"_id": 0, "menu_type": 1, "name": 1, "courses": 1},
+        )
+        if menu:
+            menu_type = menu.get("menu_type", "plated")
+
+    # Pull all order_items for this proposal — these are what the kitchen
+    # actually produces.
+    items: list = []
     if proposal:
-        oi_cursor = db.order_items.find(
+        items = await db.order_items.find(
             {
                 "proposal_id": proposal["proposal_id"],
                 "company_id": user.company_id,
-                "loaded_from_course_id": {"$exists": True, "$ne": None},
             },
-            {"_id": 0, "loaded_from_course_id": 1, "section_time": 1, "section_end_time": 1},
-        )
-        async for oi in oi_cursor:
-            cid = oi.get("loaded_from_course_id")
-            t = oi.get("section_time")
-            te = oi.get("section_end_time")
-            if cid and t and cid not in section_time_by_course:
-                section_time_by_course[cid] = t
-            if cid and te and cid not in section_end_by_course:
-                section_end_by_course[cid] = te
+            {
+                "_id": 0,
+                "description": 1,
+                "section_title": 1,
+                "section_time": 1,
+                "section_end_time": 1,
+                "event_date": 1,
+                "quantity": 1,
+                "item_type": 1,
+                "loaded_from_course_id": 1,
+                "loaded_from_recipe_id": 1,
+                "sort_order": 1,
+            },
+        ).to_list(2000)
 
-    for course in courses:
-        course_recipes = []
-        for item in course.get("items", []):
-            rid = item.get("recipe_id")
-            if not rid:
-                continue
-            recipe = await db.recipes.find_one(
-                {"recipe_id": rid, "company_id": user.company_id},
-                {"_id": 0},
-            )
+    # Compute calendar_dates the same way the orchestration calendar does
+    def _norm_date(value):
+        if not value:
+            return None
+        if isinstance(value, str):
+            return value[:10] if len(value) >= 10 else None
+        try:
+            return value.isoformat()[:10]
+        except Exception:
+            return None
+
+    def _expand_event_dates(ev):
+        from datetime import date as _date
+        dates: set = set()
+        for d in ev.get("event_dates") or []:
+            nd = _norm_date(d)
+            if nd:
+                dates.add(nd)
+        primary = _norm_date(ev.get("event_date"))
+        if primary:
+            dates.add(primary)
+        end = _norm_date(ev.get("end_date"))
+        if primary and end and end > primary:
+            try:
+                cur = _date.fromisoformat(primary)
+                stop = _date.fromisoformat(end)
+                while cur <= stop:
+                    dates.add(cur.isoformat())
+                    cur = _date.fromordinal(cur.toordinal() + 1)
+            except Exception:
+                pass
+        return sorted(dates)
+
+    calendar_dates = _expand_event_dates(event)
+    if not calendar_dates:
+        calendar_dates = [None]  # un-scheduled event → single "TBD" block
+
+    # Bucket items by (date, section_title, section_time)
+    bucket: dict = defaultdict(list)
+    for it in items:
+        d = _norm_date(it.get("event_date")) or (calendar_dates[0] if calendar_dates else None)
+        title = (it.get("section_title") or "").strip()
+        t = (it.get("section_time") or "").strip()
+        key = (d, title, t, (it.get("section_end_time") or "").strip())
+        bucket[key].append(it)
+
+    # Pre-fetch every recipe we'll need (one round-trip)
+    recipe_ids = list({i.get("loaded_from_recipe_id") for i in items if i.get("loaded_from_recipe_id")})
+    recipes_by_id: dict = {}
+    if recipe_ids:
+        async for r in db.recipes.find(
+            {"recipe_id": {"$in": recipe_ids}, "company_id": user.company_id},
+            {"_id": 0},
+        ):
+            recipes_by_id[r["recipe_id"]] = r
+
+    allergens_set: set = set()
+    dietary_set: set = set()
+
+    async def _build_tanda(key, tanda_items):
+        d, title, t, te = key
+        # Sort items by sort_order then description
+        tanda_items.sort(key=lambda i: (int(i.get("sort_order") or 0), i.get("description") or ""))
+        tanda_allergens: set = set()
+        tanda_dietary: set = set()
+        recipes_out: list = []
+        extras_out: list = []  # items without a recipe link
+        for it in tanda_items:
+            qty = float(it.get("quantity") or 0)
+            rid = it.get("loaded_from_recipe_id")
+            recipe = recipes_by_id.get(rid) if rid else None
             if not recipe:
-                continue
-
-            portions_per_guest = float(item.get("portions_per_guest") or 1)
-            factor = await _resolve_buffet_factor(recipe, user.company_id, menu_type)
-            portions_required = portions_per_guest * factor * guest_count
-            yield_qty = float(recipe.get("portions_per_yield") or recipe.get("yield_quantity") or 1) or 1
-            scale_factor = portions_required / yield_qty
-
-            # Scale ingredient lines for kitchen
-            scaled_ingredients = []
-            recipe_cost = 0.0
-            for ing in recipe.get("ingredients", []):
-                base_qty = float(ing.get("quantity") or 0)
-                qty_scaled = base_qty * scale_factor
-                cpu = float(ing.get("cost_per_unit") or 0)
-                line_cost = qty_scaled * cpu
-                recipe_cost += line_cost
-                scaled_ingredients.append({
-                    "ingredient_id": ing.get("ingredient_id") or ing.get("item_id"),
-                    "name": ing.get("name") or ing.get("item_name") or "?",
-                    "quantity": round(qty_scaled, 3),
-                    "unit": ing.get("unit") or "unit",
-                    "line_cost": round(line_cost, 4),
+                extras_out.append({
+                    "description": it.get("description"),
+                    "quantity": qty,
+                    "item_type": it.get("item_type"),
                 })
-            total_input_cost += recipe_cost
+                continue
+            factor = await _resolve_buffet_factor(recipe, user.company_id, menu_type)
+            # `quantity` on the order_item is already total portions sold for
+            # this tanda (since fan-out is per-date). Scale up by the buffet
+            # factor so cocina prepares enough.
+            portions_required = qty * factor if qty > 0 else 0
+            yield_qty = float(recipe.get("portions_per_yield") or recipe.get("yield_quantity") or 1) or 1
+            scale_factor = portions_required / yield_qty if yield_qty else 0
 
-            # Aggregate allergens/diet tags
+            scaled_ingredients = []
+            for ing in (recipe.get("ingredients") or []):
+                base_qty = float(ing.get("quantity") or 0)
+                scaled_ingredients.append({
+                    "name": ing.get("name") or ing.get("item_name") or "?",
+                    "quantity": round(base_qty * scale_factor, 3),
+                    "unit": ing.get("unit") or "unit",
+                })
             for a in (recipe.get("allergens") or []):
-                allergens_set.add(a)
-            for d in (recipe.get("dietary_tags") or []):
-                dietary_set.add(d)
-
-            entry = {
+                tanda_allergens.add(a); allergens_set.add(a)
+            for dt in (recipe.get("dietary_tags") or []):
+                tanda_dietary.add(dt); dietary_set.add(dt)
+            recipes_out.append({
                 "recipe_id": rid,
                 "recipe_name": recipe.get("name"),
+                "description": it.get("description"),
                 "category": recipe.get("category"),
                 "portions_required": round(portions_required, 3),
                 "yield_unit": recipe.get("yield_unit", "portion"),
-                "scale_factor": round(scale_factor, 4),
                 "consumption_factor": round(factor, 3),
                 "prep_time_minutes": recipe.get("prep_time") or recipe.get("prep_time_minutes") or 0,
                 "cook_time_minutes": recipe.get("cook_time") or recipe.get("cook_time_minutes") or 0,
@@ -4257,41 +4318,192 @@ async def get_kitchen_beo(event_id: str, user: User = Depends(get_current_user))
                 "ingredients": scaled_ingredients,
                 "presentation_notes": recipe.get("presentation_notes"),
                 "chef_notes": recipe.get("chef_notes"),
-                "recipe_cost_total": round(recipe_cost, 4),
-            }
-            course_recipes.append(entry)
-            recipe_breakdown.append(entry)
-
-        if course_recipes:
-            courses_out.append({
-                "course_id": course.get("course_id"),
-                "course_name": course.get("course_name") or course.get("name"),
-                "course_order": course.get("course_order"),
-                "service_time": section_time_by_course.get(course.get("course_id")),
-                "service_end_time": section_end_by_course.get(course.get("course_id")),
-                "recipes": course_recipes,
             })
+        return {
+            "tanda_key": f"{d or 'tbd'}|{title}|{t}",
+            "date": d,
+            "section_title": title or None,
+            "section_time": t or None,
+            "section_end_time": te or None,
+            "guest_count": guest_count,
+            "recipes": recipes_out,
+            "extras": extras_out,
+            "allergens": sorted(tanda_allergens),
+            "dietary_tags": sorted(tanda_dietary),
+        }
+
+    # Build the day → tandas structure
+    days_map: dict = defaultdict(list)
+    for key, tanda_items in bucket.items():
+        tanda = await _build_tanda(key, tanda_items)
+        days_map[tanda["date"]].append(tanda)
+
+    # Sort tandas inside each day by time (None last)
+    days_out: list = []
+    for d in calendar_dates:
+        tandas = days_map.get(d, [])
+        # Also catch tandas whose date matches even when calendar_dates didn't
+        # include them (shouldn't happen but defensive)
+        tandas.sort(key=lambda x: ((x.get("section_time") or "99:99"), (x.get("section_title") or "")))
+        days_out.append({
+            "date": d,
+            "tandas": tandas,
+            "tanda_count": len(tandas),
+        })
+    # Append any orphan dates not in calendar_dates (defensive)
+    for d, tandas in days_map.items():
+        if d in calendar_dates:
+            continue
+        tandas.sort(key=lambda x: ((x.get("section_time") or "99:99"), (x.get("section_title") or "")))
+        days_out.append({"date": d, "tandas": tandas, "tanda_count": len(tandas)})
+
+    # Build a content-hash snapshot — the kitchen UI compares it against the
+    # last printed snapshot to detect post-print changes.
+    snap_input = []
+    for day in days_out:
+        for tanda in day["tandas"]:
+            snap_input.append((
+                tanda.get("date") or "",
+                tanda.get("section_title") or "",
+                tanda.get("section_time") or "",
+                tanda.get("section_end_time") or "",
+                tanda.get("guest_count") or 0,
+                tuple(sorted([(r.get("recipe_id") or r.get("description") or "", r.get("portions_required") or 0)
+                              for r in tanda["recipes"]])),
+                tuple(sorted([(e.get("description") or "", e.get("quantity") or 0) for e in tanda["extras"]])),
+            ))
+    snapshot_hash = sha256(repr(snap_input).encode("utf-8")).hexdigest()[:16]
+
+    # Look up the most recent print log entry for this event so the UI can
+    # show "Última impresión: 2h" + "⚠ cambios desde la última impresión".
+    last_print = await db.kitchen_beo_print_log.find_one(
+        {"event_id": event_id, "company_id": user.company_id},
+        {"_id": 0},
+        sort=[("printed_at", -1)],
+    )
+    changed_since_print = bool(last_print and last_print.get("snapshot_hash") != snapshot_hash)
 
     return {
         "event_id": event_id,
         "event_name": event.get("name"),
-        "event_date": event.get("event_date"),
-        "end_date": event.get("end_date"),
-        "start_time": event.get("start_time"),
-        "venue": event.get("venue"),
+        "calendar_dates": calendar_dates,
         "guest_count": guest_count,
-        "menu_id": event.get("menu_id"),
+        "venue": event.get("venue"),
         "menu_name": (menu or {}).get("name"),
         "menu_type": menu_type,
         "allergens_aggregate": sorted(allergens_set),
         "dietary_tags_aggregate": sorted(dietary_set),
-        "courses": courses_out,
+        "days": days_out,
         "totals": {
-            "recipes_count": len(recipe_breakdown),
-            "total_input_cost": round(total_input_cost, 4),
-            "total_input_cost_per_guest": round((total_input_cost / guest_count) if guest_count else 0, 4),
+            "days_count": len(days_out),
+            "tandas_count": sum(d["tanda_count"] for d in days_out),
+            "recipes_count": sum(len(t["recipes"]) for d in days_out for t in d["tandas"]),
         },
+        "snapshot_hash": snapshot_hash,
+        "last_print": last_print,
+        "changed_since_print": changed_since_print,
         "generated_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+@kitchen_beo_router.post("/event/{event_id}/mark-printed")
+async def mark_kitchen_beo_printed(
+    event_id: str,
+    payload: dict = Body(default={}),
+    user: User = Depends(get_current_user),
+):
+    """Persist that the BEO was printed at this moment with the given
+    snapshot hash. The UI calls this from the Print button so that next
+    time the BEO is opened we can flag if the content drifted."""
+    event = await db.events.find_one({"event_id": event_id, "company_id": user.company_id}, {"_id": 0, "event_id": 1, "name": 1})
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+    snapshot_hash = (payload or {}).get("snapshot_hash") or ""
+    log_id = f"beolog_{uuid.uuid4().hex[:12]}"
+    now_iso = datetime.now(timezone.utc).isoformat()
+    await db.kitchen_beo_print_log.insert_one({
+        "log_id": log_id,
+        "event_id": event_id,
+        "event_name": event.get("name"),
+        "company_id": user.company_id,
+        "printed_at": now_iso,
+        "printed_by_user_id": user.user_id,
+        "printed_by_name": user.name,
+        "snapshot_hash": snapshot_hash,
+        "scope": (payload or {}).get("scope") or "single",
+    })
+    return {"success": True, "log_id": log_id, "printed_at": now_iso}
+
+
+@kitchen_beo_router.get("/batch")
+async def list_kitchen_beo_batch(
+    start_date: str,
+    end_date: str,
+    include_stages: Optional[str] = "Won,Committed,Confirmed",
+    user: User = Depends(get_current_user),
+):
+    """Returns one BEO payload per confirmed event in the given date range.
+    Used by the batch-print screen to render N hojas at once.
+
+    Each entry also carries `changed_since_print` so the UI can flag drift.
+    """
+    stages = [s.strip() for s in (include_stages or "").split(",") if s.strip()]
+    base_query = {"company_id": user.company_id}
+    if stages:
+        base_query["$or"] = [
+            {"stage": {"$in": stages}},
+            {"operational_status": {"$in": stages}},
+        ]
+    events = await db.events.find(base_query, {"_id": 0}).to_list(500)
+
+    # Filter by date overlap with [start_date, end_date]
+    def _norm(v):
+        if isinstance(v, str):
+            return v[:10] if len(v) >= 10 else None
+        try:
+            return v.isoformat()[:10]
+        except Exception:
+            return None
+
+    def _event_dates(ev):
+        out = set()
+        for d in ev.get("event_dates") or []:
+            n = _norm(d)
+            if n:
+                out.add(n)
+        n = _norm(ev.get("event_date"))
+        if n:
+            out.add(n)
+        return sorted(out)
+
+    qstart = start_date[:10]
+    qend = end_date[:10]
+    filtered: list = []
+    for ev in events:
+        eds = _event_dates(ev)
+        if not eds:
+            continue
+        if all(d < qstart for d in eds):
+            continue
+        if all(d > qend for d in eds):
+            continue
+        filtered.append(ev)
+
+    # Generate a BEO for each event (reusing the single-event endpoint logic)
+    sheets: list = []
+    for ev in filtered:
+        try:
+            beo = await get_kitchen_beo(ev["event_id"], user)
+            sheets.append(beo)
+        except HTTPException:
+            continue
+
+    sheets.sort(key=lambda b: (b.get("calendar_dates") or ["9999"])[0])
+    return {
+        "start_date": qstart,
+        "end_date": qend,
+        "sheets_count": len(sheets),
+        "sheets": sheets,
     }
 
 

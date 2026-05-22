@@ -1,0 +1,36 @@
+{
+  "summary": "Validated Kitchen BEO v2 (days→tandas + change-detection + batch print) end-to-end. Backend: 10/10 pytest pass on /api/kitchen-beo/event/{id} (shape: event_id, event_name, calendar_dates, guest_count, days[{date, tandas, tanda_count}], totals{days_count,tandas_count,recipes_count}, snapshot_hash, last_print, changed_since_print, allergens_aggregate, dietary_tags_aggregate), no price/cost/unit_price fields anywhere, 1 day 2026-05-20 with exactly 3 tandas (Desayuno/Almuerzo/Coffee), each with extras list. mark-printed POST returns {success, log_id, printed_at}; re-GET shows changed_since_print=false; mark-printed with a different snapshot then re-GET shows changed_since_print=true with last_print still populated. /api/kitchen-beo/batch?start_date=&end_date= returns sheets_count + sheets[] sorted by first date, defaults to Won/Committed/Confirmed, includes event_test_timed_services. Regression test_sprint4_culinary_phase2.py::test_kitchen_beo_endpoint still passes. Frontend (Pame Mey, food-ops module enabled): /food-ops/kitchen-sheets (Kitchen Sheets tab inside Culinary Intelligence) renders KitchenSheetsBatch with all testids (batch-start-date, batch-end-date, batch-refresh, batch-toggle-all, batch-print-btn, batch-row-{id}); selecting a row and clicking Print injects an iframe, calls window.print() exactly 1x, POSTs /mark-printed (1 XHR detected), toast 'X sheet(s) printed and marked' appears, and the row badge flips to green 'printed' with 'Last print: …· Pame Mey' line.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {"flow": "Cross-org seed/access mismatch", "issue": "The seeded test event event_test_timed_services lives in the demo.agency@kora.com org, but that org does NOT have the food-ops module enabled — visiting /food-ops/* with demo.agency redirects to /dashboard. So the UI flow could only be exercised with another org (pamemey27@gmail.com) using its own confirmed event TEST_BulkMenu_431ab6f0. Either enable the food-ops module for demo.agency OR re-seed event_test_timed_services into Pame's org so manual QA + future Playwright runs can use the documented credentials in the task brief.", "affected_selectors": ["kitchen-sheets-batch", "batch-row-event_test_timed_services"]}
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_kitchen_beo_v2.py",
+    "/app/test_reports/pytest/kitchen_beo_v2.xml"
+  ],
+  "action_items": [
+    "Enable the food-ops module on the demo.agency@kora.com org OR re-seed event_test_timed_services into an org that already has food-ops enabled — otherwise the credentials promised in the task brief cannot exercise the new KitchenSheetsBatch UI.",
+    "OPTIONAL (not blocking): KitchenBEO single-event dialog (testid kitchen-beo-dialog) and DocumentPreview clone-print flow were not interactively exercised this round because the entry points sit behind orchestration views that need food-ops + a proposal in the same org; the shared print helpers (KitchenBEOPrint.buildBeoPrintHtml) WERE exercised via the batch path (iframe injection, window.print, mark-printed POST, snapshot_hash payload all verified)."
+  ],
+  "critical_code_review_comments": [
+    "server.py L4492-4500 (list_kitchen_beo_batch): reuses `await get_kitchen_beo(ev['event_id'], user)` inside a per-event loop — that's N+1 round-trips to MongoDB for events, order_items and recipes. For an org with hundreds of confirmed events in the range this will be slow. Consider batching the order_items and recipe lookups across all selected events.",
+    "server.py L4421: `snapshot_hash = (payload or {}).get('snapshot_hash') or ''` — empty string is stored when caller omits it, which then sets changed_since_print=True forever on next read because '' != real_hash. Either reject missing snapshot_hash with 400 or copy the current real snapshot server-side when missing.",
+    "server.py L4360-4375 build snapshot_hash from `repr()` of a Python tuple — repr ordering depends on dict iteration but here it's a list so it's stable; still, floats like 12.0 vs 12 will produce different reprs ('12.0' vs '12') and thus phantom drift. Coerce numerics to a normalized form before hashing.",
+    "KitchenSheetsBatch.js L75-99: the print iframe is appended, written to and removed within 1.5s — on slow Windows printers the print dialog may not have appeared yet when the iframe is detached, which can cancel the print. Consider waiting on iframe.contentWindow.onafterprint before cleanup.",
+    "KitchenSheetsBatch.js L89-98: Promise.all(...).then() fires fetchSheets() but the toast and refresh aren't awaited from the click handler — if the user clicks Print rapidly twice, both runs race. Disable batch-print-btn while a print cycle is in flight."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_kitchen_beo_v2.py"
+  ],
+  "success_rate": {"backend": "100% (10/10 new + 1/1 regression)", "frontend": "100% on the batch-print path actually exercised (page render, all testids present, select→print→iframe→window.print()→mark-printed POST→toast→badge transition all verified). Single-event dialog and DocumentPreview clone-print not interactively exercised this round — see action_items."},
+  "test_credentials": "demo.agency@kora.com / Evoque2024! (backend API works, but no /food-ops module access). pamemey27@gmail.com / Evoque2024! (food-ops enabled; used for UI batch print verification).",
+  "seed_data_creation": "None. The drift test marks the event as printed twice (once with the real snapshot, once with a fake one, then restores to real) so the kitchen_beo_print_log accumulates 3 rows per run but the latest entry restores the no-drift state. UI test reused existing TEST_BulkMenu_431ab6f0 in Pame's org.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend test file /app/backend/tests/test_kitchen_beo_v2.py is idempotent and the drift test self-restores. To run: REACT_APP_BACKEND_URL=https://foodops-insights.preview.emergentagent.com pytest backend/tests/test_kitchen_beo_v2.py -v. For UI: demo.agency does NOT have food-ops module — using pamemey27@gmail.com works. The single-event KitchenBEO dialog (data-testid kitchen-beo-dialog with beo-event-select / beo-generate-btn / beo-result / beo-changed-banner / beo-uptodate-banner / beo-print-btn) lives somewhere inside FoodOps or Execution Hub but I did not locate the entry point — main agent should confirm where the dialog is mounted and add a self-test note.",
+  "rca of the issue": "n/a — no critical bugs. Only environmental mismatch: the test event was seeded into an org that lacks the food-ops UI module."
+}
