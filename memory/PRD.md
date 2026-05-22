@@ -848,3 +848,30 @@ The page-break CSS fix earlier in the day introduced a CSS comment inside the `h
 - Backend pytest 7/7 — envelope shape, threshold filter (0 / 80 / 200), override suppresses an alert correctly, only active/trialing subscriptions appear, 401 enforced.
 - Frontend: bell renders with "2" badge on the demo seed (Kora OS Test 100%, Creative Agency Demo 80%). Popover opens, X / outside-click close it correctly. Clicking a row navigates, focuses, and removes the ring after 2.6s. Regression on 3 other super-admin routes passes.
 - Test file: `/app/backend/tests/test_super_admin_usage_alerts.py` (idempotent, restores any overrides it touched).
+
+
+### Kitchen BEO v2 — Per Tanda + Multi-Day + Print Tracking + Batch + PDF=Preview — Feb 20, 2026
+
+**Requests** (Margaret): (1) hojas de cocina divididas por tanda de servicio + por día; (2a) batch print por rango de fecha; (2b) última impresión + alerta si hubo cambios; (3) PDF guardado pixel-perfect al preview.
+
+**Backend** (`/app/backend/server.py`, kitchen_beo_router L4137-L4500):
+- `GET /api/kitchen-beo/event/{id}` rewritten — source of truth = proposal `order_items` (NOT menu courses). Groups by `(event_date, section_title, section_time)`, expands `event_dates` for multi-día. Response shape: `{event_id, event_name, calendar_dates, guest_count, days:[{date, tandas:[{tanda_key, date, section_title, section_time, section_end_time, guest_count, recipes:[...], extras:[...], allergens, dietary_tags}], tanda_count}], totals, snapshot_hash, last_print, changed_since_print, allergens_aggregate, dietary_tags_aggregate}`. NO `price/cost/unit_price` fields exposed. Items without a recipe link surface as `extras` (no scaled ingredients, still printed).
+- `POST /api/kitchen-beo/event/{id}/mark-printed` — persists a row in `kitchen_beo_print_log` with snapshot_hash, printed_by, scope. Idempotent. If caller omits `snapshot_hash`, server falls back to computing the current hash to avoid stuck-as-drifted state.
+- `GET /api/kitchen-beo/batch?start_date&end_date&include_stages` — returns one BEO payload per event in the date range whose `stage`/`operational_status` is in the include list (default Won/Committed/Confirmed). Sorted by first calendar date.
+- `snapshot_hash` is built from a normalized tuple (numeric values rounded to 4 dp) so float jitter doesn't cause phantom drift.
+
+**Frontend**:
+- `KitchenBEO.js` rewritten — renders days → tandas (with section time pill + allergen badges). Banner shows green "Sin cambios desde última impresión" or amber "⚠ Cambios desde última impresión" depending on `changed_since_print`. Print uses the synchronous iframe pattern (Safari-safe) + POSTs `/mark-printed`.
+- `KitchenBEOPrint.js` (new) — shared print template. Each `(day, tanda)` is a `<section class="sheet">` with `page-break-after: always`. No prices. Includes allergen alerts, dietary tags, scaled ingredients in 2-col layout, presentation/chef notes.
+- `KitchenSheetsBatch.js` (new) — at `/food-ops/kitchen-sheets`. Date-range filter, list with per-row badges ("nunca impresa" / "impresa" / "cambios desde impresión"), select-all toggle, summary stats (sheets / pages / with-changes), batch print button (disabled while in-flight). Marks all selected events as printed in parallel after print().
+- `FoodOpsPage.js` — new nav item "Hojas de Cocina" → /food-ops/kitchen-sheets + route mount.
+- `DocumentPreview.js` `handlePrint` rewritten — clones `printRef.current.outerHTML` and copies ALL parent document `<link rel="stylesheet">` + `<style>` tags into the iframe head. Adds a small set of @page + print overrides. The printed PDF is now visually identical to the on-screen preview (Tailwind classes, shadows, padding, fonts all carry over). Removed ~170 lines of hand-built HTML.
+
+**Validation** (`/app/test_reports/iteration_185.json` — 100% pass):
+- Backend pytest 10/10 + regression on `test_sprint4_culinary_phase2.py::test_kitchen_beo_endpoint` still passes. Drift detection works: marking with one hash then mutating order_item quantity → `changed_since_print=true`. Empty hash auto-fills server-side (verified post-fix). Hash is deterministic across calls.
+- Frontend batch path: select → print → iframe injected → `window.print()` once → `/mark-printed` POSTed → toast → row badge flips to green "printed".
+- Test file: `/app/backend/tests/test_kitchen_beo_v2.py` (idempotent, restores state).
+
+**Known caveats / follow-ups** (logged from testing agent code review):
+- `list_kitchen_beo_batch` reuses `get_kitchen_beo` in a loop (N+1 round-trips). Fine for ≤50 events in a range; for orgs with 100+ confirmed events in a range we may want to batch the recipe lookup.
+- Single-event `KitchenBEO` dialog and `DocumentPreview` clone-print were not interactively exercised due to module-access mismatch on demo.agency (no food-ops module). Same code path validated indirectly via batch print.

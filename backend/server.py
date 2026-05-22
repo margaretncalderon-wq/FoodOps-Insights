@@ -4358,7 +4358,15 @@ async def get_kitchen_beo(event_id: str, user: User = Depends(get_current_user))
         days_out.append({"date": d, "tandas": tandas, "tanda_count": len(tandas)})
 
     # Build a content-hash snapshot — the kitchen UI compares it against the
-    # last printed snapshot to detect post-print changes.
+    # last printed snapshot to detect post-print changes. We normalize numeric
+    # values to 4-decimal floats so 12 and 12.0 (or float-precision noise from
+    # buffet-factor scaling) don't produce phantom drift.
+    def _norm_num(x):
+        try:
+            return round(float(x or 0), 4)
+        except (TypeError, ValueError):
+            return 0.0
+
     snap_input = []
     for day in days_out:
         for tanda in day["tandas"]:
@@ -4367,10 +4375,10 @@ async def get_kitchen_beo(event_id: str, user: User = Depends(get_current_user))
                 tanda.get("section_title") or "",
                 tanda.get("section_time") or "",
                 tanda.get("section_end_time") or "",
-                tanda.get("guest_count") or 0,
-                tuple(sorted([(r.get("recipe_id") or r.get("description") or "", r.get("portions_required") or 0)
+                int(tanda.get("guest_count") or 0),
+                tuple(sorted([(r.get("recipe_id") or r.get("description") or "", _norm_num(r.get("portions_required")))
                               for r in tanda["recipes"]])),
-                tuple(sorted([(e.get("description") or "", e.get("quantity") or 0) for e in tanda["extras"]])),
+                tuple(sorted([(e.get("description") or "", _norm_num(e.get("quantity"))) for e in tanda["extras"]])),
             ))
     snapshot_hash = sha256(repr(snap_input).encode("utf-8")).hexdigest()[:16]
 
@@ -4418,7 +4426,15 @@ async def mark_kitchen_beo_printed(
     event = await db.events.find_one({"event_id": event_id, "company_id": user.company_id}, {"_id": 0, "event_id": 1, "name": 1})
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
-    snapshot_hash = (payload or {}).get("snapshot_hash") or ""
+    snapshot_hash = ((payload or {}).get("snapshot_hash") or "").strip()
+    if not snapshot_hash:
+        # Caller didn't include a hash — compute the current one server-side
+        # so changed_since_print stays accurate (and doesn't get stuck at True).
+        try:
+            current = await get_kitchen_beo(event_id, user)
+            snapshot_hash = current.get("snapshot_hash") or ""
+        except Exception:
+            snapshot_hash = ""
     log_id = f"beolog_{uuid.uuid4().hex[:12]}"
     now_iso = datetime.now(timezone.utc).isoformat()
     await db.kitchen_beo_print_log.insert_one({

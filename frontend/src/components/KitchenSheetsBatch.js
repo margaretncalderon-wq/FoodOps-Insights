@@ -29,6 +29,7 @@ export default function KitchenSheetsBatch() {
   const [sheets, setSheets] = useState([]);
   const [selected, setSelected] = useState(new Set());
   const [loading, setLoading] = useState(false);
+  const [printing, setPrinting] = useState(false);
 
   const fetchSheets = async () => {
     setLoading(true);
@@ -67,11 +68,13 @@ export default function KitchenSheetsBatch() {
   }, [sheets, selected]);
 
   const printSelected = async () => {
+    if (printing) return; // guard against rapid double-clicks
     const sel = sheets.filter((s) => selected.has(s.event_id));
     if (sel.length === 0) {
       toast.error(isEs ? "Selecciona al menos una hoja" : "Pick at least one sheet");
       return;
     }
+    setPrinting(true);
     const html = buildBeoPrintHtml(sel, isEs);
     const iframe = document.createElement("iframe");
     iframe.setAttribute("aria-hidden", "true");
@@ -95,7 +98,7 @@ export default function KitchenSheetsBatch() {
     )).then(() => {
       toast.success(isEs ? `${sel.length} hoja(s) impresas y marcadas` : `${sel.length} sheet(s) printed and marked`);
       fetchSheets();
-    });
+    }).finally(() => setPrinting(false));
   };
 
   return (
@@ -135,8 +138,8 @@ export default function KitchenSheetsBatch() {
                 <AlertTriangle className="w-3 h-3 mr-1" />{summary.withChanges} {isEs ? "con cambios" : "with changes"}
               </Badge>
             )}
-            <Button onClick={printSelected} className="bg-amber-600 hover:bg-amber-700" disabled={summary.sheets === 0} data-testid="batch-print-btn">
-              <Printer className="w-4 h-4 mr-2" />
+            <Button onClick={printSelected} className="bg-amber-600 hover:bg-amber-700" disabled={summary.sheets === 0 || printing} data-testid="batch-print-btn">
+              {printing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Printer className="w-4 h-4 mr-2" />}
               {isEs ? "Imprimir seleccionadas" : "Print selected"}
             </Button>
           </div>
