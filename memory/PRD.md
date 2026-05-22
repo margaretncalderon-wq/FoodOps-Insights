@@ -798,3 +798,34 @@ The page-break CSS fix earlier in the day introduced a CSS comment inside the `h
 **Validation** (`/app/test_reports/iteration_182.json` — 100% pass after fix): clicking Imprimir injects the aria-hidden iframe, calls `win.print()` exactly once, no console errors, iframe cleaned up after ~1.2s. Cerrar still closes the modal.
 
 **Lesson**: never put un-escaped backticks inside a template-literal html string, even in comments.
+
+
+### Super-Admin: Per-Company Limit Overrides + Plan Limit Editor + Orphan Member Repair — Feb 20, 2026
+
+**Requests** (Margaret): (1) some companies hit a 50-events ceiling — let me lift it for individuals or globally; (2) when I open a company the users tab is empty even though those users exist and can log in.
+
+**Backend** (`/app/backend/server.py`):
+- **Issue 1a — per-company overrides**:
+  - Added `companies.limit_overrides: dict` (no schema migration needed; absent = use plan).
+  - `PUT /api/super-admin/organizations/{company_id}/limit-overrides` accepts `{events_per_month, active_users, supplier_invoices_per_month, proposals_per_month, storage_mb, execution_goals_per_month}`. `null` for any key removes that override.
+  - `check_usage_limit` now reads the company override first, then the plan default. Returns the effective limit either way.
+  - `GET /api/super-admin/organizations/{company_id}` echoes `limit_overrides` in the response.
+- **Issue 1c — global plan limits**:
+  - `GET /api/super-admin/plans` lists all plans.
+  - `PUT /api/super-admin/plans/{plan_id}` patches `limits` and/or `features` dicts only (price/name remain immutable here).
+- **Issue 2 — orphan members**:
+  - `get_org_members` now merges `memberships` + any `users` with `users.company_id == org` that aren't already covered. Adds `has_membership` flag.
+  - `POST /api/super-admin/organizations/{company_id}/members/from-user/{user_id}` creates the missing `memberships` row (idempotent — returns `created:false` on retry).
+
+**Frontend**:
+- `OrganizationDetailPage.js`:
+  - New **LimitOverridesCard** in Overview tab — one input per metric with the plan default shown as placeholder ("Plan: 30"). Buttons: Guardar / Sin límites (999999 for all) / Limpiar todo (drop all overrides).
+  - Members table: rows with `has_membership=false` show an amber **"Sin membresía"** badge and a **"Crear membresía"** action (sets role=`viewer`).
+- `SuperAdminSettings.js`: new **Planes** tab → `PlansEditor` renders one card per plan with 6 limit inputs + Save.
+
+**Validation** (`/app/test_reports/iteration_183.json` — 100% pass):
+- Backend pytest 6/6 — orphan merge, idempotent create, set/clear override, plan list/patch (limits-only), `check_usage_limit` honors override.
+- Frontend: override saved on demo company → persisted across reload → cleared OK. plan_starter `events_per_month` changed to 75 → persisted → reverted to 50.
+- Backend test file at `/app/backend/tests/test_super_admin_limit_overrides_plans.py` (idempotent — snapshots and restores).
+
+**Note for Margaret**: `plan_starter` ships with `events_per_month: 50` (the "máximo 50" she was seeing). She can now either (a) bump only her specific customer via the override card, or (b) raise the global Starter ceiling from `Super-admin → Settings → Planes`.
