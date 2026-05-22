@@ -1,0 +1,29 @@
+{
+  "summary": "Full e2e validation of Super Admin per-company limit overrides, plan editing, and orphan-member repair. Backend: 6/6 pytest tests pass (members merged list w/ has_membership, idempotent create_membership_from_user, set+clear limit_overrides reflected in GET /organizations/{id}, GET /plans returns starter/professional/enterprise, PUT /plans/{id} updates only limits while preserving name/price, check_usage_limit honors company override over plan default — verified by setting events_per_month=2 on the demo company and getting allowed=false, limit=2 from /api/org/usage/check/events_created). Frontend (Playwright on real preview URL, logged in as margaret super-admin): (1) /super-admin/organizations/company_02c27f41dc78 -> Overview tab -> LimitOverridesCard visible; typed 100 into events_per_month, clicked Guardar, saw 'Límites actualizados' toast, reloaded -> value persists at 100; clicked 'Limpiar todo' -> all inputs cleared and 'Usando plan (30)' label re-appears. (2) Members tab renders cleanly — the previously orphan user is now shown with role=admin and a normal membership row (it was auto-repaired by the backend idempotency test moments earlier, so no 'Sin membresía' badge remained at the time of the UI test; the create flow is verified via backend). (3) /super-admin/settings -> Planes tab renders 3 plan cards (plans-editor + plan-card-{id} testids present); changed plan_starter events_per_month to 75, saved -> 'Plan actualizado' toast -> reloaded the page and re-opened the Planes tab -> value persisted at 75 -> reverted to 50 successfully. No console errors, no overlay issues, no broken integrations.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_super_admin_limit_overrides_plans.py",
+    "/app/test_reports/pytest/superadmin_limits.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "update_org_limit_overrides currently silently ignores unknown keys (continue). Consider returning 400 for typos so the admin notices their input was dropped.",
+    "update_plan_admin returns {success:true, changed:false} when only the updated_at would change, but it ALWAYS overwrites updated_at via patch in the changed=true branch — minor inconsistency, not blocking. The unchanged branch correctly avoids the write.",
+    "get_org_members loops users.find_one inside the memberships loop (N+1). For orgs with hundreds of memberships this could be slow. Consider $in batch lookup. Not critical at preview scale.",
+    "check_usage_limit casts the override via int(...) and silently falls back to plan limit on TypeError/ValueError. Logging a warning when an admin-stored override is malformed would help debugging."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_super_admin_limit_overrides_plans.py"
+  ],
+  "success_rate": {"backend": "100% (6/6)", "frontend": "100% (override save+persist+clear, plan edit+persist+revert, members render)"},
+  "test_credentials": "margaret.n.calderon@gmail.com / Evoque2024! (super-admin); demo.agency@kora.com / Evoque2024! (for usage-check test, also is_super_admin=true)",
+  "seed_data_creation": "None permanent. The idempotency test created a membership row for the orphan user in company_02c27f41dc78 (this was the intended repair flow). The plan_starter limits and demo company limit_overrides were modified during tests but reverted back to defaults at end of each test (events_per_month=50 for starter; original {} overrides for company_3ab116c0994d).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend test file at /app/backend/tests/test_super_admin_limit_overrides_plans.py is fully idempotent — it resolves demo company_id by logging in as demo.agency (NOT by name match, which was ambiguous across 51 orgs), snapshots existing limit_overrides before mutation and restores them in a finally block, reverts plan_starter limits to defaults. Run: pytest backend/tests/test_super_admin_limit_overrides_plans.py -v. Note: company_02c27f41dc78 no longer has an orphan user after this iteration's repair — if a future test needs an orphan, either pick a different company from the 8 the main agent mentioned, or delete the memberships row first. The frontend orphan-repair UI (badge 'Sin membresía' + 'Crear membresía' button) was implicitly verified through code paths (testids orphan-user-{id} and create-membership-{id} exist and the GET returns has_membership=false correctly) but not visually confirmed because the orphan was already repaired by the backend run that executed first."
+}

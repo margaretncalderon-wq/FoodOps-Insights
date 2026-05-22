@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Depends, Request, Response, UploadFile, File
+from fastapi import FastAPI, APIRouter, HTTPException, Depends, Request, Response, UploadFile, File, Body
 from fastapi.responses import JSONResponse, FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.cors import CORSMiddleware
@@ -16110,8 +16110,25 @@ async def check_usage_limit(company_id: str, metric: str) -> dict:
     limit_field = limit_map.get(metric)
     if not limit_field:
         return {"allowed": True, "warning": False, "message": None}
-    
-    limit = plan.get("limits", {}).get(limit_field, 999)
+
+    # Per-company override takes precedence over the plan limit. The company
+    # document may carry a `limit_overrides` dict (e.g. {"events_per_month": 100})
+    # populated by a Super Admin from the admin panel. Any field not present
+    # falls back to the plan's default.
+    override_limit = None
+    company_doc = await db.companies.find_one(
+        {"company_id": company_id},
+        {"_id": 0, "limit_overrides": 1},
+    )
+    if company_doc and isinstance(company_doc.get("limit_overrides"), dict):
+        candidate = company_doc["limit_overrides"].get(limit_field)
+        try:
+            if candidate is not None:
+                override_limit = int(candidate)
+        except (TypeError, ValueError):
+            override_limit = None
+
+    limit = override_limit if override_limit is not None else plan.get("limits", {}).get(limit_field, 999)
     percentage = (current_usage / limit * 100) if limit > 0 else 0
     
     if current_usage >= limit:
@@ -17728,6 +17745,7 @@ async def get_organization_detail(company_id: str, admin: User = Depends(get_sup
         "organization": org,
         "subscription": subscription,
         "plan": plan_data,
+        "limit_overrides": org.get("limit_overrides") or {},
         "usage_history": usage_history,
         "current_usage": usage_history[0] if usage_history else None,
         "members_count": members_count,
@@ -18226,32 +18244,187 @@ async def delete_orphaned_data(
 
 # ---- Super Admin: Organization Members ----
 
+@super_admin_router.put("/organizations/{company_id}/limit-overrides")
+async def update_org_limit_overrides(
+    company_id: str,
+    data: dict = Body(...),
+    admin: User = Depends(get_super_admin),
+):
+    """Set / clear per-company limit overrides. Pass an integer value to bump
+    a specific limit, or `null` to remove the override and fall back to the
+    plan's default. Supported keys: events_per_month, active_users,
+    supplier_invoices_per_month, proposals_per_month, storage_mb,
+    execution_goals_per_month.
+    """
+    valid_keys = {
+        "events_per_month",
+        "active_users",
+        "supplier_invoices_per_month",
+        "proposals_per_month",
+        "storage_mb",
+        "execution_goals_per_month",
+    }
+    company = await db.companies.find_one({"company_id": company_id}, {"_id": 0, "company_id": 1, "limit_overrides": 1})
+    if company is None:
+        raise HTTPException(status_code=404, detail="Organization not found")
+    current = dict(company.get("limit_overrides") or {})
+    for k, v in (data or {}).items():
+        if k not in valid_keys:
+            continue
+        if v is None or v == "" or v == "null":
+            current.pop(k, None)
+            continue
+        try:
+            current[k] = int(v)
+        except (TypeError, ValueError):
+            raise HTTPException(status_code=400, detail=f"Invalid value for {k}: {v}")
+    await db.companies.update_one(
+        {"company_id": company_id},
+        {"$set": {"limit_overrides": current, "updated_at": datetime.now(timezone.utc).isoformat()}},
+    )
+    await log_super_admin_action(admin.user_id, "update_limit_overrides", company_id, details={"limit_overrides": current})
+    return {"success": True, "limit_overrides": current}
+
+
+@super_admin_router.get("/plans")
+async def list_plans_admin(admin: User = Depends(get_super_admin)):
+    """List all subscription plans (admin view)."""
+    plans = await db.plans.find({}, {"_id": 0}).sort("sort_order", 1).to_list(200)
+    return plans
+
+
+@super_admin_router.put("/plans/{plan_id}")
+async def update_plan_admin(
+    plan_id: str,
+    data: dict = Body(...),
+    admin: User = Depends(get_super_admin),
+):
+    """Update a plan's limits / features. Only `limits` (dict of ints) and
+    `features` (dict of bools) are mutable from the admin panel. Other
+    fields (name, price) require code changes."""
+    plan = await db.plans.find_one({"plan_id": plan_id})
+    if not plan:
+        raise HTTPException(status_code=404, detail="Plan not found")
+
+    patch: dict = {"updated_at": datetime.now(timezone.utc).isoformat()}
+    if "limits" in data and isinstance(data["limits"], dict):
+        clean: dict = {}
+        for k, v in data["limits"].items():
+            try:
+                clean[k] = int(v)
+            except (TypeError, ValueError):
+                raise HTTPException(status_code=400, detail=f"Invalid limit {k}: {v}")
+        patch["limits"] = clean
+    if "features" in data and isinstance(data["features"], dict):
+        patch["features"] = {k: bool(v) for k, v in data["features"].items()}
+
+    if len(patch) == 1:  # only the updated_at, nothing to do
+        return {"success": True, "plan": {k: v for k, v in plan.items() if k != "_id"}, "changed": False}
+
+    await db.plans.update_one({"plan_id": plan_id}, {"$set": patch})
+    await log_super_admin_action(admin.user_id, "update_plan", details={"plan_id": plan_id, "patch": patch})
+    updated = await db.plans.find_one({"plan_id": plan_id}, {"_id": 0})
+    return {"success": True, "plan": updated, "changed": True}
+
+
 @super_admin_router.get("/organizations/{company_id}/members")
 async def get_org_members(company_id: str, admin: User = Depends(get_super_admin)):
-    """Get all members of an organization (Super Admin only)"""
+    """Get all members of an organization (Super Admin only).
+
+    Returns a merged list from BOTH the `memberships` collection AND the
+    `users` collection (matched by `company_id`). Users without a formal
+    membership record are returned with `has_membership=False` so the
+    admin UI can offer a one-click "Create membership" repair button.
+    """
     memberships = await db.memberships.find(
         {"company_id": company_id},
         {"_id": 0}
-    ).to_list(200)
-    
+    ).to_list(500)
+
     members = []
+    seen_user_ids = set()
     for mem in memberships:
         user_data = await db.users.find_one({"user_id": mem["user_id"]}, {"_id": 0})
         if user_data:
-            # Get last activity (simplified - last login would be better)
+            seen_user_ids.add(mem["user_id"])
             members.append({
-                "membership_id": mem["membership_id"],
+                "membership_id": mem.get("membership_id"),
                 "user_id": mem["user_id"],
                 "email": user_data.get("email"),
                 "name": user_data.get("name"),
                 "picture": user_data.get("picture"),
-                "role": mem["role"],
-                "status": mem["status"],
-                "joined_at": mem["joined_at"],
-                "last_active": user_data.get("last_login")
+                "role": mem.get("role"),
+                "status": mem.get("status"),
+                "joined_at": mem.get("joined_at"),
+                "last_active": user_data.get("last_login"),
+                "has_membership": True,
             })
-    
+
+    # Catch users whose `users.company_id` points to this org but who don't
+    # have a `memberships` row. Happens for accounts created via the legacy
+    # registration flow or imported in bulk.
+    orphan_users_cursor = db.users.find(
+        {"company_id": company_id, "user_id": {"$nin": list(seen_user_ids)}},
+        {"_id": 0},
+    )
+    async for u in orphan_users_cursor:
+        members.append({
+            "membership_id": None,
+            "user_id": u.get("user_id"),
+            "email": u.get("email"),
+            "name": u.get("name"),
+            "picture": u.get("picture"),
+            "role": u.get("role") or None,
+            "status": "active",
+            "joined_at": u.get("created_at"),
+            "last_active": u.get("last_login"),
+            "has_membership": False,
+        })
+
     return members
+
+
+@super_admin_router.post("/organizations/{company_id}/members/from-user/{user_id}")
+async def create_membership_from_user(
+    company_id: str,
+    user_id: str,
+    data: dict = Body(default={}),
+    admin: User = Depends(get_super_admin),
+):
+    """Create a `memberships` record for a user whose `users.company_id` already
+    points to this org but who is missing a formal membership row. Idempotent.
+    """
+    company = await db.companies.find_one({"company_id": company_id})
+    if not company:
+        raise HTTPException(status_code=404, detail="Organization not found")
+    user_doc = await db.users.find_one({"user_id": user_id})
+    if not user_doc:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    existing = await db.memberships.find_one({"company_id": company_id, "user_id": user_id})
+    if existing:
+        return {"success": True, "membership_id": existing.get("membership_id"), "created": False}
+
+    role = (data or {}).get("role") or user_doc.get("role") or "viewer"
+    if role not in ["owner", "admin", "ops", "finance", "viewer"]:
+        role = "viewer"
+    now_iso = datetime.now(timezone.utc).isoformat()
+    membership_id = f"mem_{uuid.uuid4().hex[:12]}"
+    await db.memberships.insert_one({
+        "membership_id": membership_id,
+        "company_id": company_id,
+        "user_id": user_id,
+        "role": role,
+        "status": "active",
+        "joined_at": now_iso,
+        "created_at": now_iso,
+        "updated_at": now_iso,
+        "created_by_admin": admin.user_id,
+        "repair_source": "super_admin_create_from_user",
+    })
+    await log_super_admin_action(admin.user_id, "create_membership_from_user", company_id, details={"user_id": user_id, "role": role})
+    return {"success": True, "membership_id": membership_id, "created": True}
+
 
 @super_admin_router.put("/organizations/{company_id}/members/{membership_id}/role")
 async def update_member_role_admin(company_id: str, membership_id: str, role: str, admin: User = Depends(get_super_admin)):

@@ -254,6 +254,7 @@ export default function SuperAdminSettings() {
             Precios
           </TabsTrigger>
           <TabsTrigger value="leadform">Formulario de Leads</TabsTrigger>
+          <TabsTrigger value="plans">Planes</TabsTrigger>
           <TabsTrigger value="general">General</TabsTrigger>
           <TabsTrigger value="integrations">Integraciones</TabsTrigger>
           <TabsTrigger value="maintenance">
@@ -601,6 +602,11 @@ export default function SuperAdminSettings() {
               </CardContent>
             </Card>
           </div>
+        </TabsContent>
+
+        {/* Plans tab — edit per-plan global limits */}
+        <TabsContent value="plans" className="space-y-6">
+          <PlansEditor />
         </TabsContent>
 
         {/* Lead Form Configuration */}
@@ -952,6 +958,122 @@ export default function SuperAdminSettings() {
           </Card>
         </TabsContent>
       </Tabs>
+    </div>
+  );
+}
+
+
+// =========================================================================
+// PlansEditor — global plan limits (events_per_month, active_users, etc.)
+// =========================================================================
+const PLAN_LIMIT_FIELDS = [
+  { key: "events_per_month", label: "Eventos / mes" },
+  { key: "proposals_per_month", label: "Propuestas / mes" },
+  { key: "active_users", label: "Usuarios activos" },
+  { key: "supplier_invoices_per_month", label: "Facturas proveedor / mes" },
+  { key: "storage_mb", label: "Storage (MB)" },
+  { key: "execution_goals_per_month", label: "Metas Execution / mes" },
+];
+
+function PlansEditor() {
+  const [plans, setPlans] = useState([]);
+  const [drafts, setDrafts] = useState({}); // plan_id -> { limits: {...} }
+  const [savingId, setSavingId] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  const fetchPlans = async () => {
+    setLoading(true);
+    try {
+      const res = await axios.get(`${API}/api/super-admin/plans`, { withCredentials: true });
+      setPlans(res.data || []);
+      const next = {};
+      (res.data || []).forEach((p) => {
+        next[p.plan_id] = { limits: { ...(p.limits || {}) } };
+      });
+      setDrafts(next);
+    } catch (err) {
+      toast.error("Error al cargar planes");
+    }
+    setLoading(false);
+  };
+
+  useEffect(() => { fetchPlans(); }, []);
+
+  const handleChange = (planId, key, value) => {
+    setDrafts((prev) => ({
+      ...prev,
+      [planId]: {
+        ...prev[planId],
+        limits: { ...(prev[planId]?.limits || {}), [key]: value === "" ? "" : parseInt(value, 10) },
+      },
+    }));
+  };
+
+  const handleSave = async (planId) => {
+    setSavingId(planId);
+    try {
+      const limits = { ...(drafts[planId]?.limits || {}) };
+      // Drop any blank values — they'd become NaN otherwise
+      Object.keys(limits).forEach((k) => {
+        if (limits[k] === "" || Number.isNaN(limits[k])) delete limits[k];
+      });
+      await axios.put(
+        `${API}/api/super-admin/plans/${planId}`,
+        { limits },
+        { withCredentials: true }
+      );
+      toast.success("Plan actualizado");
+      fetchPlans();
+    } catch (err) {
+      toast.error(err?.response?.data?.detail || "Error al guardar plan");
+    }
+    setSavingId(null);
+  };
+
+  if (loading) return <div className="p-4 text-sm text-muted-foreground">Cargando planes…</div>;
+
+  return (
+    <div className="space-y-4" data-testid="plans-editor">
+      <p className="text-sm text-muted-foreground">
+        Estos valores son los límites GLOBALES por plan. Aplican a todas las empresas suscritas a cada plan, a menos que tengan un override individual.
+      </p>
+      {plans.map((p) => (
+        <Card key={p.plan_id} data-testid={`plan-card-${p.plan_id}`}>
+          <CardHeader>
+            <CardTitle className="text-base capitalize flex items-center gap-2">
+              {p.display_name_es || p.name}
+              <Badge variant="outline">${p.price_monthly}/mo</Badge>
+            </CardTitle>
+            <CardDescription>{p.description_es || p.description_en}</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {PLAN_LIMIT_FIELDS.map(({ key, label }) => {
+              const v = drafts[p.plan_id]?.limits?.[key];
+              return (
+                <div key={key} className="grid grid-cols-3 items-center gap-2">
+                  <Label className="text-sm">{label}</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    value={Number.isNaN(v) || v === undefined ? "" : v}
+                    onChange={(e) => handleChange(p.plan_id, key, e.target.value)}
+                    data-testid={`plan-${p.plan_id}-${key}`}
+                  />
+                  <span className="text-xs text-muted-foreground">Actual: {p.limits?.[key] ?? "—"}</span>
+                </div>
+              );
+            })}
+            <Button
+              onClick={() => handleSave(p.plan_id)}
+              disabled={savingId === p.plan_id}
+              data-testid={`plan-save-${p.plan_id}`}
+            >
+              {savingId === p.plan_id && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+              <Save className="w-4 h-4 mr-2" /> Guardar
+            </Button>
+          </CardContent>
+        </Card>
+      ))}
     </div>
   );
 }

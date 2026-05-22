@@ -72,6 +72,10 @@ export default function OrganizationDetailPage() {
   const [newMemberData, setNewMemberData] = useState({ email: "", name: "", password: "", role: "viewer" });
   const [addingMember, setAddingMember] = useState(false);
 
+  // Per-company limit overrides
+  const [limitOverrides, setLimitOverrides] = useState({});
+  const [savingOverrides, setSavingOverrides] = useState(false);
+
   useEffect(() => {
     fetchOrganization();
     fetchDeals();
@@ -80,6 +84,9 @@ export default function OrganizationDetailPage() {
   useEffect(() => {
     if (org?.organization?.account_type) {
       setAccountType(org.organization.account_type);
+    }
+    if (org?.limit_overrides && typeof org.limit_overrides === "object") {
+      setLimitOverrides(org.limit_overrides);
     }
   }, [org]);
 
@@ -294,6 +301,36 @@ export default function OrganizationDetailPage() {
     } catch (err) {
       toast.error("Error al eliminar miembro");
     }
+  };
+
+  const handleCreateMembershipFromUser = async (member) => {
+    try {
+      await axios.post(
+        `${API}/api/super-admin/organizations/${id}/members/from-user/${member.user_id}`,
+        { role: "viewer" },
+        { withCredentials: true }
+      );
+      toast.success(`Membresía creada para ${member.email}`);
+      fetchMembers();
+    } catch (err) {
+      toast.error(err?.response?.data?.detail || "Error al crear membresía");
+    }
+  };
+
+  const handleSaveLimitOverrides = async (next) => {
+    setSavingOverrides(true);
+    try {
+      const res = await axios.put(
+        `${API}/api/super-admin/organizations/${id}/limit-overrides`,
+        next,
+        { withCredentials: true }
+      );
+      setLimitOverrides(res.data?.limit_overrides || {});
+      toast.success("Límites actualizados");
+    } catch (err) {
+      toast.error(err?.response?.data?.detail || "Error al guardar límites");
+    }
+    setSavingOverrides(false);
   };
 
   // Password change functions
@@ -618,6 +655,14 @@ export default function OrganizationDetailPage() {
                 </Button>
               </CardContent>
             </Card>
+
+            {/* Per-company limit overrides */}
+            <LimitOverridesCard
+              planLimits={org?.plan?.limits || {}}
+              overrides={limitOverrides}
+              onSave={handleSaveLimitOverrides}
+              saving={savingOverrides}
+            />
           </div>
         </TabsContent>
 
@@ -812,7 +857,7 @@ export default function OrganizationDetailPage() {
                 </TableHeader>
                 <TableBody>
                   {members.map(member => (
-                    <TableRow key={member.membership_id} className="border-gray-200">
+                    <TableRow key={member.membership_id || `orphan-${member.user_id}`} className="border-gray-200">
                       <TableCell>
                         <div className="flex items-center gap-3">
                           <Avatar>
@@ -820,25 +865,41 @@ export default function OrganizationDetailPage() {
                             <AvatarFallback className="bg-gray-200 text-gray-900">{member.name?.charAt(0) || "U"}</AvatarFallback>
                           </Avatar>
                           <div>
-                            <p className="font-medium text-gray-900">{member.name}</p>
+                            <p className="font-medium text-gray-900 flex items-center gap-2">
+                              {member.name}
+                              {member.has_membership === false && (
+                                <Badge
+                                  variant="outline"
+                                  className="text-[10px] h-5 px-1.5 border-amber-400 bg-amber-50 text-amber-700"
+                                  title="Este usuario tiene company_id pero no tiene una membresía formal. Click 'Crear membresía' para sanear."
+                                  data-testid={`orphan-user-${member.user_id}`}
+                                >
+                                  Sin membresía
+                                </Badge>
+                              )}
+                            </p>
                             <p className="text-sm text-gray-500">{member.email}</p>
                           </div>
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Select 
-                          value={member.role} 
-                          onValueChange={(v) => handleChangeRole(member.membership_id, v)}
-                        >
-                          <SelectTrigger className="w-32 bg-gray-100 border-gray-300 text-gray-900">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {ROLES.map(role => (
-                              <SelectItem key={role} value={role} className="capitalize">{role}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        {member.has_membership === false ? (
+                          <span className="text-sm text-gray-400">—</span>
+                        ) : (
+                          <Select
+                            value={member.role}
+                            onValueChange={(v) => handleChangeRole(member.membership_id, v)}
+                          >
+                            <SelectTrigger className="w-32 bg-gray-100 border-gray-300 text-gray-900">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {ROLES.map(role => (
+                                <SelectItem key={role} value={role} className="capitalize">{role}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
                       </TableCell>
                       <TableCell>
                         <Badge variant={member.status === "active" ? "default" : "secondary"} className={member.status === "active" ? "bg-green-600" : ""}>
@@ -846,23 +907,35 @@ export default function OrganizationDetailPage() {
                         </Badge>
                       </TableCell>
                       <TableCell className="text-gray-500">
-                        {new Date(member.joined_at).toLocaleDateString()}
+                        {member.joined_at ? new Date(member.joined_at).toLocaleDateString() : "—"}
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1">
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
+                          {member.has_membership === false && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleCreateMembershipFromUser(member)}
+                              className="text-blue-500 hover:text-blue-600 hover:bg-gray-100"
+                              data-testid={`create-membership-${member.user_id}`}
+                              title="Crear membresía formal para este usuario"
+                            >
+                              Crear membresía
+                            </Button>
+                          )}
+                          <Button
+                            variant="ghost"
+                            size="sm"
                             onClick={() => openPasswordDialog(member)}
                             className="text-amber-400 hover:text-amber-300 hover:bg-gray-100"
                             data-testid={`change-pw-${member.user_id}`}
                           >
                             <Key className="w-4 h-4" />
                           </Button>
-                          {member.role !== "owner" && (
-                            <Button 
-                              variant="ghost" 
-                              size="sm" 
+                          {member.has_membership !== false && member.role !== "owner" && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
                               onClick={() => handleRemoveMember(member.membership_id)}
                               className="text-red-400 hover:text-red-300 hover:bg-gray-100"
                             >
@@ -1283,5 +1356,111 @@ export default function OrganizationDetailPage() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+
+// =========================================================================
+// LimitOverridesCard — per-company overrides for plan limits. Empty input
+// means "use the plan default". Type a number to override; clear it to drop
+// the override.
+// =========================================================================
+const LIMIT_FIELDS = [
+  { key: "events_per_month", label_es: "Eventos / mes", label_en: "Events / month" },
+  { key: "proposals_per_month", label_es: "Propuestas / mes", label_en: "Proposals / month" },
+  { key: "active_users", label_es: "Usuarios activos", label_en: "Active users" },
+  { key: "supplier_invoices_per_month", label_es: "Facturas proveedor / mes", label_en: "Supplier invoices / month" },
+  { key: "storage_mb", label_es: "Storage (MB)", label_en: "Storage (MB)" },
+  { key: "execution_goals_per_month", label_es: "Metas Execution / mes", label_en: "Execution goals / month" },
+];
+
+function LimitOverridesCard({ planLimits, overrides, onSave, saving }) {
+  const [draft, setDraft] = useState({});
+
+  useEffect(() => {
+    const next = {};
+    LIMIT_FIELDS.forEach(({ key }) => {
+      next[key] = overrides && overrides[key] != null ? String(overrides[key]) : "";
+    });
+    setDraft(next);
+  }, [overrides]);
+
+  const buildPatch = () => {
+    const patch = {};
+    LIMIT_FIELDS.forEach(({ key }) => {
+      const v = (draft[key] || "").trim();
+      if (v === "") {
+        patch[key] = null; // clear override → fall back to plan
+      } else {
+        const n = parseInt(v, 10);
+        if (!Number.isNaN(n)) patch[key] = n;
+      }
+    });
+    return patch;
+  };
+
+  const handleSave = () => onSave(buildPatch());
+
+  const handleUnlimit = () => {
+    const next = {};
+    LIMIT_FIELDS.forEach(({ key }) => { next[key] = "999999"; });
+    setDraft(next);
+    const patch = {};
+    LIMIT_FIELDS.forEach(({ key }) => { patch[key] = 999999; });
+    onSave(patch);
+  };
+
+  const handleClearAll = () => {
+    const next = {};
+    LIMIT_FIELDS.forEach(({ key }) => { next[key] = ""; });
+    setDraft(next);
+    const patch = {};
+    LIMIT_FIELDS.forEach(({ key }) => { patch[key] = null; });
+    onSave(patch);
+  };
+
+  return (
+    <Card className="bg-white border-gray-200" data-testid="limit-overrides-card">
+      <CardHeader>
+        <CardTitle className="text-lg text-gray-900">Override de límites</CardTitle>
+        <CardDescription className="text-gray-500">
+          Valores específicos para esta empresa. Si dejas el campo vacío, se usa el límite del plan.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {LIMIT_FIELDS.map(({ key, label_es }) => {
+          const planVal = planLimits?.[key];
+          return (
+            <div key={key} className="grid grid-cols-3 items-center gap-2">
+              <Label className="text-sm text-gray-700">{label_es}</Label>
+              <Input
+                type="number"
+                min="0"
+                placeholder={planVal != null ? `Plan: ${planVal}` : "Plan: —"}
+                value={draft[key] ?? ""}
+                onChange={(e) => setDraft({ ...draft, [key]: e.target.value })}
+                className="bg-gray-100 border-gray-300 text-gray-900 placeholder:text-gray-400"
+                data-testid={`limit-override-input-${key}`}
+              />
+              <p className="text-xs text-gray-500">
+                {overrides?.[key] != null ? `Override activo: ${overrides[key]}` : `Usando plan (${planVal ?? "—"})`}
+              </p>
+            </div>
+          );
+        })}
+        <div className="flex flex-wrap gap-2 pt-2">
+          <Button onClick={handleSave} disabled={saving} data-testid="limit-overrides-save-btn">
+            {saving && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+            <Save className="w-4 h-4 mr-2" /> Guardar
+          </Button>
+          <Button variant="outline" onClick={handleUnlimit} disabled={saving} data-testid="limit-overrides-unlimit-btn">
+            Sin límites
+          </Button>
+          <Button variant="ghost" onClick={handleClearAll} disabled={saving} data-testid="limit-overrides-clear-btn">
+            Limpiar todo
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
