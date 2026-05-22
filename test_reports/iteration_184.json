@@ -1,0 +1,29 @@
+{
+  "summary": "Full e2e validation of the Super Admin Usage Alerts bell feature. Backend: 7/7 pytest tests pass on GET /api/super-admin/usage-alerts — default threshold=80 returns the correct envelope {threshold, period, total, companies_count, alerts[]} with required fields (company_id, name, metric, label, current, limit, percentage, source, plan_id, subscription_status) sorted by percentage desc; threshold=0 returns >= count; threshold=200 returns 0 alerts; setting limit_overrides events_per_month=999 on a flagged company correctly suppresses its events_created alert and the test reverts the override in a finally block; only active/trialing subscriptions appear; unauthenticated returns 401. Frontend (Playwright, real preview URL, logged in as Margaret super-admin): (1) Bell renders top-right with data-testid='usage-alerts-bell' at position (1868,12); red badge data-testid='usage-alerts-bell-count' shows '2' as expected. (2) Click → popover data-testid='usage-alerts-popover' opens listing the 2 alerts grouped by company with progress bars: 'Kora OS Test  Eventos · 50 / 50 (Plan) 100%' (red bar) and 'Creative Agency Demo Eventos · 24 / 30 (Plan) 80%' (amber bar). Both rows have testids usage-alert-row-company_98d8b4725822 and usage-alert-row-company_3ab116c0994d. (3) X button closes popover; reopen → click outside closes; re-click bell toggles. (4) Clicking a row navigates to /super-admin/organizations/company_98d8b4725822?focus=limits; the page auto-switches to Overview tab and the LimitOverridesCard (data-testid='limit-overrides-card') is in view with ring-2 ring-amber-400 ring-offset-2 classes applied; after 2.6s the ring classes are removed (matches the 2.4s spec). (5) Regression: bell remains visible and functional on /super-admin/organizations, /super-admin/users, /super-admin/settings — no console errors.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_super_admin_usage_alerts.py",
+    "/app/test_reports/pytest/usage_alerts.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "UsageAlertsBell.fetchAlerts swallows errors with only console.error and leaves stale data on screen. If the endpoint starts 401-ing (token rotation), the bell will silently show old counts. Consider clearing state or surfacing a small error indicator on consecutive failures.",
+    "The 60s polling continues even when the tab is hidden — for many open super-admin tabs this multiplies load. Pausing polling on document.visibilityState==='hidden' would be cheap and friendlier.",
+    "The 'grouped' reducer in UsageAlertsBell has a subtle bug: when an alert's percentage is NOT greater than the existing top, the code falls into the `else` branch and pushes to `existing.all` — but if `existing` was undefined that branch is unreachable, so this works. However the first branch DOES include the existing top in the new `all` list via spread, which means the previous top is duplicated (top now appears in both `top` and `all`). When a company has 2 alerts the badge shows '+1 métrica(s) más en alerta' which is correct, but `all.length` then equals 2, so the off-by-one expression `all.length - 1` happens to be right. Net: works today, but the data structure is misleading; consider `all` = the *other* metrics only.",
+    "OrganizationDetailPage focus-effect re-fires whenever `org` reference changes; on a slow network with retries this could re-scroll mid-edit. A `useRef` flag to run it only once per ?focus= visit would be safer."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_super_admin_usage_alerts.py"
+  ],
+  "success_rate": {"backend": "100% (7/7)", "frontend": "100% (bell render, badge, popover open/close, navigation+focus highlight, regression on 3 other routes)"},
+  "test_credentials": "margaret.n.calderon@gmail.com / Evoque2024! (super-admin)",
+  "seed_data_creation": "None permanent. test_override_removes_events_alert snapshots existing limit_overrides for the targeted company (Kora OS Test, company_98d8b4725822), sets events_per_month=999 to verify suppression, and reverts to the prior value (or removes it if absent) in a finally block. Verified the preview seed data still yields the expected 2 alerts (Kora OS Test 100%, Creative Agency Demo 80%) at threshold=80 after the test run.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend test file /app/backend/tests/test_super_admin_usage_alerts.py is idempotent and uses REACT_APP_BACKEND_URL env (must be set when running pytest, e.g. `REACT_APP_BACKEND_URL=https://foodops-insights.preview.emergentagent.com pytest backend/tests/test_super_admin_usage_alerts.py -v`). The preview seed currently produces exactly 2 alerts at threshold=80: Kora OS Test (events_created 50/50 → 100%) and Creative Agency Demo (events_created 24/30 → 80%). If the seed counts ever drop below this, the suppression test auto-skips via pytest.skip. The bell polls every 60s but tests only observe the first GET so polling doesn't matter for test stability."
+}

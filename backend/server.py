@@ -18244,6 +18244,86 @@ async def delete_orphaned_data(
 
 # ---- Super Admin: Organization Members ----
 
+@super_admin_router.get("/usage-alerts")
+async def get_usage_alerts(
+    threshold: int = 80,
+    admin: User = Depends(get_super_admin),
+):
+    """Return organizations whose current usage on any metric is >= `threshold`%
+    of their effective limit (per-company override OR plan default).
+
+    Each alert: ``{company_id, name, metric, label, current, limit, percentage,
+                  source}``. Sorted by percentage desc.
+    """
+    from collections import defaultdict
+
+    LIMIT_FIELDS = [
+        ("events_created", "events_per_month", "Eventos"),
+        ("active_users", "active_users", "Usuarios"),
+        ("supplier_invoices", "supplier_invoices_per_month", "Facturas"),
+        ("proposals_created", "proposals_per_month", "Propuestas"),
+        ("storage_mb", "storage_mb", "Storage"),
+    ]
+
+    plans = {p["plan_id"]: p async for p in db.plans.find({}, {"_id": 0})}
+    period = await get_current_period()
+    meters = {m["company_id"]: m async for m in db.usage_meters.find({"period": period}, {"_id": 0})}
+
+    alerts: list = []
+    per_company: dict = defaultdict(list)
+
+    companies_cursor = db.companies.find({}, {"_id": 0, "company_id": 1, "name": 1, "limit_overrides": 1})
+    async for c in companies_cursor:
+        cid = c.get("company_id")
+        if not cid:
+            continue
+        sub = await db.subscriptions.find_one(
+            {"company_id": cid, "status": {"$in": ["active", "trialing"]}},
+            {"_id": 0, "plan_id": 1, "status": 1},
+        )
+        if not sub:
+            continue
+        plan_limits = (plans.get(sub.get("plan_id")) or {}).get("limits", {})
+        overrides = c.get("limit_overrides") or {}
+        meter_metrics = (meters.get(cid) or {}).get("metrics", {}) or {}
+
+        for metric_key, limit_key, label in LIMIT_FIELDS:
+            current = int(meter_metrics.get(metric_key, 0) or 0)
+            override = overrides.get(limit_key)
+            try:
+                limit = int(override) if override is not None else int(plan_limits.get(limit_key, 0))
+            except (TypeError, ValueError):
+                limit = int(plan_limits.get(limit_key, 0))
+            if limit <= 0:
+                continue
+            percentage = round(current / limit * 100, 1)
+            if percentage >= threshold:
+                entry = {
+                    "company_id": cid,
+                    "name": c.get("name"),
+                    "metric": metric_key,
+                    "limit_key": limit_key,
+                    "label": label,
+                    "current": current,
+                    "limit": limit,
+                    "percentage": percentage,
+                    "source": "override" if override is not None else "plan",
+                    "plan_id": sub.get("plan_id"),
+                    "subscription_status": sub.get("status"),
+                }
+                alerts.append(entry)
+                per_company[cid].append(entry)
+
+    alerts.sort(key=lambda a: a["percentage"], reverse=True)
+    return {
+        "threshold": threshold,
+        "period": period,
+        "total": len(alerts),
+        "companies_count": len(per_company),
+        "alerts": alerts,
+    }
+
+
 @super_admin_router.put("/organizations/{company_id}/limit-overrides")
 async def update_org_limit_overrides(
     company_id: str,

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import axios from "axios";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../../components/ui/card";
@@ -31,7 +31,9 @@ export default function OrganizationDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { setViewAsStatus } = useViewAs();
-  
+  const [searchParams] = useSearchParams();
+  const focusTarget = searchParams.get("focus"); // 'limits' deep-link from bell
+
   const [loading, setLoading] = useState(true);
   const [org, setOrg] = useState(null);
   const [members, setMembers] = useState([]);
@@ -89,6 +91,24 @@ export default function OrganizationDetailPage() {
       setLimitOverrides(org.limit_overrides);
     }
   }, [org]);
+
+  // Deep-link from the Usage Alerts bell: ?focus=limits → switch to Overview
+  // tab and scroll the LimitOverridesCard into view with a brief highlight.
+  useEffect(() => {
+    if (focusTarget !== "limits" || !org) return;
+    setActiveTab("overview");
+    const id = setTimeout(() => {
+      const el = document.querySelector('[data-testid="limit-overrides-card"]');
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        el.classList.add("ring-2", "ring-amber-400", "ring-offset-2");
+        setTimeout(() => {
+          el.classList.remove("ring-2", "ring-amber-400", "ring-offset-2");
+        }, 2400);
+      }
+    }, 250);
+    return () => clearTimeout(id);
+  }, [focusTarget, org]);
 
   useEffect(() => {
     if (activeTab === "members") fetchMembers();

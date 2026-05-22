@@ -3,10 +3,11 @@ import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useLanguage } from "../../contexts/LanguageContext";
 import axios from "axios";
 import { Button } from "../../components/ui/button";
-import { 
+import {
   Shield, BarChart3, Users, Building2, Settings, CreditCard,
   ChevronLeft, LogOut, Eye, X, Loader2, Landmark, Sparkles, Plug, Database, Bug, Tag
 } from "lucide-react";
+import UsageAlertsBell from "./UsageAlertsBell";
 
 import { API_BASE as API } from "../../utils/api";
 
@@ -243,7 +244,11 @@ export default function SuperAdminLayout() {
         </div>
 
         {/* Main Content */}
-        <div className={`flex-1 overflow-auto ${viewAsStatus.active ? "mt-12" : ""}`}>
+        <div className={`flex-1 overflow-auto relative ${viewAsStatus.active ? "mt-12" : ""}`}>
+          {/* Floating usage alerts bell — visible on every super-admin page */}
+          <div className="absolute top-3 right-4 z-40">
+            <UsageAlertsBell isEs={isEs} />
+          </div>
           <Outlet />
         </div>
       </div>
