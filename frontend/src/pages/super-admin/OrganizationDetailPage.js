@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import axios from "axios";
 import { toast } from "sonner";
@@ -33,6 +33,7 @@ export default function OrganizationDetailPage() {
   const { setViewAsStatus } = useViewAs();
   const [searchParams] = useSearchParams();
   const focusTarget = searchParams.get("focus"); // 'limits' deep-link from bell
+  const focusHandledRef = useRef(null); // remember which `focus` value we've handled
 
   const [loading, setLoading] = useState(true);
   const [org, setOrg] = useState(null);
@@ -94,8 +95,12 @@ export default function OrganizationDetailPage() {
 
   // Deep-link from the Usage Alerts bell: ?focus=limits → switch to Overview
   // tab and scroll the LimitOverridesCard into view with a brief highlight.
+  // Use a ref guard so the effect doesn't re-fire (and re-scroll) when `org`
+  // is refetched after a save.
   useEffect(() => {
     if (focusTarget !== "limits" || !org) return;
+    if (focusHandledRef.current === focusTarget) return;
+    focusHandledRef.current = focusTarget;
     setActiveTab("overview");
     const id = setTimeout(() => {
       const el = document.querySelector('[data-testid="limit-overrides-card"]');

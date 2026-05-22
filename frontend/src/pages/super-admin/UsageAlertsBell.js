@@ -30,8 +30,29 @@ export default function UsageAlertsBell({ threshold = 80, isEs = true }) {
 
   useEffect(() => {
     fetchAlerts();
-    const id = setInterval(fetchAlerts, POLL_INTERVAL_MS);
-    return () => clearInterval(id);
+    let intervalId = null;
+    const startPolling = () => {
+      if (intervalId == null) intervalId = setInterval(fetchAlerts, POLL_INTERVAL_MS);
+    };
+    const stopPolling = () => {
+      if (intervalId != null) { clearInterval(intervalId); intervalId = null; }
+    };
+    startPolling();
+    // Pause polling when the tab is hidden so many open super-admin tabs
+    // don't multiply the backend load. Resume + refresh on focus.
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") {
+        stopPolling();
+      } else {
+        fetchAlerts();
+        startPolling();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      stopPolling();
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [threshold]);
 
@@ -46,15 +67,19 @@ export default function UsageAlertsBell({ threshold = 80, isEs = true }) {
   }, [open]);
 
   const count = data.total || 0;
-  // Group alerts by company so each company appears once with its hottest metric
+  // Group alerts by company so each company appears once with its hottest
+  // metric on top; `others` only contains the SECONDARY metrics (not the top).
   const grouped = (() => {
     const byCo = new Map();
     for (const a of data.alerts || []) {
-      const existing = byCo.get(a.company_id);
-      if (!existing || a.percentage > existing.top.percentage) {
-        byCo.set(a.company_id, { top: a, all: [...(existing?.all || []), a] });
+      const cur = byCo.get(a.company_id);
+      if (!cur) {
+        byCo.set(a.company_id, { top: a, others: [] });
+      } else if (a.percentage > cur.top.percentage) {
+        cur.others.push(cur.top);
+        cur.top = a;
       } else {
-        existing.all.push(a);
+        cur.others.push(a);
       }
     }
     return Array.from(byCo.values()).sort((x, y) => y.top.percentage - x.top.percentage);
@@ -112,7 +137,7 @@ export default function UsageAlertsBell({ threshold = 80, isEs = true }) {
                 {isEs ? "Nadie está cerca de su límite. 🎉" : "Nobody close to their limit. 🎉"}
               </div>
             )}
-            {!loading && grouped.map(({ top, all }) => (
+            {!loading && grouped.map(({ top, others }) => (
               <button
                 key={top.company_id}
                 onClick={() => goTo(top.company_id)}
@@ -138,9 +163,9 @@ export default function UsageAlertsBell({ threshold = 80, isEs = true }) {
                     style={{ width: `${Math.min(100, top.percentage)}%` }}
                   />
                 </div>
-                {all.length > 1 && (
+                {others.length > 0 && (
                   <p className="text-[10px] text-muted-foreground mt-1.5">
-                    +{all.length - 1} {isEs ? "métrica(s) más en alerta" : "more metric(s) in alert"}
+                    +{others.length} {isEs ? "métrica(s) más en alerta" : "more metric(s) in alert"}
                   </p>
                 )}
               </button>

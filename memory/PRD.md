@@ -829,3 +829,22 @@ The page-break CSS fix earlier in the day introduced a CSS comment inside the `h
 - Backend test file at `/app/backend/tests/test_super_admin_limit_overrides_plans.py` (idempotent — snapshots and restores).
 
 **Note for Margaret**: `plan_starter` ships with `events_per_month: 50` (the "máximo 50" she was seeing). She can now either (a) bump only her specific customer via the override card, or (b) raise the global Starter ceiling from `Super-admin → Settings → Planes`.
+
+
+### Super-Admin: Usage Alerts Bell (≥80%) — Feb 20, 2026
+
+**Goal**: surface companies approaching their plan/override limits so Margaret can lift caps proactively instead of waiting for complaints.
+
+**Backend** (`/app/backend/server.py` — new endpoint near L18247):
+- `GET /api/super-admin/usage-alerts?threshold=80` iterates every active/trialing subscription, loads the company's current `usage_meters` row for the period, then for each of the 5 metered fields (events_created → events_per_month, active_users, supplier_invoices, proposals_created, storage_mb) computes the effective limit = `company.limit_overrides[field] ?? plan.limits[field]`, and emits an alert when `current/limit ≥ threshold%`.
+- Response: `{threshold, period, total, companies_count, alerts: [{company_id, name, metric, label, current, limit, percentage, source: override|plan, plan_id, subscription_status}]}` sorted by `percentage` desc.
+
+**Frontend**:
+- `UsageAlertsBell.js` (new): bell icon with red count badge. Polls `/usage-alerts` every 60s; **pauses polling on `visibilitychange === hidden`** to save load when admin tabs are backgrounded. Popover groups alerts per company (hottest metric on top, secondary metrics counted as `+N más`), color-coded progress bars (red ≥100%, orange ≥95%, amber otherwise). Click → `/super-admin/organizations/{id}?focus=limits`.
+- `SuperAdminLayout.js`: imports the bell and mounts it absolute top-right of the `<Outlet>` container so it's visible on every super-admin page.
+- `OrganizationDetailPage.js`: reads `?focus=limits`, switches to Overview tab, scrolls `[data-testid="limit-overrides-card"]` into view and adds an amber ring (`ring-2 ring-amber-400 ring-offset-2`) that fades after 2.4s. A `useRef` guard prevents the effect from re-firing when `org` is refetched after a save.
+
+**Validation** (`/app/test_reports/iteration_184.json` — 100% pass):
+- Backend pytest 7/7 — envelope shape, threshold filter (0 / 80 / 200), override suppresses an alert correctly, only active/trialing subscriptions appear, 401 enforced.
+- Frontend: bell renders with "2" badge on the demo seed (Kora OS Test 100%, Creative Agency Demo 80%). Popover opens, X / outside-click close it correctly. Clicking a row navigates, focuses, and removes the ring after 2.6s. Regression on 3 other super-admin routes passes.
+- Test file: `/app/backend/tests/test_super_admin_usage_alerts.py` (idempotent, restores any overrides it touched).
