@@ -22,6 +22,13 @@ Build a comprehensive ERP application called **Kora OS** with modules for People
 - Sprint 7 (Apr-May 2026): Launch kit (May 1-3 event), tipografía Plus Jakarta Sans global, Bug fixes (Recipe whitescreen, Demand Studio post overwrite), Performance Dashboard CRM.
 
 
+### Banner Lead Form — Compresión cliente (Feb 23, 2026)
+- Nuevo util `/app/frontend/src/utils/imageCompress.js` (canvas resize + reencode iterativo a JPEG/PNG, objetivo ~500KB / 1600px en lado mayor).
+- Integrado en `SettingsPage.js` (handler de subida del banner del Lead Form): el archivo se comprime antes de `POST /api/settings/upload-banner`.
+- Límite frontend subido a 10MB (auto-optimiza); backend ahora acepta hasta 5MB tras compresión.
+- Toast indica los KB ahorrados cuando la compresión surte efecto > 50KB.
+
+
 ### Recipes Bulk Import (CSV/Excel) — Feb 17, 2026
 **Goal**: Subir muchas recetas a la vez (al estilo del importador de Items) para usarlas en menús buffet sin tener que crearlas una por una.
 

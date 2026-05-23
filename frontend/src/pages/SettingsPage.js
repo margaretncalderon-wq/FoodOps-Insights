@@ -47,6 +47,7 @@ import IntegrationsSettingsSection from "../components/settings/IntegrationsSett
 import GoogleCalendarSettingsSection from "../components/settings/GoogleCalendarSettingsSection";
 import ImportExportSection from "../components/settings/ImportExportSection";
 import IndustryConfigSection from "../components/settings/IndustryConfigSection";
+import { compressImage } from "../utils/imageCompress";
 import TerminologySettingsSection from "../components/settings/TerminologySettingsSection";
 import PartnerCapabilitiesSection from "../components/settings/PartnerCapabilitiesSection";
 import { OrganizationStructureSection } from "../components/settings/OrganizationStructureSection";
@@ -1918,14 +1919,20 @@ export default function SettingsPage() {
                               data-testid="lead-form-banner-upload-input"
                               disabled={newLeadForm.banner_uploading}
                               onChange={async (e) => {
-                                const f = e.target.files?.[0];
-                                if (!f) return;
-                                if (f.size > 3 * 1024 * 1024) {
-                                  toast.error(language === "es" ? "Imagen demasiado grande (máx 3MB)" : "Image too large (max 3MB)");
+                                const original = e.target.files?.[0];
+                                if (!original) return;
+                                if (original.size > 10 * 1024 * 1024) {
+                                  toast.error(language === "es" ? "Imagen demasiado grande (máx 10MB)" : "Image too large (max 10MB)");
                                   e.target.value = "";
                                   return;
                                 }
                                 setNewLeadForm((prev) => ({ ...prev, banner_uploading: true }));
+                                let f = original;
+                                try {
+                                  f = await compressImage(original, { maxWidth: 1600, maxSizeKB: 500 });
+                                } catch (_e) {
+                                  f = original;
+                                }
                                 const fd = new FormData();
                                 fd.append("file", f);
                                 try {
@@ -1935,7 +1942,12 @@ export default function SettingsPage() {
                                     { withCredentials: true, headers: { "Content-Type": "multipart/form-data" } }
                                   );
                                   setNewLeadForm((prev) => ({ ...prev, banner_url: res.data?.banner_url || "", banner_uploading: false }));
-                                  toast.success(language === "es" ? "Imagen cargada" : "Image uploaded");
+                                  const savedKB = Math.max(0, Math.round((original.size - f.size) / 1024));
+                                  toast.success(
+                                    savedKB > 50
+                                      ? (language === "es" ? `Imagen cargada (${savedKB}KB ahorrados)` : `Image uploaded (${savedKB}KB saved)`)
+                                      : (language === "es" ? "Imagen cargada" : "Image uploaded")
+                                  );
                                 } catch (err) {
                                   setNewLeadForm((prev) => ({ ...prev, banner_uploading: false }));
                                   toast.error(err?.response?.data?.detail || (language === "es" ? "Error al subir" : "Upload failed"));
@@ -1948,7 +1960,7 @@ export default function SettingsPage() {
                         </div>
                       </div>
                       <p className="text-xs text-muted-foreground mt-1">
-                        {language === "es" ? "Pega una URL o sube un archivo (JPG/PNG/WebP/GIF/SVG, máx 3MB · recomendado 1200x400px)" : "Paste a URL or upload a file (JPG/PNG/WebP/GIF/SVG, max 3MB · recommended 1200x400px)"}
+                        {language === "es" ? "Pega una URL o sube un archivo (JPG/PNG/WebP/GIF/SVG, máx 10MB · se optimiza automáticamente · recomendado 1200x400px)" : "Paste a URL or upload a file (JPG/PNG/WebP/GIF/SVG, max 10MB · auto-optimized · recommended 1200x400px)"}
                       </p>
                     </div>
                     <label className="flex items-center gap-3 cursor-pointer hover:bg-muted/50 p-2 rounded transition-colors">

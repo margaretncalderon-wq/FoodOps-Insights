@@ -6532,8 +6532,8 @@ async def upload_lead_form_banner(file: UploadFile = File(...), user: User = Dep
     if file.content_type not in allowed_types:
         raise HTTPException(status_code=400, detail="Invalid file type. Use JPEG, PNG, WebP, GIF or SVG")
     content = await file.read()
-    if len(content) > 3 * 1024 * 1024:
-        raise HTTPException(status_code=400, detail="File too large. Maximum size is 3MB")
+    if len(content) > 5 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="File too large. Maximum size is 5MB")
     data_url = f"data:{file.content_type};base64,{base64.b64encode(content).decode('utf-8')}"
     return {"banner_url": data_url, "size_bytes": len(content), "content_type": file.content_type}
 
