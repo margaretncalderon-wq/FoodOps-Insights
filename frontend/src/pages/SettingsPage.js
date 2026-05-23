@@ -1874,14 +1874,81 @@ export default function SettingsPage() {
                       {language === "es" ? "Personalización" : "Branding"}
                     </Label>
                     <div>
-                      <Label>{language === "es" ? "URL del Banner" : "Banner URL"}</Label>
-                      <Input 
-                        value={newLeadForm.banner_url} 
-                        onChange={(e) => setNewLeadForm({ ...newLeadForm, banner_url: e.target.value })}
-                        placeholder="https://example.com/banner.jpg"
-                      />
+                      <Label>{language === "es" ? "Banner del formulario" : "Form banner"}</Label>
+                      <div className="space-y-2 mt-1">
+                        {newLeadForm.banner_url && (
+                          <div className="relative inline-block">
+                            <img
+                              src={newLeadForm.banner_url}
+                              alt="Banner preview"
+                              className="max-h-32 rounded-md border"
+                              onError={(e) => { e.currentTarget.style.opacity = "0.3"; }}
+                            />
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => setNewLeadForm({ ...newLeadForm, banner_url: "" })}
+                              className="absolute top-1 right-1 h-6 w-6 p-0 bg-white/90 hover:bg-white text-red-600"
+                              data-testid="lead-form-banner-clear"
+                              title={language === "es" ? "Quitar banner" : "Remove banner"}
+                            >×</Button>
+                          </div>
+                        )}
+                        <div className="flex flex-col sm:flex-row gap-2">
+                          <Input
+                            value={newLeadForm.banner_url}
+                            onChange={(e) => setNewLeadForm({ ...newLeadForm, banner_url: e.target.value })}
+                            placeholder="https://example.com/banner.jpg"
+                            className="flex-1"
+                            data-testid="lead-form-banner-url-input"
+                          />
+                          <label
+                            className="inline-flex items-center justify-center gap-1.5 px-3 h-10 rounded-md border bg-background hover:bg-muted cursor-pointer text-sm whitespace-nowrap"
+                            data-testid="lead-form-banner-upload-label"
+                          >
+                            <Upload className="w-4 h-4" />
+                            {newLeadForm.banner_uploading
+                              ? (language === "es" ? "Subiendo..." : "Uploading...")
+                              : (language === "es" ? "Subir imagen" : "Upload image")}
+                            <input
+                              type="file"
+                              accept="image/jpeg,image/png,image/webp,image/gif,image/svg+xml"
+                              className="hidden"
+                              data-testid="lead-form-banner-upload-input"
+                              disabled={newLeadForm.banner_uploading}
+                              onChange={async (e) => {
+                                const f = e.target.files?.[0];
+                                if (!f) return;
+                                if (f.size > 3 * 1024 * 1024) {
+                                  toast.error(language === "es" ? "Imagen demasiado grande (máx 3MB)" : "Image too large (max 3MB)");
+                                  e.target.value = "";
+                                  return;
+                                }
+                                setNewLeadForm((prev) => ({ ...prev, banner_uploading: true }));
+                                const fd = new FormData();
+                                fd.append("file", f);
+                                try {
+                                  const res = await axios.post(
+                                    `${API}/settings/upload-banner`,
+                                    fd,
+                                    { withCredentials: true, headers: { "Content-Type": "multipart/form-data" } }
+                                  );
+                                  setNewLeadForm((prev) => ({ ...prev, banner_url: res.data?.banner_url || "", banner_uploading: false }));
+                                  toast.success(language === "es" ? "Imagen cargada" : "Image uploaded");
+                                } catch (err) {
+                                  setNewLeadForm((prev) => ({ ...prev, banner_uploading: false }));
+                                  toast.error(err?.response?.data?.detail || (language === "es" ? "Error al subir" : "Upload failed"));
+                                } finally {
+                                  e.target.value = "";
+                                }
+                              }}
+                            />
+                          </label>
+                        </div>
+                      </div>
                       <p className="text-xs text-muted-foreground mt-1">
-                        {language === "es" ? "Imagen de cabecera (recomendado: 1200x400px)" : "Header image (recommended: 1200x400px)"}
+                        {language === "es" ? "Pega una URL o sube un archivo (JPG/PNG/WebP/GIF/SVG, máx 3MB · recomendado 1200x400px)" : "Paste a URL or upload a file (JPG/PNG/WebP/GIF/SVG, max 3MB · recommended 1200x400px)"}
                       </p>
                     </div>
                     <label className="flex items-center gap-3 cursor-pointer hover:bg-muted/50 p-2 rounded transition-colors">

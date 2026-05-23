@@ -6522,6 +6522,22 @@ async def get_company_settings(user: User = Depends(get_current_user)):
         ]
     return Company(**company)
 
+@settings_router.post("/upload-banner")
+async def upload_lead_form_banner(file: UploadFile = File(...), user: User = Depends(get_current_user)):
+    """Upload a lead-form banner image. Returns a base64 data URL the caller
+    can drop straight into the form's `banner_url`. Same pattern as the
+    company-logo uploader. Cap: 3 MB, common image MIME types."""
+    import base64
+    allowed_types = ["image/jpeg", "image/png", "image/webp", "image/gif", "image/svg+xml"]
+    if file.content_type not in allowed_types:
+        raise HTTPException(status_code=400, detail="Invalid file type. Use JPEG, PNG, WebP, GIF or SVG")
+    content = await file.read()
+    if len(content) > 3 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="File too large. Maximum size is 3MB")
+    data_url = f"data:{file.content_type};base64,{base64.b64encode(content).decode('utf-8')}"
+    return {"banner_url": data_url, "size_bytes": len(content), "content_type": file.content_type}
+
+
 @settings_router.post("/company/logo")
 async def upload_company_logo(file: UploadFile = File(...), user: User = Depends(get_current_user)):
     """Upload company logo - stores as base64 in database for persistence"""
