@@ -525,10 +525,20 @@ export default function DocumentPreview({
         color: #444;
       }
       .doc-root[data-operational="true"] .tanda-mini-header .tmh-left { display: flex; align-items: center; gap: 8px; }
-      .doc-root[data-operational="true"] .tanda-mini-header .tmh-logo { max-height: 22px; width: auto; }
+      .doc-root[data-operational="true"] .tanda-mini-header .tmh-logo { max-height: 18px !important; max-width: 80px !important; width: auto; height: auto; object-fit: contain; }
       .doc-root[data-operational="true"] .tanda-mini-header .tmh-title { font-weight: 600; font-size: 11px; line-height: 1.1; }
       .doc-root[data-operational="true"] .tanda-mini-header .tmh-sub { font-size: 9.5px; color: #555; line-height: 1.1; }
       .doc-root[data-operational="true"] .tanda-mini-header .tmh-right { text-align: right; font-size: 9.5px; line-height: 1.3; }
+      /* Per-day logistics box rendered inside the table's thead so it repeats
+         with the rest of the tanda header on every printed page. */
+      .doc-root[data-operational="true"] .tanda-daylog {
+        padding: 6px 0 8px;
+        font-size: 10px;
+        color: #333;
+        border-bottom: 1px solid #ddd;
+      }
+      .doc-root[data-operational="true"] .tanda-daylog .tdl-row { padding: 1px 0; }
+      .doc-root[data-operational="true"] .tanda-daylog .tdl-row strong { font-weight: 600; color: #111; }
       /* Tanda title bar (rendered inside the table's thead so it repeats on
          every page when the tanda overflows). */
       .doc-root[data-operational="true"] .tanda-title-bar {
@@ -540,9 +550,9 @@ export default function DocumentPreview({
         letter-spacing: 0.04em;
       }
       .doc-root[data-operational="true"] .tanda-header-row th { border: 0 !important; }
-      /* Operational docs: shrink the main page-1 logo so the first page is
-         compact like the rest. */
-      .doc-root[data-operational="true"] .doc-logo { max-height: 32px !important; }
+      /* Operational docs: shrink the main page-1 logo aggressively so the
+         first page isn't dominated by branding. */
+      .doc-root[data-operational="true"] .doc-logo { max-height: 28px !important; max-width: 120px !important; width: auto !important; height: auto !important; object-fit: contain; }
       /* Keep small atomic units together; the date-group can break across pages. */
       tr, .category-section, .notes, .terms, .payment-info, .bank-details, .subtotals { page-break-inside: avoid; break-inside: avoid; }
       /* Operational docs: a long tanda is allowed to span multiple pages so
@@ -794,8 +804,11 @@ export default function DocumentPreview({
               )}
             </div>
 
-            {/* RESUMEN DE CATERING - Per-Date Logistics */}
-            {(proposal?.day_logistics?.length > 0) && (
+            {/* RESUMEN DE CATERING - Per-Date Logistics. For operational docs
+                (kitchen sheet / packing / mise) we skip this global table —
+                each tanda already shows its day's logistic row in its own
+                header so the chef has all the context per page. */}
+            {!isOperationalDoc && (proposal?.day_logistics?.length > 0) && (
               <div className="catering-summary mb-6" data-testid="doc-day-logistics">
                 <h4
                   className="section-title text-sm font-semibold uppercase tracking-wide mb-3"
@@ -865,6 +878,15 @@ export default function DocumentPreview({
                       return dateStr || timeStr || (language === "es" ? "Sin horario" : "No time");
                     })();
 
+                    // Per-tanda day logistics — look up the row matching this
+                    // tanda's date from proposal.day_logistics so the chef sees
+                    // address/instructions/guests for THIS day on every page.
+                    const dayLog = isTanda && sectionDate
+                      ? (proposal?.day_logistics || []).find(
+                          (d) => d.event_date && (d.event_date === sectionDate || d.event_date?.startsWith(sectionDate?.slice(0, 10)))
+                        )
+                      : null;
+
                     return (
                     <div key={sectionKey} className="category-section mb-4">
                       {/* For tandas (operational docs), the mini-header and
@@ -877,7 +899,6 @@ export default function DocumentPreview({
                           <h4 className="text-sm font-semibold" style={{ color: company?.primary_color || '#3A4D3F' }}>
                             {sectionTitle || getCategoryName(sectionKey)}
                           </h4>
-                          {/* Show date and time if available */}
                           {(sectionDate || sectionTime) && (
                             <div className="flex items-center gap-4 mt-1 text-xs text-muted-foreground">
                               {sectionDate && (
@@ -901,7 +922,7 @@ export default function DocumentPreview({
                           )}
                         </div>
                       )}
-                      
+
                       {/* Menu Style (only names) */}
                       {config.showOnlyNames ? (
                         <div className="space-y-1 pl-4">
@@ -947,6 +968,38 @@ export default function DocumentPreview({
                                     </div>
                                   </th>
                                 </tr>
+                                {dayLog && (
+                                  <tr className="tanda-header-row" data-print-tanda="daylog">
+                                    <th colSpan={10} style={{ padding: 0, background: "transparent", textAlign: "left", fontWeight: "normal" }}>
+                                      <div className="tanda-daylog">
+                                        {(dayLog.delivery_time || dayLog.delivery_end_time) && (
+                                          <div className="tdl-row">
+                                            <strong>{language === "es" ? "Horario:" : "Time:"}</strong>{" "}
+                                            <span>{dayLog.delivery_time || "—"}{dayLog.delivery_end_time ? ` – ${dayLog.delivery_end_time}` : ""}</span>
+                                          </div>
+                                        )}
+                                        {dayLog.guest_count != null && (
+                                          <div className="tdl-row">
+                                            <strong>{language === "es" ? "Invitados:" : "Guests:"}</strong>{" "}
+                                            <span>{dayLog.guest_count}</span>
+                                          </div>
+                                        )}
+                                        {dayLog.address && (
+                                          <div className="tdl-row">
+                                            <strong>{language === "es" ? "Dirección:" : "Address:"}</strong>{" "}
+                                            <span>{dayLog.address}</span>
+                                          </div>
+                                        )}
+                                        {dayLog.instructions && (
+                                          <div className="tdl-row">
+                                            <strong>{language === "es" ? "Instrucciones:" : "Instructions:"}</strong>{" "}
+                                            <span>{dayLog.instructions}</span>
+                                          </div>
+                                        )}
+                                      </div>
+                                    </th>
+                                  </tr>
+                                )}
                               </>
                             )}
                             <tr style={{ backgroundColor: company?.primary_color || '#3A4D3F', color: 'white' }}>
