@@ -22,6 +22,15 @@ Build a comprehensive ERP application called **Kora OS** with modules for People
 - Sprint 7 (Apr-May 2026): Launch kit (May 1-3 event), tipografía Plus Jakarta Sans global, Bug fixes (Recipe whitescreen, Demand Studio post overwrite), Performance Dashboard CRM.
 
 
+### Hoja de Cocina por Tanda (estilo Ciano) — Feb 23, 2026
+- `DocumentPreview.js`: el `groupItems()` ahora detecta documentos operacionales (`kitchen_sheet`, `packing_list`, `mise_en_place`, `beo`) y agrupa items por **fecha + horario de servicio (tanda)** en vez de por categoría/curso.
+- Encabezado de tanda formateado como una sola línea: `Lun, 25/05/2026 — 08:15` (con icono de reloj).
+- Items dentro de cada tanda se mantienen ordenados por `item_type` (orden configurado en Settings → Catálogos → Tipos de Items) seguido por `sort_order` — así "Bebidas" aparece antes que "Bocadillos" sin necesidad de sub-encabezados.
+- Las tandas se ordenan cronológicamente dentro de cada día (08:15 antes que 13:00).
+- Documentos cliente (proposal, invoice, menu, contract) mantienen el agrupamiento original por sección/categoría.
+- El encabezado de día se oculta en modo operacional porque cada tanda ya muestra la fecha.
+
+
 ### Widget de Motivos de Pérdida (Feb 23, 2026)
 - Nuevo endpoint backend: `GET /api/events/lost-reasons-analytics?period=30d|90d|1y|all` — agrega conteos, % y valor estimado por motivo de pérdida; incluye top 5 pérdidas recientes con cliente y fecha.
 - Nuevo componente `LostReasonsWidget.js` con gráfico de donut (recharts), desglose por motivo y lista de pérdidas recientes con enlace directo al evento. Colapsable, con selector de periodo. Vacío amigable cuando no hay pérdidas.

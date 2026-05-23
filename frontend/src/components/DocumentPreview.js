@@ -194,6 +194,12 @@ export default function DocumentPreview({
     return cat ? (language === "es" ? cat.name_es || cat.name : cat.name) : "Other";
   };
 
+  // Operational documents (Kitchen Sheet, Packing List, BEO, Mise en Place)
+  // are organized for kitchen/ops staff, NOT clients. They want to see the
+  // full prep list per service slot (tanda) instead of split by menu course.
+  const OPERATIONAL_DOC_TYPES = ["kitchen_sheet", "packing_list", "beo", "mise_en_place"];
+  const isOperationalDoc = OPERATIONAL_DOC_TYPES.includes(selectedDocType);
+
   // Group items by category and optionally by date
   const groupItems = () => {
     if (!proposal?.items) return {};
@@ -229,9 +235,18 @@ export default function DocumentPreview({
       if (config.groupByDate && item.event_date) {
         dateKey = item.event_date;
       }
-      
-      // Use section_title if present, otherwise use category/item_type
-      let sectionKey = item.section_title || item.category_id || item.item_type || "other";
+
+      // Operational docs (kitchen sheet, packing list, BEO, mise en place):
+      // group by service time (tanda) so the kitchen sees one consolidated
+      // prep list per slot, matching the Ciano-style layout. Items within
+      // the tanda stay sorted by item_type (Bebidas → Bocadillos → ...).
+      // Client-facing docs keep the original section/category grouping.
+      let sectionKey;
+      if (isOperationalDoc) {
+        sectionKey = item.section_time || "__no_time__";
+      } else {
+        sectionKey = item.section_title || item.category_id || item.item_type || "other";
+      }
       
       if (!grouped[dateKey]) {
         grouped[dateKey] = {};
@@ -239,22 +254,36 @@ export default function DocumentPreview({
       if (!grouped[dateKey][sectionKey]) {
         grouped[dateKey][sectionKey] = {
           items: [],
-          section_title: item.section_title,
+          section_title: isOperationalDoc ? null : item.section_title,
           section_time: item.section_time,
-          event_date: item.event_date
+          event_date: item.event_date,
+          is_tanda: isOperationalDoc,
         };
       }
       
       grouped[dateKey][sectionKey].items.push(item);
       // Update section info if this item has more specific info
-      if (item.section_title) {
+      if (!isOperationalDoc && item.section_title) {
         grouped[dateKey][sectionKey].section_title = item.section_title;
       }
       if (item.section_time) {
         grouped[dateKey][sectionKey].section_time = item.section_time;
       }
     });
-    
+
+    // For operational docs, sort tandas chronologically by section_time
+    // within each day so the kitchen reads them top → bottom in service order.
+    if (isOperationalDoc) {
+      Object.keys(grouped).forEach((dKey) => {
+        const sorted = Object.entries(grouped[dKey]).sort(([, a], [, b]) => {
+          const ta = a.section_time || "99:99";
+          const tb = b.section_time || "99:99";
+          return ta.localeCompare(tb);
+        });
+        grouped[dKey] = Object.fromEntries(sorted);
+      });
+    }
+
     return grouped;
   };
 
@@ -760,8 +789,9 @@ export default function DocumentPreview({
             <div className="items-section">
               {Object.entries(groupedItems).map(([dateKey, sectionGroups]) => (
                 <div key={dateKey} className="date-group mb-6">
-                  {/* Date Header (if multi-day) */}
-                  {dateKey !== "all" && config.groupByDate && (
+                  {/* Date Header (if multi-day) — hidden for operational docs
+                      since each tanda header already shows the date. */}
+                  {dateKey !== "all" && config.groupByDate && !isOperationalDoc && (
                     <div className="date-title bg-muted/50 p-3 rounded-t-lg border-b">
                       <Calendar className="w-4 h-4 inline mr-2" />
                       <span className="font-semibold">{formatDate(dateKey)}</span>
@@ -774,35 +804,57 @@ export default function DocumentPreview({
                     const sectionTitle = sectionData.section_title;
                     const sectionTime = sectionData.section_time;
                     const sectionDate = sectionData.event_date;
-                    
+                    const isTanda = sectionData.is_tanda;
+
+                    // Single-line "Lun, 25/05/2026 — 08:15" header for operational docs.
+                    const tandaHeader = (() => {
+                      if (!isTanda) return null;
+                      const d = sectionDate ? parseDateOnly(sectionDate) : null;
+                      const dateStr = d
+                        ? d.toLocaleDateString(language === "es" ? "es" : "en", { weekday: "short", day: "2-digit", month: "2-digit", year: "numeric" })
+                        : (sectionDate || "");
+                      const timeStr = sectionTime || "";
+                      if (dateStr && timeStr) return `${dateStr} — ${timeStr}`;
+                      return dateStr || timeStr || (language === "es" ? "Sin horario" : "No time");
+                    })();
+
                     return (
                     <div key={sectionKey} className="category-section mb-4">
                       {/* Section Title with Date and Time */}
                       <div className="section-title border-b pb-2 mb-3" style={{ borderColor: company?.primary_color || '#3A4D3F' }}>
-                        <h4 className="text-sm font-semibold" style={{ color: company?.primary_color || '#3A4D3F' }}>
-                          {sectionTitle || getCategoryName(sectionKey)}
-                        </h4>
-                        {/* Show date and time if available */}
-                        {(sectionDate || sectionTime) && (
-                          <div className="flex items-center gap-4 mt-1 text-xs text-muted-foreground">
-                            {sectionDate && (
-                              <span className="flex items-center gap-1">
-                                <Calendar className="w-3 h-3" />
-                                {(() => {
-                                  const d = parseDateOnly(sectionDate);
-                                  return d
-                                    ? d.toLocaleDateString(language === "es" ? "es" : "en", { weekday: "short", day: "2-digit", month: "2-digit", year: "numeric" })
-                                    : sectionDate;
-                                })()}
-                              </span>
+                        {isTanda ? (
+                          <h4 className="text-sm font-semibold uppercase tracking-wide" style={{ color: company?.primary_color || '#3A4D3F' }}>
+                            <Clock className="w-3.5 h-3.5 inline mr-1.5 -mt-0.5" />
+                            {tandaHeader}
+                          </h4>
+                        ) : (
+                          <>
+                            <h4 className="text-sm font-semibold" style={{ color: company?.primary_color || '#3A4D3F' }}>
+                              {sectionTitle || getCategoryName(sectionKey)}
+                            </h4>
+                            {/* Show date and time if available */}
+                            {(sectionDate || sectionTime) && (
+                              <div className="flex items-center gap-4 mt-1 text-xs text-muted-foreground">
+                                {sectionDate && (
+                                  <span className="flex items-center gap-1">
+                                    <Calendar className="w-3 h-3" />
+                                    {(() => {
+                                      const d = parseDateOnly(sectionDate);
+                                      return d
+                                        ? d.toLocaleDateString(language === "es" ? "es" : "en", { weekday: "short", day: "2-digit", month: "2-digit", year: "numeric" })
+                                        : sectionDate;
+                                    })()}
+                                  </span>
+                                )}
+                                {sectionTime && (
+                                  <span className="flex items-center gap-1">
+                                    <Clock className="w-3 h-3" />
+                                    {sectionTime}
+                                  </span>
+                                )}
+                              </div>
                             )}
-                            {sectionTime && (
-                              <span className="flex items-center gap-1">
-                                <Clock className="w-3 h-3" />
-                                {sectionTime}
-                              </span>
-                            )}
-                          </div>
+                          </>
                         )}
                       </div>
                       
