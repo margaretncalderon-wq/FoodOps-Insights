@@ -30,6 +30,7 @@ Build a comprehensive ERP application called **Kora OS** with modules for People
 - Documentos cliente (proposal, invoice, menu, contract) mantienen el agrupamiento original por sección/categoría.
 - El encabezado de día se oculta en modo operacional porque cada tanda ya muestra la fecha.
 
+  - Cada tanda imprime en su propia hoja (`page-break-before: always` para `.category-section` cuando `data-operational="true"`, excepto la primera que no quema una página en blanco). Permite repartir hojas por turno de cocina.
 
 ### Widget de Motivos de Pérdida (Feb 23, 2026)
 - Nuevo endpoint backend: `GET /api/events/lost-reasons-analytics?period=30d|90d|1y|all` — agrega conteos, % y valor estimado por motivo de pérdida; incluye top 5 pérdidas recientes con cliente y fecha.

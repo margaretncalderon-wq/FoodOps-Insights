@@ -513,6 +513,17 @@ export default function DocumentPreview({
       /* Keep small atomic units together; the date-group can break across pages. */
       tr, .category-section, .notes, .terms, .payment-info, .bank-details, .subtotals { page-break-inside: avoid; break-inside: avoid; }
       .date-title, .section-title, h4 { page-break-after: avoid; break-after: avoid; }
+      /* Operational docs (Kitchen Sheet / Packing List / Mise en Place): one
+         tanda per page so each kitchen shift can grab their sheet. The very
+         first tanda of the very first day stays on page 1 (no blank first page). */
+      .doc-root[data-operational="true"] .items-section .category-section {
+        page-break-before: always !important;
+        break-before: page !important;
+      }
+      .doc-root[data-operational="true"] .items-section .date-group:first-child .category-section:first-child {
+        page-break-before: avoid !important;
+        break-before: avoid !important;
+      }
       thead { display: table-header-group; }
       /* Hide the print toolbar (selectors, buttons) if it slipped into the clone. */
       [data-print-hidden="true"] { display: none !important; }
@@ -628,7 +639,7 @@ export default function DocumentPreview({
         {/* Document Preview */}
         <Card className="shadow-lg">
           <style dangerouslySetInnerHTML={{ __html: variantCSS }} />
-          <CardContent className="p-8 doc-root" data-style-variant={styleVariant} ref={printRef}>
+          <CardContent className="p-8 doc-root" data-style-variant={styleVariant} data-operational={isOperationalDoc ? "true" : "false"} ref={printRef}>
             {/* Header */}
             <div className="header border-b-2 pb-6 mb-6" style={{ borderColor: company?.primary_color || '#3A4D3F' }}>
               {/* Logo block — lifted above the two-column layout so it can be
