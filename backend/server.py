@@ -23628,6 +23628,19 @@ from routers.guest_flow import guest_flow_router
 api_router.include_router(guest_flow_router)  # /api/guest-flow/*
 api_router.include_router(launch_router)  # /api/launch/*
 
+# ============== E-INVOICING (Phase 0 — feature flag + config only) ==============
+# Late inclusion because the factory needs `get_super_admin` which is defined
+# further down in this file.
+from routers.efactura import build_efactura_router as _build_efactura_router
+_efactura_router, _efactura_super_router = _build_efactura_router(
+    db=db,
+    get_current_user=get_current_user,
+    require_super_admin=get_super_admin,
+    User=User,
+)
+api_router.include_router(_efactura_router)
+api_router.include_router(_efactura_super_router)
+
 
 
 # General file upload endpoint

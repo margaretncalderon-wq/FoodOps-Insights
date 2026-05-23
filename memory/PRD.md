@@ -37,6 +37,21 @@ Build a comprehensive ERP application called **Kora OS** with modules for People
   - Fix v3: mini-header + título de tanda movidos DENTRO del `<thead>` de la tabla de items. Como `thead` se repite automáticamente en cada página, ahora si una tanda es larga y se divide en varias páginas, el cliente/lugar/invitados + título de tanda aparecen en cada hoja. También removido `page-break-inside: avoid` en docs operacionales para permitir tandas largas que cruzan páginas sin mezclarse con otras tandas (`page-break-before: always` sigue garantizando que tandas distintas nunca compartan página).
   - Fix v4: (1) Logo achicado a `max-height: 18px / max-width: 80px` en el mini-header de tanda y `max-height: 28px / max-width: 120px` en el header principal de docs operacionales. (2) Eliminado el resumen global RESUMEN DE CATERING en docs operacionales — ahora cada tanda lleva en su `<thead>` una caja con la información logística del día (Horario, Invitados, Dirección, Instrucciones) leída de `proposal.day_logistics` y filtrada por la fecha de la tanda. Como vive en `<thead>`, se repite con el resto del header en cada página de la tanda.
 
+### E-Invoicing Phase 0 — feature flag + arquitectura (Feb 23, 2026)
+- Nuevo módulo "Facturación Electrónica" como add-on opt-in por tenant. Diseñado para crecer multi-país (DGII RD, SAT MX, DIAN CO, SUNAT PE, SII CL, AFIP AR, SRI EC).
+- **Backend**:
+  - `models/efactura.py`: `EInvoicingConfig`, `EInvoicingConfigUpdate`, `EInvoicingToggleRequest`, `NCFRange`.
+  - `services/efactura/providers/base.py`: `EInvoicingProvider` ABC + registry (`register_provider`, `get_provider`). Concrete providers (DGIIProvider, SATProvider, etc.) llegan en Fase 1+.
+  - `routers/efactura.py`: factory builder con endpoints `GET/PUT /api/efactura/config`, `POST /api/efactura/test` (placeholder Fase 1), `GET/POST /api/super-admin/companies/{cid}/efactura[/toggle]`.
+  - Config se persiste en `companies.industry_config.e_invoicing` (sub-documento).
+  - PUT requiere role owner/admin/finance. Toggle requiere super admin.
+- **Frontend**:
+  - `pages/business-clarity/EFacturaSection.js`: form de configuración (país, ambiente, RNC/RFC/NIT, razón social) + tarjetas placeholder para certificado / emitir e-CF / historial (todas marcadas "Próximamente").
+  - Nav item "Facturación Electrónica" en BusinessClarityPage solo visible cuando `e_invoicing.enabled === true` para esa org.
+  - Estado "no activado" muestra una tarjeta explicativa con lista de features y CTA a soporte.
+- **Verificado por curl**: enable/disable por super-admin, GET/PUT por usuario admin, placeholder /test responde "Fase 1".
+
+
 ### Widget de Motivos de Pérdida (Feb 23, 2026)
 - Nuevo endpoint backend: `GET /api/events/lost-reasons-analytics?period=30d|90d|1y|all` — agrega conteos, % y valor estimado por motivo de pérdida; incluye top 5 pérdidas recientes con cliente y fecha.
 - Nuevo componente `LostReasonsWidget.js` con gráfico de donut (recharts), desglose por motivo y lista de pérdidas recientes con enlace directo al evento. Colapsable, con selector de periodo. Vacío amigable cuando no hay pérdidas.

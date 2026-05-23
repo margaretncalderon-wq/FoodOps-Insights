@@ -4,6 +4,7 @@ import { Routes, Route, NavLink, Navigate, useLocation, useNavigate } from "reac
 import axios from "axios";
 import { toast } from "sonner";
 import { Layout } from "../components/Layout";
+import EFacturaSection from "./business-clarity/EFacturaSection";
 
 // Refactored Section Components
 import {
@@ -36,7 +37,7 @@ import {
   UserCircle, Landmark, FileBarChart, Target, Lock,
   Briefcase, BarChart3, Users, Building2, ChevronDown,
   ShoppingCart, Wallet, ArrowRightLeft, PiggyBank, Receipt,
-  CreditCard, Clock, FileCheck, Calculator, Upload
+  CreditCard, Clock, FileCheck, Calculator, Upload, FileSignature
 } from "lucide-react";
 import { Badge } from "../components/ui/badge";
 import {
@@ -77,12 +78,18 @@ export default function BusinessClarityPage() {
   const location = useLocation();
   const navigate = useNavigate();
   const [userRole, setUserRole] = useState(null);
+  const [eFacturaEnabled, setEFacturaEnabled] = useState(false);
 
   useEffect(() => {
     // Get current user role
     axios.get(`${API}/api/auth/me`, { withCredentials: true })
       .then(res => setUserRole(res.data?.role || "viewer"))
       .catch(() => setUserRole("viewer"));
+    // Check if the e-invoicing module is enabled for this org. Phase 0:
+    // gate the nav entry so non-customers don't see it.
+    axios.get(`${API}/api/efactura/config`, { withCredentials: true })
+      .then((res) => setEFacturaEnabled(!!res.data?.enabled))
+      .catch(() => setEFacturaEnabled(false));
   }, []);
 
   // Check if user has access to a specific page
@@ -295,6 +302,24 @@ export default function BusinessClarityPage() {
               <Lock className="w-4 h-4" />
               {isEs ? "Cierre" : "Close"}
             </NavLink>
+
+            {/* E-Invoicing - Only shown when the module is enabled for the org. */}
+            {eFacturaEnabled && (
+              <NavLink
+                to="/business-clarity/efactura"
+                data-testid="efactura-nav"
+                className={({ isActive }) =>
+                  `flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+                    isActive
+                      ? "border-emerald-600 text-emerald-600"
+                      : "border-transparent text-muted-foreground hover:text-foreground hover:border-muted"
+                  }`
+                }
+              >
+                <FileSignature className="w-4 h-4" />
+                {isEs ? "Facturación Electrónica" : "E-Invoicing"}
+              </NavLink>
+            )}
           </nav>
         </div>
 
@@ -322,6 +347,7 @@ export default function BusinessClarityPage() {
           <Route path="profit-loss" element={<ProfitLossDashboard />} />
           <Route path="itbis" element={<ITBISSection />} />
           <Route path="migration" element={<MigrationSection />} />
+          {eFacturaEnabled && <Route path="efactura" element={<EFacturaSection />} />}
         </Routes>
       </div>
     </Layout>
