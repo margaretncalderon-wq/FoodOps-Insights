@@ -31,6 +31,7 @@ Build a comprehensive ERP application called **Kora OS** with modules for People
 - El encabezado de día se oculta en modo operacional porque cada tanda ya muestra la fecha.
 
   - Cada tanda imprime en su propia hoja (`page-break-before: always` para `.category-section` cuando `data-operational="true"`, excepto la primera que no quema una página en blanco). Permite repartir hojas por turno de cocina.
+  - Cada hoja impresa lleva un mini-header con logo + nombre del cliente + lugar + invitados (`position: fixed` + `@page { margin-top: 70px }` solo para docs operacionales). El chef de partida siempre tiene el contexto del evento aunque mueva la hoja entre estaciones.
 
 ### Widget de Motivos de Pérdida (Feb 23, 2026)
 - Nuevo endpoint backend: `GET /api/events/lost-reasons-analytics?period=30d|90d|1y|all` — agrega conteos, % y valor estimado por motivo de pérdida; incluye top 5 pérdidas recientes con cliente y fecha.
