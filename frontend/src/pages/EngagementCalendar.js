@@ -44,6 +44,21 @@ const EVENT_TYPE_COLORS = {
   other: "bg-gray-500"
 };
 
+// Display label — keeps "Archived" as the internal stage value but renders it
+// as "Perdida/Lost" so users see it the same way they think about it.
+const stageDisplay = (stage, isEs) => {
+  if (stage === "Archived" || stage === "Lost") return isEs ? "Perdida" : "Lost";
+  if (!isEs) return stage;
+  const ES = {
+    "Inquiry Received": "Consulta Recibida",
+    "Context Captured": "Contexto Capturado",
+    "Scope Drafted": "Alcance Definido",
+    "Definition In Review": "Definición en Revisión",
+    "Committed": "Comprometido",
+  };
+  return ES[stage] || stage;
+};
+
 export default function EngagementCalendar({ embedded = false }) {
   const { language } = useLanguage();
   const navigate = useNavigate();
@@ -436,7 +451,7 @@ export default function EngagementCalendar({ embedded = false }) {
                 <SelectItem key={stage} value={stage}>
                   <div className="flex items-center gap-2">
                     <div className={`w-2 h-2 rounded-full ${getStatusColor(stage).dot}`} />
-                    {stage}
+                    {stageDisplay(stage, isEs)}
                   </div>
                 </SelectItem>
               ))}
@@ -528,7 +543,7 @@ export default function EngagementCalendar({ embedded = false }) {
                                       : ""
                                   : "rounded"
                               }`}
-                              title={`${event.name} - ${normalizeStage(event.stage)}${event.start_time ? ` @ ${formatTime(event.start_time)}` : ""}`}
+                              title={`${event.name} - ${stageDisplay(normalizeStage(event.stage), isEs)}${event.start_time ? ` @ ${formatTime(event.start_time)}` : ""}`}
                             >
                               {isMultiDay && multiDayPos !== "start" && (
                                 <span className="opacity-60 mr-0.5">↔</span>
@@ -600,7 +615,7 @@ export default function EngagementCalendar({ embedded = false }) {
                               </div>
                               <div className="text-xs opacity-75">{event.client_name}</div>
                               <div className="flex items-center gap-1 mt-1">
-                                <Badge className={`text-xs ${colors.bg} ${colors.text}`}>{normalizeStage(event.stage)}</Badge>
+                                <Badge className={`text-xs ${colors.bg} ${colors.text}`}>{stageDisplay(normalizeStage(event.stage), isEs)}</Badge>
                                 {isMultiDay && (
                                   <Badge variant="outline" className="text-xs">
                                     {(isEs ? "Multi-día " : "Multi-day ")}{getMultiDayIndex(event, date)}
@@ -657,7 +672,7 @@ export default function EngagementCalendar({ embedded = false }) {
                               </div>
                               <div className="flex items-center gap-2">
                                 <Badge className={`${colors.bg} ${colors.text} border ${colors.border}`}>
-                                  {normalizeStage(event.stage)}
+                                  {stageDisplay(normalizeStage(event.stage), isEs)}
                                 </Badge>
                                 {isMultiDay && (
                                   <Badge variant="outline">
@@ -771,7 +786,7 @@ export default function EngagementCalendar({ embedded = false }) {
               {/* Status Badge */}
               <div className="flex items-center gap-2 flex-wrap">
                 <Badge className={`${getStatusColor(selectedEvent.stage).bg} ${getStatusColor(selectedEvent.stage).text} border ${getStatusColor(selectedEvent.stage).border}`}>
-                  {normalizeStage(selectedEvent.stage)}
+                  {stageDisplay(normalizeStage(selectedEvent.stage), isEs)}
                 </Badge>
                 <Badge variant="outline">{selectedEvent.event_type}</Badge>
                 {isMultiDayEvent(selectedEvent) && (

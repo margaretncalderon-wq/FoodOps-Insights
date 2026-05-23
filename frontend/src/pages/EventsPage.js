@@ -42,6 +42,7 @@ import {
   DropdownMenuTrigger,
 } from "../components/ui/dropdown-menu";
 import EventLocationSelector from "../components/EventLocationSelector";
+import LostReasonDialog from "../components/LostReasonDialog";
 
 
 const EVENT_TYPES = ["wedding", "corporate", "birthday", "social", "other"];
@@ -83,6 +84,21 @@ const LEGACY_STAGE_MAP = {
   "Closed": "Committed"
 };
 
+// Display labels for stages (internal value stays "Archived" — we just show
+// "Perdida/Lost" to match how users actually think about it).
+const stageLabel = (stage, isEs) => {
+  if (stage === "Archived" || stage === "Lost") return isEs ? "Perdida" : "Lost";
+  if (!isEs) return stage;
+  const ES = {
+    "Inquiry Received": "Consulta Recibida",
+    "Context Captured": "Contexto Capturado",
+    "Scope Drafted": "Alcance Definido",
+    "Definition In Review": "Definición en Revisión",
+    "Committed": "Comprometido",
+  };
+  return ES[stage] || stage;
+};
+
 export default function EventsPage({ embedded = false }) {
   const { t, language } = useLanguage();
   const { isProfessionalServices, isEventsIndustry, getProgramOrchestrationConfig } = useModules();
@@ -113,6 +129,8 @@ export default function EventsPage({ embedded = false }) {
   const [editingEvent, setEditingEvent] = useState(null);
   const [viewMode, setViewMode] = useState(searchParams.get("view") || "list"); // list, calendar, pipeline
   const [sortBy, setSortBy] = useState(localStorage.getItem("eventsSortBy") || "date_desc");
+  // Track which event is being marked as Lost so we can fire the dialog.
+  const [lostDialogEventId, setLostDialogEventId] = useState(null);
   const [formData, setFormData] = useState({
     client_id: "",
     name: "",
@@ -328,7 +346,13 @@ export default function EventsPage({ embedded = false }) {
     try {
       const event = events.find(e => e.event_id === eventId);
       if (!event) return;
-      
+
+      // Intercept Lost transition — capture reason via dialog before updating.
+      if (newStage === "Archived" && event.stage !== "Archived") {
+        setLostDialogEventId(eventId);
+        return;
+      }
+
       await axios.put(`${API}/events/${eventId}`, {
         ...event,
         stage: newStage,
@@ -341,6 +365,28 @@ export default function EventsPage({ embedded = false }) {
       if (viewMode === "pipeline") fetchPipeline();
     } catch (error) {
       toast.error("Failed to update stage");
+    }
+  };
+
+  const lostDialogEvent = events.find((e) => e.event_id === lostDialogEventId) || null;
+
+  const handleConfirmLost = async ({ reason, notes }) => {
+    if (!lostDialogEvent) return;
+    try {
+      await axios.put(`${API}/events/${lostDialogEvent.event_id}`, {
+        ...lostDialogEvent,
+        stage: "Archived",
+        lost_reason: reason,
+        lost_reason_notes: notes,
+        event_date: toDateOnly(lostDialogEvent.event_date),
+        end_date: toDateOnly(lostDialogEvent.end_date),
+      }, { withCredentials: true });
+      toast.success(language === "es" ? "Marcada como Perdida" : "Marked as Lost");
+      fetchEvents();
+      if (viewMode === "pipeline") fetchPipeline();
+    } catch (error) {
+      toast.error(language === "es" ? "Error al marcar como perdida" : "Failed to mark as lost");
+      throw error;
     }
   };
 
@@ -956,7 +1002,7 @@ export default function EventsPage({ embedded = false }) {
                         </SelectTrigger>
                         <SelectContent>
                           {ENGAGEMENT_STAGES.map((stage) => (
-                            <SelectItem key={stage} value={stage}>{stage}</SelectItem>
+                            <SelectItem key={stage} value={stage}>{stageLabel(stage, isEs)}</SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
@@ -1062,7 +1108,7 @@ export default function EventsPage({ embedded = false }) {
                         </Badge>
                       )}
                       <Badge className={statusColors[event.status]}>{t(event.status)}</Badge>
-                      <Badge className={stageColors[event.stage || "Lead"]}>{event.stage || "Lead"}</Badge>
+                      <Badge className={stageColors[event.stage || "Lead"]}>{stageLabel(event.stage || "Inquiry Received", isEs)}</Badge>
                       {event.is_booking && (
                         <Badge variant="outline" className="text-xs">
                           {language === "es" ? "Reserva" : "Booking"}
@@ -1173,7 +1219,7 @@ export default function EventsPage({ embedded = false }) {
               {ENGAGEMENT_STAGES.map((stage) => (
                 <div key={stage} className="w-80 flex-shrink-0">
                   <div className={`${stageHeaderColors[stage]} text-white rounded-t-lg px-4 py-3 flex items-center justify-between`}>
-                    <span className="font-semibold">{stage}</span>
+                    <span className="font-semibold">{stageLabel(stage, isEs)}</span>
                     <Badge variant="secondary" className="bg-white/20 text-white">
                       {(pipeline[stage] || []).length}
                     </Badge>
@@ -1220,7 +1266,7 @@ export default function EventsPage({ embedded = false }) {
                                   handleStageChange(event.event_id, targetStage);
                                 }}
                               >
-                                → {targetStage}
+                                → {stageLabel(targetStage, isEs)}
                               </Button>
                             ))}
                           </div>
@@ -1253,6 +1299,15 @@ export default function EventsPage({ embedded = false }) {
             </CardContent>
           </Card>
         )}
+
+        <LostReasonDialog
+          open={!!lostDialogEventId}
+          onOpenChange={(v) => { if (!v) setLostDialogEventId(null); }}
+          defaultReason={lostDialogEvent?.lost_reason || ""}
+          defaultNotes={lostDialogEvent?.lost_reason_notes || ""}
+          eventName={lostDialogEvent?.name || ""}
+          onConfirm={handleConfirmLost}
+        />
       </div>
   );
 

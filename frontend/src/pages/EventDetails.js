@@ -42,6 +42,7 @@ import {
   ChevronDown, Inbox, MessageSquare, FileEdit, Eye, Handshake, Archive, Target, Rocket, UserCheck
 } from "lucide-react";
 import SendToExecutionModal from "../components/SendToExecutionModal";
+import LostReasonDialog, { lostReasonLabel } from "../components/LostReasonDialog";
 
 
 // Engagement Stages with icons and colors
@@ -51,7 +52,7 @@ const ENGAGEMENT_STAGES = [
   { value: "Scope Drafted", label: { en: "Scope Drafted", es: "Alcance Definido" }, icon: FileEdit, color: "bg-amber-100 text-amber-700" },
   { value: "Definition In Review", label: { en: "Definition In Review", es: "Definición en Revisión" }, icon: Eye, color: "bg-purple-100 text-purple-700" },
   { value: "Committed", label: { en: "Committed", es: "Comprometido" }, icon: Handshake, color: "bg-green-100 text-green-700" },
-  { value: "Archived", label: { en: "Archived", es: "Archivado" }, icon: Archive, color: "bg-gray-100 text-gray-500" },
+  { value: "Archived", label: { en: "Lost", es: "Perdida" }, icon: Archive, color: "bg-gray-100 text-gray-500" },
 ];
 
 export default function EventDetails() {
@@ -66,6 +67,7 @@ export default function EventDetails() {
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
   const [newTask, setNewTask] = useState({ title: "", due_date: "" });
   const [executionModalOpen, setExecutionModalOpen] = useState(false);
+  const [lostDialogOpen, setLostDialogOpen] = useState(false);
   
   // Sales rep assignment
   const [salesReps, setSalesReps] = useState([]);
@@ -180,12 +182,33 @@ export default function EventDetails() {
   };
 
   const handleStageChange = async (newStage) => {
+    // Intercept "Lost" transition to capture a reason. Skip the modal when
+    // the event is already in Archived/Lost (idempotent re-click).
+    if (newStage === "Archived" && event?.stage !== "Archived") {
+      setLostDialogOpen(true);
+      return;
+    }
     try {
       await axios.put(`${API}/events/${eventId}`, { stage: newStage }, { withCredentials: true });
       toast.success(language === "es" ? `Etapa cambiada a ${newStage}` : `Stage changed to ${newStage}`);
       fetchEvent();
     } catch (error) {
       toast.error(language === "es" ? "Error al cambiar etapa" : "Failed to change stage");
+    }
+  };
+
+  const handleMarkAsLost = async ({ reason, notes }) => {
+    try {
+      await axios.put(
+        `${API}/events/${eventId}`,
+        { stage: "Archived", lost_reason: reason, lost_reason_notes: notes },
+        { withCredentials: true }
+      );
+      toast.success(language === "es" ? "Marcada como Perdida" : "Marked as Lost");
+      fetchEvent();
+    } catch (error) {
+      toast.error(language === "es" ? "Error al marcar como perdida" : "Failed to mark as lost");
+      throw error;
     }
   };
 
@@ -355,6 +378,44 @@ export default function EventDetails() {
             </DropdownMenu>
           </div>
         </div>
+
+        {/* Lost Reason banner — only when event is in Archived/Lost stage */}
+        {(event?.stage === "Archived" || event?.stage === "Lost") && event?.lost_reason && (
+          <Card className="border-gray-300 bg-gray-50" data-testid="lost-reason-banner">
+            <CardContent className="p-4 flex items-start gap-3">
+              <Archive className="w-5 h-5 text-gray-500 mt-0.5 flex-shrink-0" />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-sm font-semibold text-gray-700">
+                    {language === "es" ? "Motivo de pérdida:" : "Loss reason:"}
+                  </span>
+                  <Badge variant="outline" className="bg-white">
+                    {lostReasonLabel(event.lost_reason, language)}
+                  </Badge>
+                  {event.lost_reason_at && (
+                    <span className="text-xs text-muted-foreground">
+                      · {new Date(event.lost_reason_at).toLocaleDateString(language === "es" ? "es-ES" : "en-US")}
+                    </span>
+                  )}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 px-2 text-xs ml-auto"
+                    onClick={() => setLostDialogOpen(true)}
+                    data-testid="edit-lost-reason"
+                  >
+                    {language === "es" ? "Editar" : "Edit"}
+                  </Button>
+                </div>
+                {event.lost_reason_notes && (
+                  <p className="text-sm text-muted-foreground mt-1.5 whitespace-pre-wrap">
+                    {event.lost_reason_notes}
+                  </p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Event Info Cards */}
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -620,6 +681,14 @@ export default function EventDetails() {
             navigate(`/execution-hub/${data.goal.goal_id}`);
           }, 1500);
         }}
+      />
+      <LostReasonDialog
+        open={lostDialogOpen}
+        onOpenChange={setLostDialogOpen}
+        defaultReason={event?.lost_reason || ""}
+        defaultNotes={event?.lost_reason_notes || ""}
+        eventName={event?.name || ""}
+        onConfirm={handleMarkAsLost}
       />
     </Layout>
   );

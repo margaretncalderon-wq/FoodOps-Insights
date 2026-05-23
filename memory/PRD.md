@@ -22,6 +22,15 @@ Build a comprehensive ERP application called **Kora OS** with modules for People
 - Sprint 7 (Apr-May 2026): Launch kit (May 1-3 event), tipografía Plus Jakarta Sans global, Bug fixes (Recipe whitescreen, Demand Studio post overwrite), Performance Dashboard CRM.
 
 
+### Marcar Propuestas como Perdidas (Feb 23, 2026)
+- Renombrada la etapa "Archived/Archivado" → **"Lost/Perdida"** en la UI (valor interno sigue siendo "Archived" por retrocompatibilidad).
+- Nuevo componente `LostReasonDialog.js` con 7 motivos predefinidos: Precio, Tiempo/Fechas, Competencia, No responde, No aplica, Alcance, Otro + notas opcionales (500 chars).
+- Al cambiar etapa a "Perdida" en `EventDetails.js` o en el pipeline de `EventsPage.js`, el diálogo se intercepta y captura el motivo.
+- Banner gris en `EventDetails.js` muestra el motivo, fecha, notas y botón "Editar" cuando el evento está perdido.
+- Backend: nuevos campos `lost_reason_notes` y `lost_reason_at` en el modelo `Event`. PUT `/api/events/{id}` estampa automáticamente `lost_reason_at` al entrar a Archived y limpia los 3 campos cuando se mueve a otra etapa.
+- Labels renombrados también en `EngagementCalendar.js` (vistas semana/mes/día y modal).
+
+
 ### Banner Lead Form — Compresión cliente (Feb 23, 2026)
 - Nuevo util `/app/frontend/src/utils/imageCompress.js` (canvas resize + reencode iterativo a JPEG/PNG, objetivo ~500KB / 1600px en lado mayor).
 - Integrado en `SettingsPage.js` (handler de subida del banner del Lead Form): el archivo se comprime antes de `POST /api/settings/upload-banner`.

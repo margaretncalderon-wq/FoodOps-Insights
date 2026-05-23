@@ -5309,7 +5309,20 @@ async def update_event(event_id: str, data: EventUpdate, user: User = Depends(ge
     if "event_dates" in update_data and isinstance(update_data["event_dates"], list):
         cleaned = sorted({d for d in update_data["event_dates"] if d})
         update_data["event_dates"] = cleaned
-    
+
+    # Lost-reason bookkeeping. Stamp `lost_reason_at` when stage transitions
+    # INTO Archived/Lost. Clear lost_reason fields when moving OUT of those
+    # stages so re-opened events don't carry stale "Perdida" metadata.
+    cancellation_stages = {"Archived", "Lost"}
+    incoming_stage = update_data.get("stage")
+    prior_stage = old_event.get("stage")
+    if incoming_stage in cancellation_stages and prior_stage not in cancellation_stages:
+        update_data["lost_reason_at"] = now.isoformat()
+    elif incoming_stage and incoming_stage not in cancellation_stages and prior_stage in cancellation_stages:
+        update_data["lost_reason"] = None
+        update_data["lost_reason_notes"] = None
+        update_data["lost_reason_at"] = None
+
     update_data["updated_at"] = now.isoformat()
     
     result = await db.events.update_one({"event_id": event_id, "company_id": user.company_id}, {"$set": update_data})

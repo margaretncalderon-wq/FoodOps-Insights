@@ -75,6 +75,8 @@ class Event(BaseModel):
     next_followup_date: Optional[datetime] = None
     next_step: Optional[str] = None
     lost_reason: Optional[str] = None
+    lost_reason_notes: Optional[str] = None
+    lost_reason_at: Optional[str] = None
     source: Optional[str] = None
     # Link to Demand Studio Activation
     linked_activation_id: Optional[str] = None
@@ -117,6 +119,8 @@ class EventUpdate(BaseModel):
     next_followup_date: Optional[datetime] = None
     next_step: Optional[str] = None
     lost_reason: Optional[str] = None
+    lost_reason_notes: Optional[str] = None
+    lost_reason_at: Optional[str] = None  # ISO timestamp when marked as lost
     source: Optional[str] = None
     assigned_to: Optional[str] = None  # user_id of assigned salesperson
     menu_id: Optional[str] = None  # ID of assigned plated menu
