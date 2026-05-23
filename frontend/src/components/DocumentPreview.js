@@ -508,37 +508,33 @@ export default function DocumentPreview({
          tune the page geometry per the user's selected pdf_density setting
          and remove the browser-injected URL/footer from the print. */
       @page { margin: ${density.pageMargin}; size: auto; }
-      ${isOperationalDoc ? "@page { margin-top: 70px; }" : ""}
       html, body { margin: 0; background: #fff; }
       body { font-size: ${density.base}px; line-height: ${density.lineHeight}; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-      /* Running header for operational docs — fixed to the top of every
-         printed page. Hidden on screen (the on-screen header is enough). */
-      .doc-root[data-operational="true"] .print-running-header { display: none; }
-      @media print {
-        .doc-root[data-operational="true"] .print-running-header {
-          display: flex !important;
-          position: fixed;
-          top: 0;
-          left: 0;
-          right: 0;
-          padding: 6px 14px;
-          border-bottom: 1px solid #ccc;
-          background: #fff;
-          font-size: 10px;
-          color: #333;
-          z-index: 1000;
-          align-items: center;
-          justify-content: space-between;
-          gap: 12px;
-        }
-        .doc-root[data-operational="true"] .print-running-header .prh-left { display: flex; align-items: center; gap: 8px; }
-        .doc-root[data-operational="true"] .print-running-header .prh-logo { max-height: 22px; width: auto; }
-        .doc-root[data-operational="true"] .print-running-header .prh-title { font-weight: 600; font-size: 11px; line-height: 1.1; }
-        .doc-root[data-operational="true"] .print-running-header .prh-sub { font-size: 9.5px; color: #555; line-height: 1.1; }
-        .doc-root[data-operational="true"] .print-running-header .prh-right { text-align: right; font-size: 9.5px; line-height: 1.2; }
-        /* Reserve room at the top of each page so the running header doesn't
-           overlap content. */
+      /* Operational docs: per-tanda mini header. Sits at the top of each
+         tanda's page (each .category-section starts on a new page) so every
+         printed sheet has client + venue + guest context. */
+      .doc-root[data-operational="true"] .tanda-mini-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 6px 0 8px;
+        margin-bottom: 8px;
+        border-bottom: 1px solid #ddd;
+        font-size: 10px;
+        color: #444;
       }
+      .doc-root[data-operational="true"] .tanda-mini-header .tmh-left { display: flex; align-items: center; gap: 8px; }
+      .doc-root[data-operational="true"] .tanda-mini-header .tmh-logo { max-height: 22px; width: auto; }
+      .doc-root[data-operational="true"] .tanda-mini-header .tmh-title { font-weight: 600; font-size: 11px; line-height: 1.1; }
+      .doc-root[data-operational="true"] .tanda-mini-header .tmh-sub { font-size: 9.5px; color: #555; line-height: 1.1; }
+      .doc-root[data-operational="true"] .tanda-mini-header .tmh-right { text-align: right; font-size: 9.5px; line-height: 1.3; }
+      /* Hide it on the very FIRST tanda (page 1) — the main header already
+         shows logo + company on page 1, so we'd be duplicating. */
+      .doc-root[data-operational="true"] .items-section .date-group:first-child .category-section:first-child .tanda-mini-header { display: none; }
+      /* Operational docs: shrink the main page-1 logo so the first page is
+         compact like the rest. */
+      .doc-root[data-operational="true"] .doc-logo { max-height: 32px !important; }
       /* Keep small atomic units together; the date-group can break across pages. */
       tr, .category-section, .notes, .terms, .payment-info, .bank-details, .subtotals { page-break-inside: avoid; break-inside: avoid; }
       .date-title, .section-title, h4 { page-break-after: avoid; break-after: avoid; }
@@ -669,26 +665,6 @@ export default function DocumentPreview({
         <Card className="shadow-lg">
           <style dangerouslySetInnerHTML={{ __html: variantCSS }} />
           <CardContent className="p-8 doc-root" data-style-variant={styleVariant} data-operational={isOperationalDoc ? "true" : "false"} ref={printRef}>
-            {/* Running header — only visible when printing operational docs.
-                Repeats client + venue + guest count at the top of every page
-                so each tanda sheet is self-contained when handed to a chef. */}
-            {isOperationalDoc && (
-              <div className="print-running-header" aria-hidden="true">
-                <div className="prh-left">
-                  {company?.logo_url && (
-                    <img src={company.logo_url} alt="" className="prh-logo" />
-                  )}
-                  <div className="prh-titles">
-                    <div className="prh-title">{config.name[language]}</div>
-                    <div className="prh-sub">{client?.display_name || client?.name || event?.name || ""}</div>
-                  </div>
-                </div>
-                <div className="prh-right">
-                  {event?.venue && <div><strong>{language === "es" ? "Lugar:" : "Venue:"}</strong> {event.venue}</div>}
-                  {event?.guest_count != null && <div><strong>{language === "es" ? "Invitados:" : "Guests:"}</strong> {event.guest_count}</div>}
-                </div>
-              </div>
-            )}
             {/* Header */}
             <div className="header border-b-2 pb-6 mb-6" style={{ borderColor: company?.primary_color || '#3A4D3F' }}>
               {/* Logo block — lifted above the two-column layout so it can be
@@ -880,6 +856,26 @@ export default function DocumentPreview({
 
                     return (
                     <div key={sectionKey} className="category-section mb-4">
+                      {/* Per-tanda mini header — operational docs only. Sits at
+                          the top of each tanda's page so the chef sees the
+                          client/venue/guest context on every printed sheet. */}
+                      {isTanda && (
+                        <div className="tanda-mini-header" aria-hidden="true">
+                          <div className="tmh-left">
+                            {company?.logo_url && (
+                              <img src={company.logo_url} alt="" className="tmh-logo" />
+                            )}
+                            <div className="tmh-titles">
+                              <div className="tmh-title">{config.name[language]}</div>
+                              <div className="tmh-sub">{client?.display_name || client?.name || event?.name || ""}</div>
+                            </div>
+                          </div>
+                          <div className="tmh-right">
+                            {event?.venue && <div><strong>{language === "es" ? "Lugar:" : "Venue:"}</strong> {event.venue}</div>}
+                            {event?.guest_count != null && <div><strong>{language === "es" ? "Invitados:" : "Guests:"}</strong> {event.guest_count}</div>}
+                          </div>
+                        </div>
+                      )}
                       {/* Section Title with Date and Time */}
                       <div className="section-title border-b pb-2 mb-3" style={{ borderColor: company?.primary_color || '#3A4D3F' }}>
                         {isTanda ? (
