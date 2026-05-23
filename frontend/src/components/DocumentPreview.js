@@ -519,7 +519,7 @@ export default function DocumentPreview({
         justify-content: space-between;
         gap: 12px;
         padding: 6px 0 8px;
-        margin-bottom: 8px;
+        margin-bottom: 0;
         border-bottom: 1px solid #ddd;
         font-size: 10px;
         color: #444;
@@ -529,14 +529,25 @@ export default function DocumentPreview({
       .doc-root[data-operational="true"] .tanda-mini-header .tmh-title { font-weight: 600; font-size: 11px; line-height: 1.1; }
       .doc-root[data-operational="true"] .tanda-mini-header .tmh-sub { font-size: 9.5px; color: #555; line-height: 1.1; }
       .doc-root[data-operational="true"] .tanda-mini-header .tmh-right { text-align: right; font-size: 9.5px; line-height: 1.3; }
-      /* Hide it on the very FIRST tanda (page 1) — the main header already
-         shows logo + company on page 1, so we'd be duplicating. */
-      .doc-root[data-operational="true"] .items-section .date-group:first-child .category-section:first-child .tanda-mini-header { display: none; }
+      /* Tanda title bar (rendered inside the table's thead so it repeats on
+         every page when the tanda overflows). */
+      .doc-root[data-operational="true"] .tanda-title-bar {
+        padding: 8px 0 6px;
+        border-bottom: 1px solid;
+        font-size: 13px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+      .doc-root[data-operational="true"] .tanda-header-row th { border: 0 !important; }
       /* Operational docs: shrink the main page-1 logo so the first page is
          compact like the rest. */
       .doc-root[data-operational="true"] .doc-logo { max-height: 32px !important; }
       /* Keep small atomic units together; the date-group can break across pages. */
       tr, .category-section, .notes, .terms, .payment-info, .bank-details, .subtotals { page-break-inside: avoid; break-inside: avoid; }
+      /* Operational docs: a long tanda is allowed to span multiple pages so
+         long kitchen lists don't get squeezed. The thead repeats on each page. */
+      .doc-root[data-operational="true"] .items-section .category-section { page-break-inside: auto !important; break-inside: auto !important; }
       .date-title, .section-title, h4 { page-break-after: avoid; break-after: avoid; }
       /* Operational docs (Kitchen Sheet / Packing List / Mise en Place): one
          tanda per page so each kitchen shift can grab their sheet. The very
@@ -856,63 +867,40 @@ export default function DocumentPreview({
 
                     return (
                     <div key={sectionKey} className="category-section mb-4">
-                      {/* Per-tanda mini header — operational docs only. Sits at
-                          the top of each tanda's page so the chef sees the
-                          client/venue/guest context on every printed sheet. */}
-                      {isTanda && (
-                        <div className="tanda-mini-header" aria-hidden="true">
-                          <div className="tmh-left">
-                            {company?.logo_url && (
-                              <img src={company.logo_url} alt="" className="tmh-logo" />
-                            )}
-                            <div className="tmh-titles">
-                              <div className="tmh-title">{config.name[language]}</div>
-                              <div className="tmh-sub">{client?.display_name || client?.name || event?.name || ""}</div>
+                      {/* For tandas (operational docs), the mini-header and
+                          tanda title live INSIDE the items table's <thead> so
+                          they repeat on every printed page if the tanda spans
+                          multiple pages (browsers repeat <thead> by default).
+                          For non-tanda sections, render them above the table. */}
+                      {!isTanda && (
+                        <div className="section-title border-b pb-2 mb-3" style={{ borderColor: company?.primary_color || '#3A4D3F' }}>
+                          <h4 className="text-sm font-semibold" style={{ color: company?.primary_color || '#3A4D3F' }}>
+                            {sectionTitle || getCategoryName(sectionKey)}
+                          </h4>
+                          {/* Show date and time if available */}
+                          {(sectionDate || sectionTime) && (
+                            <div className="flex items-center gap-4 mt-1 text-xs text-muted-foreground">
+                              {sectionDate && (
+                                <span className="flex items-center gap-1">
+                                  <Calendar className="w-3 h-3" />
+                                  {(() => {
+                                    const d = parseDateOnly(sectionDate);
+                                    return d
+                                      ? d.toLocaleDateString(language === "es" ? "es" : "en", { weekday: "short", day: "2-digit", month: "2-digit", year: "numeric" })
+                                      : sectionDate;
+                                  })()}
+                                </span>
+                              )}
+                              {sectionTime && (
+                                <span className="flex items-center gap-1">
+                                  <Clock className="w-3 h-3" />
+                                  {sectionTime}
+                                </span>
+                              )}
                             </div>
-                          </div>
-                          <div className="tmh-right">
-                            {event?.venue && <div><strong>{language === "es" ? "Lugar:" : "Venue:"}</strong> {event.venue}</div>}
-                            {event?.guest_count != null && <div><strong>{language === "es" ? "Invitados:" : "Guests:"}</strong> {event.guest_count}</div>}
-                          </div>
+                          )}
                         </div>
                       )}
-                      {/* Section Title with Date and Time */}
-                      <div className="section-title border-b pb-2 mb-3" style={{ borderColor: company?.primary_color || '#3A4D3F' }}>
-                        {isTanda ? (
-                          <h4 className="text-sm font-semibold uppercase tracking-wide" style={{ color: company?.primary_color || '#3A4D3F' }}>
-                            <Clock className="w-3.5 h-3.5 inline mr-1.5 -mt-0.5" />
-                            {tandaHeader}
-                          </h4>
-                        ) : (
-                          <>
-                            <h4 className="text-sm font-semibold" style={{ color: company?.primary_color || '#3A4D3F' }}>
-                              {sectionTitle || getCategoryName(sectionKey)}
-                            </h4>
-                            {/* Show date and time if available */}
-                            {(sectionDate || sectionTime) && (
-                              <div className="flex items-center gap-4 mt-1 text-xs text-muted-foreground">
-                                {sectionDate && (
-                                  <span className="flex items-center gap-1">
-                                    <Calendar className="w-3 h-3" />
-                                    {(() => {
-                                      const d = parseDateOnly(sectionDate);
-                                      return d
-                                        ? d.toLocaleDateString(language === "es" ? "es" : "en", { weekday: "short", day: "2-digit", month: "2-digit", year: "numeric" })
-                                        : sectionDate;
-                                    })()}
-                                  </span>
-                                )}
-                                {sectionTime && (
-                                  <span className="flex items-center gap-1">
-                                    <Clock className="w-3 h-3" />
-                                    {sectionTime}
-                                  </span>
-                                )}
-                              </div>
-                            )}
-                          </>
-                        )}
-                      </div>
                       
                       {/* Menu Style (only names) */}
                       {config.showOnlyNames ? (
@@ -927,6 +915,40 @@ export default function DocumentPreview({
                         /* Table Style */
                         <table className="w-full text-sm">
                           <thead>
+                            {/* Tanda header rows (operational docs only) —
+                                Live in <thead> so browsers repeat them on
+                                every page when a tanda spans pages. */}
+                            {isTanda && (
+                              <>
+                                <tr className="tanda-header-row" data-print-tanda="mini">
+                                  <th colSpan={10} style={{ padding: 0, background: "transparent" }}>
+                                    <div className="tanda-mini-header" aria-hidden="true">
+                                      <div className="tmh-left">
+                                        {company?.logo_url && (
+                                          <img src={company.logo_url} alt="" className="tmh-logo" />
+                                        )}
+                                        <div className="tmh-titles">
+                                          <div className="tmh-title">{config.name[language]}</div>
+                                          <div className="tmh-sub">{client?.display_name || client?.name || event?.name || ""}</div>
+                                        </div>
+                                      </div>
+                                      <div className="tmh-right">
+                                        {event?.venue && <div><strong>{language === "es" ? "Lugar:" : "Venue:"}</strong> {event.venue}</div>}
+                                        {event?.guest_count != null && <div><strong>{language === "es" ? "Invitados:" : "Guests:"}</strong> {event.guest_count}</div>}
+                                      </div>
+                                    </div>
+                                  </th>
+                                </tr>
+                                <tr className="tanda-header-row" data-print-tanda="title">
+                                  <th colSpan={10} style={{ padding: 0, background: "transparent", textAlign: "left" }}>
+                                    <div className="tanda-title-bar" style={{ borderColor: company?.primary_color || '#3A4D3F' }}>
+                                      <Clock className="w-3.5 h-3.5 inline mr-1.5 -mt-0.5" />
+                                      <span style={{ color: company?.primary_color || '#3A4D3F' }}>{tandaHeader}</span>
+                                    </div>
+                                  </th>
+                                </tr>
+                              </>
+                            )}
                             <tr style={{ backgroundColor: company?.primary_color || '#3A4D3F', color: 'white' }}>
                               {/* Checkbox column for PackingList/KitchenSheet */}
                               {template?.show_checkboxes !== false && (selectedDocType === "packing_list" || selectedDocType === "kitchen_sheet") && (
