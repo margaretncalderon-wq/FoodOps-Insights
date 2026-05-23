@@ -22,6 +22,12 @@ Build a comprehensive ERP application called **Kora OS** with modules for People
 - Sprint 7 (Apr-May 2026): Launch kit (May 1-3 event), tipografía Plus Jakarta Sans global, Bug fixes (Recipe whitescreen, Demand Studio post overwrite), Performance Dashboard CRM.
 
 
+### Widget de Motivos de Pérdida (Feb 23, 2026)
+- Nuevo endpoint backend: `GET /api/events/lost-reasons-analytics?period=30d|90d|1y|all` — agrega conteos, % y valor estimado por motivo de pérdida; incluye top 5 pérdidas recientes con cliente y fecha.
+- Nuevo componente `LostReasonsWidget.js` con gráfico de donut (recharts), desglose por motivo y lista de pérdidas recientes con enlace directo al evento. Colapsable, con selector de periodo. Vacío amigable cuando no hay pérdidas.
+- Montado en Client Engagement → Propuestas (`EventsPage.js`) sobre la lista/pipeline. Visible al expandir.
+
+
 ### Marcar Propuestas como Perdidas (Feb 23, 2026)
 - Renombrada la etapa "Archived/Archivado" → **"Lost/Perdida"** en la UI (valor interno sigue siendo "Archived" por retrocompatibilidad).
 - Nuevo componente `LostReasonDialog.js` con 7 motivos predefinidos: Precio, Tiempo/Fechas, Competencia, No responde, No aplica, Alcance, Otro + notas opcionales (500 chars).

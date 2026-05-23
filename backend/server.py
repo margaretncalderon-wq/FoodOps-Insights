@@ -5117,6 +5117,106 @@ async def get_events_pipeline(user: User = Depends(get_current_user)):
     
     return pipeline
 
+@events_router.get("/lost-reasons-analytics")
+async def get_lost_reasons_analytics(
+    period: str = "90d",
+    user: User = Depends(get_current_user)
+):
+    """Aggregate counts + total expected value of events marked as Lost,
+    grouped by `lost_reason`. Used by the Client Engagement dashboard widget.
+
+    `period` accepts `30d`, `90d`, `1y`, or `all`. Filters by `lost_reason_at`
+    when present; falls back to `updated_at` for legacy lost events.
+    """
+    from datetime import timedelta
+    now = datetime.now(timezone.utc)
+    period_map = {"30d": 30, "90d": 90, "1y": 365}
+    days = period_map.get(period)
+    base_query = {
+        "company_id": user.company_id,
+        "stage": {"$in": ["Archived", "Lost"]},
+    }
+    if days:
+        cutoff = (now - timedelta(days=days)).isoformat()
+        # Match either lost_reason_at OR updated_at >= cutoff (legacy fallback).
+        base_query["$or"] = [
+            {"lost_reason_at": {"$gte": cutoff}},
+            {"$and": [{"lost_reason_at": None}, {"updated_at": {"$gte": cutoff}}]},
+        ]
+
+    events = await db.events.find(
+        base_query,
+        {
+            "_id": 0,
+            "event_id": 1,
+            "name": 1,
+            "lost_reason": 1,
+            "lost_reason_notes": 1,
+            "lost_reason_at": 1,
+            "expected_value": 1,
+            "updated_at": 1,
+            "client_id": 1,
+        },
+    ).to_list(1000)
+
+    # Bucket by reason
+    buckets: Dict[str, Dict[str, Any]] = {}
+    total_value = 0.0
+    for e in events:
+        reason = e.get("lost_reason") or "unspecified"
+        b = buckets.setdefault(reason, {"reason": reason, "count": 0, "value": 0.0})
+        b["count"] += 1
+        v = e.get("expected_value") or 0
+        try:
+            v = float(v)
+        except (TypeError, ValueError):
+            v = 0.0
+        b["value"] += v
+        total_value += v
+
+    total = sum(b["count"] for b in buckets.values())
+    by_reason = sorted(buckets.values(), key=lambda x: x["count"], reverse=True)
+    for b in by_reason:
+        b["percentage"] = round((b["count"] / total) * 100, 1) if total else 0.0
+        b["value"] = round(b["value"], 2)
+
+    # Recent — last 5 lost events for the period, newest first
+    def sort_key(e):
+        return e.get("lost_reason_at") or e.get("updated_at") or ""
+    recent_raw = sorted(events, key=sort_key, reverse=True)[:5]
+
+    # Fetch client display names
+    client_ids = list({e.get("client_id") for e in recent_raw if e.get("client_id")})
+    clients_data = {}
+    if client_ids:
+        cs = await db.clients.find(
+            {"client_id": {"$in": client_ids}},
+            {"_id": 0, "client_id": 1, "display_name": 1},
+        ).to_list(len(client_ids))
+        clients_data = {c["client_id"]: c.get("display_name", "") for c in cs}
+
+    recent = [
+        {
+            "event_id": e.get("event_id"),
+            "name": e.get("name"),
+            "client_name": clients_data.get(e.get("client_id"), ""),
+            "lost_reason": e.get("lost_reason"),
+            "lost_reason_notes": e.get("lost_reason_notes"),
+            "lost_reason_at": e.get("lost_reason_at") or e.get("updated_at"),
+            "expected_value": e.get("expected_value") or 0,
+        }
+        for e in recent_raw
+    ]
+
+    return {
+        "period": period,
+        "total_lost": total,
+        "total_lost_value": round(total_value, 2),
+        "by_reason": by_reason,
+        "recent": recent,
+    }
+
+
 @events_router.get("/confirmed")
 async def get_confirmed_events(user: User = Depends(get_current_user)):
     """Get only confirmed (Won/Closed) events for procurement and purchases"""

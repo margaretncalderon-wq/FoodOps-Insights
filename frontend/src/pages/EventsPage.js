@@ -43,6 +43,7 @@ import {
 } from "../components/ui/dropdown-menu";
 import EventLocationSelector from "../components/EventLocationSelector";
 import LostReasonDialog from "../components/LostReasonDialog";
+import LostReasonsWidget from "../components/LostReasonsWidget";
 
 
 const EVENT_TYPES = ["wedding", "corporate", "birthday", "social", "other"];
@@ -1080,6 +1081,9 @@ export default function EventsPage({ embedded = false }) {
             </div>
           </div>
         )}
+
+        {/* Lost Reasons Insight Widget — collapsed by default */}
+        <LostReasonsWidget />
 
         {/* List View */}
         {viewMode === "list" && (
