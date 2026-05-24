@@ -38,6 +38,14 @@ Build a comprehensive ERP application called **Kora OS** with modules for People
   - Fix v4: (1) Logo achicado a `max-height: 18px / max-width: 80px` en el mini-header de tanda y `max-height: 28px / max-width: 120px` en el header principal de docs operacionales. (2) Eliminado el resumen global RESUMEN DE CATERING en docs operacionales — ahora cada tanda lleva en su `<thead>` una caja con la información logística del día (Horario, Invitados, Dirección, Instrucciones) leída de `proposal.day_logistics` y filtrada por la fecha de la tanda. Como vive en `<thead>`, se repite con el resto del header en cada página de la tanda.
 
 
+
+### Hoja de Cocina Batch — agrupación por tanda (Feb 23, 2026)
+- Bug en producción: el batch print "Hojas de Cocina — Imprimir en lote" generaba una página por CATEGORÍA (Bocadillos, Bebidas, Desechables) en vez de una por tanda/horario.
+- Causa raíz: `get_kitchen_beo()` (server.py:4138) usaba `(date, section_title, section_time, section_end_time)` como clave de bucket. Cambiado a `(date, section_time, section_end_time)` — ahora ítems con misma fecha y hora se consolidan en una sola tanda, sin importar la categoría.
+- Items dentro de cada tanda se ordenan por `item_type` (usando `company.proposal_item_types` configurado en Settings) y luego por `sort_order`, así Bebidas aparecen antes que Bocadillos automáticamente.
+- `KitchenBEOPrint.js` ahora muestra el header de tanda como `Lun, 25/05/2026 — 08:15` en una sola línea (estilo Ciano). El antiguo `section_title` queda como sub-label opcional para retrocompatibilidad.
+- Snapshot hash sigue funcionando (sección de `tanda.section_title` ahora None — incluido en el hash como cadena vacía).
+
 ### E-Invoicing Fase 1A — Vault de certificados (Feb 23, 2026)
 - **Backend**:
   - `services/efactura/cert_vault.py`: parse PFX/P12, extract X.509 metadata (CN, serial, issuer, fingerprint SHA-256, valid_from/valid_to), envelope encrypt PFX + password con `cryptography.fernet.Fernet`. Master key `EFACTURA_MASTER_KEY` en `backend/.env` (32-byte Fernet, falla rápido si falta).

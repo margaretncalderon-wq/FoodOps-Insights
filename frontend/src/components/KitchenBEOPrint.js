@@ -6,6 +6,26 @@ export const escapeHtml = (s) => (s == null ? "" : String(s)
   .replace(/"/g, "&quot;").replace(/'/g, "&#39;"));
 
 const renderTandaPage = (beo, day, tanda, isEs) => {
+  // Tanda header — operational docs show day + time, not a category name.
+  // E.g. "Lun, 25/05/2026 — 08:15". If we still have a section_title (legacy
+  // data) we keep it as a small sub-label.
+  const tandaLabel = (() => {
+    const parts = [];
+    if (day.date) {
+      try {
+        const d = new Date(day.date + "T12:00:00");
+        const opts = { weekday: "short", day: "2-digit", month: "2-digit", year: "numeric" };
+        parts.push(d.toLocaleDateString(isEs ? "es" : "en", opts));
+      } catch (_e) {
+        parts.push(day.date);
+      }
+    }
+    if (tanda.section_time) {
+      parts.push(tanda.section_time + (tanda.section_end_time ? ` – ${tanda.section_end_time}` : ""));
+    }
+    return parts.join(" — ") || (isEs ? "Sin horario" : "No time");
+  })();
+
   const recipesRows = (tanda.recipes || []).map((r) => `
     <tr>
       <td class="qty">${r.portions_required} ${escapeHtml(r.yield_unit || "")}</td>
@@ -48,15 +68,14 @@ const renderTandaPage = (beo, day, tanda, isEs) => {
         <div>
           <h1>${escapeHtml(beo.event_name || "")}</h1>
           <div class="meta">
-            ${day.date ? `<span>📅 ${escapeHtml(day.date)}</span>` : ""}
             <span>👥 ${tanda.guest_count} ${isEs ? "invitados" : "guests"}</span>
             ${beo.menu_name ? `<span>🍽 ${escapeHtml(beo.menu_name)}</span>` : ""}
             ${beo.venue ? `<span>📍 ${escapeHtml(beo.venue)}</span>` : ""}
           </div>
         </div>
         <div class="tanda-box">
-          <div class="tanda-title">${escapeHtml(tanda.section_title || (isEs ? "Sin sección" : "No section"))}</div>
-          ${tanda.section_time ? `<div class="tanda-time">${escapeHtml(tanda.section_time)}${tanda.section_end_time ? ` – ${escapeHtml(tanda.section_end_time)}` : ""}</div>` : ""}
+          <div class="tanda-title">${escapeHtml(tandaLabel)}</div>
+          ${tanda.section_title ? `<div class="tanda-sub">${escapeHtml(tanda.section_title)}</div>` : ""}
         </div>
       </header>
 
@@ -84,7 +103,7 @@ const renderTandaPage = (beo, day, tanda, isEs) => {
 
       <footer class="sheet-footer">
         <div>${isEs ? "Generado" : "Generated"}: ${new Date().toLocaleString()}</div>
-        <div>${isEs ? "Hoja" : "Sheet"}: ${escapeHtml(day.date || "TBD")} · ${escapeHtml(tanda.section_title || "")} ${escapeHtml(tanda.section_time || "")}</div>
+        <div>${isEs ? "Hoja" : "Sheet"}: ${escapeHtml(day.date || "TBD")} ${escapeHtml(tanda.section_time || "")}</div>
       </footer>
     </section>
   `;
@@ -119,7 +138,8 @@ export const buildBeoPrintHtml = (beos, isEs = true) => {
   .sheet-header h1 { margin: 0 0 4px 0; font-size: 20px; }
   .meta { display: flex; flex-wrap: wrap; gap: 12px; color: #555; font-size: 11px; }
   .tanda-box { text-align: right; min-width: 160px; }
-  .tanda-title { font-size: 18px; font-weight: 700; color: #b45309; text-transform: uppercase; letter-spacing: 0.5px; }
+  .tanda-title { font-size: 16px; font-weight: 700; color: #b45309; text-transform: uppercase; letter-spacing: 0.5px; }
+  .tanda-sub { font-size: 11px; color: #92400e; margin-top: 2px; font-style: italic; }
   .tanda-time { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; background: #fef3c7; border: 1px solid #fcd34d; color: #92400e; padding: 4px 10px; border-radius: 999px; display: inline-block; margin-top: 4px; font-weight: 600; font-size: 14px; }
 
   .alerts { background: #fff7ed; border: 1px solid #fdba74; border-radius: 6px; padding: 8px 10px; margin-bottom: 12px; }

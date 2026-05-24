@@ -4242,14 +4242,32 @@ async def get_kitchen_beo(event_id: str, user: User = Depends(get_current_user))
     if not calendar_dates:
         calendar_dates = [None]  # un-scheduled event → single "TBD" block
 
-    # Bucket items by (date, section_title, section_time)
+    # Bucket items by (date, section_time) — the SERVICE SLOT (tanda).
+    # We intentionally ignore `section_title` here so all items being
+    # served at the same time end up on the SAME kitchen sheet, regardless
+    # of category (Bocadillos, Bebidas, Desechables, etc.). The kitchen
+    # cares about "what do I plate at 08:15", not menu structure.
     bucket: dict = defaultdict(list)
     for it in items:
         d = _norm_date(it.get("event_date")) or (calendar_dates[0] if calendar_dates else None)
-        title = (it.get("section_title") or "").strip()
         t = (it.get("section_time") or "").strip()
-        key = (d, title, t, (it.get("section_end_time") or "").strip())
+        te = (it.get("section_end_time") or "").strip()
+        key = (d, t, te)
         bucket[key].append(it)
+
+    # Fetch the company's configured item-type order so items sort the same
+    # way they do in the editor (Bebidas first, then Bocadillos, etc.).
+    co = await db.companies.find_one(
+        {"company_id": user.company_id},
+        {"_id": 0, "proposal_item_types": 1},
+    )
+    type_order = {
+        t.get("type_key"): idx
+        for idx, t in enumerate(((co or {}).get("proposal_item_types") or []))
+        if t.get("type_key")
+    }
+    def _type_ordinal(it_type):
+        return type_order.get(it_type, 999)
 
     # Pre-fetch every recipe we'll need (one round-trip)
     recipe_ids = list({i.get("loaded_from_recipe_id") for i in items if i.get("loaded_from_recipe_id")})
@@ -4265,9 +4283,14 @@ async def get_kitchen_beo(event_id: str, user: User = Depends(get_current_user))
     dietary_set: set = set()
 
     async def _build_tanda(key, tanda_items):
-        d, title, t, te = key
-        # Sort items by sort_order then description
-        tanda_items.sort(key=lambda i: (int(i.get("sort_order") or 0), i.get("description") or ""))
+        d, t, te = key
+        # Sort by company's configured item_type order, then sort_order,
+        # then description. Result: Bebidas → Bocadillos → Desechables, etc.
+        tanda_items.sort(key=lambda i: (
+            _type_ordinal(i.get("item_type") or ""),
+            int(i.get("sort_order") or 0),
+            i.get("description") or "",
+        ))
         tanda_allergens: set = set()
         tanda_dietary: set = set()
         recipes_out: list = []
@@ -4320,9 +4343,9 @@ async def get_kitchen_beo(event_id: str, user: User = Depends(get_current_user))
                 "chef_notes": recipe.get("chef_notes"),
             })
         return {
-            "tanda_key": f"{d or 'tbd'}|{title}|{t}",
+            "tanda_key": f"{d or 'tbd'}|{t}",
             "date": d,
-            "section_title": title or None,
+            "section_title": None,
             "section_time": t or None,
             "section_end_time": te or None,
             "guest_count": guest_count,
