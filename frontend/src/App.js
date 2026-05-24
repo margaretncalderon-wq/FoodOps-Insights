@@ -143,6 +143,7 @@ const IntegrationsPage = lazy(() => import("./pages/super-admin/IntegrationsPage
 const SupportTicketsPage = lazy(() => import("./pages/super-admin/SupportTicketsPage"));
 
 import "./App.css";
+import { useVersionWatcher } from "./hooks/useVersionWatcher";
 
 // Helper to detect if we're on the admin subdomain
 const isAdminSubdomain = () => {
@@ -288,6 +289,10 @@ const ModuleProtectedRoute = ({ children, modulePath }) => {
 
 function AppRouter() {
   const location = useLocation();
+  // Watch backend build identifier — when it changes after a redeploy,
+  // surface a toast prompting the user to reload. Avoids the stale-cache
+  // problem for every tenant.
+  useVersionWatcher();
 
   // Check for session_id in URL (hash, query params, or full URL)
   const hasSessionId = 

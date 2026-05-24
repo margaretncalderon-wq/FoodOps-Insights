@@ -23672,6 +23672,33 @@ api_router.include_router(_efactura_router)
 api_router.include_router(_efactura_super_router)
 
 
+# ============== VERSION ENDPOINT (cache-busting for multi-tenant) ==============
+# Lightweight endpoint the frontend polls every couple of minutes. Whenever
+# `build` changes between polls, the SPA prompts the user to reload — that's
+# how we recover from CDN/browser-cached index.html across all tenants after
+# a redeploy without anyone having to clear cache manually.
+import subprocess as _subprocess
+
+_START_TIME_ISO = datetime.now(timezone.utc).isoformat()
+try:
+    _GIT_COMMIT = _subprocess.check_output(
+        ["git", "-C", "/app", "rev-parse", "--short", "HEAD"],
+        stderr=_subprocess.DEVNULL, timeout=2,
+    ).decode().strip()
+except Exception:
+    _GIT_COMMIT = os.environ.get("GIT_COMMIT", "dev")
+
+
+@api_router.get("/version")
+async def get_version():
+    """Public endpoint — no auth, very cheap, called by every tab every 2min."""
+    return {
+        "version": "0.1.0",
+        "build": _START_TIME_ISO,
+        "commit": _GIT_COMMIT,
+    }
+
+
 
 # General file upload endpoint
 @api_router.post("/upload")
