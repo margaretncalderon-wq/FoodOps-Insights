@@ -134,26 +134,25 @@ export const buildBeoPrintHtml = (beos, isEs = true) => {
   body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; color: #1a1a1a; font-size: 12px; line-height: 1.45; }
   .sheet { padding: 0; page-break-after: always; break-after: page; }
   .sheet:last-child { page-break-after: auto; break-after: auto; }
-  .sheet-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; border-bottom: 3px solid #1a1a1a; padding-bottom: 10px; margin-bottom: 14px; }
-  .sheet-header h1 { margin: 0 0 4px 0; font-size: 20px; }
-  .meta { display: flex; flex-wrap: wrap; gap: 12px; color: #555; font-size: 11px; }
-  .tanda-box { text-align: right; min-width: 160px; }
-  .tanda-title { font-size: 16px; font-weight: 700; color: #b45309; text-transform: uppercase; letter-spacing: 0.5px; }
-  .tanda-sub { font-size: 11px; color: #92400e; margin-top: 2px; font-style: italic; }
-  .tanda-time { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; background: #fef3c7; border: 1px solid #fcd34d; color: #92400e; padding: 4px 10px; border-radius: 999px; display: inline-block; margin-top: 4px; font-weight: 600; font-size: 14px; }
+  .sheet-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; border-bottom: 2px solid #1a1a1a; padding-bottom: 10px; margin-bottom: 14px; }
+  .sheet-header h1 { margin: 0 0 4px 0; font-size: 18px; font-weight: 600; }
+  .meta { display: flex; flex-wrap: wrap; gap: 12px; color: #4b5563; font-size: 11px; }
+  .tanda-box { text-align: right; min-width: 200px; }
+  .tanda-title { font-size: 14px; font-weight: 600; color: #1a1a1a; letter-spacing: 0.02em; }
+  .tanda-sub { font-size: 11px; color: #6b7280; margin-top: 2px; }
 
-  .alerts { background: #fff7ed; border: 1px solid #fdba74; border-radius: 6px; padding: 8px 10px; margin-bottom: 12px; }
-  .alert-row { font-size: 11px; margin: 2px 0; }
-  .alert-row b { color: #9a3412; }
-  .all { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; border-radius: 4px; padding: 1px 6px; font-size: 10px; margin-right: 4px; }
-  .diet { background: #ecfdf5; color: #065f46; border: 1px solid #6ee7b7; border-radius: 4px; padding: 1px 6px; font-size: 10px; margin-right: 4px; }
+  .alerts { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px; padding: 8px 10px; margin-bottom: 12px; }
+  .alert-row { font-size: 11px; margin: 2px 0; color: #374151; }
+  .alert-row b { color: #111827; }
+  .all { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; border-radius: 4px; padding: 1px 6px; font-size: 10px; margin-right: 4px; }
+  .diet { background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; border-radius: 4px; padding: 1px 6px; font-size: 10px; margin-right: 4px; }
 
   table.dishes { width: 100%; border-collapse: collapse; }
-  table.dishes thead th { background: #1f2937; color: #fff; padding: 8px 10px; text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
+  table.dishes thead th { background: #f3f4f6; color: #111827; padding: 8px 10px; text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; border-bottom: 2px solid #1a1a1a; }
   table.dishes thead th.qty { width: 90px; }
   table.dishes thead th.time { width: 90px; text-align: right; }
   table.dishes tbody td { padding: 8px 10px; border-bottom: 1px solid #e5e7eb; vertical-align: top; }
-  table.dishes tbody td.qty { font-family: ui-monospace, monospace; font-weight: 700; font-size: 14px; }
+  table.dishes tbody td.qty { font-family: ui-monospace, monospace; font-weight: 700; font-size: 14px; color: #111827; }
   table.dishes tbody td.time { text-align: right; color: #6b7280; font-size: 11px; }
   .recipe-name { font-weight: 600; font-size: 13px; }
   .badges { margin-top: 3px; }
@@ -162,7 +161,7 @@ export const buildBeoPrintHtml = (beos, isEs = true) => {
   .ing-title { font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; color: #6b7280; margin-bottom: 3px; }
   .ings { margin: 0; padding-left: 18px; font-size: 11px; column-count: 2; }
   .ings li { break-inside: avoid; }
-  .extra td { background: #fffbeb; }
+  .extra td { background: #fff; }
   .empty { text-align: center; color: #9ca3af; padding: 20px 0; }
 
   .sheet-footer { margin-top: 18px; display: flex; justify-content: space-between; font-size: 10px; color: #9ca3af; border-top: 1px dashed #d1d5db; padding-top: 6px; }

@@ -39,6 +39,7 @@ Build a comprehensive ERP application called **Kora OS** with modules for People
 
 
 
+  - Paleta del batch print alineada con el PDF de la propuesta: header de tabla `#f3f4f6` + borde negro, tanda title dark neutral (sin naranjas), alerts en gris suave. Mantenidos los tintes rojo (alérgenos) y verde (dietary) como señales visuales importantes pero más sutiles.
 ### Hoja de Cocina Batch — agrupación por tanda (Feb 23, 2026)
 - Bug en producción: el batch print "Hojas de Cocina — Imprimir en lote" generaba una página por CATEGORÍA (Bocadillos, Bebidas, Desechables) en vez de una por tanda/horario.
 - Causa raíz: `get_kitchen_beo()` (server.py:4138) usaba `(date, section_title, section_time, section_end_time)` como clave de bucket. Cambiado a `(date, section_time, section_end_time)` — ahora ítems con misma fecha y hora se consolidan en una sola tanda, sin importar la categoría.
