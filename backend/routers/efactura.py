@@ -12,11 +12,21 @@ Phase 1+. This file only wires the config + feature flag so the UI can be
 gated cleanly and we have a typed surface area to grow into.
 """
 from datetime import datetime, timezone
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Path
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Path, UploadFile
 
 from models.efactura import EInvoicingConfig, EInvoicingConfigUpdate, EInvoicingToggleRequest
+from services.efactura.cert_vault import (
+    now_iso,
+    pack_certificate,
+    parse_p12,
+)
+
+
+# Hard limit on cert payload size — DGII p12 files are typically <8KB.
+MAX_CERT_BYTES = 256 * 1024
+ALLOWED_ROLES = {"owner", "admin", "finance"}
 
 
 def build_efactura_router(db, get_current_user, require_super_admin, User):
@@ -74,6 +84,77 @@ def build_efactura_router(db, get_current_user, require_super_admin, User):
             "ok": False,
             "detail": "Test de conexión disponible en Fase 1 (después de cargar el certificado y configurar el provider).",
         }
+
+    # ----- Certificate vault (1A) ----------------------------------------------
+
+    def _require_role(user) -> None:
+        role = (getattr(user, "role", "") or "").lower()
+        if role not in ALLOWED_ROLES:
+            raise HTTPException(status_code=403, detail="Insufficient privileges")
+
+    @router.post("/cert/upload")
+    async def upload_certificate(
+        file: UploadFile = File(...),
+        password: Optional[str] = Form(None),
+        user: User = Depends(get_current_user),
+    ):
+        """Upload the org's digital certificate (PFX/P12). The PFX bytes and
+        password are encrypted with the master key before storage. Returns
+        only the non-sensitive metadata."""
+        _require_role(user)
+        contents = await file.read()
+        if not contents:
+            raise HTTPException(status_code=400, detail="Empty file")
+        if len(contents) > MAX_CERT_BYTES:
+            raise HTTPException(status_code=400, detail="Certificate file too large")
+
+        try:
+            meta = parse_p12(contents, password)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+        token = pack_certificate(contents, password)
+        now = now_iso()
+        doc = {
+            "company_id": user.company_id,
+            "metadata": meta,
+            "encrypted_blob": token,
+            "uploaded_by": getattr(user, "user_id", None),
+            "uploaded_at": now,
+            "filename": file.filename,
+        }
+        # One active cert per company — replace any previous one.
+        await db.efactura_certificates.update_one(
+            {"company_id": user.company_id},
+            {"$set": doc},
+            upsert=True,
+        )
+        await _save(user.company_id, {"cert_uploaded_at": now})
+        return {"metadata": meta, "uploaded_at": now, "filename": file.filename}
+
+    @router.get("/cert")
+    async def get_certificate(user: User = Depends(get_current_user)):
+        """Return only the safe metadata of the currently-stored cert. The
+        encrypted blob never leaves the server."""
+        doc = await db.efactura_certificates.find_one(
+            {"company_id": user.company_id},
+            {"_id": 0, "encrypted_blob": 0, "company_id": 0},
+        )
+        if not doc:
+            return {"present": False}
+        return {
+            "present": True,
+            "metadata": doc.get("metadata", {}),
+            "uploaded_at": doc.get("uploaded_at"),
+            "filename": doc.get("filename"),
+        }
+
+    @router.delete("/cert")
+    async def delete_certificate(user: User = Depends(get_current_user)):
+        _require_role(user)
+        await db.efactura_certificates.delete_one({"company_id": user.company_id})
+        await _save(user.company_id, {"cert_uploaded_at": None})
+        return {"ok": True}
 
     # ----- Super-admin endpoints (cross-tenant) --------------------------------
 

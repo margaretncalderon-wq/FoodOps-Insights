@@ -37,6 +37,17 @@ Build a comprehensive ERP application called **Kora OS** with modules for People
   - Fix v3: mini-header + título de tanda movidos DENTRO del `<thead>` de la tabla de items. Como `thead` se repite automáticamente en cada página, ahora si una tanda es larga y se divide en varias páginas, el cliente/lugar/invitados + título de tanda aparecen en cada hoja. También removido `page-break-inside: avoid` en docs operacionales para permitir tandas largas que cruzan páginas sin mezclarse con otras tandas (`page-break-before: always` sigue garantizando que tandas distintas nunca compartan página).
   - Fix v4: (1) Logo achicado a `max-height: 18px / max-width: 80px` en el mini-header de tanda y `max-height: 28px / max-width: 120px` en el header principal de docs operacionales. (2) Eliminado el resumen global RESUMEN DE CATERING en docs operacionales — ahora cada tanda lleva en su `<thead>` una caja con la información logística del día (Horario, Invitados, Dirección, Instrucciones) leída de `proposal.day_logistics` y filtrada por la fecha de la tanda. Como vive en `<thead>`, se repite con el resto del header en cada página de la tanda.
 
+
+### E-Invoicing Fase 1A — Vault de certificados (Feb 23, 2026)
+- **Backend**:
+  - `services/efactura/cert_vault.py`: parse PFX/P12, extract X.509 metadata (CN, serial, issuer, fingerprint SHA-256, valid_from/valid_to), envelope encrypt PFX + password con `cryptography.fernet.Fernet`. Master key `EFACTURA_MASTER_KEY` en `backend/.env` (32-byte Fernet, falla rápido si falta).
+  - `routers/efactura.py`: `POST /api/efactura/cert/upload` (multipart file + password, role-gated owner/admin/finance), `GET /api/efactura/cert` (metadata only — blob nunca sale del server), `DELETE /api/efactura/cert`.
+  - Persistencia en colección nueva `efactura_certificates` keyed por `company_id`.
+  - Sincroniza `efactura.config.cert_uploaded_at` con la carga/borrado.
+- **Frontend**:
+  - Tarjeta de certificado en `EFacturaSection.js` con form de upload + display de metadata + badge de vigencia (verde/ámbar/rojo según días para vencer) + botones Reemplazar/Eliminar.
+- **Verificado**: roundtrip cifrar→descifrar→reparsar PFX preserva CN; contraseña errónea devuelve 400; archivo >256KB rechazado; metadata visible sin exponer bytes ni password.
+- **Pendiente**: Fase 1B (XML e-CF) + 1C (XMLDSig) + 1D (cliente DGII) bloqueadas hasta tener certificado real de pruebas DGII y XSD oficial.
 ### E-Invoicing Phase 0 — feature flag + arquitectura (Feb 23, 2026)
 - Nuevo módulo "Facturación Electrónica" como add-on opt-in por tenant. Diseñado para crecer multi-país (DGII RD, SAT MX, DIAN CO, SUNAT PE, SII CL, AFIP AR, SRI EC).
 - **Backend**:
