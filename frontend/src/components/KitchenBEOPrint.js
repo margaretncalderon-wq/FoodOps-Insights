@@ -65,12 +65,15 @@ const renderTandaPage = (beo, day, tanda, isEs) => {
   return `
     <section class="sheet">
       <header class="sheet-header">
-        <div>
-          <h1>${escapeHtml(beo.event_name || "")}</h1>
-          <div class="meta">
-            <span>👥 ${tanda.guest_count} ${isEs ? "invitados" : "guests"}</span>
-            ${beo.menu_name ? `<span>🍽 ${escapeHtml(beo.menu_name)}</span>` : ""}
-            ${beo.venue ? `<span>📍 ${escapeHtml(beo.venue)}</span>` : ""}
+        <div class="sheet-title">
+          ${beo.logo_url ? `<img class="brand-logo" src="${escapeHtml(beo.logo_url)}" alt="" />` : ""}
+          <div>
+            <h1>${escapeHtml(beo.event_name || "")}</h1>
+            <div class="meta">
+              <span>👥 ${tanda.guest_count} ${isEs ? "invitados" : "guests"}</span>
+              ${beo.menu_name ? `<span>🍽 ${escapeHtml(beo.menu_name)}</span>` : ""}
+              ${beo.venue ? `<span>📍 ${escapeHtml(beo.venue)}</span>` : ""}
+            </div>
           </div>
         </div>
         <div class="tanda-box">
@@ -139,6 +142,8 @@ export const buildBeoPrintHtml = (beos, isEs = true) => {
   .sheet:last-child { page-break-after: auto; break-after: auto; }
   .sheet-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; border-bottom: 2px solid ${brand}; padding-bottom: 10px; margin-bottom: 14px; }
   .sheet-header h1 { margin: 0 0 4px 0; font-size: 18px; font-weight: 600; color: ${brand}; }
+  .sheet-title { display: flex; align-items: center; gap: 10px; }
+  .brand-logo { max-height: 24px; max-width: 90px; width: auto; height: auto; object-fit: contain; flex-shrink: 0; }
   .meta { display: flex; flex-wrap: wrap; gap: 12px; color: #4b5563; font-size: 11px; }
   .tanda-box { text-align: right; min-width: 200px; }
   .tanda-title { font-size: 14px; font-weight: 600; color: ${brand}; letter-spacing: 0.02em; }
