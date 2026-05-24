@@ -552,7 +552,12 @@ export default function DocumentPreview({
       .doc-root[data-operational="true"] .tanda-header-row th { border: 0 !important; }
       /* Operational docs: shrink the main page-1 logo aggressively so the
          first page isn't dominated by branding. */
-      .doc-root[data-operational="true"] .doc-logo { max-height: 28px !important; max-width: 120px !important; width: auto !important; height: auto !important; object-fit: contain; }
+      /* Logo cap — keep brand logos small and discreet across ALL document
+         types (proposals, invoices, kitchen sheets, packing lists, etc.).
+         The template's logo_size choice still works as a relative hint, but
+         the absolute ceiling is enforced here. */
+      .doc-root .doc-logo { max-height: 32px !important; max-width: 130px !important; width: auto !important; height: auto !important; object-fit: contain !important; }
+      .doc-root[data-operational="true"] .doc-logo { max-height: 24px !important; max-width: 100px !important; }
       /* Keep small atomic units together; the date-group can break across pages. */
       tr, .category-section, .notes, .terms, .payment-info, .bank-details, .subtotals { page-break-inside: avoid; break-inside: avoid; }
       /* Operational docs: a long tanda is allowed to span multiple pages so
