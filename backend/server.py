@@ -4259,7 +4259,7 @@ async def get_kitchen_beo(event_id: str, user: User = Depends(get_current_user))
     # way they do in the editor (Bebidas first, then Bocadillos, etc.).
     co = await db.companies.find_one(
         {"company_id": user.company_id},
-        {"_id": 0, "proposal_item_types": 1},
+        {"_id": 0, "proposal_item_types": 1, "primary_color": 1},
     )
     type_order = {
         t.get("type_key"): idx
@@ -4414,6 +4414,10 @@ async def get_kitchen_beo(event_id: str, user: User = Depends(get_current_user))
     )
     changed_since_print = bool(last_print and last_print.get("snapshot_hash") != snapshot_hash)
 
+    # Brand color for cohesive print rendering. Falls back to a neutral
+    # dark if the org never picked one.
+    primary_color = (co or {}).get("primary_color") or "#1a1a1a"
+
     return {
         "event_id": event_id,
         "event_name": event.get("name"),
@@ -4422,6 +4426,7 @@ async def get_kitchen_beo(event_id: str, user: User = Depends(get_current_user))
         "venue": event.get("venue"),
         "menu_name": (menu or {}).get("name"),
         "menu_type": menu_type,
+        "primary_color": primary_color,
         "allergens_aggregate": sorted(allergens_set),
         "dietary_tags_aggregate": sorted(dietary_set),
         "days": days_out,

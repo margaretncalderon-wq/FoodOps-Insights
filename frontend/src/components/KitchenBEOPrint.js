@@ -111,6 +111,9 @@ const renderTandaPage = (beo, day, tanda, isEs) => {
 
 export const buildBeoPrintHtml = (beos, isEs = true) => {
   const allPages = [];
+  // Brand color from the first BEO. Defaults to neutral dark.
+  const rawBrand = (beos?.[0]?.primary_color) || "#1a1a1a";
+  const brand = /^#[0-9a-fA-F]{3,8}$/.test(rawBrand) ? rawBrand : "#1a1a1a";
   for (const beo of beos) {
     for (const day of (beo.days || [])) {
       for (const tanda of (day.tandas || [])) {
@@ -134,11 +137,11 @@ export const buildBeoPrintHtml = (beos, isEs = true) => {
   body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; color: #1a1a1a; font-size: 12px; line-height: 1.45; }
   .sheet { padding: 0; page-break-after: always; break-after: page; }
   .sheet:last-child { page-break-after: auto; break-after: auto; }
-  .sheet-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; border-bottom: 2px solid #1a1a1a; padding-bottom: 10px; margin-bottom: 14px; }
-  .sheet-header h1 { margin: 0 0 4px 0; font-size: 18px; font-weight: 600; }
+  .sheet-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; border-bottom: 2px solid ${brand}; padding-bottom: 10px; margin-bottom: 14px; }
+  .sheet-header h1 { margin: 0 0 4px 0; font-size: 18px; font-weight: 600; color: ${brand}; }
   .meta { display: flex; flex-wrap: wrap; gap: 12px; color: #4b5563; font-size: 11px; }
   .tanda-box { text-align: right; min-width: 200px; }
-  .tanda-title { font-size: 14px; font-weight: 600; color: #1a1a1a; letter-spacing: 0.02em; }
+  .tanda-title { font-size: 14px; font-weight: 600; color: ${brand}; letter-spacing: 0.02em; }
   .tanda-sub { font-size: 11px; color: #6b7280; margin-top: 2px; }
 
   .alerts { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px; padding: 8px 10px; margin-bottom: 12px; }
@@ -148,7 +151,7 @@ export const buildBeoPrintHtml = (beos, isEs = true) => {
   .diet { background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; border-radius: 4px; padding: 1px 6px; font-size: 10px; margin-right: 4px; }
 
   table.dishes { width: 100%; border-collapse: collapse; }
-  table.dishes thead th { background: #f3f4f6; color: #111827; padding: 8px 10px; text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; border-bottom: 2px solid #1a1a1a; }
+  table.dishes thead th { background: #f3f4f6; color: #111827; padding: 8px 10px; text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; border-bottom: 2px solid ${brand}; }
   table.dishes thead th.qty { width: 90px; }
   table.dishes thead th.time { width: 90px; text-align: right; }
   table.dishes tbody td { padding: 8px 10px; border-bottom: 1px solid #e5e7eb; vertical-align: top; }
