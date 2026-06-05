@@ -11154,10 +11154,26 @@ async def generate_document_from_order(event_id: str, doc_type: str, user: User 
     
     # Get categories
     categories = await db.item_categories.find({"company_id": user.company_id}, {"_id": 0}).to_list(100)
-    
+
+    # Operational docs (kitchen, mise, packing) group by service time (tanda)
+    # NOT by category — the chef wants the full prep list for "08:15", not
+    # split between Bocadillos / Bebidas / Desechables.
+    operational_docs = {"kitchen_sheet", "mise_en_place", "packing_list", "beo"}
+    is_operational = doc_type in operational_docs
+
+    # Item-type ordering from the company's catalog so the tanda items sort
+    # the same way they do in the editor (Bebidas → Bocadillos → ...).
+    type_order = {}
+    for idx, t in enumerate((company or {}).get("proposal_item_types", []) or []):
+        if t.get("type_key"):
+            type_order[t["type_key"]] = idx
+    def _type_ordinal(it_type):
+        return type_order.get(it_type, 999)
+
     # Filter and group items based on document type
     items_by_category = {}
     items_by_date = {}
+    items_by_tanda = {}  # NEW — populated only for operational docs
     
     for item in order.get("items", []):
         cat_id = item.get("category_id", "cat_other")
@@ -11178,7 +11194,7 @@ async def generate_document_from_order(event_id: str, doc_type: str, user: User 
             if cat_id in ["cat_food", "cat_drinks", "cat_labor"]:
                 continue
         
-        # Group by category
+        # Group by category (legacy / client-facing)
         if cat_id not in items_by_category:
             items_by_category[cat_id] = {"name": cat_name, "items": []}
         items_by_category[cat_id]["items"].append(item)
@@ -11187,6 +11203,34 @@ async def generate_document_from_order(event_id: str, doc_type: str, user: User 
         if date_key not in items_by_date:
             items_by_date[date_key] = []
         items_by_date[date_key].append(item)
+
+        # Group by tanda (date + section_time) for operational docs
+        if is_operational:
+            time_key = (item.get("section_time") or "").strip() or "__no_time__"
+            tanda_key = f"{date_key}|{time_key}"
+            if tanda_key not in items_by_tanda:
+                items_by_tanda[tanda_key] = {
+                    "tanda_key": tanda_key,
+                    "event_date": item.get("event_date"),
+                    "section_time": item.get("section_time"),
+                    "section_end_time": item.get("section_end_time"),
+                    "items": [],
+                }
+            items_by_tanda[tanda_key]["items"].append(item)
+
+    # Sort items inside each tanda by item_type order then sort_order so the
+    # chef reads Bebidas first, then Bocadillos, etc. — matching the editor.
+    for tk, t in items_by_tanda.items():
+        t["items"].sort(key=lambda i: (
+            _type_ordinal(i.get("item_type") or ""),
+            int(i.get("sort_order") or 0),
+            i.get("description") or i.get("name") or "",
+        ))
+    # Order tandas chronologically per day then by time.
+    items_by_tanda = dict(sorted(
+        items_by_tanda.items(),
+        key=lambda kv: (kv[1].get("event_date") or "", kv[1].get("section_time") or ""),
+    ))
     
     # Build document content
     now = datetime.now(timezone.utc)
@@ -11217,6 +11261,8 @@ async def generate_document_from_order(event_id: str, doc_type: str, user: User 
         "order": order,
         "items_by_category": items_by_category,
         "items_by_date": items_by_date,
+        "items_by_tanda": items_by_tanda,
+        "is_operational": is_operational,
         "show_prices": show_prices,
         "show_internal_notes": show_internal_notes,
         "financials": {

@@ -96,9 +96,31 @@ export default function DocumentPreview() {
   const company = content.company || {};
   const order = content.order || {};
   const itemsByCategory = content.items_by_category || {};
+  const itemsByTanda = content.items_by_tanda || {};
+  const isOperational = content.is_operational === true;
   const financials = content.financials || {};
   const showPrices = content.show_prices !== false;
   const showInternalNotes = content.show_internal_notes === true;
+
+  // Format a tanda header like "Lun, 25/05/2026 — 08:15" matching the
+  // proposal preview style. Falls back gracefully when date or time missing.
+  const formatTandaHeader = (tanda) => {
+    const parts = [];
+    if (tanda.event_date) {
+      try {
+        const d = new Date(tanda.event_date + "T12:00:00");
+        parts.push(
+          d.toLocaleDateString(language === "es" ? "es" : "en", {
+            weekday: "short", day: "2-digit", month: "2-digit", year: "numeric",
+          })
+        );
+      } catch (_e) { parts.push(tanda.event_date); }
+    }
+    if (tanda.section_time) {
+      parts.push(tanda.section_time + (tanda.section_end_time ? ` – ${tanda.section_end_time}` : ""));
+    }
+    return parts.join(" — ") || (language === "es" ? "Sin horario" : "No time");
+  };
 
   // Legacy support for old document format
   const recipes = content.recipes || [];
@@ -157,7 +179,7 @@ export default function DocumentPreview() {
               <img 
                 src={company.logo_url.startsWith('/api') ? `${API.replace('/api', '')}${company.logo_url}` : company.logo_url} 
                 alt={company.legal_name || company.name} 
-                className="h-16 object-contain"
+                className={`object-contain doc-logo ${isOperational ? "h-6 max-w-[100px]" : "h-8 max-w-[130px]"}`}
                 onError={(e) => { e.target.style.display = 'none'; }}
               />
             )}
@@ -230,8 +252,57 @@ export default function DocumentPreview() {
           </div>
         </div>
 
-        {/* Items by Category - NEW FORMAT from Event Order */}
-        {Object.keys(itemsByCategory).length > 0 && (
+        {/* Items: tanda grouping for operational docs (kitchen sheet, packing,
+            mise en place, BEO). Falls back to category grouping for client
+            facing docs (proposal, invoice, contract). */}
+        {isOperational && Object.keys(itemsByTanda).length > 0 ? (
+          <div className="mb-8">
+            {Object.entries(itemsByTanda).map(([tk, tanda], tandaIdx) => (
+              <div
+                key={tk}
+                className={`mb-6 ${tandaIdx > 0 ? "tanda-block" : ""}`}
+                style={tandaIdx > 0 ? { pageBreakBefore: "always", breakBefore: "page" } : undefined}
+              >
+                <div
+                  className="border-b-2 pb-2 mb-3"
+                  style={{ borderColor: company.primary_color || "#3A4D3F" }}
+                >
+                  <h4
+                    className="text-base font-semibold uppercase tracking-wide"
+                    style={{ color: company.primary_color || "#3A4D3F" }}
+                  >
+                    {formatTandaHeader(tanda)}
+                  </h4>
+                </div>
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="text-left py-2 w-24">{language === "es" ? "Cant." : "Qty"}</th>
+                      <th className="text-left py-2">{language === "es" ? "Ítem" : "Item"}</th>
+                      <th className="text-left py-2">{language === "es" ? "Notas" : "Notes"}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {tanda.items?.map((item, index) => (
+                      <tr key={index} className="border-b align-top">
+                        <td className="py-2 font-mono font-semibold">{item.quantity}</td>
+                        <td className="py-2">
+                          <div className="font-medium">{item.name}</div>
+                          {item.description && (
+                            <div className="text-xs text-muted-foreground mt-0.5">{item.description}</div>
+                          )}
+                        </td>
+                        <td className="py-2 text-xs text-muted-foreground">
+                          {item.internal_notes || ""}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ))}
+          </div>
+        ) : Object.keys(itemsByCategory).length > 0 && (
           <div className="mb-8">
             <h3 className="font-heading font-semibold mb-4">
               {language === "es" ? "Detalle de Ítems" : "Item Details"}
