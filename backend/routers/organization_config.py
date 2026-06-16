@@ -47,6 +47,14 @@ async def get_organization_config(user: User = Depends(get_current_user)):
         {"_id": 0}
     )
     
+    # Always overlay company.currency (Settings → General) as the canonical app-wide currency
+    company = await db.companies.find_one(
+        {"company_id": user.company_id},
+        {"_id": 0, "currency": 1, "timezone": 1}
+    )
+    company_currency = (company or {}).get("currency") or "USD"
+    company_timezone = (company or {}).get("timezone") or "UTC"
+    
     if not config:
         # Return default config (Events & Hospitality)
         template = INDUSTRY_TEMPLATES[IndustryTemplate.EVENTS_HOSPITALITY]
@@ -61,8 +69,12 @@ async def get_organization_config(user: User = Depends(get_current_user)):
             "event_types": template["event_types"],
             "client_types": template["client_types"],
             "is_default": True,
+            "company_currency": company_currency,
+            "company_timezone": company_timezone,
         }
     
+    config["company_currency"] = company_currency
+    config["company_timezone"] = company_timezone
     return config
 
 

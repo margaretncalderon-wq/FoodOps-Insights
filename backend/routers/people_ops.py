@@ -1241,6 +1241,23 @@ async def get_employee(
 
 
 @people_ops_router.post("/employees")
+@people_ops_router.post("/employees/migrate-currency")
+async def migrate_employee_currency(user: User = Depends(get_current_user)):
+    """One-shot migration: replace currency 'USD' (default placeholder) on employees with
+    the company's currency from Settings → General. Idempotent: a no-op when company.currency==USD."""
+    company_id, _ = await check_people_ops_access(user, "edit")
+    company = await db.companies.find_one({"company_id": company_id}, {"_id": 0, "currency": 1})
+    target = (company or {}).get("currency") or "USD"
+    if target.upper() == "USD":
+        return {"updated": 0, "target_currency": target, "message": "Company currency is USD; nothing to migrate."}
+    res = await db.employees.update_many(
+        {"company_id": company_id, "$or": [{"currency": "USD"}, {"currency": {"$exists": False}}, {"currency": None}]},
+        {"$set": {"currency": target}}
+    )
+    return {"updated": res.modified_count, "target_currency": target}
+
+
+@people_ops_router.post("/employees")
 async def create_employee(
     data: EmployeeCreate,
     user: User = Depends(get_current_user)
@@ -1258,6 +1275,13 @@ async def create_employee(
     
     now = datetime.now(timezone.utc)
     employee_id = f"emp_{uuid.uuid4().hex[:12]}"
+    
+    # Resolve default currency from company settings (Settings → General)
+    company_currency = None
+    if not data.currency:
+        company = await db.companies.find_one({"company_id": company_id}, {"_id": 0, "currency": 1})
+        company_currency = (company or {}).get("currency") or "USD"
+    resolved_currency = data.currency or company_currency
     
     # Generate employee number
     count = await db.employees.count_documents({"company_id": company_id})
@@ -1319,7 +1343,7 @@ async def create_employee(
         # Compensation
         "base_salary": data.base_salary,
         "payment_frequency": data.payment_frequency.value,
-        "currency": data.currency,
+        "currency": resolved_currency,
         "bank_name": data.bank_name,
         "bank_account": data.bank_account,
         "bank_account_type": data.bank_account_type,

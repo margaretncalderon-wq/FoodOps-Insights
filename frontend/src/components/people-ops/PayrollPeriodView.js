@@ -29,9 +29,7 @@ import {
 } from "lucide-react";
 
 import { API_BASE as API } from "../../utils/api";
-
-const formatCurrency = (amount) => 
-  `$${(amount || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+import { useCurrencyFormatter } from "../../hooks/useCurrencyFormatter";
 
 const STATUS_CONFIG = {
   draft: { 
@@ -75,6 +73,7 @@ const STATUS_CONFIG = {
 export function PayrollPeriodView() {
   const { periodId } = useParams();
   const { language } = useLanguage();
+  const { formatCurrency } = useCurrencyFormatter();
   const isEs = language === "es";
   const navigate = useNavigate();
   

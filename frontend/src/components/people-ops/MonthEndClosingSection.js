@@ -5,6 +5,7 @@
 import { useState, useEffect, useCallback } from "react";
 import axios from "axios";
 import { useLanguage } from "../../contexts/LanguageContext";
+import { useCurrencyFormatter } from "../../hooks/useCurrencyFormatter";
 
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Button } from "../ui/button";
@@ -23,11 +24,9 @@ import { API_BASE as API } from "../../utils/api";
 const MONTHS_ES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
 const MONTHS_EN = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 
-const formatCurrency = (n) =>
-  new Intl.NumberFormat("es-DO", { style: "currency", currency: "DOP", minimumFractionDigits: 2 }).format(n || 0);
-
 export function MonthEndClosingSection() {
   const { language } = useLanguage();
+  const { formatCurrency } = useCurrencyFormatter();
   const isEs = language === "es";
   const months = isEs ? MONTHS_ES : MONTHS_EN;
   
@@ -277,6 +276,7 @@ export function MonthEndClosingSection() {
           employees={employees}
           isEs={isEs}
           loading={detailLoading}
+          formatCurrency={formatCurrency}
           onClose={() => setActiveClosing(null)}
           onRefresh={async () => {
             await fetchAll();
@@ -293,7 +293,7 @@ export function MonthEndClosingSection() {
 // ============================================================
 //   MonthEndDetail — 3-panel view inside a wide dialog
 // ============================================================
-function MonthEndDetail({ closing, employees, isEs, loading, onClose, onRefresh }) {
+function MonthEndDetail({ closing, employees, isEs, loading, formatCurrency, onClose, onRefresh }) {
   const isClosed = closing.status === "closed";
   const breakdown = closing.breakdown || {};
   

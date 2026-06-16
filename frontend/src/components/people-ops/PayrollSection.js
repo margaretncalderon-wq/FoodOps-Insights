@@ -38,9 +38,7 @@ import {
 import { API_BASE as API } from "../../utils/api";
 import { VariablePayWidget } from "./VariablePayWidget";
 import { Switch } from "../ui/switch";
-
-const formatCurrency = (amount) => 
-  `$${(amount || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+import { useCurrencyFormatter } from "../../hooks/useCurrencyFormatter";
 
 const STATUS_CONFIG = {
   draft: { 
@@ -77,6 +75,7 @@ const STATUS_CONFIG = {
 
 export function PayrollSection() {
   const { language } = useLanguage();
+  const { formatCurrency } = useCurrencyFormatter();
   const isEs = language === "es";
   const navigate = useNavigate();
   

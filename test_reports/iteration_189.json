@@ -1,0 +1,44 @@
+{
+  "summary": "Validated cross-cutting company.currency (DOP) propagation for People Ops. Backend: GET /api/org-config returns company_currency='DOP' & company_timezone OK; POST /api/people-ops/employees/migrate-currency returns target_currency=DOP (idempotent OK). Frontend (Playwright): Overtime page renders DOP correctly — header '$125,000 Monthly Payroll' (no 'USD' code), Period Report 'Estimated Amount RD$7,263.16', Salary 'RD$75,000.00', Hourly 'RD$789.47', Est. Cost (Month) 'RD$14,606.91'. Payroll page renders DOP ('RD$153,828.21', 'RD$125,000.00', 'RD$79,029.63'). HOWEVER a CRITICAL regression breaks employee creation: POST /api/people-ops/employees is routed to migrate_employee_currency (returns {updated:0, target_currency:'DOP'}) instead of create_employee, making employee creation, the explicit-USD-override path, and the PUT currency persistence test impossible to verify end-to-end.",
+  "backend_issues": {
+    "critical": [
+      {
+        "endpoint": "POST /api/people-ops/employees",
+        "issue": "Route hijacked by migrate_employee_currency. In /app/backend/routers/people_ops.py line 1243-1245 the function migrate_employee_currency has TWO decorators: @people_ops_router.post('/employees') AND @people_ops_router.post('/employees/migrate-currency'). The first decorator registers it BEFORE create_employee, so FastAPI matches POST /employees to migrate_employee_currency and never reaches create_employee. Verified by inspecting router.routes (two POST /people-ops/employees registered, migrate first) and by live API: posting a full employee payload returns {'updated':0,'target_currency':'DOP'} instead of a created employee. Fix: delete the duplicate '@people_ops_router.post(\"/employees\")' decorator on line 1243.",
+        "priority": "CRITICAL"
+      }
+    ],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_people_ops_currency.py",
+    "/app/test_reports/pytest/iter_189.xml"
+  ],
+  "action_items": [
+    "Remove the stray '@people_ops_router.post(\"/employees\")' line above migrate_employee_currency in /app/backend/routers/people_ops.py (line 1243). Keep only '@people_ops_router.post(\"/employees/migrate-currency\")'. Re-run /app/backend/tests/test_people_ops_currency.py — all 6 tests must pass (currently 3/6 pass)."
+  ],
+  "critical_code_review_comments": [
+    "people_ops.py routing bug: duplicate POST /employees decorator silently shadows create_employee. Consider adding a startup check or a unit test that asserts each (method,path) tuple is registered to exactly one endpoint.",
+    "useCurrencyFormatter.js falls back to 'USD' on companyCurrency null — works, but could surface a loading state to avoid a flash of USD before org-config loads.",
+    "EmployeeUpdate now includes currency — good — but ensure GET /employees response also surfaces the resolved currency consistently (already returns 'DOP' for existing emps).",
+    "people_ops.py is ~5,000 lines — way over the 700-line guideline. Split into employees.py, payroll.py, overtime.py, offboarding.py sub-routers."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_people_ops_currency.py (new — 6 tests covering org-config currency overlay, create-defaults, create-override, update-persists, migrate-idempotent)"
+  ],
+  "success_rate": {
+    "backend": "50% (3/6 — 2 currency-resolution tests + 1 update test blocked by the route-hijack bug)",
+    "frontend": "100% (DOP rendering verified on Overtime + Payroll pages)"
+  },
+  "test_credentials": "demo.agency@kora.com / Evoque2024! (company_3ab116c0994d, currency=DOP)",
+  "seed_data_creation": "None — no employees created (creation endpoint is broken). All existing demo employees already migrated to DOP.",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "After main agent removes the duplicate decorator on line 1243 of /app/backend/routers/people_ops.py, just re-run: pytest /app/backend/tests/test_people_ops_currency.py -v. Expect 6/6 PASS. Frontend already verified — DOP formatting works on Overtime + Payroll. Month-End Closing and EmployeeProfile pages were navigated but had no live data to assert RD$ on (no closing exists, employee list view doesn't show salary chip); recommend opening an employee detail page in a follow-up Playwright test to assert the Currency badge defaults to 'DOP' when employee.currency is empty.",
+  "rca of the issue": "Copy-paste regression: migrate_employee_currency was added with two stacked decorators — the intended /employees/migrate-currency and an accidental /employees. Because FastAPI iterates routes in registration order and migrate_employee_currency is defined before create_employee, the migrate handler wins for POST /employees. Reproduction: POST /api/people-ops/employees with any valid EmployeeCreate body returns {'updated':0,'target_currency':'DOP'} (HTTP 200) instead of the created employee. Mitigation: delete line 1243. One-line fix."
+}

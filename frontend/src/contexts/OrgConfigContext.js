@@ -203,6 +203,8 @@ export const OrgConfigProvider = ({ children }) => {
         applyTemplate,
         refreshConfig,
         industryTemplate: config?.industry_template || "events_hospitality",
+        companyCurrency: config?.company_currency || "USD",
+        companyTimezone: config?.company_timezone || "UTC",
       }}
     >
       {children}

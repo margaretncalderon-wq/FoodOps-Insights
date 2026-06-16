@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useLanguage } from "../../contexts/LanguageContext";
+import { useOrgConfig } from "../../contexts/OrgConfigContext";
 import axios from "axios";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../ui/card";
 import { Button } from "../ui/button";
@@ -30,6 +31,7 @@ const formatCurrency = (amount) => `$${(amount || 0).toLocaleString("en-US", { m
 export function EmployeeProfile() {
   const { employeeId } = useParams();
   const { language } = useLanguage();
+  const { companyCurrency } = useOrgConfig();
   const isEs = language === "es";
   const navigate = useNavigate();
   
@@ -510,7 +512,7 @@ export function EmployeeProfile() {
                       <div>
                         <label className="text-sm text-muted-foreground">{isEs ? "Moneda" : "Currency"}</label>
                         <Select 
-                          value={editData.currency || "USD"} 
+                          value={editData.currency || companyCurrency || "USD"} 
                           onValueChange={(v) => setEditData({ ...editData, currency: v })}
                         >
                           <SelectTrigger>
@@ -579,7 +581,7 @@ export function EmployeeProfile() {
                     )}
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">{isEs ? "Moneda" : "Currency"}</span>
-                      <Badge variant="outline">{employee.currency || "USD"}</Badge>
+                      <Badge variant="outline">{employee.currency || companyCurrency || "USD"}</Badge>
                     </div>
                   </>
                 )}

@@ -172,7 +172,7 @@ class EmployeeCreate(BaseModel):
     # Compensation
     base_salary: float
     payment_frequency: PaymentFrequency = PaymentFrequency.BIWEEKLY
-    currency: str = "USD"
+    currency: Optional[str] = None  # Falls back to company.currency if not set
     bank_name: Optional[str] = None
     bank_account: Optional[str] = None
     bank_account_type: Optional[str] = None  # savings, checking, payroll
@@ -313,6 +313,7 @@ class EmployeeUpdate(BaseModel):
     has_pension: Optional[bool] = None
     afp_provider: Optional[str] = None
     ars_provider: Optional[str] = None
+    currency: Optional[str] = None
     
     # Allowances
     has_lunch_allowance: Optional[bool] = None
