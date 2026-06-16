@@ -1,5 +1,24 @@
 # Kora OS — Product Requirements Document
 
+## People Ops — Personnel Month-End Closing (Feb 18, 2026)
+
+**Status:** ✅ Complete (Backend 11/11 pytest, Frontend 100% testing agent).
+
+### Implemented
+Replica de la hoja "Cierre de Mes" del usuario dentro de Kora OS:
+- **Backend**: `/app/backend/routers/month_end_closing.py` (~370 líneas) con 8 endpoints (`/api/people-ops/month-end/...`). Modelo `month_end_closings` con `revenue_total`, `incentive_pool_pct`, `distribution: [{employee_id, pct}]`, `status: draft|closed`, `snapshot` inmutable.
+- **Frontend**: `MonthEndClosingSection.js` con listado + diálogo de creación + diálogo detallado de 3 paneles (Incentivos editables, Totales con recompute en vivo, Extras auto-poblados desde OT).
+- **Acceso restringido**: admin/owner/hr SIEMPRE; otros usuarios necesitan `employee.is_manager=true`. Endpoint `/access/can-view` para verificación frontend.
+- **Cálculo**: `pool = revenue × pct/100`; cada empleado recibe `pool × emp.pct/100`. Extras = suma de `estimated_amount` de OT `approved/processed` en rango del mes.
+- **Lifecycle**: draft → close (snapshot persistido) → reopen (solo owner/admin).
+- **Montado en 2 lugares**: People Ops > Payroll > "Cierre de Mes"; Business Clarity > Cierre dropdown > "Personal".
+
+### Tests
+- `/app/backend/tests/test_month_end_closing.py` (11 tests)
+- `/app/test_reports/iteration_187.json`
+
+---
+
 ## People Ops — Payroll/OT Overhaul (Feb 18, 2026)
 
 **Status:** ✅ Complete (Backend 9/9 tests passing, Frontend verified by testing agent).

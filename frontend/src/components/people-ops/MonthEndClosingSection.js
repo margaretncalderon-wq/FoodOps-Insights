@@ -313,6 +313,12 @@ function MonthEndDetail({ closing, employees, isEs, loading, onClose, onRefresh 
   const pctSum = distribution.reduce((s, d) => s + (parseFloat(d.pct) || 0), 0);
   const pctSumOK = Math.abs(pctSum - 100) < 0.01 || pctSum === 0;
   
+  // ---- Live preview of grand totals (no need to Save first)
+  // Server breakdown reflects last saved state; we overlay current edits to give instant feedback.
+  const liveIncentiveTotal = distribution.reduce((s, d) => s + (pool * (parseFloat(d.pct) || 0) / 100), 0);
+  const liveExtrasTotal = breakdown.totals?.extras || 0;  // extras come from OT and don't depend on edits
+  const liveGrandTotal = liveIncentiveTotal + liveExtrasTotal;
+  
   const empById = Object.fromEntries(employees.map(e => [e.employee_id, e]));
   const availableEmployees = employees.filter(e => !distribution.some(d => d.employee_id === e.employee_id));
   
@@ -387,6 +393,9 @@ function MonthEndDetail({ closing, employees, isEs, loading, onClose, onRefresh 
               <Badge variant="outline" className="ml-2"><Unlock className="w-3 h-3 mr-1" />{isEs ? "Borrador" : "Draft"}</Badge>
             )}
           </DialogTitle>
+          <DialogDescription>
+            {isEs ? "Edita el % del pool, distribuye incentivos por empleado y revisa los extras del mes." : "Edit pool %, distribute incentives by employee, and review the month's extras."}
+          </DialogDescription>
         </DialogHeader>
         
         {loading ? (
@@ -512,16 +521,16 @@ function MonthEndDetail({ closing, employees, isEs, loading, onClose, onRefresh 
               <CardContent className="space-y-3">
                 <div className="p-3 rounded-md bg-violet-50 border border-violet-100">
                   <p className="text-xs text-violet-700">{isEs ? "Incentivos Totales" : "Total Incentives"}</p>
-                  <p className="text-xl font-bold text-violet-900">{formatCurrency(breakdown.totals?.incentive)}</p>
+                  <p className="text-xl font-bold text-violet-900">{formatCurrency(liveIncentiveTotal)}</p>
                 </div>
                 <div className="p-3 rounded-md bg-blue-50 border border-blue-100">
                   <p className="text-xs text-blue-700">{isEs ? "Horas Extras Totales" : "Total Overtime"}</p>
-                  <p className="text-xl font-bold text-blue-900">{formatCurrency(breakdown.totals?.extras)}</p>
+                  <p className="text-xl font-bold text-blue-900">{formatCurrency(liveExtrasTotal)}</p>
                 </div>
                 <div className="p-3 rounded-md bg-emerald-50 border border-emerald-200">
                   <p className="text-xs text-emerald-700">{isEs ? "Gran Total" : "Grand Total"}</p>
                   <p className="text-2xl font-bold text-emerald-900" data-testid="grand-total">
-                    {formatCurrency(breakdown.totals?.grand_total)}
+                    {formatCurrency(liveGrandTotal)}
                   </p>
                 </div>
                 <p className="text-xs text-muted-foreground border-t pt-2">
