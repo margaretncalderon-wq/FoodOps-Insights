@@ -118,24 +118,26 @@ export function PayrollSection() {
   useEffect(() => { fetchData(); }, [fetchData]);
 
   // Helper to build a fresh period_name from current state (used as fallback on submit)
+  // Output matches backend's auto-generation (Spanish prefix + English month) so the
+  // placeholder is accurate regardless of UI language.
   const computePeriodName = (startDate, periodType, paymentKind) => {
     if (!startDate) return "";
     // Parse YYYY-MM-DD as LOCAL (avoid UTC shift)
     const [y, m, d] = startDate.split("-").map(Number);
     if (!y || !m || !d) return "";
     const date = new Date(y, m - 1, d);
-    const month = date.toLocaleString(isEs ? "es" : "en", { month: "long" });
-    const monthCap = month.charAt(0).toUpperCase() + month.slice(1);
+    // Match backend strftime("%B") → English month name (capitalized)
+    const month = date.toLocaleString("en", { month: "long" });
     const isOT = paymentKind === "overtime_only";
     if (periodType === "biweekly") {
       const half = d <= 15 ? "1" : "2";
-      const prefix = isOT ? (isEs ? "Horas Extras" : "Overtime") : (isEs ? "Quincena" : "Payroll");
-      return `${prefix} ${half} - ${monthCap} ${y}`;
+      const prefix = isOT ? "Horas Extras" : "Quincena";
+      return `${prefix} ${half} - ${month} ${y}`;
     } else if (periodType === "monthly") {
-      const prefix = isOT ? (isEs ? "Horas Extras" : "Overtime") : (isEs ? "Nómina" : "Payroll");
-      return `${prefix} ${monthCap} ${y}`;
+      const prefix = isOT ? "Horas Extras" : "Nómina";
+      return `${prefix} ${month} ${y}`;
     }
-    return `${monthCap} ${y}`;
+    return `${month} ${y}`;
   };
   
   // Auto-fill dates based on period type (locale-safe parsing)

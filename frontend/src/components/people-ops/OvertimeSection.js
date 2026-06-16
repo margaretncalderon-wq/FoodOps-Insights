@@ -478,6 +478,7 @@ export function OvertimeSection() {
                       {isEs ? "Hora Normal (35%)" : "Normal OT (35%)"}
                     </label>
                     <Input
+                      data-testid="ot-input-35"
                       type="number" step="0.5" min="0" max="12"
                       value={newRequest.hours_35}
                       onChange={(e) => setNewRequest({ ...newRequest, hours_35: e.target.value })}
@@ -493,6 +494,7 @@ export function OvertimeSection() {
                       {isEs ? "Trabajo Nocturno (15%)" : "Night Shift (15%)"}
                     </label>
                     <Input
+                      data-testid="ot-input-night"
                       type="number" step="0.5" min="0" max="12"
                       value={newRequest.hours_night}
                       onChange={(e) => setNewRequest({ ...newRequest, hours_night: e.target.value })}
@@ -508,6 +510,7 @@ export function OvertimeSection() {
                       {isEs ? "Feriado / Domingo (100%)" : "Holiday/Sunday (100%)"}
                     </label>
                     <Input
+                      data-testid="ot-input-holiday"
                       type="number" step="0.5" min="0" max="12"
                       value={newRequest.hours_holiday}
                       onChange={(e) => setNewRequest({ ...newRequest, hours_holiday: e.target.value })}
@@ -523,6 +526,7 @@ export function OvertimeSection() {
                       {isEs ? "Hora Extra 100% (>68h)" : "Extra 100% (>68h)"}
                     </label>
                     <Input
+                      data-testid="ot-input-100"
                       type="number" step="0.5" min="0" max="12"
                       value={newRequest.hours_100}
                       onChange={(e) => setNewRequest({ ...newRequest, hours_100: e.target.value })}
