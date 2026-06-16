@@ -1,5 +1,31 @@
 # Kora OS — Product Requirements Document
 
+## People Ops — Live FX Currency Conversion (Feb 18, 2026)
+
+**Status:** ✅ Complete (Backend 9/9 pytest, Frontend 100%).
+
+### Implemented
+- **Backend FX service** (`/app/backend/routers/fx.py`):
+  - `GET /api/fx/convert?amount=X&from=USD&to=DOP` — convierte usando tasas en vivo
+  - `GET /api/fx/rates?base=USD` — lista de tasas para una moneda base
+  - `POST /api/fx/refresh?base=USD` — fuerza refresh (admin-only)
+  - Cache MongoDB `fx_rates_cache` con TTL 24h
+  - Upstream: `open.er-api.com/v6/latest/{base}` (gratis, sin API key)
+- **Frontend**:
+  - Hook `useFxConvert(amount, from, to)` con auto-bail si `from==to`
+  - Componente `<FxConvertBadge amount from />` reutilizable
+  - Integrado en `EmployeeProfile.js` debajo del Base Salary cuando `employee.currency != companyCurrency`
+- **Graceful degradation**: si upstream falla y hay cache stale, sigue devolviendo la última tasa conocida.
+
+### Verified UI
+Empleado con `currency=USD`, salario $75,000 → muestra `≈ RD$4,403,105.92` con icono trending up al lado.
+
+### Test report
+- `/app/backend/tests/test_fx_convert.py` (9 ✅)
+- `/app/test_reports/iteration_190.json`
+
+---
+
 ## People Ops — Company Currency Propagation (Feb 18, 2026)
 
 **Status:** ✅ Complete (Backend 6/6 pytest, Frontend 100%).
