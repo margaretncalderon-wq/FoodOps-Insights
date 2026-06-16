@@ -162,8 +162,34 @@ async def get_calendar_status(user: User = Depends(get_current_user)):
         "connected_email": config.get("connected_email"),
         "connected_at": config.get("connected_at"),
         "shared_calendar_id": config.get("shared_calendar_id"),
-        "shared_calendar_name": config.get("shared_calendar_name")
+        "shared_calendar_name": config.get("shared_calendar_name"),
+        "auto_sync_events": config.get("auto_sync_events", True),
+        "auto_sync_follow_ups": config.get("auto_sync_follow_ups", True),
     }
+
+
+@router.put("/preferences")
+async def update_calendar_preferences(
+    auto_sync_events: Optional[bool] = None,
+    auto_sync_follow_ups: Optional[bool] = None,
+    user: User = Depends(get_current_user)
+):
+    """Toggle which entities sync automatically to Google Calendar."""
+    config = await db[CALENDAR_CONFIG_COLLECTION].find_one({"company_id": user.company_id})
+    if not config:
+        raise HTTPException(status_code=400, detail="Calendar not connected")
+    
+    update_data: dict = {"updated_at": datetime.now(timezone.utc).isoformat()}
+    if auto_sync_events is not None:
+        update_data["auto_sync_events"] = auto_sync_events
+    if auto_sync_follow_ups is not None:
+        update_data["auto_sync_follow_ups"] = auto_sync_follow_ups
+    
+    await db[CALENDAR_CONFIG_COLLECTION].update_one(
+        {"company_id": user.company_id},
+        {"$set": update_data}
+    )
+    return {"success": True, **update_data}
 
 
 @router.delete("/disconnect")
@@ -566,3 +592,280 @@ async def auto_sync_follow_up(company_id: str, entity_type: str, entity_id: str,
             await collection.update_one({id_field: entity_id}, {"$set": {"calendar_event_id": event["id"]}})
     except Exception as e:
         print(f"Auto-sync to calendar failed: {e}")
+
+
+# ==================== CATERING EVENTS (engagements) ====================
+
+def _event_to_calendar_body(event: dict, client_name: Optional[str] = None) -> Optional[dict]:
+    """Builds a Google Calendar event body from a Kora catering event document.
+    Returns None if the event has no scheduling info (TBD / no date)."""
+    if event.get("event_date_tbd"):
+        return None
+    
+    name = event.get("name") or "Kora Event"
+    event_type = event.get("event_type") or "Event"
+    venue = event.get("venue")
+    guest_count = event.get("guest_count")
+    start_time_str = event.get("start_time")  # "HH:MM"
+    end_time_str = event.get("end_time")
+    event_date = event.get("event_date")
+    end_date = event.get("end_date")
+    
+    if not event_date:
+        return None
+    
+    # Parse event_date (datetime or ISO string)
+    if isinstance(event_date, str):
+        try:
+            event_date = datetime.fromisoformat(event_date.replace("Z", "+00:00"))
+        except ValueError:
+            return None
+    
+    # Construct start
+    if start_time_str:
+        try:
+            hh, mm = [int(x) for x in start_time_str.split(":")[:2]]
+            start_dt = event_date.replace(hour=hh, minute=mm, second=0, microsecond=0, tzinfo=None)
+        except (ValueError, AttributeError):
+            start_dt = event_date.replace(hour=12, minute=0, second=0, microsecond=0, tzinfo=None)
+    else:
+        start_dt = event_date.replace(hour=12, minute=0, second=0, microsecond=0, tzinfo=None)
+    
+    # Construct end
+    if end_date and isinstance(end_date, str):
+        try:
+            end_date = datetime.fromisoformat(end_date.replace("Z", "+00:00"))
+        except ValueError:
+            end_date = None
+    
+    if end_time_str:
+        try:
+            hh, mm = [int(x) for x in end_time_str.split(":")[:2]]
+            base = end_date if end_date else event_date
+            end_dt = base.replace(hour=hh, minute=mm, second=0, microsecond=0, tzinfo=None)
+        except (ValueError, AttributeError):
+            end_dt = start_dt + timedelta(hours=4)
+    elif end_date:
+        end_dt = end_date.replace(hour=18, minute=0, second=0, microsecond=0, tzinfo=None)
+    else:
+        end_dt = start_dt + timedelta(hours=4)
+    
+    if end_dt <= start_dt:
+        end_dt = start_dt + timedelta(hours=4)
+    
+    # Description
+    desc_lines = [f"Kora OS — {event_type}"]
+    if client_name:
+        desc_lines.append(f"Client: {client_name}")
+    if guest_count:
+        desc_lines.append(f"Guests: {guest_count}")
+    if event.get("budget"):
+        desc_lines.append(f"Budget: {event.get('budget')}")
+    if event.get("scope_summary"):
+        desc_lines.append("")
+        desc_lines.append(event["scope_summary"])
+    
+    return {
+        "summary": f"[{event_type}] {name}",
+        "description": "\n".join(desc_lines),
+        "location": venue or "",
+        "start": {"dateTime": start_dt.isoformat(), "timeZone": "America/Santo_Domingo"},
+        "end": {"dateTime": end_dt.isoformat(), "timeZone": "America/Santo_Domingo"},
+        "extendedProperties": {
+            "private": {
+                "kora_entity_type": "event",
+                "kora_entity_id": event.get("event_id", ""),
+                "kora_company_id": event.get("company_id", ""),
+            }
+        }
+    }
+
+
+@router.post("/sync/event")
+async def sync_event_to_calendar(
+    event_id: str,
+    user: User = Depends(get_current_user)
+):
+    """Manually sync a catering event to Google Calendar. Creates or updates the event."""
+    config = await db[CALENDAR_CONFIG_COLLECTION].find_one({"company_id": user.company_id})
+    if not config or not config.get("is_connected") or not config.get("shared_calendar_id"):
+        raise HTTPException(status_code=400, detail="Calendar not configured. Connect and select a calendar first.")
+    
+    event = await db.events.find_one(
+        {"event_id": event_id, "company_id": user.company_id},
+        {"_id": 0}
+    )
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+    
+    # Get client name (denormalize for description)
+    client_name = None
+    if event.get("client_id"):
+        client_doc = await db.clients.find_one(
+            {"client_id": event["client_id"], "company_id": user.company_id},
+            {"_id": 0, "display_name": 1, "company_name": 1}
+        )
+        if client_doc:
+            client_name = client_doc.get("display_name") or client_doc.get("company_name")
+    
+    body = _event_to_calendar_body(event, client_name)
+    if not body:
+        raise HTTPException(status_code=400, detail="Event has no scheduled date (TBD) and cannot be synced.")
+    
+    service = await get_calendar_service(user.company_id)
+    if not service:
+        raise HTTPException(status_code=400, detail="Calendar connection expired. Please reconnect.")
+    
+    try:
+        existing_event_id = event.get("calendar_event_id")
+        if existing_event_id:
+            gevent = service.events().update(
+                calendarId=config["shared_calendar_id"],
+                eventId=existing_event_id,
+                body=body
+            ).execute()
+            action = "updated"
+        else:
+            gevent = service.events().insert(
+                calendarId=config["shared_calendar_id"],
+                body=body
+            ).execute()
+            await db.events.update_one(
+                {"event_id": event_id},
+                {"$set": {"calendar_event_id": gevent["id"]}}
+            )
+            action = "created"
+        
+        return {
+            "success": True,
+            "event_id": gevent["id"],
+            "event_link": gevent.get("htmlLink"),
+            "action": action,
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to sync event: {str(e)}")
+
+
+@router.delete("/sync/event")
+async def remove_event_from_calendar(
+    event_id: str,
+    user: User = Depends(get_current_user)
+):
+    """Remove a catering event from Google Calendar (without deleting the Kora event)."""
+    config = await db[CALENDAR_CONFIG_COLLECTION].find_one({"company_id": user.company_id})
+    if not config or not config.get("shared_calendar_id"):
+        return {"success": True, "message": "No calendar configured"}
+    
+    event = await db.events.find_one(
+        {"event_id": event_id, "company_id": user.company_id},
+        {"_id": 0, "calendar_event_id": 1}
+    )
+    if not event or not event.get("calendar_event_id"):
+        return {"success": True, "message": "Not synced"}
+    
+    service = await get_calendar_service(user.company_id)
+    if not service:
+        return {"success": False, "message": "Calendar connection expired"}
+    
+    try:
+        service.events().delete(
+            calendarId=config["shared_calendar_id"],
+            eventId=event["calendar_event_id"]
+        ).execute()
+    except Exception as e:
+        print(f"Calendar delete failed (ignored): {e}")
+    
+    await db.events.update_one(
+        {"event_id": event_id},
+        {"$unset": {"calendar_event_id": ""}}
+    )
+    return {"success": True, "action": "removed"}
+
+
+# ==================== AUTO-SYNC HELPER (call from server.py event endpoints) ====================
+
+async def auto_sync_event(company_id: str, event_id: str, action: str = "upsert", calendar_event_id_hint: Optional[str] = None):
+    """Auto-sync a catering event to Google Calendar. Silently no-ops if calendar not configured.
+    Use from create_event / update_event / delete_event in server.py.
+    
+    action: 'upsert' (create or update) | 'delete'
+    calendar_event_id_hint: pass the calendar_event_id directly when the Kora event has already
+        been deleted from db.events (so we can still remove it from Google Calendar).
+    """
+    config = await db[CALENDAR_CONFIG_COLLECTION].find_one({"company_id": company_id})
+    if not config or not config.get("is_connected") or not config.get("shared_calendar_id"):
+        return
+    if not config.get("auto_sync_events", True):
+        # User can disable auto-sync via settings
+        return
+    
+    event = await db.events.find_one({"event_id": event_id, "company_id": company_id}, {"_id": 0})
+    
+    # For deletions the event may already be gone — fall back to the hint.
+    if action == "delete" and not event:
+        if not calendar_event_id_hint:
+            return
+        service = await get_calendar_service(company_id)
+        if not service:
+            return
+        try:
+            service.events().delete(calendarId=config["shared_calendar_id"], eventId=calendar_event_id_hint).execute()
+        except Exception as e:
+            print(f"Auto-sync orphan delete failed: {e}")
+        return
+    
+    if not event:
+        return
+    
+    service = await get_calendar_service(company_id)
+    if not service:
+        return
+    
+    calendar_id = config["shared_calendar_id"]
+    existing_event_id = event.get("calendar_event_id") or calendar_event_id_hint
+    
+    # Delete branch
+    if action == "delete":
+        if existing_event_id:
+            try:
+                service.events().delete(calendarId=calendar_id, eventId=existing_event_id).execute()
+            except Exception as e:
+                print(f"Auto-sync delete failed: {e}")
+            await db.events.update_one(
+                {"event_id": event_id},
+                {"$unset": {"calendar_event_id": ""}}
+            )
+        return
+    
+    # Upsert
+    client_name = None
+    if event.get("client_id"):
+        client_doc = await db.clients.find_one(
+            {"client_id": event["client_id"], "company_id": company_id},
+            {"_id": 0, "display_name": 1, "company_name": 1}
+        )
+        if client_doc:
+            client_name = client_doc.get("display_name") or client_doc.get("company_name")
+    
+    body = _event_to_calendar_body(event, client_name)
+    if not body:
+        # TBD event: if it was synced before, remove it from calendar
+        if existing_event_id:
+            try:
+                service.events().delete(calendarId=calendar_id, eventId=existing_event_id).execute()
+            except Exception:
+                pass
+            await db.events.update_one({"event_id": event_id}, {"$unset": {"calendar_event_id": ""}})
+        return
+    
+    try:
+        if existing_event_id:
+            service.events().update(calendarId=calendar_id, eventId=existing_event_id, body=body).execute()
+        else:
+            gevent = service.events().insert(calendarId=calendar_id, body=body).execute()
+            await db.events.update_one(
+                {"event_id": event_id},
+                {"$set": {"calendar_event_id": gevent["id"]}}
+            )
+    except Exception as e:
+        print(f"Auto-sync event failed: {e}")

@@ -5313,6 +5313,14 @@ async def create_event(data: EventCreate, user: User = Depends(get_current_user)
     event_doc["next_followup_date"] = data.next_followup_date
     event_doc["created_at"] = now
     event_doc["updated_at"] = now
+    
+    # Auto-sync to Google Calendar (silent no-op if not configured)
+    try:
+        from routers.google_calendar import auto_sync_event
+        await auto_sync_event(user.company_id, event_id, action="upsert")
+    except Exception as e:
+        print(f"Google Calendar auto-sync failed (event create): {e}")
+    
     return event_doc
 
 @events_router.post("/{event_id}/duplicate", response_model=Event)
@@ -5500,6 +5508,13 @@ async def update_event(event_id: str, data: EventUpdate, user: User = Depends(ge
         **user_info(user)
     )
     
+    # Auto-sync to Google Calendar
+    try:
+        from routers.google_calendar import auto_sync_event
+        await auto_sync_event(user.company_id, event_id, action="upsert")
+    except Exception as e:
+        print(f"Google Calendar auto-sync failed (event update): {e}")
+    
     return await get_event(event_id, user)
 
 @events_router.delete("/{event_id}")
@@ -5509,6 +5524,7 @@ async def delete_event(event_id: str, user: User = Depends(get_current_user)):
         raise HTTPException(status_code=404, detail="Event not found")
     
     event_name = event.get("name", "Event")
+    _calendar_event_hint = event.get("calendar_event_id")  # captured for post-delete sync
     
     # ---- Feature 6: Release any active inventory reservations before deleting.
     try:
@@ -5540,6 +5556,13 @@ async def delete_event(event_id: str, user: User = Depends(get_current_user)):
         event_id=event_id,
         **user_info(user)
     )
+    
+    # Remove from Google Calendar (silent no-op if not configured)
+    try:
+        from routers.google_calendar import auto_sync_event
+        await auto_sync_event(user.company_id, event_id, action="delete", calendar_event_id_hint=_calendar_event_hint)
+    except Exception as e:
+        print(f"Google Calendar auto-sync failed (event delete): {e}")
     
     return {"message": "Event deleted"}
 

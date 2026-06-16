@@ -219,19 +219,59 @@ export default function GoogleCalendarSettingsSection() {
               </Button>
             </div>
 
+            {/* Sync preferences */}
+            {status.shared_calendar_id && (
+              <div className="pt-4 border-t space-y-3">
+                <p className="text-sm font-medium">{isEs ? "Sincronización Automática" : "Auto-Sync"}</p>
+                <SyncToggle
+                  label={isEs ? "Eventos / Engagements" : "Events / Engagements"}
+                  description={isEs ? "Crear automáticamente eventos del catering en Google Calendar." : "Auto-create catering events in Google Calendar."}
+                  testId="sync-events-toggle"
+                  value={status.auto_sync_events !== false}
+                  onChange={async (v) => {
+                    try {
+                      await axios.put(`${API}/api/oauth/calendar/preferences?auto_sync_events=${v}`, {}, { withCredentials: true });
+                      setStatus({ ...status, auto_sync_events: v });
+                      toast.success(isEs ? "Preferencia actualizada" : "Preference updated");
+                    } catch (err) {
+                      toast.error(err.response?.data?.detail || "Error");
+                    }
+                  }}
+                />
+                <SyncToggle
+                  label={isEs ? "Follow-ups del CRM" : "CRM Follow-ups"}
+                  description={isEs ? "Crear automáticamente eventos para los próximos seguimientos de clientes/leads." : "Auto-create events for upcoming client/lead follow-ups."}
+                  testId="sync-followups-toggle"
+                  value={status.auto_sync_follow_ups !== false}
+                  onChange={async (v) => {
+                    try {
+                      await axios.put(`${API}/api/oauth/calendar/preferences?auto_sync_follow_ups=${v}`, {}, { withCredentials: true });
+                      setStatus({ ...status, auto_sync_follow_ups: v });
+                      toast.success(isEs ? "Preferencia actualizada" : "Preference updated");
+                    } catch (err) {
+                      toast.error(err.response?.data?.detail || "Error");
+                    }
+                  }}
+                />
+              </div>
+            )}
+
             {/* How it works */}
             <div className="pt-4 border-t">
               <p className="text-sm font-medium mb-2">{isEs ? "¿Cómo funciona?" : "How it works?"}</p>
               <ul className="text-sm text-muted-foreground space-y-1">
                 <li>• {isEs 
-                  ? "Los follow-ups programados se crean automáticamente en el calendario compartido"
-                  : "Scheduled follow-ups are automatically created in the shared calendar"}</li>
+                  ? "Los eventos de catering con fecha confirmada se publican automáticamente en el calendario"
+                  : "Catering events with confirmed dates auto-publish to the calendar"}</li>
                 <li>• {isEs 
-                  ? "Al completar o reprogramar un follow-up, el evento se actualiza/elimina"
-                  : "When completing or rescheduling a follow-up, the event is updated/deleted"}</li>
+                  ? "Los follow-ups del CRM se programan a las 9am del día indicado"
+                  : "CRM follow-ups are scheduled at 9am of the indicated day"}</li>
                 <li>• {isEs 
-                  ? "Todos los vendedores ven los eventos en el calendario compartido"
-                  : "All salespeople see events in the shared calendar"}</li>
+                  ? "Al editar o eliminar el evento en Kora, se actualiza/elimina en Google Calendar"
+                  : "When you edit or delete the event in Kora, it's also updated/removed in Google Calendar"}</li>
+                <li>• {isEs 
+                  ? "Los eventos sin fecha (TBD) no se publican hasta confirmar fecha"
+                  : "TBD events are not published until a date is confirmed"}</li>
               </ul>
             </div>
           </>
@@ -240,8 +280,8 @@ export default function GoogleCalendarSettingsSection() {
             <Calendar className="w-12 h-12 mx-auto mb-4 text-muted-foreground opacity-50" />
             <p className="text-muted-foreground mb-4">
               {isEs 
-                ? "Conecta Google Calendar para sincronizar automáticamente los follow-ups del CRM"
-                : "Connect Google Calendar to automatically sync CRM follow-ups"}
+                ? "Conecta Google Calendar para sincronizar automáticamente eventos de catering y follow-ups del CRM"
+                : "Connect Google Calendar to auto-sync catering events and CRM follow-ups"}
             </p>
             <Button onClick={handleConnect} data-testid="connect-calendar-btn">
               <Link2 className="w-4 h-4 mr-2" />
@@ -324,5 +364,29 @@ export default function GoogleCalendarSettingsSection() {
         </DialogContent>
       </Dialog>
     </Card>
+  );
+}
+
+
+function SyncToggle({ label, description, value, onChange, testId }) {
+  return (
+    <div className="flex items-start justify-between gap-3 p-3 rounded-lg bg-muted/40 border">
+      <div className="flex-1">
+        <p className="text-sm font-medium">{label}</p>
+        {description && <p className="text-xs text-muted-foreground mt-0.5">{description}</p>}
+      </div>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={value}
+        data-testid={testId}
+        onClick={() => onChange(!value)}
+        className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${value ? "bg-violet-600" : "bg-muted"}`}
+      >
+        <span
+          className={`inline-block h-5 w-5 rounded-full bg-white shadow ring-0 transition-transform ${value ? "translate-x-5" : "translate-x-0"}`}
+        />
+      </button>
+    </div>
   );
 }
