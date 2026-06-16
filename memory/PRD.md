@@ -1,5 +1,41 @@
 # Kora OS — Product Requirements Document
 
+## People Ops — Payroll/OT Overhaul (Feb 18, 2026)
+
+**Status:** ✅ Complete (Backend 9/9 tests passing, Frontend verified by testing agent).
+
+### Implemented
+1. **Hire date editable** — `EmployeeUpdate` model añadió `hire_date`; `EmployeeProfile.js` edit mode incluye `data-testid="edit-hire-date"` y `edit-contract-type`.
+2. **Fix crear nómina** — `PayrollPeriodCreate.period_name` ahora opcional; backend auto-genera (`Quincena 1 - April 2026`, `Horas Extras 1 - April 2026`). Frontend `handleCreatePeriod` con autofill + per-field errors (`fieldErrors`) en vez de alert genérico. Parsing de fechas YYYY-MM-DD ahora local (sin shift UTC).
+3. **Descuentos quincenales con motivo** — Campo nuevo `extra_deductions: List[{id, amount, reason}]` en `PayrollEntry`. Backend normaliza, descarta items con amount<=0, suma al `total_deductions`. UI: dialog rico en `PayrollPeriodView.js` con add/remove dynamic rows. Payslip muestra cada descuento con su motivo.
+4. **Horas extras 4 categorías + multi-país**:
+   - `PayrollConfig`: `overtime_rate_35`, `overtime_rate_night`, `overtime_rate_holiday`, `overtime_rate_100`, `overtime_hours_per_month`, `country_code`. Helper `get_country_overtime_defaults()` con presets para DO/MX/CO/US/ES/PR/AR/CL/PE.
+   - `OvertimeRequest`: `hours_35/night/holiday/100`. `estimated_amount` combina los 4 multiplicadores y hourly_rate derivado de `monthly_salary / hours_per_month`.
+   - `PayrollEntry`: 4 breakdown columns (`overtime_amount_X`).
+   - Nuevo endpoint `GET /api/people-ops/overtime/pending-in-range` para preview en el dialog Crear Nómina.
+   - `PayrollPeriod.payment_kind`: "regular" o "overtime_only" — período dedicado solo para pagar OT separado del salario, sin AFP/ARS/ISR.
+   - Backend marca OT como `status='processed'` con `payroll_period_id` para evitar doble pago.
+   - Frontend `PayrollSection.js` muestra banner con OT pendientes en rango + switch "Incluir en esta nómina".
+
+### Backend endpoints clave
+- `PUT /api/people-ops/employees/{id}` — ahora acepta `hire_date`
+- `POST /api/people-ops/payroll/periods` — body opcional `period_name`, nuevos: `payment_kind`, `auto_include_overtime`, `include_overtime_ids`
+- `PUT /api/people-ops/payroll/entries/{entry_id}` — nuevos: `overtime_hours_night`, `overtime_hours_holiday`, `extra_deductions`
+- `GET /api/people-ops/payroll/config` — devuelve OT rates por país con fallback
+- `GET /api/people-ops/overtime/pending-in-range?start_date=...&end_date=...`
+
+### Test report
+- `/app/test_reports/iteration_186.json` (9/9 backend, 100% frontend tested flows)
+- `/app/backend/tests/test_people_ops_payroll_ot_overhaul.py`
+
+### Backlog para mejoras menores
+- [LOW] Traducir `computePeriodName` y `OvertimeSection.js` dialog labels para hablantes ES si el perfil del user es `en`.
+- [LOW] Añadir `data-testid` a inputs OT del Log Hours dialog.
+
+---
+
+# Kora OS — Product Requirements Document
+
 ## Original Problem Statement
 Build a comprehensive ERP application called **Kora OS** with modules for People Ops, Business, Demand Studio, Event Orchestration, and CRM. Core focus: Demand Studio (Social Media), CRM scaling, Event Orchestration, global System Settings (i18n, timezone, currency), and a dedicated Launch experience for the May 1–3, 2026 event.
 
