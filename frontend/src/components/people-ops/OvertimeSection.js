@@ -17,7 +17,8 @@ import {
 } from "../ui/table";
 import {
   Clock, Plus, RefreshCw, CheckCircle, XCircle,
-  AlertCircle, DollarSign, Calendar, Sun, Moon
+  AlertCircle, DollarSign, Calendar, Sun, Moon,
+  Download, Mail, BarChart3
 } from "lucide-react";
 
 import { API_BASE as API } from "../../utils/api";
@@ -71,6 +72,17 @@ export function OvertimeSection() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   
+  // Report (period filter + aggregate summary)
+  const [reportPeriod, setReportPeriod] = useState("biweekly");  // weekly | biweekly | monthly
+  const [reportRefDate, setReportRefDate] = useState(new Date().toISOString().split("T")[0]);
+  const [report, setReport] = useState(null);
+  
+  // Email schedule dialog
+  const [emailDialogOpen, setEmailDialogOpen] = useState(false);
+  const [emailSchedule, setEmailSchedule] = useState({
+    enabled: false, frequency: "biweekly", recipients: [],
+  });
+  
   const [newRequest, setNewRequest] = useState({
     employee_id: "",
     date: new Date().toISOString().split("T")[0],
@@ -100,6 +112,67 @@ export function OvertimeSection() {
   }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+  
+  // Fetch period report
+  const fetchReport = useCallback(async () => {
+    try {
+      const res = await axios.get(
+        `${API}/api/people-ops/overtime/report?period=${reportPeriod}&date=${reportRefDate}`,
+        { withCredentials: true }
+      );
+      setReport(res.data);
+    } catch (err) {
+      setReport(null);
+    }
+  }, [reportPeriod, reportRefDate]);
+  
+  useEffect(() => { fetchReport(); }, [fetchReport, requests]);
+  
+  // Fetch email schedule once
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await axios.get(`${API}/api/people-ops/overtime/email-schedule`, { withCredentials: true });
+        setEmailSchedule({
+          enabled: !!res.data.enabled,
+          frequency: res.data.frequency || "biweekly",
+          recipients: res.data.recipients || [],
+        });
+      } catch (err) {
+        // Silent: schedule may not exist yet
+        console.debug("OT email schedule fetch:", err?.response?.status);
+      }
+    })();
+  }, []);
+  
+  // Export handler
+  const handleExport = async (format) => {
+    try {
+      const res = await axios.get(
+        `${API}/api/people-ops/overtime/report/export?period=${reportPeriod}&date=${reportRefDate}&format=${format}`,
+        { withCredentials: true, responseType: "blob" }
+      );
+      const url = window.URL.createObjectURL(res.data);
+      const link = document.createElement("a");
+      link.href = url;
+      const ext = format === "xlsx" ? "xlsx" : "csv";
+      link.download = `OT_Report_${reportRefDate}.${ext}`;
+      link.click();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      alert(err.response?.data?.detail || "Export failed");
+    }
+  };
+  
+  const saveEmailSchedule = async () => {
+    try {
+      await axios.put(`${API}/api/people-ops/overtime/email-schedule`, emailSchedule, { withCredentials: true });
+      setEmailDialogOpen(false);
+      alert(isEs ? "Configuración guardada" : "Settings saved");
+    } catch (err) {
+      alert(err.response?.data?.detail || "Error");
+    }
+  };
 
   const handleCreateRequest = async () => {
     if (!newRequest.employee_id) {
@@ -233,12 +306,114 @@ export function OvertimeSection() {
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={fetchData}><RefreshCw className="w-4 h-4" /></Button>
+          <Button variant="outline" size="sm" onClick={() => setEmailDialogOpen(true)} data-testid="email-schedule-btn">
+            <Mail className="w-4 h-4 mr-1" />
+            {isEs ? "Email" : "Email"}
+          </Button>
           <Button onClick={() => setDialogOpen(true)} data-testid="new-overtime-btn">
             <Plus className="w-4 h-4 mr-2" />
             {isEs ? "Registrar Horas" : "Log Hours"}
           </Button>
         </div>
       </div>
+      
+      {/* Period Report — filters + summary */}
+      <Card data-testid="ot-report-card">
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <div className="flex items-center gap-2">
+              <BarChart3 className="w-5 h-5 text-violet-600" />
+              <CardTitle className="text-base">
+                {isEs ? "Reporte por Período" : "Period Report"}
+                {report?.label ? ` — ${report.label}` : ""}
+              </CardTitle>
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <Select value={reportPeriod} onValueChange={setReportPeriod}>
+                <SelectTrigger className="w-36" data-testid="report-period-select">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="weekly">{isEs ? "Semanal" : "Weekly"}</SelectItem>
+                  <SelectItem value="biweekly">{isEs ? "Quincenal" : "Biweekly"}</SelectItem>
+                  <SelectItem value="monthly">{isEs ? "Mensual" : "Monthly"}</SelectItem>
+                </SelectContent>
+              </Select>
+              <Input
+                type="date"
+                className="w-40"
+                value={reportRefDate}
+                onChange={(e) => setReportRefDate(e.target.value)}
+                data-testid="report-ref-date"
+              />
+              <Button variant="outline" size="sm" onClick={() => handleExport("csv")} data-testid="export-csv-btn">
+                <Download className="w-4 h-4 mr-1" />CSV
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => handleExport("xlsx")} data-testid="export-xlsx-btn">
+                <Download className="w-4 h-4 mr-1" />Excel
+              </Button>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {report && report.rows && report.rows.length > 0 ? (
+            <>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                <div className="p-3 rounded-md bg-violet-50 border border-violet-100">
+                  <p className="text-xs text-violet-700">{isEs ? "Empleados" : "Employees"}</p>
+                  <p className="text-2xl font-bold text-violet-900">{report.totals.employees}</p>
+                </div>
+                <div className="p-3 rounded-md bg-blue-50 border border-blue-100">
+                  <p className="text-xs text-blue-700">{isEs ? "Total Horas" : "Total Hours"}</p>
+                  <p className="text-2xl font-bold text-blue-900">{report.totals.total_hours}h</p>
+                </div>
+                <div className="p-3 rounded-md bg-amber-50 border border-amber-100">
+                  <p className="text-xs text-amber-700">{isEs ? "Solicitudes" : "Requests"}</p>
+                  <p className="text-2xl font-bold text-amber-900">{report.totals.ot_count}</p>
+                </div>
+                <div className="p-3 rounded-md bg-emerald-50 border border-emerald-200">
+                  <p className="text-xs text-emerald-700">{isEs ? "Monto Estimado" : "Estimated Amount"}</p>
+                  <p className="text-2xl font-bold text-emerald-900">{formatCurrency(report.totals.estimated_amount)}</p>
+                </div>
+              </div>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>{isEs ? "Empleado" : "Employee"}</TableHead>
+                    <TableHead className="text-right">{isEs ? "Salario" : "Salary"}</TableHead>
+                    <TableHead className="text-right">{isEs ? "Hora Normal" : "Hourly"}</TableHead>
+                    <TableHead className="text-center">35%</TableHead>
+                    <TableHead className="text-center">15%</TableHead>
+                    <TableHead className="text-center">F/D</TableHead>
+                    <TableHead className="text-center">100%</TableHead>
+                    <TableHead className="text-right">{isEs ? "Total Hrs" : "Total Hrs"}</TableHead>
+                    <TableHead className="text-right">{isEs ? "Monto" : "Amount"}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {report.rows.map((r) => (
+                    <TableRow key={r.employee_id} data-testid={`report-row-${r.employee_id}`}>
+                      <TableCell className="font-medium">{r.employee_name}</TableCell>
+                      <TableCell className="text-right text-muted-foreground">{formatCurrency(r.base_salary || 0)}</TableCell>
+                      <TableCell className="text-right text-muted-foreground">{formatCurrency(r.hourly_rate || 0)}</TableCell>
+                      <TableCell className="text-center">{r.hours_35 || "-"}</TableCell>
+                      <TableCell className="text-center">{r.hours_night || "-"}</TableCell>
+                      <TableCell className="text-center">{r.hours_holiday || "-"}</TableCell>
+                      <TableCell className="text-center">{r.hours_100 || "-"}</TableCell>
+                      <TableCell className="text-right font-medium">{r.total_hours}h</TableCell>
+                      <TableCell className="text-right font-bold text-emerald-700">{formatCurrency(r.estimated_amount)}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </>
+          ) : (
+            <p className="text-sm text-muted-foreground text-center py-6">
+              {isEs ? "Sin horas extras registradas en este período" : "No overtime logged in this period"}
+            </p>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -436,6 +611,32 @@ export function OvertimeSection() {
                   ))}
                 </SelectContent>
               </Select>
+              {/* Inline salary + hourly rate info for selected employee */}
+              {newRequest.employee_id && (() => {
+                const emp = employees.find(e => e.employee_id === newRequest.employee_id);
+                if (!emp) return null;
+                const base = parseFloat(emp.base_salary) || 0;
+                const freq = emp.payment_frequency || "biweekly";
+                const monthly = freq === "monthly" ? base : (freq === "biweekly" ? base * 2 : base * 4);
+                const hoursPerMonth = report?.totals ? 192 : 192;  // fallback constant; rate read from config server-side
+                const hourly = monthly / hoursPerMonth;
+                return (
+                  <div className="mt-2 grid grid-cols-3 gap-2 text-xs">
+                    <div className="p-2 rounded bg-muted/40 border" data-testid="emp-salary-info">
+                      <p className="text-muted-foreground">{isEs ? "Salario base" : "Base salary"}</p>
+                      <p className="font-semibold">{formatCurrency(base)} <span className="text-muted-foreground font-normal">/{freq}</span></p>
+                    </div>
+                    <div className="p-2 rounded bg-muted/40 border">
+                      <p className="text-muted-foreground">{isEs ? "Salario mensual eq." : "Monthly eq."}</p>
+                      <p className="font-semibold">{formatCurrency(monthly)}</p>
+                    </div>
+                    <div className="p-2 rounded bg-violet-50 border border-violet-200">
+                      <p className="text-violet-700">{isEs ? "Hora normal" : "Hourly rate"}</p>
+                      <p className="font-semibold text-violet-900" data-testid="emp-hourly-rate">{formatCurrency(hourly)}</p>
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
 
             {/* Entry Mode Selection */}
@@ -650,6 +851,65 @@ export function OvertimeSection() {
               {submitting && <RefreshCw className="w-4 h-4 mr-2 animate-spin" />}
               {isEs ? "Registrar" : "Submit"}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Email Schedule Dialog */}
+      <Dialog open={emailDialogOpen} onOpenChange={setEmailDialogOpen}>
+        <DialogContent className="max-w-md" data-testid="email-schedule-dialog">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Mail className="w-4 h-4 text-violet-600" />
+              {isEs ? "Email automático del reporte" : "Auto email digest"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="flex items-start justify-between gap-3 p-3 rounded-lg bg-muted/40 border">
+              <div className="flex-1">
+                <p className="text-sm font-medium">{isEs ? "Activar envío automático" : "Enable auto-send"}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {isEs ? "Recibe el reporte de horas extras por email automáticamente." : "Receive the OT report automatically by email."}
+                </p>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={emailSchedule.enabled}
+                onClick={() => setEmailSchedule({ ...emailSchedule, enabled: !emailSchedule.enabled })}
+                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${emailSchedule.enabled ? "bg-violet-600" : "bg-muted"}`}
+                data-testid="email-enabled-toggle"
+              >
+                <span className={`inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${emailSchedule.enabled ? "translate-x-5" : "translate-x-0"}`} />
+              </button>
+            </div>
+            <div>
+              <label className="text-sm font-medium">{isEs ? "Frecuencia" : "Frequency"}</label>
+              <Select value={emailSchedule.frequency} onValueChange={(v) => setEmailSchedule({ ...emailSchedule, frequency: v })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="weekly">{isEs ? "Semanal (cada lunes 8:30am)" : "Weekly (every Mon 8:30am)"}</SelectItem>
+                  <SelectItem value="biweekly">{isEs ? "Quincenal (Lun 1 y 3 del mes)" : "Biweekly (Mon weeks 1 & 3)"}</SelectItem>
+                  <SelectItem value="monthly">{isEs ? "Mensual (primer Lun del mes)" : "Monthly (first Mon of month)"}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-sm font-medium">
+                {isEs ? "Destinatarios" : "Recipients"}
+                <span className="text-xs text-muted-foreground ml-2">{isEs ? "(separados por coma. Si vacío, se envía a admins)" : "(comma-separated. Empty = company admins)"}</span>
+              </label>
+              <Input
+                placeholder="hr@empresa.com, admin@empresa.com"
+                value={emailSchedule.recipients.join(", ")}
+                onChange={(e) => setEmailSchedule({ ...emailSchedule, recipients: e.target.value.split(",").map(s => s.trim()).filter(Boolean) })}
+                data-testid="email-recipients"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEmailDialogOpen(false)}>{isEs ? "Cancelar" : "Cancel"}</Button>
+            <Button onClick={saveEmailSchedule} data-testid="save-email-schedule">{isEs ? "Guardar" : "Save"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

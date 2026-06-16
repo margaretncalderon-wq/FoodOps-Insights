@@ -4,7 +4,7 @@ Scheduler: jobs que corren periódicamente.
 """
 import logging
 import os
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -195,6 +195,118 @@ async def _send_culinary_digests():
         logger.info(f"[scheduler] culinary-digest hourly tick: sent={sent} skipped={skipped}")
 
 
+async def _send_overtime_digests():
+    """Send OT digest emails. Runs every Monday 8am.
+    Determines per-company frequency and skips if not due."""
+    try:
+        from routers.people_ops import overtime_report
+        from utils.email_sender import send_email
+        from datetime import date as date_cls
+        
+        schedules = await db.ot_email_schedule.find({"enabled": True}, {"_id": 0}).to_list(500)
+        today = date_cls.today()
+        
+        for sched in schedules:
+            try:
+                freq = sched.get("frequency", "biweekly")
+                # Decide whether to send today
+                # weekly → every Monday
+                # biweekly → Mondays of weeks 1 and 3 of month (days 1-7 and 15-21)
+                # monthly → Monday closest to 1st of month
+                should_send = False
+                if freq == "weekly":
+                    should_send = True
+                elif freq == "biweekly":
+                    should_send = today.day <= 7 or 15 <= today.day <= 21
+                elif freq == "monthly":
+                    should_send = today.day <= 7
+                if not should_send:
+                    continue
+                
+                company_id = sched["company_id"]
+                recipients = sched.get("recipients") or []
+                if not recipients:
+                    # default: company admins
+                    admins = await db.users.find(
+                        {"company_id": company_id, "role": {"$in": ["owner", "admin", "hr"]}, "email": {"$exists": True}},
+                        {"_id": 0, "email": 1}
+                    ).to_list(20)
+                    recipients = [a["email"] for a in admins if a.get("email")]
+                if not recipients:
+                    continue
+                
+                # Fake a User object for the call
+                admin = await db.users.find_one(
+                    {"company_id": company_id, "role": {"$in": ["owner", "admin", "hr"]}},
+                    {"_id": 0, "user_id": 1, "company_id": 1, "role": 1, "email": 1, "name": 1, "created_at": 1},
+                )
+                if not admin:
+                    continue
+                admin.setdefault("created_at", datetime.now(timezone.utc))
+                admin.setdefault("name", admin.get("email", "scheduler"))
+                from models.auth import User
+                user_obj = User(**admin)
+                
+                # Get the previous period
+                if freq == "weekly":
+                    ref_date = (today - timedelta(days=7)).isoformat()
+                elif freq == "biweekly":
+                    ref_date = (today - timedelta(days=14)).isoformat()
+                else:
+                    ref_date = (today.replace(day=1) - timedelta(days=1)).isoformat()
+                
+                report = await overtime_report(period=freq, date=ref_date, status=None, user=user_obj)
+                
+                if not report.get("rows"):
+                    continue
+                
+                # Build a simple HTML email
+                rows_html = ""
+                for r in report["rows"]:
+                    rows_html += f"""
+                    <tr>
+                        <td style="padding:8px;border:1px solid #ddd">{r.get('employee_name', '-')}</td>
+                        <td style="padding:8px;border:1px solid #ddd;text-align:right">{r.get('total_hours', 0)}h</td>
+                        <td style="padding:8px;border:1px solid #ddd;text-align:right">RD${r.get('estimated_amount', 0):,.2f}</td>
+                    </tr>"""
+                
+                t = report["totals"]
+                html = f"""
+                <h2 style="color:#6D28D9">Reporte de Horas Extras — {report['label']}</h2>
+                <p><strong>Rango:</strong> {report['start_date']} → {report['end_date']}</p>
+                <p><strong>Total empleados con OT:</strong> {t.get('employees', 0)}<br>
+                <strong>Total horas:</strong> {t.get('total_hours', 0)}<br>
+                <strong>Total estimado:</strong> RD${t.get('estimated_amount', 0):,.2f}</p>
+                <table style="border-collapse:collapse;width:100%;margin-top:16px">
+                    <thead>
+                        <tr style="background:#6D28D9;color:white">
+                            <th style="padding:8px;text-align:left">Empleado</th>
+                            <th style="padding:8px;text-align:right">Horas</th>
+                            <th style="padding:8px;text-align:right">Monto</th>
+                        </tr>
+                    </thead>
+                    <tbody>{rows_html}</tbody>
+                </table>
+                <p style="color:#666;font-size:12px;margin-top:24px">Generado automáticamente por Kora OS · People Ops</p>
+                """
+                
+                subject = f"[Kora OS] Reporte HE — {report['label']}"
+                try:
+                    for rec in recipients:
+                        send_email(rec, subject, html)
+                except Exception as ex:
+                    logger.warning(f"[scheduler] OT digest email failed: {ex}")
+                
+                await db.ot_email_schedule.update_one(
+                    {"company_id": company_id},
+                    {"$set": {"last_sent_at": datetime.now(timezone.utc).isoformat()}}
+                )
+            except Exception as e:
+                logger.exception(f"[scheduler] OT digest per-company failed: {e}")
+    except Exception as e:
+        logger.exception(f"[scheduler] OT digests dispatch failed: {e}")
+
+
 def start_scheduler():
     """Initialize and start the global scheduler (idempotent)."""
     global _scheduler
@@ -232,6 +344,14 @@ def start_scheduler():
         id="culinary_digest_dispatcher",
         replace_existing=True,
         misfire_grace_time=600,
+    )
+    # Monday 8:30am — OT digest emails (weekly/biweekly/monthly per company prefs)
+    _scheduler.add_job(
+        _send_overtime_digests,
+        trigger=CronTrigger(day_of_week="mon", hour=8, minute=30),
+        id="ot_digest_dispatcher",
+        replace_existing=True,
+        misfire_grace_time=3600,
     )
     _scheduler.start()
     logger.info(f"[scheduler] started in tz={tz} — jobs: {[j.id for j in _scheduler.get_jobs()]}")

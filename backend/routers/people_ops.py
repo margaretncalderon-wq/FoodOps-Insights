@@ -2,7 +2,7 @@
 from fastapi import APIRouter, HTTPException, Depends, Request
 from fastapi.responses import StreamingResponse
 from typing import Optional, List
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import uuid
 import csv
 import io
@@ -2871,6 +2871,308 @@ async def get_pending_overtime_in_range(
         "total_ot_count": len(ots),
         "total_estimated_amount": round(sum(o.get("estimated_amount") or 0 for o in ots), 2),
     }
+
+
+def _ot_period_range(period: str, ref_date: str) -> tuple[str, str, str]:
+    """Returns (start, end, label) for an OT report period.
+    period: 'weekly' (Mon-Sun containing ref_date) | 'biweekly' (1-15 or 16-end of ref_date's month) | 'monthly'"""
+    from datetime import date as date_cls
+    try:
+        ref = date_cls.fromisoformat(ref_date)
+    except ValueError:
+        ref = date_cls.today()
+    
+    if period == "weekly":
+        start = ref - timedelta(days=ref.weekday())  # Monday
+        end = start + timedelta(days=6)
+        label = f"Semana {start.isoformat()} → {end.isoformat()}"
+    elif period == "biweekly":
+        if ref.day <= 15:
+            start = ref.replace(day=1)
+            end = ref.replace(day=15)
+            label = f"Quincena 1 - {ref.strftime('%B %Y')}"
+        else:
+            from calendar import monthrange
+            start = ref.replace(day=16)
+            end = ref.replace(day=monthrange(ref.year, ref.month)[1])
+            label = f"Quincena 2 - {ref.strftime('%B %Y')}"
+    else:  # monthly
+        from calendar import monthrange
+        start = ref.replace(day=1)
+        end = ref.replace(day=monthrange(ref.year, ref.month)[1])
+        label = ref.strftime("%B %Y")
+    
+    return start.isoformat(), end.isoformat(), label
+
+
+@people_ops_router.get("/overtime/report")
+async def overtime_report(
+    period: str = "biweekly",
+    date: Optional[str] = None,
+    status: Optional[str] = None,
+    user: User = Depends(get_current_user)
+):
+    """Aggregated OT report for a period (weekly / biweekly / monthly).
+    Returns per-employee totals (hours by category + monetary amount + hourly_rate + base_salary)
+    plus grand totals."""
+    company_id, _ = await check_people_ops_access(user, "view")
+    
+    if period not in ("weekly", "biweekly", "monthly"):
+        raise HTTPException(status_code=400, detail="period must be weekly | biweekly | monthly")
+    
+    ref_date = date or datetime.now(timezone.utc).date().isoformat()
+    start_date, end_date, label = _ot_period_range(period, ref_date)
+    
+    config = await db.payroll_config.find_one({"company_id": company_id}, {"_id": 0}) or {}
+    hours_per_month = config.get("overtime_hours_per_month", 192.0) or 192.0
+    
+    query: dict = {
+        "company_id": company_id,
+        "date": {"$gte": start_date, "$lte": end_date},
+    }
+    if status:
+        query["status"] = status
+    
+    ots = await db.overtime_requests.find(query, {"_id": 0}).sort("date", 1).to_list(5000)
+    
+    # Aggregate per employee
+    by_emp: dict = {}
+    for ot in ots:
+        emp_id = ot.get("employee_id")
+        if not emp_id:
+            continue
+        acc = by_emp.setdefault(emp_id, {
+            "employee_id": emp_id,
+            "employee_name": ot.get("employee_name"),
+            "hours_35": 0.0, "hours_night": 0.0, "hours_holiday": 0.0, "hours_100": 0.0,
+            "total_hours": 0.0,
+            "estimated_amount": 0.0,
+            "ot_count": 0,
+            "ot_statuses": {"pending": 0, "approved": 0, "processed": 0, "rejected": 0},
+        })
+        acc["hours_35"] += float(ot.get("hours_35") or 0)
+        acc["hours_night"] += float(ot.get("hours_night") or 0)
+        acc["hours_holiday"] += float(ot.get("hours_holiday") or 0)
+        acc["hours_100"] += float(ot.get("hours_100") or 0)
+        acc["total_hours"] += float(ot.get("total_hours") or 0)
+        acc["estimated_amount"] += float(ot.get("estimated_amount") or 0)
+        acc["ot_count"] += 1
+        st = ot.get("status") or "pending"
+        if st in acc["ot_statuses"]:
+            acc["ot_statuses"][st] += 1
+    
+    # Decorate with salary + hourly_rate
+    emp_ids = list(by_emp.keys())
+    if emp_ids:
+        emps = await db.employees.find(
+            {"company_id": company_id, "employee_id": {"$in": emp_ids}},
+            {"_id": 0, "employee_id": 1, "base_salary": 1, "payment_frequency": 1}
+        ).to_list(500)
+        for e in emps:
+            row = by_emp.get(e["employee_id"])
+            if not row:
+                continue
+            base = float(e.get("base_salary") or 0)
+            freq = e.get("payment_frequency", "biweekly")
+            monthly = base if freq == "monthly" else (base * 2 if freq == "biweekly" else base * 4)
+            row["base_salary"] = round(base, 2)
+            row["monthly_salary_eq"] = round(monthly, 2)
+            row["hourly_rate"] = round((monthly / hours_per_month) if hours_per_month else 0, 2)
+    
+    # Round all values
+    rows = []
+    for r in by_emp.values():
+        rows.append({
+            **r,
+            "hours_35": round(r["hours_35"], 2),
+            "hours_night": round(r["hours_night"], 2),
+            "hours_holiday": round(r["hours_holiday"], 2),
+            "hours_100": round(r["hours_100"], 2),
+            "total_hours": round(r["total_hours"], 2),
+            "estimated_amount": round(r["estimated_amount"], 2),
+        })
+    rows.sort(key=lambda r: -r["estimated_amount"])
+    
+    return {
+        "period": period,
+        "label": label,
+        "start_date": start_date,
+        "end_date": end_date,
+        "rows": rows,
+        "totals": {
+            "ot_count": len(ots),
+            "employees": len(rows),
+            "hours_35": round(sum(r["hours_35"] for r in rows), 2),
+            "hours_night": round(sum(r["hours_night"] for r in rows), 2),
+            "hours_holiday": round(sum(r["hours_holiday"] for r in rows), 2),
+            "hours_100": round(sum(r["hours_100"] for r in rows), 2),
+            "total_hours": round(sum(r["total_hours"] for r in rows), 2),
+            "estimated_amount": round(sum(r["estimated_amount"] for r in rows), 2),
+        }
+    }
+
+
+@people_ops_router.get("/overtime/report/export")
+async def overtime_report_export(
+    period: str = "biweekly",
+    date: Optional[str] = None,
+    format: str = "csv",
+    user: User = Depends(get_current_user)
+):
+    """Export OT report as CSV or XLSX."""
+    report = await overtime_report(period=period, date=date, status=None, user=user)
+    
+    if format == "xlsx":
+        try:
+            from openpyxl import Workbook
+            from openpyxl.styles import Font, PatternFill, Alignment
+        except ImportError:
+            raise HTTPException(status_code=500, detail="openpyxl not installed")
+        
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Reporte HE"
+        
+        # Header rows
+        ws.append([f"Reporte de Horas Extras — {report['label']}"])
+        ws.append([f"Rango: {report['start_date']} a {report['end_date']}"])
+        ws.append([])
+        
+        headers = ["Empleado", "Salario Base", "Hora Normal", "Horas 35%", "Horas Nocturnas 15%",
+                   "Horas Feriado 100%", "Horas Extra 100%", "Total Horas", "Monto Estimado",
+                   "Solicitudes", "Aprobadas"]
+        ws.append(headers)
+        header_font = Font(bold=True, color="FFFFFF")
+        header_fill = PatternFill("solid", fgColor="6D28D9")
+        for cell in ws[4]:
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.alignment = Alignment(horizontal="center")
+        
+        for r in report["rows"]:
+            ws.append([
+                r.get("employee_name", "-"),
+                r.get("base_salary", 0),
+                r.get("hourly_rate", 0),
+                r.get("hours_35", 0),
+                r.get("hours_night", 0),
+                r.get("hours_holiday", 0),
+                r.get("hours_100", 0),
+                r.get("total_hours", 0),
+                r.get("estimated_amount", 0),
+                r.get("ot_count", 0),
+                r.get("ot_statuses", {}).get("approved", 0) + r.get("ot_statuses", {}).get("processed", 0),
+            ])
+        
+        # Totals row
+        t = report["totals"]
+        ws.append([])
+        ws.append(["TOTALES", "", "", t.get("hours_35", 0), t.get("hours_night", 0),
+                  t.get("hours_holiday", 0), t.get("hours_100", 0),
+                  t.get("total_hours", 0), t.get("estimated_amount", 0), t.get("ot_count", 0), ""])
+        for cell in ws[ws.max_row]:
+            cell.font = Font(bold=True)
+        
+        # Column widths
+        for col_letter, width in zip("ABCDEFGHIJK", [28, 14, 14, 12, 14, 14, 14, 12, 16, 12, 10]):
+            ws.column_dimensions[col_letter].width = width
+        
+        import io
+        buffer = io.BytesIO()
+        wb.save(buffer)
+        buffer.seek(0)
+        
+        from fastapi.responses import StreamingResponse
+        return StreamingResponse(
+            buffer,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": f'attachment; filename="OT_Report_{report["start_date"]}_to_{report["end_date"]}.xlsx"'}
+        )
+    
+    # Default: CSV
+    import io, csv
+    buffer = io.StringIO()
+    writer = csv.writer(buffer)
+    writer.writerow([f"Reporte de Horas Extras — {report['label']}"])
+    writer.writerow([f"Rango: {report['start_date']} a {report['end_date']}"])
+    writer.writerow([])
+    writer.writerow(["Empleado", "Salario Base", "Hora Normal", "Horas 35%", "Horas Nocturnas 15%",
+                    "Horas Feriado 100%", "Horas Extra 100%", "Total Horas", "Monto Estimado",
+                    "Solicitudes", "Aprobadas+Procesadas"])
+    for r in report["rows"]:
+        writer.writerow([
+            r.get("employee_name", "-"),
+            r.get("base_salary", 0),
+            r.get("hourly_rate", 0),
+            r.get("hours_35", 0),
+            r.get("hours_night", 0),
+            r.get("hours_holiday", 0),
+            r.get("hours_100", 0),
+            r.get("total_hours", 0),
+            r.get("estimated_amount", 0),
+            r.get("ot_count", 0),
+            r.get("ot_statuses", {}).get("approved", 0) + r.get("ot_statuses", {}).get("processed", 0),
+        ])
+    t = report["totals"]
+    writer.writerow([])
+    writer.writerow(["TOTALES", "", "", t.get("hours_35", 0), t.get("hours_night", 0),
+                    t.get("hours_holiday", 0), t.get("hours_100", 0), t.get("total_hours", 0),
+                    t.get("estimated_amount", 0), t.get("ot_count", 0), ""])
+    
+    csv_data = buffer.getvalue()
+    buffer.close()
+    
+    from fastapi.responses import Response
+    return Response(
+        content=csv_data,
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="OT_Report_{report["start_date"]}_to_{report["end_date"]}.csv"'}
+    )
+
+
+@people_ops_router.get("/overtime/email-schedule")
+async def get_ot_email_schedule(user: User = Depends(get_current_user)):
+    """Get current OT email digest schedule settings."""
+    company_id, _ = await check_people_ops_access(user, "view")
+    config = await db.ot_email_schedule.find_one({"company_id": company_id}, {"_id": 0})
+    if not config:
+        return {
+            "company_id": company_id,
+            "enabled": False,
+            "frequency": "biweekly",  # weekly | biweekly | monthly
+            "recipients": [],
+            "last_sent_at": None,
+        }
+    return config
+
+
+@people_ops_router.put("/overtime/email-schedule")
+async def update_ot_email_schedule(data: dict, user: User = Depends(get_current_user)):
+    """Update OT email digest schedule settings."""
+    company_id, _ = await check_people_ops_access(user, "edit")
+    
+    frequency = data.get("frequency", "biweekly")
+    if frequency not in ("weekly", "biweekly", "monthly"):
+        raise HTTPException(status_code=400, detail="frequency must be weekly | biweekly | monthly")
+    
+    recipients = data.get("recipients") or []
+    if not isinstance(recipients, list):
+        raise HTTPException(status_code=400, detail="recipients must be a list of emails")
+    
+    update_data = {
+        "company_id": company_id,
+        "enabled": bool(data.get("enabled", False)),
+        "frequency": frequency,
+        "recipients": [str(e).strip() for e in recipients if e],
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+        "updated_by": user.user_id,
+    }
+    await db.ot_email_schedule.update_one(
+        {"company_id": company_id},
+        {"$set": update_data},
+        upsert=True
+    )
+    return update_data
 
 
 @people_ops_router.post("/overtime/requests/{overtime_id}/approve")
