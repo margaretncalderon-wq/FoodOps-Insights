@@ -1240,7 +1240,6 @@ async def get_employee(
     return employee
 
 
-@people_ops_router.post("/employees")
 @people_ops_router.post("/employees/migrate-currency")
 async def migrate_employee_currency(user: User = Depends(get_current_user)):
     """One-shot migration: replace currency 'USD' (default placeholder) on employees with

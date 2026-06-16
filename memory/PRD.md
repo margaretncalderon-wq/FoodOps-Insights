@@ -1,5 +1,30 @@
 # Kora OS — Product Requirements Document
 
+## People Ops — Company Currency Propagation (Feb 18, 2026)
+
+**Status:** ✅ Complete (Backend 6/6 pytest, Frontend 100%).
+
+### Fix
+Before: People Ops mostraba USD aunque la empresa estuviera configurada en DOP. La causa raíz: `EmployeeUpdate` no tenía el campo `currency`, así que cualquier update no persistía. Adicionalmente, `EmployeeCreate.currency` defaulteaba a "USD" hardcoded, y los componentes UI usaban "USD" como fallback estático.
+
+### Changes
+- **Backend:**
+  - `EmployeeCreate.currency: Optional[str] = None` → si vacío, backend resuelve a `company.currency`
+  - `EmployeeUpdate.currency: Optional[str] = None` → ahora SÍ persiste el cambio
+  - `GET /api/org-config` agrega `company_currency` y `company_timezone` (overlay desde `companies` collection, source of truth)
+  - Nuevo endpoint `POST /api/people-ops/employees/migrate-currency` (one-shot) actualiza empleados con USD → company.currency
+- **Frontend:**
+  - `OrgConfigContext` expone `companyCurrency` y `companyTimezone`
+  - Nuevo hook `useCurrencyFormatter()` en `/app/frontend/src/hooks/useCurrencyFormatter.js`
+  - 5 componentes migrados: `OvertimeSection`, `PayrollSection`, `PayrollPeriodView`, `MonthEndClosingSection`, `EmployeeProfile`
+  - Soporta 30+ códigos de moneda con locale apropiado (DOP→es-DO con RD$, MXN→es-MX, etc.)
+
+### Test report
+- `/app/backend/tests/test_people_ops_currency.py` (6 ✅)
+- `/app/test_reports/iteration_189.json`
+
+---
+
 ## People Ops — OT Period Reports + Auto Email Digest (Feb 18, 2026)
 
 **Status:** ✅ Complete (Backend 12/12 pytest, Frontend 100% testing agent).
