@@ -5,6 +5,7 @@ import axios from "axios";
 import { toast } from "sonner";
 import { Layout } from "../components/Layout";
 import EFacturaSection from "./business-clarity/EFacturaSection";
+import { MonthEndClosingSection as PersonnelMonthEndSection } from "../components/people-ops/MonthEndClosingSection";
 
 // Refactored Section Components
 import {
@@ -37,7 +38,7 @@ import {
   UserCircle, Landmark, FileBarChart, Target, Lock,
   Briefcase, BarChart3, Users, Building2, ChevronDown,
   ShoppingCart, Wallet, ArrowRightLeft, PiggyBank, Receipt,
-  CreditCard, Clock, FileCheck, Calculator, Upload, FileSignature
+  CreditCard, Clock, FileCheck, Calculator, Upload, FileSignature, FileSpreadsheet
 } from "lucide-react";
 import { Badge } from "../components/ui/badge";
 import {
@@ -288,20 +289,36 @@ export default function BusinessClarityPage() {
               {isEs ? "Flujo de Caja" : "Cash Flow"}
             </NavLink>
 
-            {/* Close - Direct Link */}
-            <NavLink
-              to="/business-clarity/close"
-              className={({ isActive }) =>
-                `flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
-                  isActive
-                    ? "border-emerald-600 text-emerald-600"
-                    : "border-transparent text-muted-foreground hover:text-foreground hover:border-muted"
-                }`
-              }
-            >
-              <Lock className="w-4 h-4" />
-              {isEs ? "Cierre" : "Close"}
-            </NavLink>
+            {/* Close - Dropdown (Financial Close + Personnel Month-End) */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+                    location.pathname === "/business-clarity/close" || location.pathname === "/business-clarity/personnel-close"
+                      ? "border-emerald-600 text-emerald-600"
+                      : "border-transparent text-muted-foreground hover:text-foreground hover:border-muted"
+                  }`}
+                  data-testid="close-dropdown"
+                >
+                  <Lock className="w-4 h-4" />
+                  {isEs ? "Cierre" : "Close"}
+                  <ChevronDown className="w-3 h-3" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-56">
+                <DropdownMenuItem onClick={() => navigate("/business-clarity/close")}>
+                  <Calculator className="w-4 h-4 mr-2" />
+                  {isEs ? "Financiero (Período)" : "Financial (Period)"}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => navigate("/business-clarity/personnel-close")}
+                  data-testid="nav-personnel-close"
+                >
+                  <FileSpreadsheet className="w-4 h-4 mr-2" />
+                  {isEs ? "Personal (Incentivos + Extras)" : "Personnel (Incentives + Extras)"}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
 
             {/* E-Invoicing - Only shown when the module is enabled for the org. */}
             {eFacturaEnabled && (
@@ -341,6 +358,7 @@ export default function BusinessClarityPage() {
           <Route path="sales-reports" element={<SalesReportsSection />} />
           <Route path="admin-reports" element={<AdminReportsSection />} />
           <Route path="close" element={<CloseReconciliationSection />} />
+          <Route path="personnel-close" element={<PersonnelMonthEndSection />} />
           <Route path="reports" element={<ReportsSection />} />
           <Route path="accounting-queue" element={<AccountingQueueSection />} />
           <Route path="accounting-dashboard" element={<AccountingDashboard />} />

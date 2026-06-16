@@ -17,3 +17,4 @@ export { RecruitmentSection } from './RecruitmentSection';
 export { OnboardingSection } from './OnboardingSection';
 export { PerformanceSection } from './PerformanceSection';
 export { OrgChartSection } from './OrgChartSection';
+export { MonthEndClosingSection } from './MonthEndClosingSection';

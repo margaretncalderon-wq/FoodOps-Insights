@@ -23527,6 +23527,9 @@ api_router.include_router(integrations_admin_router, prefix="/super-admin")  # /
 from routers.google_calendar import router as google_calendar_router
 api_router.include_router(google_calendar_router)  # /api/oauth/calendar/*
 
+from routers.month_end_closing import router as month_end_router
+app.include_router(month_end_router)  # /api/people-ops/month-end/*
+
 # Include Comms router (Kora Comms - omnichannel messaging)
 from routers.comms import comms_router
 api_router.include_router(comms_router)  # /api/comms/*

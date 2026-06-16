@@ -20,6 +20,7 @@ import { RecruitmentSection } from "../components/people-ops/RecruitmentSection"
 import { OnboardingSection } from "../components/people-ops/OnboardingSection";
 import { PerformanceSection } from "../components/people-ops/PerformanceSection";
 import { OrgChartSection } from "../components/people-ops/OrgChartSection";
+import { MonthEndClosingSection } from "../components/people-ops/MonthEndClosingSection";
 
 // Icons
 import {
@@ -69,6 +70,7 @@ export default function PeopleOpsPage() {
     "/people-ops/payroll": "payroll",
     "/people-ops/variable-pay": "variable-pay",
     "/people-ops/payroll-config": "payroll-config",
+    "/people-ops/month-end": "month-end",
     "/people-ops/time-off": "time-off",
     "/people-ops/overtime": "overtime",
     "/people-ops/loans": "loans",
@@ -214,7 +216,7 @@ export default function PeopleOpsPage() {
                 <DropdownMenuTrigger asChild>
                   <button 
                     className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
-                      isGroupActive(["payroll", "variable-pay", "payroll-config"])
+                      isGroupActive(["payroll", "variable-pay", "payroll-config", "month-end"])
                         ? "border-violet-600 text-violet-600"
                         : "border-transparent text-muted-foreground hover:text-foreground hover:border-muted"
                     }`}
@@ -246,6 +248,14 @@ export default function PeopleOpsPage() {
                   >
                     <Settings className="w-4 h-4 mr-2" />
                     {isEs ? "Configuración" : "Config"}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem 
+                    onClick={() => handleTabChange("month-end", "/people-ops/month-end")}
+                    className={activeTab === "month-end" ? "bg-violet-50 text-violet-700" : ""}
+                    data-testid="nav-month-end"
+                  >
+                    <FileSpreadsheet className="w-4 h-4 mr-2" />
+                    {isEs ? "Cierre de Mes" : "Month-End Closing"}
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -415,6 +425,7 @@ export default function PeopleOpsPage() {
           <Route path="recruitment" element={<RecruitmentSection />} />
           <Route path="onboarding" element={<OnboardingSection />} />
           <Route path="performance" element={<PerformanceSection />} />
+          <Route path="month-end" element={<MonthEndClosingSection />} />
         </Routes>
       </div>
     </Layout>
