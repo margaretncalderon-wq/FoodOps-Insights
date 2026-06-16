@@ -386,6 +386,35 @@ export function EmployeeProfile() {
                         </SelectContent>
                       </Select>
                     </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-sm text-muted-foreground">{isEs ? "Fecha de Ingreso" : "Hire Date"}</label>
+                        <Input
+                          type="date"
+                          data-testid="edit-hire-date"
+                          value={editData.hire_date || ""}
+                          onChange={(e) => setEditData({ ...editData, hire_date: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <label className="text-sm text-muted-foreground">{isEs ? "Tipo de Contrato" : "Contract Type"}</label>
+                        <Select
+                          value={editData.contract_type || "full_time"}
+                          onValueChange={(v) => setEditData({ ...editData, contract_type: v })}
+                        >
+                          <SelectTrigger data-testid="edit-contract-type">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="full_time">{isEs ? "Tiempo Completo" : "Full Time"}</SelectItem>
+                            <SelectItem value="part_time">{isEs ? "Medio Tiempo" : "Part Time"}</SelectItem>
+                            <SelectItem value="contract">{isEs ? "Contrato" : "Contract"}</SelectItem>
+                            <SelectItem value="freelance">Freelance</SelectItem>
+                            <SelectItem value="intern">{isEs ? "Pasante" : "Intern"}</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
                     <div className="flex items-center gap-3 p-3 bg-violet-50 rounded-lg border border-violet-100">
                       <input
                         type="checkbox"

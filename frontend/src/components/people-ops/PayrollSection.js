@@ -32,11 +32,12 @@ import {
 import {
   Wallet, Plus, Calendar, Users, DollarSign, 
   RefreshCw, Settings, FileText, ChevronRight,
-  CheckCircle, Clock, AlertCircle, Ban
+  CheckCircle, Clock, AlertCircle, Ban, Zap
 } from "lucide-react";
 
 import { API_BASE as API } from "../../utils/api";
 import { VariablePayWidget } from "./VariablePayWidget";
+import { Switch } from "../ui/switch";
 
 const formatCurrency = (amount) => 
   `$${(amount || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -89,11 +90,15 @@ export function PayrollSection() {
   const [newPeriod, setNewPeriod] = useState({
     period_name: "",
     period_type: "biweekly",
+    payment_kind: "regular",   // "regular" | "overtime_only"
+    auto_include_overtime: true,
     start_date: "",
     end_date: "",
     payment_date: "",
     notes: ""
   });
+  const [otPreview, setOtPreview] = useState(null);  // pending OT summary for the date range
+  const [fieldErrors, setFieldErrors] = useState({});
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -112,78 +117,129 @@ export function PayrollSection() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  // Auto-generate period name
-  const generatePeriodName = (startDate, periodType) => {
+  // Helper to build a fresh period_name from current state (used as fallback on submit)
+  const computePeriodName = (startDate, periodType, paymentKind) => {
     if (!startDate) return "";
-    const date = new Date(startDate);
+    // Parse YYYY-MM-DD as LOCAL (avoid UTC shift)
+    const [y, m, d] = startDate.split("-").map(Number);
+    if (!y || !m || !d) return "";
+    const date = new Date(y, m - 1, d);
     const month = date.toLocaleString(isEs ? "es" : "en", { month: "long" });
-    const year = date.getFullYear();
-    const day = date.getDate();
-    
+    const monthCap = month.charAt(0).toUpperCase() + month.slice(1);
+    const isOT = paymentKind === "overtime_only";
     if (periodType === "biweekly") {
-      const half = day <= 15 ? "1" : "2";
-      return isEs ? `Quincena ${half} - ${month} ${year}` : `Payroll ${half} - ${month} ${year}`;
+      const half = d <= 15 ? "1" : "2";
+      const prefix = isOT ? (isEs ? "Horas Extras" : "Overtime") : (isEs ? "Quincena" : "Payroll");
+      return `${prefix} ${half} - ${monthCap} ${y}`;
     } else if (periodType === "monthly") {
-      return isEs ? `Nómina ${month} ${year}` : `Payroll ${month} ${year}`;
+      const prefix = isOT ? (isEs ? "Horas Extras" : "Overtime") : (isEs ? "Nómina" : "Payroll");
+      return `${prefix} ${monthCap} ${y}`;
     }
-    return `${month} ${year}`;
+    return `${monthCap} ${y}`;
   };
-
-  // Auto-fill dates based on period type
+  
+  // Auto-fill dates based on period type (locale-safe parsing)
   const handleStartDateChange = (value) => {
-    const startDate = new Date(value);
+    if (!value) {
+      setNewPeriod({ ...newPeriod, start_date: "", end_date: "", payment_date: "", period_name: "" });
+      return;
+    }
+    const [y, m, d] = value.split("-").map(Number);
+    const startDate = new Date(y, m - 1, d);
     let endDate, paymentDate;
     
     if (newPeriod.period_type === "biweekly") {
-      const day = startDate.getDate();
-      if (day === 1) {
-        endDate = new Date(startDate.getFullYear(), startDate.getMonth(), 15);
-        paymentDate = new Date(startDate.getFullYear(), startDate.getMonth(), 15);
-      } else if (day === 16) {
-        endDate = new Date(startDate.getFullYear(), startDate.getMonth() + 1, 0); // Last day of month
-        paymentDate = new Date(startDate.getFullYear(), startDate.getMonth() + 1, 0);
+      if (d === 1) {
+        endDate = new Date(y, m - 1, 15);
+        paymentDate = new Date(y, m - 1, 15);
+      } else if (d === 16) {
+        endDate = new Date(y, m, 0); // Last day of month
+        paymentDate = new Date(y, m, 0);
       } else {
         endDate = new Date(startDate);
         endDate.setDate(endDate.getDate() + 14);
         paymentDate = new Date(endDate);
       }
+    } else if (newPeriod.period_type === "weekly") {
+      endDate = new Date(startDate);
+      endDate.setDate(endDate.getDate() + 6);
+      paymentDate = new Date(endDate);
     } else {
-      endDate = new Date(startDate.getFullYear(), startDate.getMonth() + 1, 0);
+      endDate = new Date(y, m, 0); // Last day of month
       paymentDate = new Date(endDate);
     }
     
+    const toISO = (dt) => `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
     setNewPeriod({
       ...newPeriod,
       start_date: value,
-      end_date: endDate.toISOString().split("T")[0],
-      payment_date: paymentDate.toISOString().split("T")[0],
-      period_name: generatePeriodName(value, newPeriod.period_type)
+      end_date: toISO(endDate),
+      payment_date: toISO(paymentDate),
+      period_name: computePeriodName(value, newPeriod.period_type, newPeriod.payment_kind)
     });
   };
+  
+  // Fetch OT preview whenever the date range opens / changes
+  useEffect(() => {
+    let cancelled = false;
+    if (!dialogOpen || !newPeriod.start_date || !newPeriod.end_date) {
+      setOtPreview(null);
+      return;
+    }
+    (async () => {
+      try {
+        const res = await axios.get(
+          `${API}/api/people-ops/overtime/pending-in-range?start_date=${newPeriod.start_date}&end_date=${newPeriod.end_date}`,
+          { withCredentials: true }
+        );
+        if (!cancelled) setOtPreview(res.data);
+      } catch (err) {
+        if (!cancelled) setOtPreview(null);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [dialogOpen, newPeriod.start_date, newPeriod.end_date]);
 
   const handleCreatePeriod = async () => {
-    if (!newPeriod.period_name || !newPeriod.start_date || !newPeriod.end_date || !newPeriod.payment_date) {
-      alert(isEs ? "Completa todos los campos requeridos" : "Complete all required fields");
+    setFieldErrors({});
+    
+    // Build the payload with autofill fallbacks (defensive: handles users typing manually
+    // without triggering handleStartDateChange)
+    const payload = { ...newPeriod };
+    const errors = {};
+    
+    if (!payload.start_date) errors.start_date = isEs ? "Requerido" : "Required";
+    if (!payload.end_date) errors.end_date = isEs ? "Requerido" : "Required";
+    if (!payload.payment_date) errors.payment_date = isEs ? "Requerido" : "Required";
+    
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
       return;
+    }
+    
+    // Auto-generate period_name if blank
+    if (!payload.period_name || !payload.period_name.trim()) {
+      payload.period_name = computePeriodName(payload.start_date, payload.period_type, payload.payment_kind);
     }
     
     setCreating(true);
     try {
       const res = await axios.post(
         `${API}/api/people-ops/payroll/periods`,
-        newPeriod,
+        payload,
         { withCredentials: true }
       );
       setDialogOpen(false);
       setNewPeriod({
-        period_name: "", period_type: "biweekly",
+        period_name: "", period_type: "biweekly", payment_kind: "regular",
+        auto_include_overtime: true,
         start_date: "", end_date: "", payment_date: "", notes: ""
       });
-      // Navigate to the new period
+      setOtPreview(null);
       navigate(`/people-ops/payroll/${res.data.period_id}`);
     } catch (err) {
       console.error("Error creating period:", err);
-      alert(err.response?.data?.detail || "Error creating payroll period");
+      alert(err.response?.data?.detail || (isEs ? "Error al crear período" : "Error creating payroll period"));
     }
     setCreating(false);
   };
@@ -357,25 +413,46 @@ export function PayrollSection() {
       </Card>
 
       {/* New Period Dialog */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-lg">
+      <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) setFieldErrors({}); }}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {isEs ? "Crear Nueva Nómina" : "Create New Payroll"}
             </DialogTitle>
             <DialogDescription>
-              {isEs 
-                ? "Se generarán automáticamente las entradas para todos los empleados activos." 
-                : "Entries will be automatically generated for all active employees."}
+              {newPeriod.payment_kind === "overtime_only"
+                ? (isEs ? "Período exclusivo para pagar horas extras aprobadas." : "OT-only period: pays approved overtime, no base salary.")
+                : (isEs ? "Se generarán automáticamente las entradas para todos los empleados activos." : "Entries will be auto-generated for all active employees.")}
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-4">
+            {/* Payment Kind */}
             <div>
-              <label className="text-sm font-medium">{isEs ? "Tipo de Período" : "Period Type"}</label>
+              <label className="text-sm font-medium">{isEs ? "Tipo de Pago" : "Payment Kind"}</label>
+              <Select
+                value={newPeriod.payment_kind}
+                onValueChange={(v) => setNewPeriod({ ...newPeriod, payment_kind: v, period_name: computePeriodName(newPeriod.start_date, newPeriod.period_type, v) })}
+              >
+                <SelectTrigger data-testid="payment-kind-select">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="regular">
+                    {isEs ? "Nómina regular (salario + extras)" : "Regular payroll (salary + OT)"}
+                  </SelectItem>
+                  <SelectItem value="overtime_only">
+                    {isEs ? "Solo horas extras (período separado)" : "Overtime only (separate period)"}
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div>
+              <label className="text-sm font-medium">{isEs ? "Frecuencia" : "Frequency"}</label>
               <Select 
                 value={newPeriod.period_type} 
-                onValueChange={(v) => setNewPeriod({ ...newPeriod, period_type: v })}
+                onValueChange={(v) => setNewPeriod({ ...newPeriod, period_type: v, period_name: computePeriodName(newPeriod.start_date, v, newPeriod.payment_kind) })}
               >
                 <SelectTrigger data-testid="period-type-select">
                   <SelectValue />
@@ -394,18 +471,22 @@ export function PayrollSection() {
                 <Input
                   type="date"
                   data-testid="period-start-date"
+                  className={fieldErrors.start_date ? "border-red-500" : ""}
                   value={newPeriod.start_date}
                   onChange={(e) => handleStartDateChange(e.target.value)}
                 />
+                {fieldErrors.start_date && <p className="text-xs text-red-600 mt-1">{fieldErrors.start_date}</p>}
               </div>
               <div>
                 <label className="text-sm font-medium">{isEs ? "Fecha Fin *" : "End Date *"}</label>
                 <Input
                   type="date"
                   data-testid="period-end-date"
+                  className={fieldErrors.end_date ? "border-red-500" : ""}
                   value={newPeriod.end_date}
                   onChange={(e) => setNewPeriod({ ...newPeriod, end_date: e.target.value })}
                 />
+                {fieldErrors.end_date && <p className="text-xs text-red-600 mt-1">{fieldErrors.end_date}</p>}
               </div>
             </div>
 
@@ -414,20 +495,71 @@ export function PayrollSection() {
               <Input
                 type="date"
                 data-testid="period-payment-date"
+                className={fieldErrors.payment_date ? "border-red-500" : ""}
                 value={newPeriod.payment_date}
                 onChange={(e) => setNewPeriod({ ...newPeriod, payment_date: e.target.value })}
               />
+              {fieldErrors.payment_date && <p className="text-xs text-red-600 mt-1">{fieldErrors.payment_date}</p>}
             </div>
 
             <div>
-              <label className="text-sm font-medium">{isEs ? "Nombre del Período *" : "Period Name *"}</label>
+              <label className="text-sm font-medium">
+                {isEs ? "Nombre del Período" : "Period Name"}
+                <span className="text-xs text-muted-foreground ml-2">{isEs ? "(opcional - se autogenera)" : "(optional - auto-generated)"}</span>
+              </label>
               <Input
                 data-testid="period-name-input"
                 value={newPeriod.period_name}
                 onChange={(e) => setNewPeriod({ ...newPeriod, period_name: e.target.value })}
-                placeholder={isEs ? "Ej: Quincena 1 - Enero 2026" : "E.g.: Payroll 1 - January 2026"}
+                placeholder={computePeriodName(newPeriod.start_date, newPeriod.period_type, newPeriod.payment_kind) || (isEs ? "Ej: Quincena 1 - Enero 2026" : "E.g.: Payroll 1 - January 2026")}
               />
             </div>
+            
+            {/* OT preview + include toggle (only for regular payroll) */}
+            {newPeriod.payment_kind === "regular" && otPreview && otPreview.total_ot_count > 0 && (
+              <div className="p-3 rounded-lg border border-amber-200 bg-amber-50 space-y-2">
+                <div className="flex items-center gap-2">
+                  <Zap className="w-4 h-4 text-amber-600" />
+                  <span className="text-sm font-medium text-amber-900">
+                    {isEs ? `Horas extras aprobadas en este rango: ${otPreview.total_ot_count}` : `Approved overtime in range: ${otPreview.total_ot_count}`}
+                  </span>
+                </div>
+                <p className="text-xs text-amber-800">
+                  {isEs ? `Total estimado: ${formatCurrency(otPreview.total_estimated_amount)} · ${otPreview.summary_by_employee?.length || 0} empleado(s)` : `Estimated total: ${formatCurrency(otPreview.total_estimated_amount)} · ${otPreview.summary_by_employee?.length || 0} employee(s)`}
+                </p>
+                <div className="flex items-center justify-between pt-1 border-t border-amber-200">
+                  <span className="text-xs text-amber-900">
+                    {isEs ? "Incluir horas extras en esta nómina" : "Include overtime in this payroll"}
+                  </span>
+                  <Switch
+                    checked={newPeriod.auto_include_overtime}
+                    onCheckedChange={(v) => setNewPeriod({ ...newPeriod, auto_include_overtime: v })}
+                    data-testid="auto-include-ot-switch"
+                  />
+                </div>
+                {!newPeriod.auto_include_overtime && (
+                  <p className="text-xs text-amber-700 italic">
+                    {isEs ? "→ Estas OTs quedarán pendientes para un período separado." : "→ These OTs will remain pending for a separate period."}
+                  </p>
+                )}
+              </div>
+            )}
+            
+            {newPeriod.payment_kind === "overtime_only" && otPreview && (
+              <div className="p-3 rounded-lg border border-violet-200 bg-violet-50">
+                <div className="flex items-center gap-2 mb-1">
+                  <Zap className="w-4 h-4 text-violet-600" />
+                  <span className="text-sm font-medium text-violet-900">
+                    {isEs ? "Horas extras a pagar" : "Overtime to pay"}
+                  </span>
+                </div>
+                <p className="text-xs text-violet-800">
+                  {otPreview.total_ot_count > 0
+                    ? (isEs ? `${otPreview.summary_by_employee?.length || 0} empleado(s) · Total ${formatCurrency(otPreview.total_estimated_amount)}` : `${otPreview.summary_by_employee?.length || 0} employee(s) · Total ${formatCurrency(otPreview.total_estimated_amount)}`)
+                    : (isEs ? "Sin horas extras aprobadas en este rango." : "No approved overtime in this range.")}
+                </p>
+              </div>
+            )}
 
             <div>
               <label className="text-sm font-medium">{isEs ? "Notas (opcional)" : "Notes (optional)"}</label>

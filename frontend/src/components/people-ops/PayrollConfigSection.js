@@ -360,33 +360,92 @@ export function PayrollConfigSection() {
               <Calculator className="w-4 h-4" />
               {isEs ? "Horas Extras" : "Overtime Rates"}
             </CardTitle>
+            <p className="text-xs text-muted-foreground">
+              {isEs ? "Multiplicadores aplicados al valor hora normal. Configurables por país." : "Multipliers applied to the regular hourly rate. Country-configurable."}
+            </p>
           </CardHeader>
           <CardContent className="space-y-4">
+            {/* Country selector */}
+            <div>
+              <label className="text-sm font-medium">
+                {isEs ? "País (ISO-2)" : "Country (ISO-2)"}
+              </label>
+              <Input
+                maxLength={2}
+                value={config?.country_code || ""}
+                onChange={(e) => handleChange("country_code", e.target.value.toUpperCase())}
+                placeholder="DO, MX, CO, US, ES…"
+                data-testid="config-country-code"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                {isEs ? "Define defaults legales. DO=Rep. Dominicana, MX=México, CO=Colombia." : "Sets legal defaults. DO=Dominican Rep, MX=Mexico, CO=Colombia."}
+              </p>
+            </div>
+            
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="text-sm font-medium">
-                  {isEs ? "Tasa Normal (35%)" : "Normal Rate (35%)"}
+                  {isEs ? "Hora Normal (35%)" : "Normal OT (35%)"}
                 </label>
                 <Input
-                  type="number"
-                  step="0.01"
+                  type="number" step="0.01"
                   value={config?.overtime_rate_35 || 1.35}
                   onChange={(e) => handleChange("overtime_rate_35", parseFloat(e.target.value) || 1.35)}
+                  data-testid="rate-35"
                 />
-                <p className="text-xs text-muted-foreground mt-1">{isEs ? "Multiplicador: 1.35x" : "Multiplier: 1.35x"}</p>
+                <p className="text-xs text-muted-foreground mt-1">{isEs ? "Recargo después de la jornada normal" : "After regular shift"}</p>
               </div>
               <div>
                 <label className="text-sm font-medium">
-                  {isEs ? "Tasa Nocturna/Feriado (100%)" : "Night/Holiday Rate (100%)"}
+                  {isEs ? "Trabajo Nocturno (15%)" : "Night Shift (15%)"}
                 </label>
                 <Input
-                  type="number"
-                  step="0.01"
+                  type="number" step="0.01"
+                  value={config?.overtime_rate_night || 1.15}
+                  onChange={(e) => handleChange("overtime_rate_night", parseFloat(e.target.value) || 1.15)}
+                  data-testid="rate-night"
+                />
+                <p className="text-xs text-muted-foreground mt-1">{isEs ? "Horario 9pm – 7am" : "9pm – 7am shifts"}</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium">
+                  {isEs ? "Feriado / Domingo (100%)" : "Holiday / Sunday (100%)"}
+                </label>
+                <Input
+                  type="number" step="0.01"
+                  value={config?.overtime_rate_holiday || 2.0}
+                  onChange={(e) => handleChange("overtime_rate_holiday", parseFloat(e.target.value) || 2.0)}
+                  data-testid="rate-holiday"
+                />
+                <p className="text-xs text-muted-foreground mt-1">{isEs ? "Domingos y feriados nacionales" : "Sundays and national holidays"}</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium">
+                  {isEs ? "Hora Extra 100% (>68h)" : "Overtime 100% (>68h)"}
+                </label>
+                <Input
+                  type="number" step="0.01"
                   value={config?.overtime_rate_100 || 2.0}
                   onChange={(e) => handleChange("overtime_rate_100", parseFloat(e.target.value) || 2.0)}
+                  data-testid="rate-100"
                 />
-                <p className="text-xs text-muted-foreground mt-1">{isEs ? "Multiplicador: 2.0x" : "Multiplier: 2.0x"}</p>
+                <p className="text-xs text-muted-foreground mt-1">{isEs ? "Horas que exceden 68h/sem" : "Hours above 68/week"}</p>
               </div>
+            </div>
+            
+            <div>
+              <label className="text-sm font-medium">
+                {isEs ? "Horas laborables al mes" : "Working hours per month"}
+              </label>
+              <Input
+                type="number" step="1"
+                value={config?.overtime_hours_per_month || 192}
+                onChange={(e) => handleChange("overtime_hours_per_month", parseFloat(e.target.value) || 192)}
+                data-testid="hours-per-month"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                {isEs ? "Para calcular valor hora normal (DO: 192, MX: 192, CO: 240, US: 173)" : "To compute regular hourly rate (DO: 192, MX: 192, CO: 240, US: 173)"}
+              </p>
             </div>
           </CardContent>
         </Card>

@@ -284,6 +284,7 @@ class EmployeeUpdate(BaseModel):
     cost_center_id: Optional[str] = None
     manager_id: Optional[str] = None
     is_manager: Optional[bool] = None
+    hire_date: Optional[str] = None
     contract_type: Optional[ContractType] = None
     status: Optional[EmployeeStatus] = None
     termination_date: Optional[str] = None
@@ -398,9 +399,15 @@ class PayrollConfigCreate(BaseModel):
     # ISR brackets (simplified)
     isr_enabled: bool = True
     
-    # Overtime rates
-    overtime_rate_35: float = 1.35  # Normal overtime (35% extra)
-    overtime_rate_100: float = 2.0  # Holiday/night overtime (100% extra)
+    # Overtime rates - multi-country friendly (defaults shown apply to DR)
+    overtime_rate_35: float = 1.35   # Hora extra normal (Mon-Sat after regular shift)
+    overtime_rate_night: float = 1.15  # Trabajo nocturno (15% extra - DR 9pm-7am)
+    overtime_rate_holiday: float = 2.0  # Día feriado / domingo (100% extra)
+    overtime_rate_100: float = 2.0   # Hora extra al 100% (>68 hrs/semana RD)
+    overtime_hours_per_month: float = 192.0  # Hours used to derive hourly rate from monthly salary
+    
+    # Country code for OT rate defaults & labels (ISO-2). Falls back to company.country.
+    country_code: Optional[str] = None  # e.g. "DO", "MX", "CO", "US"
     
     # Other settings
     include_regalia: bool = True  # Christmas bonus
@@ -424,8 +431,12 @@ class PayrollConfig(BaseModel):
     isr_enabled: bool
     
     # Overtime
-    overtime_rate_35: float
-    overtime_rate_100: float
+    overtime_rate_35: float = 1.35
+    overtime_rate_night: float = 1.15
+    overtime_rate_holiday: float = 2.0
+    overtime_rate_100: float = 2.0
+    overtime_hours_per_month: float = 192.0
+    country_code: Optional[str] = None
     
     # Other
     include_regalia: bool
@@ -485,6 +496,39 @@ COST_CENTER_TEMPLATES = [
 
 # ==================== RD LEGAL CONSTANTS ====================
 
+# Country-specific overtime rate defaults (multipliers of the regular hourly rate)
+# Used when initializing PayrollConfig based on the company's country.
+COUNTRY_OVERTIME_DEFAULTS = {
+    # Dominican Republic (Código de Trabajo Art. 203-204)
+    "DO": {"overtime_rate_35": 1.35, "overtime_rate_night": 1.15, "overtime_rate_holiday": 2.0, "overtime_rate_100": 2.0, "overtime_hours_per_month": 192.0},
+    # Mexico (LFT Art. 67-68: dobles primeras 9h, triples después)
+    "MX": {"overtime_rate_35": 2.0, "overtime_rate_night": 1.25, "overtime_rate_holiday": 3.0, "overtime_rate_100": 3.0, "overtime_hours_per_month": 192.0},
+    # Colombia (CST Art. 168: nocturna +35%, dominical +75%, recargo extra)
+    "CO": {"overtime_rate_35": 1.25, "overtime_rate_night": 1.35, "overtime_rate_holiday": 1.75, "overtime_rate_100": 1.75, "overtime_hours_per_month": 240.0},
+    # USA (FLSA: 1.5x after 40h; varies by state)
+    "US": {"overtime_rate_35": 1.5, "overtime_rate_night": 1.0, "overtime_rate_holiday": 1.5, "overtime_rate_100": 2.0, "overtime_hours_per_month": 173.0},
+    # Spain (Estatuto trabajadores Art. 35)
+    "ES": {"overtime_rate_35": 1.5, "overtime_rate_night": 1.25, "overtime_rate_holiday": 1.75, "overtime_rate_100": 1.75, "overtime_hours_per_month": 165.0},
+    # Puerto Rico
+    "PR": {"overtime_rate_35": 1.5, "overtime_rate_night": 1.0, "overtime_rate_holiday": 2.0, "overtime_rate_100": 2.0, "overtime_hours_per_month": 173.0},
+    # Argentina (LCT)
+    "AR": {"overtime_rate_35": 1.5, "overtime_rate_night": 1.0, "overtime_rate_holiday": 2.0, "overtime_rate_100": 2.0, "overtime_hours_per_month": 192.0},
+    # Chile
+    "CL": {"overtime_rate_35": 1.5, "overtime_rate_night": 1.0, "overtime_rate_holiday": 1.5, "overtime_rate_100": 2.0, "overtime_hours_per_month": 180.0},
+    # Peru
+    "PE": {"overtime_rate_35": 1.25, "overtime_rate_night": 1.35, "overtime_rate_holiday": 2.0, "overtime_rate_100": 1.35, "overtime_hours_per_month": 192.0},
+    # Generic / fallback
+    "default": {"overtime_rate_35": 1.5, "overtime_rate_night": 1.15, "overtime_rate_holiday": 2.0, "overtime_rate_100": 2.0, "overtime_hours_per_month": 192.0},
+}
+
+
+def get_country_overtime_defaults(country_code: Optional[str]) -> dict:
+    """Returns OT rate defaults for the given country code; falls back to 'default'."""
+    if not country_code:
+        return COUNTRY_OVERTIME_DEFAULTS["default"]
+    return COUNTRY_OVERTIME_DEFAULTS.get(country_code.upper(), COUNTRY_OVERTIME_DEFAULTS["default"])
+
+
 # ISR Brackets 2024 (Dominican Republic)
 ISR_BRACKETS_RD = [
     {"min": 0, "max": 416220, "rate": 0, "base": 0},
@@ -543,12 +587,21 @@ class PayrollStatus(str, Enum):
 
 
 class PayrollPeriodCreate(BaseModel):
-    period_name: str  # e.g., "Quincena 1 - Marzo 2026"
+    period_name: Optional[str] = None  # Optional: auto-generated if missing
     period_type: PaymentFrequency = PaymentFrequency.BIWEEKLY
     start_date: str
     end_date: str
     payment_date: str
     notes: Optional[str] = None
+    # NEW: payroll classification
+    # "regular" = salario base + OT incluidas (default behavior)
+    # "overtime_only" = solo paga horas extras aprobadas (sin salario base, sin AFP/ARS/ISR)
+    payment_kind: str = "regular"
+    # NEW: When creating, the IDs of approved overtime requests to include in this period.
+    # Defaults to ALL approved/unpaid OTs in date range when omitted.
+    include_overtime_ids: Optional[List[str]] = None
+    # If False, OTs in range are NOT auto-included (deferred to a separate OT period).
+    auto_include_overtime: bool = True
 
 
 class PayrollPeriod(BaseModel):
@@ -556,6 +609,7 @@ class PayrollPeriod(BaseModel):
     company_id: str
     period_name: str
     period_type: PaymentFrequency
+    payment_kind: str = "regular"  # "regular" or "overtime_only"
     start_date: str
     end_date: str
     payment_date: str
@@ -612,6 +666,10 @@ class PayrollEntry(BaseModel):
     base_salary: float = 0.0
     overtime_hours_35: float = 0.0
     overtime_amount_35: float = 0.0
+    overtime_hours_night: float = 0.0
+    overtime_amount_night: float = 0.0
+    overtime_hours_holiday: float = 0.0
+    overtime_amount_holiday: float = 0.0
     overtime_hours_100: float = 0.0
     overtime_amount_100: float = 0.0
     bonus: float = 0.0
@@ -625,8 +683,12 @@ class PayrollEntry(BaseModel):
     ars_employee: float = 0.0
     isr: float = 0.0
     loan_deduction: float = 0.0
+    loan_id: Optional[str] = None
     other_deductions: float = 0.0
     other_deductions_description: Optional[str] = None
+    # NEW: structured list of biweekly extra deductions with reasons
+    # Each item: {"id": str, "amount": float, "reason": str}
+    extra_deductions: List[Dict[str, Any]] = []
     total_deductions: float = 0.0
     
     # Net Pay
@@ -650,6 +712,8 @@ class PayrollEntry(BaseModel):
 
 class PayrollEntryUpdate(BaseModel):
     overtime_hours_35: Optional[float] = None
+    overtime_hours_night: Optional[float] = None
+    overtime_hours_holiday: Optional[float] = None
     overtime_hours_100: Optional[float] = None
     bonus: Optional[float] = None
     commission: Optional[float] = None
@@ -658,6 +722,7 @@ class PayrollEntryUpdate(BaseModel):
     loan_deduction: Optional[float] = None
     other_deductions: Optional[float] = None
     other_deductions_description: Optional[str] = None
+    extra_deductions: Optional[List[Dict[str, Any]]] = None
     notes: Optional[str] = None
 
 
@@ -834,8 +899,10 @@ class OvertimeStatus(str, Enum):
 class OvertimeRequestCreate(BaseModel):
     employee_id: str
     date: str
-    hours_35: float = 0.0  # Normal overtime (35% extra)
-    hours_100: float = 0.0  # Holiday/night (100% extra)
+    hours_35: float = 0.0  # Hora extra normal (35% extra)
+    hours_night: float = 0.0  # Trabajo nocturno (15% extra)
+    hours_holiday: float = 0.0  # Día feriado / domingo (100% extra)
+    hours_100: float = 0.0  # Hora extra al 100% (>68 hrs/semana)
     reason: str
     notes: Optional[str] = None
 
@@ -846,8 +913,10 @@ class OvertimeRequest(BaseModel):
     employee_id: str
     employee_name: str
     date: str
-    hours_35: float
-    hours_100: float
+    hours_35: float = 0.0
+    hours_night: float = 0.0
+    hours_holiday: float = 0.0
+    hours_100: float = 0.0
     total_hours: float
     estimated_amount: float  # Calculated based on hourly rate
     status: OvertimeStatus = OvertimeStatus.PENDING

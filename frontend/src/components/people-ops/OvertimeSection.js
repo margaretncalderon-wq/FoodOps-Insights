@@ -75,11 +75,13 @@ export function OvertimeSection() {
     employee_id: "",
     date: new Date().toISOString().split("T")[0],
     hours_35: 0,
+    hours_night: 0,
+    hours_holiday: 0,
     hours_100: 0,
     reason: "",
     entryMode: "single",
     weekStart: getWeekStart(new Date()),
-    weeklyHours: Array(7).fill({ hours_35: 0, hours_100: 0 })
+    weeklyHours: Array(7).fill({ hours_35: 0, hours_night: 0, hours_holiday: 0, hours_100: 0 })
   });
 
   const fetchData = useCallback(async () => {
@@ -114,7 +116,7 @@ export function OvertimeSection() {
     try {
       if (newRequest.entryMode === "weekly") {
         // Weekly mode - create multiple requests
-        const validDays = newRequest.weeklyHours.filter(d => d && (d.hours_35 > 0 || d.hours_100 > 0));
+        const validDays = newRequest.weeklyHours.filter(d => d && (d.hours_35 > 0 || (d.hours_night||0) > 0 || (d.hours_holiday||0) > 0 || d.hours_100 > 0));
         
         if (validDays.length === 0) {
           alert(isEs ? "Ingresa al menos una hora extra" : "Enter at least one overtime hour");
@@ -128,6 +130,8 @@ export function OvertimeSection() {
             employee_id: newRequest.employee_id,
             date: day.date,
             hours_35: day.hours_35 || 0,
+            hours_night: day.hours_night || 0,
+            hours_holiday: day.hours_holiday || 0,
             hours_100: day.hours_100 || 0,
             reason: newRequest.reason
           }, { withCredentials: true });
@@ -140,7 +144,8 @@ export function OvertimeSection() {
         );
       } else {
         // Single day mode
-        if (!newRequest.hours_35 && !newRequest.hours_100) {
+        const hasAnyHours = (parseFloat(newRequest.hours_35)||0) > 0 || (parseFloat(newRequest.hours_night)||0) > 0 || (parseFloat(newRequest.hours_holiday)||0) > 0 || (parseFloat(newRequest.hours_100)||0) > 0;
+        if (!hasAnyHours) {
           alert(isEs ? "Ingresa al menos un tipo de hora extra" : "Enter at least one overtime type");
           setSubmitting(false);
           return;
@@ -150,6 +155,8 @@ export function OvertimeSection() {
           employee_id: newRequest.employee_id,
           date: newRequest.date,
           hours_35: parseFloat(newRequest.hours_35) || 0,
+          hours_night: parseFloat(newRequest.hours_night) || 0,
+          hours_holiday: parseFloat(newRequest.hours_holiday) || 0,
           hours_100: parseFloat(newRequest.hours_100) || 0,
           reason: newRequest.reason
         }, { withCredentials: true });
@@ -167,11 +174,13 @@ export function OvertimeSection() {
         employee_id: "",
         date: new Date().toISOString().split("T")[0],
         hours_35: 0,
+        hours_night: 0,
+        hours_holiday: 0,
         hours_100: 0,
         reason: "",
         entryMode: "single",
         weekStart: getWeekStart(new Date()),
-        weeklyHours: Array(7).fill({ hours_35: 0, hours_100: 0 })
+        weeklyHours: Array(7).fill({ hours_35: 0, hours_night: 0, hours_holiday: 0, hours_100: 0 })
       });
       fetchData();
     } catch (err) {
@@ -311,6 +320,18 @@ export function OvertimeSection() {
                   </TableHead>
                   <TableHead className="text-center">
                     <div className="flex items-center justify-center gap-1">
+                      <Moon className="w-3 h-3 text-indigo-500" />
+                      15%
+                    </div>
+                  </TableHead>
+                  <TableHead className="text-center">
+                    <div className="flex items-center justify-center gap-1">
+                      <Moon className="w-3 h-3 text-rose-500" />
+                      F/D
+                    </div>
+                  </TableHead>
+                  <TableHead className="text-center">
+                    <div className="flex items-center justify-center gap-1">
                       <Moon className="w-3 h-3" />
                       100%
                     </div>
@@ -330,6 +351,16 @@ export function OvertimeSection() {
                     <TableCell className="text-center">
                       {req.hours_35 > 0 ? (
                         <Badge variant="outline" className="bg-amber-50">{req.hours_35}h</Badge>
+                      ) : "-"}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      {(req.hours_night || 0) > 0 ? (
+                        <Badge variant="outline" className="bg-indigo-50">{req.hours_night}h</Badge>
+                      ) : "-"}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      {(req.hours_holiday || 0) > 0 ? (
+                        <Badge variant="outline" className="bg-rose-50">{req.hours_holiday}h</Badge>
                       ) : "-"}
                     </TableCell>
                     <TableCell className="text-center">
@@ -444,13 +475,10 @@ export function OvertimeSection() {
                   <div>
                     <label className="text-sm font-medium flex items-center gap-1">
                       <Sun className="w-4 h-4 text-amber-500" />
-                      {isEs ? "Horas Normales (35%)" : "Normal Hours (35%)"}
+                      {isEs ? "Hora Normal (35%)" : "Normal OT (35%)"}
                     </label>
                     <Input
-                      type="number"
-                      step="0.5"
-                      min="0"
-                      max="12"
+                      type="number" step="0.5" min="0" max="12"
                       value={newRequest.hours_35}
                       onChange={(e) => setNewRequest({ ...newRequest, hours_35: e.target.value })}
                       placeholder="0"
@@ -461,20 +489,47 @@ export function OvertimeSection() {
                   </div>
                   <div>
                     <label className="text-sm font-medium flex items-center gap-1">
-                      <Moon className="w-4 h-4 text-purple-500" />
-                      {isEs ? "Horas Nocturnas/Domingo (100%)" : "Night/Sunday Hours (100%)"}
+                      <Moon className="w-4 h-4 text-indigo-500" />
+                      {isEs ? "Trabajo Nocturno (15%)" : "Night Shift (15%)"}
                     </label>
                     <Input
-                      type="number"
-                      step="0.5"
-                      min="0"
-                      max="12"
+                      type="number" step="0.5" min="0" max="12"
+                      value={newRequest.hours_night}
+                      onChange={(e) => setNewRequest({ ...newRequest, hours_night: e.target.value })}
+                      placeholder="0"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {isEs ? "Entre 9pm – 7am" : "Between 9pm – 7am"}
+                    </p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium flex items-center gap-1">
+                      <Moon className="w-4 h-4 text-rose-500" />
+                      {isEs ? "Feriado / Domingo (100%)" : "Holiday/Sunday (100%)"}
+                    </label>
+                    <Input
+                      type="number" step="0.5" min="0" max="12"
+                      value={newRequest.hours_holiday}
+                      onChange={(e) => setNewRequest({ ...newRequest, hours_holiday: e.target.value })}
+                      placeholder="0"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {isEs ? "Domingo o feriado nacional" : "Sunday or national holiday"}
+                    </p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium flex items-center gap-1">
+                      <Moon className="w-4 h-4 text-purple-500" />
+                      {isEs ? "Hora Extra 100% (>68h)" : "Extra 100% (>68h)"}
+                    </label>
+                    <Input
+                      type="number" step="0.5" min="0" max="12"
                       value={newRequest.hours_100}
                       onChange={(e) => setNewRequest({ ...newRequest, hours_100: e.target.value })}
                       placeholder="0"
                     />
                     <p className="text-xs text-muted-foreground mt-1">
-                      {isEs ? "Sábado, Domingo, Feriados, Nocturno" : "Sat, Sun, Holidays, Overnight"}
+                      {isEs ? "Excede 68 hrs/semana" : "Above 68 hrs/week"}
                     </p>
                   </div>
                 </div>

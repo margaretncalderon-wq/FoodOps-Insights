@@ -84,7 +84,6 @@ export function PayrollPeriodView() {
   const [actionLoading, setActionLoading] = useState(false);
   
   // Edit mode
-  const [editingEntry, setEditingEntry] = useState(null);
   const [editData, setEditData] = useState({});
   
   // Payslip dialog
@@ -124,33 +123,62 @@ export function PayrollPeriodView() {
     setActionLoading(false);
   };
 
-  const handleEditEntry = (entry) => {
-    setEditingEntry(entry.entry_id);
+  // Edit dialog: open with full detail for the selected entry
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editingEntryDetail, setEditingEntryDetail] = useState(null);
+  
+  const openEditDialog = (entry) => {
+    setEditingEntryDetail(entry);
     setEditData({
       overtime_hours_35: entry.overtime_hours_35 || 0,
+      overtime_hours_night: entry.overtime_hours_night || 0,
+      overtime_hours_holiday: entry.overtime_hours_holiday || 0,
       overtime_hours_100: entry.overtime_hours_100 || 0,
       bonus: entry.bonus || 0,
       commission: entry.commission || 0,
       other_earnings: entry.other_earnings || 0,
       loan_deduction: entry.loan_deduction || 0,
       other_deductions: entry.other_deductions || 0,
+      extra_deductions: entry.extra_deductions ? [...entry.extra_deductions] : [],
       notes: entry.notes || ""
     });
+    setEditDialogOpen(true);
   };
-
-  const handleSaveEntry = async () => {
+  
+  const saveEditDialog = async () => {
+    if (!editingEntryDetail) return;
     try {
       await axios.put(
-        `${API}/api/people-ops/payroll/entries/${editingEntry}`,
+        `${API}/api/people-ops/payroll/entries/${editingEntryDetail.entry_id}`,
         editData,
         { withCredentials: true }
       );
-      setEditingEntry(null);
+      setEditDialogOpen(false);
+      setEditingEntryDetail(null);
       fetchData();
     } catch (err) {
       console.error("Error saving entry:", err);
       alert(err.response?.data?.detail || "Error saving entry");
     }
+  };
+  
+  // ---- Extra deductions (biweekly per-entry) management
+  const addExtraDeduction = () => {
+    const list = editData.extra_deductions || [];
+    setEditData({
+      ...editData,
+      extra_deductions: [...list, { id: `tmp_${Date.now()}`, amount: 0, reason: "" }]
+    });
+  };
+  const updateExtraDeduction = (idx, patch) => {
+    const list = [...(editData.extra_deductions || [])];
+    list[idx] = { ...list[idx], ...patch };
+    setEditData({ ...editData, extra_deductions: list });
+  };
+  const removeExtraDeduction = (idx) => {
+    const list = [...(editData.extra_deductions || [])];
+    list.splice(idx, 1);
+    setEditData({ ...editData, extra_deductions: list });
   };
 
   const handleViewPayslip = async (entry) => {
@@ -380,60 +408,23 @@ export function PayrollPeriodView() {
                     </TableCell>
                     <TableCell className="text-right">{formatCurrency(entry.base_salary)}</TableCell>
                     <TableCell className="text-right">
-                      {editingEntry === entry.entry_id ? (
-                        <div className="flex gap-1">
-                          <Input
-                            type="number"
-                            className="w-16 h-8 text-xs"
-                            value={editData.overtime_hours_35}
-                            onChange={(e) => setEditData({ ...editData, overtime_hours_35: parseFloat(e.target.value) || 0 })}
-                            placeholder="35%"
-                          />
-                          <Input
-                            type="number"
-                            className="w-16 h-8 text-xs"
-                            value={editData.overtime_hours_100}
-                            onChange={(e) => setEditData({ ...editData, overtime_hours_100: parseFloat(e.target.value) || 0 })}
-                            placeholder="100%"
-                          />
-                        </div>
-                      ) : (
-                        <span className={entry.overtime_amount_35 + entry.overtime_amount_100 > 0 ? "text-blue-600" : ""}>
-                          {formatCurrency(entry.overtime_amount_35 + entry.overtime_amount_100)}
-                        </span>
-                      )}
+                      <span className={(entry.overtime_amount_35 + (entry.overtime_amount_night||0) + (entry.overtime_amount_holiday||0) + entry.overtime_amount_100) > 0 ? "text-blue-600" : ""}>
+                        {formatCurrency((entry.overtime_amount_35||0) + (entry.overtime_amount_night||0) + (entry.overtime_amount_holiday||0) + (entry.overtime_amount_100||0))}
+                      </span>
                     </TableCell>
                     <TableCell className="text-right">
-                      {editingEntry === entry.entry_id ? (
-                        <Input
-                          type="number"
-                          className="w-20 h-8 text-xs"
-                          value={editData.bonus}
-                          onChange={(e) => setEditData({ ...editData, bonus: parseFloat(e.target.value) || 0 })}
-                        />
-                      ) : (
-                        <span className={entry.bonus > 0 ? "text-emerald-600" : ""}>
-                          {formatCurrency(entry.bonus + entry.commission)}
-                        </span>
-                      )}
+                      <span className={entry.bonus > 0 ? "text-emerald-600" : ""}>
+                        {formatCurrency((entry.bonus||0) + (entry.commission||0))}
+                      </span>
                     </TableCell>
                     <TableCell className="text-right font-medium">{formatCurrency(entry.gross_salary)}</TableCell>
                     <TableCell className="text-right text-red-600">{formatCurrency(entry.afp_employee)}</TableCell>
                     <TableCell className="text-right text-red-600">{formatCurrency(entry.ars_employee)}</TableCell>
                     <TableCell className="text-right text-red-600">{formatCurrency(entry.isr)}</TableCell>
                     <TableCell className="text-right">
-                      {editingEntry === entry.entry_id ? (
-                        <Input
-                          type="number"
-                          className="w-20 h-8 text-xs"
-                          value={editData.loan_deduction + editData.other_deductions}
-                          onChange={(e) => setEditData({ ...editData, other_deductions: parseFloat(e.target.value) || 0 })}
-                        />
-                      ) : (
-                        <span className={entry.loan_deduction + entry.other_deductions > 0 ? "text-red-600" : ""}>
-                          {formatCurrency(entry.loan_deduction + entry.other_deductions)}
-                        </span>
-                      )}
+                      <span className={((entry.loan_deduction||0) + (entry.other_deductions||0) + (entry.extra_deductions||[]).reduce((s,d)=>s+(d.amount||0),0)) > 0 ? "text-red-600" : ""}>
+                        {formatCurrency((entry.loan_deduction||0) + (entry.other_deductions||0) + (entry.extra_deductions||[]).reduce((s,d)=>s+(d.amount||0),0))}
+                      </span>
                     </TableCell>
                     <TableCell className="text-right font-bold text-emerald-600">
                       {formatCurrency(entry.net_salary)}
@@ -441,34 +432,14 @@ export function PayrollPeriodView() {
                     <TableCell className="text-center">
                       <div className="flex items-center justify-center gap-1">
                         {canEdit && (
-                          editingEntry === entry.entry_id ? (
-                            <>
-                              <Button 
-                                variant="ghost" 
-                                size="sm" 
-                                onClick={() => setEditingEntry(null)}
-                              >
-                                <X className="w-4 h-4" />
-                              </Button>
-                              <Button 
-                                variant="ghost" 
-                                size="sm" 
-                                onClick={handleSaveEntry}
-                                className="text-emerald-600"
-                              >
-                                <Save className="w-4 h-4" />
-                              </Button>
-                            </>
-                          ) : (
-                            <Button 
-                              variant="ghost" 
-                              size="sm" 
-                              onClick={() => handleEditEntry(entry)}
-                              data-testid={`edit-entry-${entry.entry_id}`}
-                            >
-                              <Edit2 className="w-4 h-4" />
-                            </Button>
-                          )
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            onClick={() => openEditDialog(entry)}
+                            data-testid={`edit-entry-${entry.entry_id}`}
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </Button>
                         )}
                         <Button 
                           variant="ghost" 
@@ -536,6 +507,18 @@ export function PayrollPeriodView() {
                       <span>{formatCurrency(payslipData.entry?.overtime_amount_35)}</span>
                     </div>
                   )}
+                  {payslipData.entry?.overtime_amount_night > 0 && (
+                    <div className="flex justify-between text-blue-600">
+                      <span>{isEs ? "Trabajo Nocturno (15%)" : "Night Shift (15%)"}</span>
+                      <span>{formatCurrency(payslipData.entry?.overtime_amount_night)}</span>
+                    </div>
+                  )}
+                  {payslipData.entry?.overtime_amount_holiday > 0 && (
+                    <div className="flex justify-between text-blue-600">
+                      <span>{isEs ? "Feriado / Domingo (100%)" : "Holiday/Sunday (100%)"}</span>
+                      <span>{formatCurrency(payslipData.entry?.overtime_amount_holiday)}</span>
+                    </div>
+                  )}
                   {payslipData.entry?.overtime_amount_100 > 0 && (
                     <div className="flex justify-between text-blue-600">
                       <span>{isEs ? "Horas Extra (100%)" : "Overtime (100%)"}</span>
@@ -583,6 +566,12 @@ export function PayrollPeriodView() {
                       <span className="text-red-600">-{formatCurrency(payslipData.entry?.other_deductions)}</span>
                     </div>
                   )}
+                  {(payslipData.entry?.extra_deductions || []).map((ded, idx) => (
+                    <div key={ded.id || idx} className="flex justify-between text-xs">
+                      <span className="text-muted-foreground">↳ {ded.reason || (isEs ? "Descuento" : "Deduction")}</span>
+                      <span className="text-red-600">-{formatCurrency(ded.amount)}</span>
+                    </div>
+                  ))}
                   <div className="flex justify-between font-semibold border-t pt-1 mt-2">
                     <span>{isEs ? "Total Deducciones" : "Total Deductions"}</span>
                     <span className="text-red-600">-{formatCurrency(payslipData.entry?.total_deductions)}</span>
@@ -613,6 +602,211 @@ export function PayrollPeriodView() {
             <Button onClick={() => window.print()}>
               <Printer className="w-4 h-4 mr-2" />
               {isEs ? "Imprimir" : "Print"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Detailed Edit Entry Dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={(o) => { setEditDialogOpen(o); if (!o) setEditingEntryDetail(null); }}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto" data-testid="edit-entry-dialog">
+          <DialogHeader>
+            <DialogTitle>
+              {isEs ? "Editar Entrada de Nómina" : "Edit Payroll Entry"}
+            </DialogTitle>
+            <DialogDescription>
+              {editingEntryDetail?.employee_name} · {formatCurrency(editingEntryDetail?.base_salary)} {isEs ? "base" : "base"}
+            </DialogDescription>
+          </DialogHeader>
+          
+          {editingEntryDetail && (
+            <div className="space-y-5 py-4">
+              {/* Overtime Section - 4 categories */}
+              <div>
+                <h4 className="font-semibold text-sm mb-3 flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-blue-600" />
+                  {isEs ? "Horas Extras" : "Overtime Hours"}
+                </h4>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs text-muted-foreground">
+                      {isEs ? "Hora Normal (35%)" : "Normal OT (35%)"}
+                    </label>
+                    <Input
+                      type="number" step="0.5" min="0"
+                      data-testid="ot-hours-35"
+                      value={editData.overtime_hours_35 || 0}
+                      onChange={(e) => setEditData({ ...editData, overtime_hours_35: parseFloat(e.target.value) || 0 })}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-muted-foreground">
+                      {isEs ? "Nocturno (15%)" : "Night Shift (15%)"}
+                    </label>
+                    <Input
+                      type="number" step="0.5" min="0"
+                      data-testid="ot-hours-night"
+                      value={editData.overtime_hours_night || 0}
+                      onChange={(e) => setEditData({ ...editData, overtime_hours_night: parseFloat(e.target.value) || 0 })}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-muted-foreground">
+                      {isEs ? "Feriado/Domingo (100%)" : "Holiday/Sunday (100%)"}
+                    </label>
+                    <Input
+                      type="number" step="0.5" min="0"
+                      data-testid="ot-hours-holiday"
+                      value={editData.overtime_hours_holiday || 0}
+                      onChange={(e) => setEditData({ ...editData, overtime_hours_holiday: parseFloat(e.target.value) || 0 })}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-muted-foreground">
+                      {isEs ? "Extra 100% (>68h)" : "Extra 100% (>68h)"}
+                    </label>
+                    <Input
+                      type="number" step="0.5" min="0"
+                      data-testid="ot-hours-100"
+                      value={editData.overtime_hours_100 || 0}
+                      onChange={(e) => setEditData({ ...editData, overtime_hours_100: parseFloat(e.target.value) || 0 })}
+                    />
+                  </div>
+                </div>
+              </div>
+              
+              {/* Earnings */}
+              <div>
+                <h4 className="font-semibold text-sm mb-3 flex items-center gap-2">
+                  <DollarSign className="w-4 h-4 text-emerald-600" />
+                  {isEs ? "Otros Ingresos" : "Other Earnings"}
+                </h4>
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <label className="text-xs text-muted-foreground">{isEs ? "Bono" : "Bonus"}</label>
+                    <Input
+                      type="number" step="0.01" min="0"
+                      data-testid="entry-bonus"
+                      value={editData.bonus || 0}
+                      onChange={(e) => setEditData({ ...editData, bonus: parseFloat(e.target.value) || 0 })}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-muted-foreground">{isEs ? "Comisión" : "Commission"}</label>
+                    <Input
+                      type="number" step="0.01" min="0"
+                      value={editData.commission || 0}
+                      onChange={(e) => setEditData({ ...editData, commission: parseFloat(e.target.value) || 0 })}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-muted-foreground">{isEs ? "Otros" : "Other"}</label>
+                    <Input
+                      type="number" step="0.01" min="0"
+                      value={editData.other_earnings || 0}
+                      onChange={(e) => setEditData({ ...editData, other_earnings: parseFloat(e.target.value) || 0 })}
+                    />
+                  </div>
+                </div>
+              </div>
+              
+              {/* Loan info (read-only) */}
+              {editingEntryDetail.loan_deduction > 0 && (
+                <div className="p-3 rounded-lg bg-violet-50 border border-violet-200">
+                  <div className="flex items-center justify-between text-sm">
+                    <div>
+                      <p className="font-medium text-violet-900">{isEs ? "Préstamo activo" : "Active loan"}</p>
+                      <p className="text-xs text-violet-700">{isEs ? "Cuota de esta quincena" : "Installment this period"}</p>
+                    </div>
+                    <p className="font-semibold text-violet-900">{formatCurrency(editingEntryDetail.loan_deduction)}</p>
+                  </div>
+                </div>
+              )}
+              
+              {/* Extra Deductions - Quincenal con motivo */}
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="font-semibold text-sm flex items-center gap-2">
+                    <X className="w-4 h-4 text-red-600" />
+                    {isEs ? "Descuentos Quincenales" : "Biweekly Deductions"}
+                  </h4>
+                  <Button size="sm" variant="outline" onClick={() => {
+                    const list = editData.extra_deductions || [];
+                    setEditData({ ...editData, extra_deductions: [...list, { id: `tmp_${Date.now()}`, amount: 0, reason: "" }] });
+                  }} data-testid="add-extra-deduction-btn">
+                    + {isEs ? "Agregar" : "Add"}
+                  </Button>
+                </div>
+                {(editData.extra_deductions || []).length === 0 ? (
+                  <p className="text-xs text-muted-foreground italic">
+                    {isEs ? "Sin descuentos adicionales. Agrega uno con su motivo." : "No additional deductions. Add one with a reason."}
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {(editData.extra_deductions || []).map((ded, idx) => (
+                      <div key={ded.id || idx} className="flex gap-2 items-start" data-testid={`extra-deduction-${idx}`}>
+                        <Input
+                          type="number" step="0.01" min="0"
+                          className="w-28"
+                          placeholder="$"
+                          value={ded.amount || 0}
+                          onChange={(e) => {
+                            const list = [...(editData.extra_deductions || [])];
+                            list[idx] = { ...list[idx], amount: parseFloat(e.target.value) || 0 };
+                            setEditData({ ...editData, extra_deductions: list });
+                          }}
+                        />
+                        <Input
+                          placeholder={isEs ? "Motivo (ej: adelanto, daño, etc.)" : "Reason (e.g.: advance, damage)"}
+                          value={ded.reason || ""}
+                          onChange={(e) => {
+                            const list = [...(editData.extra_deductions || [])];
+                            list[idx] = { ...list[idx], reason: e.target.value };
+                            setEditData({ ...editData, extra_deductions: list });
+                          }}
+                        />
+                        <Button
+                          variant="ghost" size="sm"
+                          className="text-red-600 hover:text-red-700"
+                          onClick={() => {
+                            const list = [...(editData.extra_deductions || [])];
+                            list.splice(idx, 1);
+                            setEditData({ ...editData, extra_deductions: list });
+                          }}
+                        >
+                          <X className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    ))}
+                    <div className="flex justify-between pt-2 border-t text-sm font-medium">
+                      <span>{isEs ? "Subtotal descuentos" : "Deductions subtotal"}</span>
+                      <span className="text-red-600">
+                        {formatCurrency((editData.extra_deductions || []).reduce((s, d) => s + (parseFloat(d.amount) || 0), 0))}
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+              
+              {/* Notes */}
+              <div>
+                <label className="text-sm font-medium">{isEs ? "Notas" : "Notes"}</label>
+                <Input
+                  value={editData.notes || ""}
+                  onChange={(e) => setEditData({ ...editData, notes: e.target.value })}
+                  placeholder={isEs ? "Observaciones..." : "Observations..."}
+                />
+              </div>
+            </div>
+          )}
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditDialogOpen(false)}>
+              {isEs ? "Cancelar" : "Cancel"}
+            </Button>
+            <Button onClick={saveEditDialog} data-testid="save-edit-entry-btn">
+              <Save className="w-4 h-4 mr-2" />
+              {isEs ? "Guardar Cambios" : "Save Changes"}
             </Button>
           </DialogFooter>
         </DialogContent>

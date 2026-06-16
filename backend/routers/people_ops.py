@@ -20,6 +20,7 @@ from models.people_ops import (
     PayrollEntryCreate, PayrollEntry, PayrollEntryUpdate,
     PaymentFrequency,
     calculate_monthly_isr,
+    get_country_overtime_defaults,
     COST_CENTER_TEMPLATES, AFP_PROVIDERS, ARS_PROVIDERS, BANKS_RD
 )
 from routers.auth import get_current_user
@@ -1575,8 +1576,36 @@ async def get_payroll_config(user: User = Depends(get_current_user)):
         {"_id": 0}
     )
     
+    # Resolve country: payroll_config.country_code → company.country_code/country → "DO" legacy default
+    company = await db.companies.find_one({"company_id": company_id}, {"_id": 0, "country": 1, "country_code": 1})
+    raw_country = (config or {}).get("country_code") if config else None
+    if not raw_country and company:
+        raw_country = company.get("country_code") or company.get("country")
+    
+    # Normalize country names → ISO-2 codes (lightweight mapping)
+    _country_aliases = {
+        "republica dominicana": "DO", "república dominicana": "DO", "dominican republic": "DO",
+        "mexico": "MX", "méxico": "MX",
+        "colombia": "CO",
+        "united states": "US", "usa": "US", "us": "US", "estados unidos": "US",
+        "spain": "ES", "españa": "ES",
+        "puerto rico": "PR",
+        "argentina": "AR",
+        "chile": "CL",
+        "peru": "PE", "perú": "PE",
+    }
+    key = (raw_country or "").strip().lower()
+    if key in _country_aliases:
+        country_code = _country_aliases[key]
+    elif raw_country and len(raw_country) == 2:
+        country_code = raw_country.upper()
+    else:
+        country_code = "DO"  # safe default
+    
+    ot_defaults = get_country_overtime_defaults(country_code)
+    
     if not config:
-        # Return default config
+        # Return default config (with country-aware OT rates)
         return {
             "config_id": None,
             "company_id": company_id,
@@ -1590,12 +1619,21 @@ async def get_payroll_config(user: User = Depends(get_current_user)):
             "srl_rate": 1.20,
             "infotep_rate": 1.0,
             "isr_enabled": True,
-            "overtime_rate_35": 1.35,
-            "overtime_rate_100": 2.0,
+            "overtime_rate_35": ot_defaults["overtime_rate_35"],
+            "overtime_rate_night": ot_defaults["overtime_rate_night"],
+            "overtime_rate_holiday": ot_defaults["overtime_rate_holiday"],
+            "overtime_rate_100": ot_defaults["overtime_rate_100"],
+            "overtime_hours_per_month": ot_defaults["overtime_hours_per_month"],
+            "country_code": country_code,
             "include_regalia": True,
             "regalia_months": 12
         }
     
+    # Backfill new fields on legacy configs
+    config.setdefault("overtime_rate_night", ot_defaults["overtime_rate_night"])
+    config.setdefault("overtime_rate_holiday", config.get("overtime_rate_100", ot_defaults["overtime_rate_holiday"]))
+    config.setdefault("overtime_hours_per_month", ot_defaults["overtime_hours_per_month"])
+    config.setdefault("country_code", country_code)
     return config
 
 
@@ -1625,7 +1663,11 @@ async def save_payroll_config(
         "infotep_rate": data.infotep_rate,
         "isr_enabled": data.isr_enabled,
         "overtime_rate_35": data.overtime_rate_35,
+        "overtime_rate_night": data.overtime_rate_night,
+        "overtime_rate_holiday": data.overtime_rate_holiday,
         "overtime_rate_100": data.overtime_rate_100,
+        "overtime_hours_per_month": data.overtime_hours_per_month,
+        "country_code": (data.country_code or "").upper()[:2] or None,
         "include_regalia": data.include_regalia,
         "regalia_months": data.regalia_months,
         "updated_at": now.isoformat()
@@ -1674,34 +1716,70 @@ async def create_payroll_period(
     data: PayrollPeriodCreate,
     user: User = Depends(get_current_user)
 ):
-    """Create a new payroll period and generate entries for all active employees"""
+    """Create a new payroll period and generate entries for all active employees.
+    
+    payment_kind:
+      - "regular": full payroll (salario + OT + bonos - deducciones)
+      - "overtime_only": only pays approved overtime in the range (no salary, no AFP/ARS/ISR)
+    """
     company_id, access_level = await check_people_ops_access(user, "edit")
     
     now = datetime.now(timezone.utc)
     period_id = f"period_{uuid.uuid4().hex[:12]}"
+    payment_kind = (data.payment_kind or "regular").lower()
+    if payment_kind not in ("regular", "overtime_only"):
+        raise HTTPException(status_code=400, detail="payment_kind must be 'regular' or 'overtime_only'")
     
-    # Get payroll config
+    # Get payroll config (with country-aware OT rates already backfilled)
     config = await db.payroll_config.find_one({"company_id": company_id}, {"_id": 0})
     if not config:
-        # Use defaults
+        company = await db.companies.find_one({"company_id": company_id}, {"_id": 0, "country": 1, "country_code": 1})
+        cc = (company or {}).get("country_code") or (company or {}).get("country") or "DO"
+        ot_def = get_country_overtime_defaults(cc)
         config = {
-            "afp_employee_rate": 2.87,
-            "afp_employer_rate": 7.10,
-            "ars_employee_rate": 3.04,
-            "ars_employer_rate": 7.09,
-            "srl_rate": 1.20,
-            "infotep_rate": 1.0,
+            "afp_employee_rate": 2.87, "afp_employer_rate": 7.10,
+            "ars_employee_rate": 3.04, "ars_employer_rate": 7.09,
+            "srl_rate": 1.20, "infotep_rate": 1.0,
             "isr_enabled": True,
-            "overtime_rate_35": 1.35,
-            "overtime_rate_100": 2.0
+            "overtime_rate_35": ot_def["overtime_rate_35"],
+            "overtime_rate_night": ot_def["overtime_rate_night"],
+            "overtime_rate_holiday": ot_def["overtime_rate_holiday"],
+            "overtime_rate_100": ot_def["overtime_rate_100"],
+            "overtime_hours_per_month": ot_def["overtime_hours_per_month"],
         }
+    
+    rate_35 = config.get("overtime_rate_35", 1.35)
+    rate_night = config.get("overtime_rate_night", 1.15)
+    rate_holiday = config.get("overtime_rate_holiday", 2.0)
+    rate_100 = config.get("overtime_rate_100", 2.0)
+    hours_per_month = config.get("overtime_hours_per_month", 192.0) or 192.0
+    
+    # Auto-generate period_name if missing
+    period_name = (data.period_name or "").strip()
+    if not period_name:
+        try:
+            start_dt = datetime.strptime(data.start_date, "%Y-%m-%d")
+            month_name = start_dt.strftime("%B")
+            year = start_dt.year
+            if data.period_type == PaymentFrequency.BIWEEKLY:
+                half = "1" if start_dt.day <= 15 else "2"
+                prefix = "Horas Extras" if payment_kind == "overtime_only" else "Quincena"
+                period_name = f"{prefix} {half} - {month_name} {year}"
+            elif data.period_type == PaymentFrequency.MONTHLY:
+                prefix = "Horas Extras" if payment_kind == "overtime_only" else "Nómina"
+                period_name = f"{prefix} {month_name} {year}"
+            else:
+                period_name = f"{month_name} {year}"
+        except Exception:
+            period_name = f"Nómina {data.start_date} → {data.end_date}"
     
     # Create period
     period_doc = {
         "period_id": period_id,
         "company_id": company_id,
-        "period_name": data.period_name,
+        "period_name": period_name,
         "period_type": data.period_type.value,
+        "payment_kind": payment_kind,
         "start_date": data.start_date,
         "end_date": data.end_date,
         "payment_date": data.payment_date,
@@ -1721,11 +1799,45 @@ async def create_payroll_period(
     
     await db.payroll_periods.insert_one(period_doc)
     
-    # Get all active employees and create entries
-    employees = await db.employees.find(
-        {"company_id": company_id, "status": "active"},
-        {"_id": 0}
-    ).to_list(1000)
+    # ---- Collect approved & unpaid OT entries to include in this period
+    # Match by date range (date is YYYY-MM-DD string)
+    ot_query: dict = {
+        "company_id": company_id,
+        "status": "approved",
+        "date": {"$gte": data.start_date, "$lte": data.end_date},
+        # not already attached to another period
+        "$or": [{"payroll_period_id": None}, {"payroll_period_id": {"$exists": False}}],
+    }
+    if data.include_overtime_ids:
+        ot_query = {"company_id": company_id, "overtime_id": {"$in": data.include_overtime_ids}}
+    
+    include_ot = data.auto_include_overtime
+    ot_by_employee: dict = {}
+    if include_ot:
+        ot_list = await db.overtime_requests.find(ot_query, {"_id": 0}).to_list(2000)
+        for ot in ot_list:
+            emp_id = ot.get("employee_id")
+            if not emp_id:
+                continue
+            acc = ot_by_employee.setdefault(emp_id, {"hours_35": 0.0, "hours_night": 0.0, "hours_holiday": 0.0, "hours_100": 0.0, "ot_ids": []})
+            acc["hours_35"] += float(ot.get("hours_35") or 0)
+            acc["hours_night"] += float(ot.get("hours_night") or 0)
+            acc["hours_holiday"] += float(ot.get("hours_holiday") or 0)
+            acc["hours_100"] += float(ot.get("hours_100") or 0)
+            acc["ot_ids"].append(ot.get("overtime_id"))
+    
+    # Get employees: for "overtime_only" only employees with OT in range; for "regular" all active
+    if payment_kind == "overtime_only":
+        emp_ids = list(ot_by_employee.keys())
+        employees = await db.employees.find(
+            {"company_id": company_id, "employee_id": {"$in": emp_ids}},
+            {"_id": 0}
+        ).to_list(1000) if emp_ids else []
+    else:
+        employees = await db.employees.find(
+            {"company_id": company_id, "status": "active"},
+            {"_id": 0}
+        ).to_list(1000)
     
     total_gross = 0.0
     total_deductions = 0.0
@@ -1733,54 +1845,69 @@ async def create_payroll_period(
     total_employer_cost = 0.0
     
     for emp in employees:
-        # Calculate salary for period
-        base_salary = emp.get("base_salary", 0)
+        base_salary = float(emp.get("base_salary") or 0)
         freq = emp.get("payment_frequency", "biweekly")
         
-        # Adjust salary based on frequency
-        if freq == "monthly" and data.period_type.value == "biweekly":
-            period_salary = base_salary / 2
-        elif freq == "biweekly" and data.period_type.value == "monthly":
-            period_salary = base_salary * 2
+        # period_salary = how much salary this employee gets for this period
+        if payment_kind == "overtime_only":
+            period_salary = 0.0
         else:
-            period_salary = base_salary
+            if freq == "monthly" and data.period_type.value == "biweekly":
+                period_salary = base_salary / 2
+            elif freq == "biweekly" and data.period_type.value == "monthly":
+                period_salary = base_salary * 2
+            else:
+                period_salary = base_salary
         
-        # Calculate deductions
-        afp_emp = period_salary * (config.get("afp_employee_rate", 2.87) / 100)
-        ars_emp = period_salary * (config.get("ars_employee_rate", 3.04) / 100)
+        # Hourly rate derived from MONTHLY salary equivalent
+        monthly_salary_eq = base_salary if freq == "monthly" else (base_salary * 2 if freq == "biweekly" else base_salary * 4)
+        hourly_rate = (monthly_salary_eq / hours_per_month) if hours_per_month else 0
         
-        # ISR calculation (monthly equivalent)
-        monthly_salary = period_salary * 2 if data.period_type.value == "biweekly" else period_salary
-        monthly_isr = calculate_monthly_isr(monthly_salary) if config.get("isr_enabled", True) else 0
-        period_isr = monthly_isr / 2 if data.period_type.value == "biweekly" else monthly_isr
+        # Pull OT for this employee
+        ot_data = ot_by_employee.get(emp.get("employee_id"), {"hours_35": 0.0, "hours_night": 0.0, "hours_holiday": 0.0, "hours_100": 0.0, "ot_ids": []})
+        h35, hn, hh, h100 = ot_data["hours_35"], ot_data["hours_night"], ot_data["hours_holiday"], ot_data["hours_100"]
+        amt_35 = h35 * hourly_rate * rate_35
+        amt_night = hn * hourly_rate * rate_night
+        amt_holiday = hh * hourly_rate * rate_holiday
+        amt_100 = h100 * hourly_rate * rate_100
+        ot_total = amt_35 + amt_night + amt_holiday + amt_100
         
-        # Loan deduction - improved logic using actual loan installment
-        loan_deduction = 0.0
-        loan_id = None
-        if emp.get("active_loan_balance", 0) > 0:
-            # Get active loan for this employee to use the defined installment amount
-            active_loan = await db.loans.find_one({
-                "company_id": company_id,
-                "employee_id": emp.get("employee_id"),
-                "status": "active"
-            }, {"_id": 0, "loan_id": 1, "installment_amount": 1, "remaining_balance": 1})
+        gross_salary = period_salary + ot_total
+        
+        # Deductions (only for regular payroll; overtime-only periods have no AFP/ARS/ISR by default)
+        if payment_kind == "overtime_only":
+            afp_emp = ars_emp = period_isr = loan_deduction = 0.0
+            loan_id = None
+            afp_employer = ars_employer = srl_employer = infotep_employer = 0.0
+        else:
+            afp_emp = period_salary * (config.get("afp_employee_rate", 2.87) / 100)
+            ars_emp = period_salary * (config.get("ars_employee_rate", 3.04) / 100)
+            monthly_salary = period_salary * 2 if data.period_type.value == "biweekly" else period_salary
+            monthly_isr = calculate_monthly_isr(monthly_salary) if config.get("isr_enabled", True) else 0
+            period_isr = monthly_isr / 2 if data.period_type.value == "biweekly" else monthly_isr
             
-            if active_loan:
-                loan_id = active_loan.get("loan_id")
-                installment = active_loan.get("installment_amount", 0)
-                remaining = active_loan.get("remaining_balance", 0)
-                # Deduct the lesser of: installment amount or remaining balance
-                loan_deduction = min(installment, remaining)
+            loan_deduction = 0.0
+            loan_id = None
+            if emp.get("active_loan_balance", 0) > 0:
+                active_loan = await db.loans.find_one({
+                    "company_id": company_id,
+                    "employee_id": emp.get("employee_id"),
+                    "status": "active"
+                }, {"_id": 0, "loan_id": 1, "installment_amount": 1, "remaining_balance": 1})
+                if active_loan:
+                    loan_id = active_loan.get("loan_id")
+                    installment = active_loan.get("installment_amount", 0)
+                    remaining = active_loan.get("remaining_balance", 0)
+                    loan_deduction = min(installment, remaining)
+            
+            afp_employer = period_salary * (config.get("afp_employer_rate", 7.10) / 100)
+            ars_employer = period_salary * (config.get("ars_employer_rate", 7.09) / 100)
+            srl_employer = period_salary * (config.get("srl_rate", 1.20) / 100)
+            infotep_employer = period_salary * (config.get("infotep_rate", 1.0) / 100)
         
         total_emp_deductions = afp_emp + ars_emp + period_isr + loan_deduction
-        net_salary = period_salary - total_emp_deductions
-        
-        # Employer contributions
-        afp_employer = period_salary * (config.get("afp_employer_rate", 7.10) / 100)
-        ars_employer = period_salary * (config.get("ars_employer_rate", 7.09) / 100)
-        srl_employer = period_salary * (config.get("srl_rate", 1.20) / 100)
-        infotep_employer = period_salary * (config.get("infotep_rate", 1.0) / 100)
-        employer_cost = period_salary + afp_employer + ars_employer + srl_employer + infotep_employer
+        net_salary = gross_salary - total_emp_deductions
+        employer_cost = period_salary + ot_total + afp_employer + ars_employer + srl_employer + infotep_employer
         
         entry_id = f"entry_{uuid.uuid4().hex[:12]}"
         entry_doc = {
@@ -1791,28 +1918,32 @@ async def create_payroll_period(
             "employee_name": emp.get("full_name"),
             "employee_number": emp.get("employee_number"),
             "department": emp.get("department"),
-            # Cost Center tracking - inherits from employee's assigned cost center
             "cost_center_id": emp.get("cost_center_id"),
             "cost_center_name": emp.get("cost_center_name"),
             
             "base_salary": round(period_salary, 2),
-            "overtime_hours_35": 0,
-            "overtime_amount_35": 0,
-            "overtime_hours_100": 0,
-            "overtime_amount_100": 0,
+            "overtime_hours_35": round(h35, 2),
+            "overtime_amount_35": round(amt_35, 2),
+            "overtime_hours_night": round(hn, 2),
+            "overtime_amount_night": round(amt_night, 2),
+            "overtime_hours_holiday": round(hh, 2),
+            "overtime_amount_holiday": round(amt_holiday, 2),
+            "overtime_hours_100": round(h100, 2),
+            "overtime_amount_100": round(amt_100, 2),
             "bonus": 0,
             "commission": 0,
             "other_earnings": 0,
             "other_earnings_description": None,
-            "gross_salary": round(period_salary, 2),
+            "gross_salary": round(gross_salary, 2),
             
             "afp_employee": round(afp_emp, 2),
             "ars_employee": round(ars_emp, 2),
             "isr": round(period_isr, 2),
             "loan_deduction": round(loan_deduction, 2),
-            "loan_id": loan_id,  # Track which loan is being deducted
+            "loan_id": loan_id,
             "other_deductions": 0,
             "other_deductions_description": None,
+            "extra_deductions": [],
             "total_deductions": round(total_emp_deductions, 2),
             
             "net_salary": round(net_salary, 2),
@@ -1827,16 +1958,25 @@ async def create_payroll_period(
             "bank_account": emp.get("bank_account"),
             
             "notes": None,
+            "linked_overtime_ids": ot_data["ot_ids"],
             "created_at": now.isoformat(),
             "updated_at": now.isoformat()
         }
         
         await db.payroll_entries.insert_one(entry_doc)
         
-        total_gross += period_salary
+        total_gross += gross_salary
         total_deductions += total_emp_deductions
         total_net += net_salary
         total_employer_cost += employer_cost
+    
+    # Link the consumed OT requests to this period (prevents double-payment)
+    consumed_ot_ids = [oid for acc in ot_by_employee.values() for oid in acc["ot_ids"]]
+    if consumed_ot_ids:
+        await db.overtime_requests.update_many(
+            {"company_id": company_id, "overtime_id": {"$in": consumed_ot_ids}},
+            {"$set": {"payroll_period_id": period_id, "status": "processed", "updated_at": now.isoformat()}}
+        )
     
     # Update period totals
     await db.payroll_periods.update_one(
@@ -1850,7 +1990,7 @@ async def create_payroll_period(
         }}
     )
     
-    del period_doc["_id"]
+    period_doc.pop("_id", None)
     period_doc["total_employees"] = len(employees)
     period_doc["total_gross"] = round(total_gross, 2)
     period_doc["total_deductions"] = round(total_deductions, 2)
@@ -1894,10 +2034,9 @@ async def update_payroll_entry(
     data: PayrollEntryUpdate,
     user: User = Depends(get_current_user)
 ):
-    """Update a payroll entry (add overtime, bonus, etc.)"""
+    """Update a payroll entry (add overtime hours, bonus, extra deductions, etc.)"""
     company_id, access_level = await check_people_ops_access(user, "edit")
     
-    # Get entry
     entry = await db.payroll_entries.find_one(
         {"entry_id": entry_id, "company_id": company_id},
         {"_id": 0}
@@ -1905,84 +2044,108 @@ async def update_payroll_entry(
     if not entry:
         raise HTTPException(status_code=404, detail="Payroll entry not found")
     
-    # Check if period is still editable
     period = await db.payroll_periods.find_one(
         {"period_id": entry.get("period_id")},
-        {"_id": 0, "status": 1}
+        {"_id": 0, "status": 1, "payment_kind": 1, "period_type": 1}
     )
     if period and period.get("status") not in ["draft", "pending_approval"]:
         raise HTTPException(status_code=400, detail="Cannot edit entries for processed payroll")
     
-    # Get config for rates
-    config = await db.payroll_config.find_one({"company_id": company_id}, {"_id": 0})
-    overtime_rate_35 = config.get("overtime_rate_35", 1.35) if config else 1.35
-    overtime_rate_100 = config.get("overtime_rate_100", 2.0) if config else 2.0
+    payment_kind = (period or {}).get("payment_kind", "regular")
+    period_type = (period or {}).get("period_type", "biweekly")
+    
+    config = await db.payroll_config.find_one({"company_id": company_id}, {"_id": 0}) or {}
+    rate_35 = config.get("overtime_rate_35", 1.35)
+    rate_night = config.get("overtime_rate_night", 1.15)
+    rate_holiday = config.get("overtime_rate_holiday", 2.0)
+    rate_100 = config.get("overtime_rate_100", 2.0)
+    hours_per_month = config.get("overtime_hours_per_month", 192.0) or 192.0
     
     now = datetime.now(timezone.utc)
     
-    # Calculate hourly rate from base salary (assuming 23.83 working days, 8 hours)
-    hourly_rate = entry.get("base_salary", 0) / (23.83 * 8 / 2) if entry.get("base_salary", 0) > 0 else 0
+    # Hourly rate from BASE salary (period_salary is biweekly→×2 for monthly)
+    base = float(entry.get("base_salary") or 0)
+    monthly_salary_eq = base * 2 if period_type == "biweekly" else base if period_type == "monthly" else base * 4
+    hourly_rate = (monthly_salary_eq / hours_per_month) if hours_per_month else 0
     
-    update_data = {}
+    update_data: dict = {}
     
     if data.overtime_hours_35 is not None:
         update_data["overtime_hours_35"] = data.overtime_hours_35
-        update_data["overtime_amount_35"] = round(data.overtime_hours_35 * hourly_rate * overtime_rate_35, 2)
-    
+        update_data["overtime_amount_35"] = round(data.overtime_hours_35 * hourly_rate * rate_35, 2)
+    if data.overtime_hours_night is not None:
+        update_data["overtime_hours_night"] = data.overtime_hours_night
+        update_data["overtime_amount_night"] = round(data.overtime_hours_night * hourly_rate * rate_night, 2)
+    if data.overtime_hours_holiday is not None:
+        update_data["overtime_hours_holiday"] = data.overtime_hours_holiday
+        update_data["overtime_amount_holiday"] = round(data.overtime_hours_holiday * hourly_rate * rate_holiday, 2)
     if data.overtime_hours_100 is not None:
         update_data["overtime_hours_100"] = data.overtime_hours_100
-        update_data["overtime_amount_100"] = round(data.overtime_hours_100 * hourly_rate * overtime_rate_100, 2)
+        update_data["overtime_amount_100"] = round(data.overtime_hours_100 * hourly_rate * rate_100, 2)
     
     if data.bonus is not None:
         update_data["bonus"] = data.bonus
-    
     if data.commission is not None:
         update_data["commission"] = data.commission
-    
     if data.other_earnings is not None:
         update_data["other_earnings"] = data.other_earnings
-    
     if data.other_earnings_description is not None:
         update_data["other_earnings_description"] = data.other_earnings_description
-    
     if data.loan_deduction is not None:
         update_data["loan_deduction"] = data.loan_deduction
-    
     if data.other_deductions is not None:
         update_data["other_deductions"] = data.other_deductions
-    
     if data.other_deductions_description is not None:
         update_data["other_deductions_description"] = data.other_deductions_description
-    
+    if data.extra_deductions is not None:
+        # Normalize each item: ensure id, amount float, reason str
+        cleaned = []
+        for item in data.extra_deductions:
+            try:
+                amt = float(item.get("amount") or 0)
+            except (TypeError, ValueError):
+                amt = 0
+            if amt <= 0:
+                continue
+            cleaned.append({
+                "id": item.get("id") or f"ded_{uuid.uuid4().hex[:8]}",
+                "amount": round(amt, 2),
+                "reason": (item.get("reason") or "").strip() or "Descuento"
+            })
+        update_data["extra_deductions"] = cleaned
     if data.notes is not None:
         update_data["notes"] = data.notes
     
-    # Recalculate totals
-    base = entry.get("base_salary", 0)
+    # ---- Recalculate gross/deductions/net
+    salary_for_period = base  # base_salary is already the period-adjusted amount
     ot_35 = update_data.get("overtime_amount_35", entry.get("overtime_amount_35", 0))
+    ot_night = update_data.get("overtime_amount_night", entry.get("overtime_amount_night", 0))
+    ot_holiday = update_data.get("overtime_amount_holiday", entry.get("overtime_amount_holiday", 0))
     ot_100 = update_data.get("overtime_amount_100", entry.get("overtime_amount_100", 0))
     bonus = update_data.get("bonus", entry.get("bonus", 0))
     commission = update_data.get("commission", entry.get("commission", 0))
     other_earn = update_data.get("other_earnings", entry.get("other_earnings", 0))
     
-    gross = base + ot_35 + ot_100 + bonus + commission + other_earn
+    gross = salary_for_period + ot_35 + ot_night + ot_holiday + ot_100 + bonus + commission + other_earn
     
-    # Recalculate deductions on new gross
-    afp_rate = config.get("afp_employee_rate", 2.87) / 100 if config else 0.0287
-    ars_rate = config.get("ars_employee_rate", 3.04) / 100 if config else 0.0304
-    
-    afp_emp = round(gross * afp_rate, 2)
-    ars_emp = round(gross * ars_rate, 2)
-    
-    # ISR on monthly equivalent
-    monthly_gross = gross * 2  # Assuming biweekly
-    monthly_isr = calculate_monthly_isr(monthly_gross) if (config and config.get("isr_enabled", True)) else 0
-    period_isr = round(monthly_isr / 2, 2)
+    # AFP/ARS/ISR only on regular payroll
+    if payment_kind == "overtime_only":
+        afp_emp = ars_emp = period_isr = 0.0
+    else:
+        afp_rate = config.get("afp_employee_rate", 2.87) / 100
+        ars_rate = config.get("ars_employee_rate", 3.04) / 100
+        afp_emp = round(salary_for_period * afp_rate, 2)
+        ars_emp = round(salary_for_period * ars_rate, 2)
+        monthly_gross = salary_for_period * 2 if period_type == "biweekly" else salary_for_period
+        monthly_isr = calculate_monthly_isr(monthly_gross) if config.get("isr_enabled", True) else 0
+        period_isr = round((monthly_isr / 2) if period_type == "biweekly" else monthly_isr, 2)
     
     loan = update_data.get("loan_deduction", entry.get("loan_deduction", 0))
     other_ded = update_data.get("other_deductions", entry.get("other_deductions", 0))
+    extra_list = update_data.get("extra_deductions", entry.get("extra_deductions", []) or [])
+    extra_sum = round(sum(float(d.get("amount") or 0) for d in extra_list), 2)
     
-    total_deductions = afp_emp + ars_emp + period_isr + loan + other_ded
+    total_deductions = afp_emp + ars_emp + period_isr + loan + other_ded + extra_sum
     net = gross - total_deductions
     
     update_data["gross_salary"] = round(gross, 2)
@@ -1998,10 +2161,9 @@ async def update_payroll_entry(
         {"$set": update_data}
     )
     
-    # Recalculate period totals
     await recalculate_period_totals(entry.get("period_id"))
     
-    return {"message": "Entry updated", "net_salary": round(net, 2)}
+    return {"message": "Entry updated", "net_salary": round(net, 2), "total_deductions": round(total_deductions, 2)}
 
 
 async def recalculate_period_totals(period_id: str):
@@ -2605,7 +2767,7 @@ async def get_overtime_requests(
 
 @people_ops_router.post("/overtime/requests")
 async def create_overtime_request(data: dict, user: User = Depends(get_current_user)):
-    """Create an overtime request"""
+    """Create an overtime request (supports 4 OT categories: normal, night, holiday, 100%)"""
     company_id = user.company_id or user.active_org_id
     
     employee_id = data.get("employee_id")
@@ -2616,21 +2778,29 @@ async def create_overtime_request(data: dict, user: User = Depends(get_current_u
     if not employee:
         raise HTTPException(status_code=404, detail="Employee not found")
     
-    # Calculate hourly rate (monthly salary / 192 hours)
-    base_salary = employee.get("base_salary", 0)
+    config = await db.payroll_config.find_one({"company_id": company_id}, {"_id": 0}) or {}
+    rate_35 = config.get("overtime_rate_35", 1.35)
+    rate_night = config.get("overtime_rate_night", 1.15)
+    rate_holiday = config.get("overtime_rate_holiday", 2.0)
+    rate_100 = config.get("overtime_rate_100", 2.0)
+    hours_per_month = config.get("overtime_hours_per_month", 192.0) or 192.0
+    
+    base_salary = float(employee.get("base_salary") or 0)
     freq = employee.get("payment_frequency", "biweekly")
-    monthly_salary = base_salary * 2 if freq == "biweekly" else base_salary * 4 if freq == "weekly" else base_salary
-    hourly_rate = monthly_salary / 192
+    monthly_salary = base_salary if freq == "monthly" else (base_salary * 2 if freq == "biweekly" else base_salary * 4)
+    hourly_rate = (monthly_salary / hours_per_month) if hours_per_month else 0
     
-    hours_35 = data.get("hours_35", 0)
-    hours_100 = data.get("hours_100", 0)
+    h35 = float(data.get("hours_35") or 0)
+    hn = float(data.get("hours_night") or 0)
+    hh = float(data.get("hours_holiday") or 0)
+    h100 = float(data.get("hours_100") or 0)
     
-    # Get config for rates
-    config = await db.payroll_config.find_one({"company_id": company_id}, {"_id": 0})
-    rate_35 = config.get("overtime_rate_35", 1.35) if config else 1.35
-    rate_100 = config.get("overtime_rate_100", 2.0) if config else 2.0
-    
-    estimated_amount = (hours_35 * hourly_rate * rate_35) + (hours_100 * hourly_rate * rate_100)
+    estimated_amount = (
+        h35 * hourly_rate * rate_35
+        + hn * hourly_rate * rate_night
+        + hh * hourly_rate * rate_holiday
+        + h100 * hourly_rate * rate_100
+    )
     
     overtime_id = f"ot_{uuid.uuid4().hex[:12]}"
     now = datetime.now(timezone.utc)
@@ -2641,9 +2811,11 @@ async def create_overtime_request(data: dict, user: User = Depends(get_current_u
         "employee_id": employee_id,
         "employee_name": employee.get("full_name"),
         "date": data.get("date"),
-        "hours_35": hours_35,
-        "hours_100": hours_100,
-        "total_hours": hours_35 + hours_100,
+        "hours_35": h35,
+        "hours_night": hn,
+        "hours_holiday": hh,
+        "hours_100": h100,
+        "total_hours": round(h35 + hn + hh + h100, 2),
         "estimated_amount": round(estimated_amount, 2),
         "status": "pending",
         "reason": data.get("reason"),
@@ -2655,6 +2827,50 @@ async def create_overtime_request(data: dict, user: User = Depends(get_current_u
     await db.overtime_requests.insert_one(overtime)
     
     return {"overtime_id": overtime_id, "estimated_amount": round(estimated_amount, 2)}
+
+
+@people_ops_router.get("/overtime/pending-in-range")
+async def get_pending_overtime_in_range(
+    start_date: str,
+    end_date: str,
+    user: User = Depends(get_current_user)
+):
+    """Returns approved & unpaid overtime requests within a date range.
+    Used in the 'Create Payroll Period' dialog to preview OT to be included."""
+    company_id, _ = await check_people_ops_access(user, "view")
+    ots = await db.overtime_requests.find({
+        "company_id": company_id,
+        "status": "approved",
+        "date": {"$gte": start_date, "$lte": end_date},
+        "$or": [{"payroll_period_id": None}, {"payroll_period_id": {"$exists": False}}],
+    }, {"_id": 0}).sort("date", 1).to_list(2000)
+    
+    # Aggregate by employee
+    by_emp: dict = {}
+    for ot in ots:
+        emp_id = ot.get("employee_id")
+        if not emp_id:
+            continue
+        acc = by_emp.setdefault(emp_id, {
+            "employee_id": emp_id,
+            "employee_name": ot.get("employee_name"),
+            "hours_35": 0.0, "hours_night": 0.0, "hours_holiday": 0.0, "hours_100": 0.0,
+            "estimated_amount": 0.0,
+            "ot_ids": [],
+        })
+        acc["hours_35"] += float(ot.get("hours_35") or 0)
+        acc["hours_night"] += float(ot.get("hours_night") or 0)
+        acc["hours_holiday"] += float(ot.get("hours_holiday") or 0)
+        acc["hours_100"] += float(ot.get("hours_100") or 0)
+        acc["estimated_amount"] += float(ot.get("estimated_amount") or 0)
+        acc["ot_ids"].append(ot.get("overtime_id"))
+    
+    return {
+        "summary_by_employee": list(by_emp.values()),
+        "raw": ots,
+        "total_ot_count": len(ots),
+        "total_estimated_amount": round(sum(o.get("estimated_amount") or 0 for o in ots), 2),
+    }
 
 
 @people_ops_router.post("/overtime/requests/{overtime_id}/approve")
