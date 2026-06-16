@@ -21,6 +21,7 @@ import { OnboardingSection } from "../components/people-ops/OnboardingSection";
 import { PerformanceSection } from "../components/people-ops/PerformanceSection";
 import { OrgChartSection } from "../components/people-ops/OrgChartSection";
 import { MonthEndClosingSection } from "../components/people-ops/MonthEndClosingSection";
+import { useCurrencyFormatter } from "../hooks/useCurrencyFormatter";
 
 // Icons
 import {
@@ -57,6 +58,7 @@ const PERMISSIONS = {
 
 export default function PeopleOpsPage() {
   const { language } = useLanguage();
+  const { formatCurrency } = useCurrencyFormatter();
   const isEs = language === "es";
   const location = useLocation();
   const navigate = useNavigate();
@@ -155,7 +157,7 @@ export default function PeopleOpsPage() {
                 </div>
                 {stats.total_monthly_payroll && (
                   <div className="text-center border-l pl-4">
-                    <p className="text-lg font-bold">${(stats.total_monthly_payroll || 0).toLocaleString()}</p>
+                    <p className="text-lg font-bold">{formatCurrency(stats.total_monthly_payroll)}</p>
                     <p className="text-xs text-muted-foreground">{isEs ? "Nómina Mensual" : "Monthly Payroll"}</p>
                   </div>
                 )}

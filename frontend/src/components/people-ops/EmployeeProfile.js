@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useLanguage } from "../../contexts/LanguageContext";
 import { useOrgConfig } from "../../contexts/OrgConfigContext";
+import { buildCurrencyFormatter } from "../../hooks/useCurrencyFormatter";
+import { FxConvertBadge } from "../FxConvertBadge";
 import axios from "axios";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../ui/card";
 import { Button } from "../ui/button";
@@ -26,12 +28,13 @@ import { Switch } from "../ui/switch";
 import { API_BASE as API } from "../../utils/api";
 import { PaymentHistoryTab } from "./EmployeeProfilePage/PaymentHistoryTab";
 
-const formatCurrency = (amount) => `$${(amount || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+// formatCurrency now derives from companyCurrency via the hook within the component body.
 
 export function EmployeeProfile() {
   const { employeeId } = useParams();
   const { language } = useLanguage();
   const { companyCurrency } = useOrgConfig();
+  const formatCurrency = buildCurrencyFormatter(companyCurrency);
   const isEs = language === "es";
   const navigate = useNavigate();
   
@@ -596,7 +599,16 @@ export function EmployeeProfile() {
             <Card className="border-emerald-200 bg-emerald-50/30">
               <CardContent className="pt-6">
                 <p className="text-sm text-emerald-600">{isEs ? "Salario Base" : "Base Salary"}</p>
-                <p className="text-3xl font-bold text-emerald-700">{formatCurrency(employee.base_salary)}</p>
+                {(() => {
+                  const empCurrency = employee.currency || companyCurrency || "USD";
+                  const empFormatter = buildCurrencyFormatter(empCurrency);
+                  return (
+                    <>
+                      <p className="text-3xl font-bold text-emerald-700">{empFormatter(employee.base_salary)}</p>
+                      <FxConvertBadge amount={employee.base_salary} from={empCurrency} className="mt-1" />
+                    </>
+                  );
+                })()}
                 <p className="text-sm text-muted-foreground mt-1">
                   {employee.payment_frequency === "biweekly" ? (isEs ? "Quincenal" : "Biweekly") :
                    employee.payment_frequency === "monthly" ? (isEs ? "Mensual" : "Monthly") : 
