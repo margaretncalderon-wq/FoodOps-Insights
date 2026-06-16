@@ -1,5 +1,22 @@
 # Kora OS — Product Requirements Document
 
+## People Ops — OT Period Reports + Auto Email Digest (Feb 18, 2026)
+
+**Status:** ✅ Complete (Backend 12/12 pytest, Frontend 100% testing agent).
+
+### Implemented
+- `GET /api/people-ops/overtime/report?period=weekly|biweekly|monthly&date=YYYY-MM-DD` — agregado por empleado con hours/categoría, hourly_rate, base_salary, monto estimado, totales.
+- `GET /api/people-ops/overtime/report/export?format=csv|xlsx` — descarga directa con encabezados localizados.
+- `GET/PUT /api/people-ops/overtime/email-schedule` — config de email digest (enabled/frequency/recipients).
+- APScheduler `ot_digest_dispatcher` — corre todos los lunes 8:30am AST y envía digest según frecuencia configurada por empresa.
+- Frontend `OvertimeSection.js`: nueva **Period Report card** con period select + date picker + 4 KPIs + tabla agregada con salario + tarifa horaria por empleado. Botones export CSV + XLSX. Dialog **Email** para configurar frecuencia/destinatarios. Mini-cards inline mostrando Salario base + Mensual eq + Hora normal al seleccionar empleado en Log Hours.
+
+### Test report
+- `/app/backend/tests/test_overtime_reports.py` (12 tests ✅)
+- `/app/test_reports/iteration_188.json`
+
+---
+
 ## People Ops — Personnel Month-End Closing (Feb 18, 2026)
 
 **Status:** ✅ Complete (Backend 11/11 pytest, Frontend 100% testing agent).
