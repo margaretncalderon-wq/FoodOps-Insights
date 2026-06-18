@@ -7,6 +7,7 @@ import { Badge } from "../components/ui/badge";
 import { 
   Truck, Package, Loader2, Calendar, MapPin, Clock, CheckCircle, XCircle, Image
 } from "lucide-react";
+import { formatDateOnly } from "../utils/dates";
 
 export default function ClientDeliveryNote() {
   const { eventId } = useParams();
@@ -109,7 +110,7 @@ export default function ClientDeliveryNote() {
                       {note.checkout_date && (
                         <p className="text-sm text-muted-foreground mt-1 flex items-center gap-1">
                           <Calendar className="w-4 h-4" />
-                          {new Date(note.checkout_date).toLocaleDateString()}
+                          {formatDateOnly(note.checkout_date)}
                         </p>
                       )}
                     </div>

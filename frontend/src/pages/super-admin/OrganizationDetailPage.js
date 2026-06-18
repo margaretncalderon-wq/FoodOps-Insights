@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 
 import { API_BASE as API } from "../../utils/api";
+import { formatDateOnly } from "../../utils/dates";
 
 const ROLES = ["owner", "admin", "ops", "finance", "viewer"];
 
@@ -555,7 +556,7 @@ export default function OrganizationDetailPage() {
                   <Calendar className="w-4 h-4 text-gray-500" />
                   <div>
                     <p className="text-sm text-gray-500">Created</p>
-                    <p className="text-gray-900">{new Date(org?.organization?.created_at).toLocaleDateString()}</p>
+                    <p className="text-gray-900">{formatDateOnly(org?.organization?.created_at)}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
@@ -932,7 +933,7 @@ export default function OrganizationDetailPage() {
                         </Badge>
                       </TableCell>
                       <TableCell className="text-gray-500">
-                        {member.joined_at ? new Date(member.joined_at).toLocaleDateString() : "—"}
+                        {member.joined_at ? formatDateOnly(member.joined_at) : "—"}
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1">
@@ -1003,7 +1004,7 @@ export default function OrganizationDetailPage() {
                   </div>
                   <div>
                     <p className="text-sm text-gray-500">Next Renewal</p>
-                    <p>{org?.subscription?.current_period_end ? new Date(org?.subscription?.current_period_end).toLocaleDateString() : "N/A"}</p>
+                    <p>{org?.subscription?.current_period_end ? formatDateOnly(org?.subscription?.current_period_end) : "N/A"}</p>
                   </div>
                 </div>
               </CardContent>
@@ -1033,7 +1034,7 @@ export default function OrganizationDetailPage() {
                       </div>
                       {org.organization.custom_deal_applied_at && (
                         <p className="text-xs text-purple-500 mt-2">
-                          Applied on {new Date(org.organization.custom_deal_applied_at).toLocaleDateString()}
+                          Applied on {formatDateOnly(org.organization.custom_deal_applied_at)}
                         </p>
                       )}
                     </div>

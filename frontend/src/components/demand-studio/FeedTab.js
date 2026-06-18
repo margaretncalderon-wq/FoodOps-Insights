@@ -18,6 +18,7 @@ import {
   Play, CheckCircle, AlertCircle, Smartphone, LayoutGrid, Upload
 } from "lucide-react";
 import { API_BASE as API } from "../../utils/api";
+import { formatDateOnly } from "../../utils/dates";
 
 export default function FeedTab({ campaigns = [], pillars = [] }) {
   const { language } = useLanguage();
@@ -125,7 +126,7 @@ export default function FeedTab({ campaigns = [], pillars = [] }) {
           </div>
           <div className="text-white text-xs">
             <p className="font-medium truncate">{title}</p>
-            {date && <p className="text-white/70 text-[10px] mt-0.5">{new Date(date).toLocaleDateString()}</p>}
+            {date && <p className="text-white/70 text-[10px] mt-0.5">{formatDateOnly(date, language)}</p>}
           </div>
         </div>
         {(item.type === "video" || item.media_type === "VIDEO" || item.format === "reel") && (
@@ -391,7 +392,7 @@ export default function FeedTab({ campaigns = [], pillars = [] }) {
               <div className="flex items-center justify-between">
                 {getStatusBadge(selectedItem.status || (selectedItem.ig_media_id ? "posted" : "drafted"))}
                 <span className="text-sm text-muted-foreground">
-                  {new Date(selectedItem.scheduled_at || selectedItem.timestamp || selectedItem.created_at).toLocaleDateString()}
+                  {formatDateOnly(selectedItem.scheduled_at || selectedItem.timestamp || selectedItem.created_at, language)}
                 </span>
               </div>
               

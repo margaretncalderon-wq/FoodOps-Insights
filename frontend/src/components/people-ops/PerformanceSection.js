@@ -44,6 +44,7 @@ import {
 import { toast } from "sonner";
 
 import { API_BASE as API } from "../../utils/api";
+import { formatDateOnly } from "../../utils/dates";
 
 const REVIEW_STATUS = {
   draft: { label: "Draft", labelEs: "Borrador", color: "bg-slate-100 text-slate-700" },
@@ -546,7 +547,7 @@ export function PerformanceSection() {
                       {goal.target_date && (
                         <div className="flex items-center gap-1 text-xs text-muted-foreground">
                           <Calendar className="w-3 h-3" />
-                          {isEs ? "Fecha meta" : "Target"}: {new Date(goal.target_date).toLocaleDateString()}
+                          {isEs ? "Fecha meta" : "Target"}: {formatDateOnly(goal.target_date, language)}
                         </div>
                       )}
                     </div>

@@ -14,6 +14,7 @@ import {
   Instagram, Clock, Eye, PenLine, Image, Video
 } from "lucide-react";
 import { toast } from "sonner";
+import { formatDateOnly } from "../../utils/dates";
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
@@ -358,7 +359,7 @@ export default function SharedSocialPage() {
                             <div className="flex items-start justify-between mb-2">
                               {getStatusBadge(post.status)}
                               <span className="text-xs text-muted-foreground">
-                                {new Date(post.created_at).toLocaleDateString()}
+                                {formatDateOnly(post.created_at, language)}
                               </span>
                             </div>
                             <p className="text-sm line-clamp-3">{post.caption || (isEs ? "Sin caption" : "No caption")}</p>
@@ -412,7 +413,7 @@ export default function SharedSocialPage() {
                             <div className="flex items-center gap-2 mt-2">
                               <Badge variant="outline" className="text-xs">{idea.content_type}</Badge>
                               <span className="text-xs text-muted-foreground">
-                                {new Date(idea.created_at).toLocaleDateString()}
+                                {formatDateOnly(idea.created_at, language)}
                               </span>
                             </div>
                           </div>

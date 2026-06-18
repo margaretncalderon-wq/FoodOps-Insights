@@ -373,7 +373,7 @@ export default function ClientEventPortal() {
                           <div>
                             <h4 className="font-semibold">{note.note_number}</h4>
                             <p className="text-sm text-muted-foreground">
-                              {note.checkout_date ? new Date(note.checkout_date).toLocaleDateString() : "-"}
+                              {note.checkout_date ? formatDateOnly(note.checkout_date) : "-"}
                             </p>
                           </div>
                           <Badge variant={note.status === "completed" ? "default" : "secondary"}>

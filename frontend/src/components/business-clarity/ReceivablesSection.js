@@ -7,6 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from ".
 import { RefreshCw } from "lucide-react";
 
 import { API_BASE as API } from "../../utils/api";
+import { formatDateOnly } from "../../utils/dates";
 const formatCurrency = (amount) => `$${(amount || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 export function ReceivablesSection() {
@@ -44,7 +45,7 @@ export function ReceivablesSection() {
                 <TableRow key={rec.invoice_id}>
                   <TableCell>{rec.client_name || "-"}</TableCell>
                   <TableCell className="font-medium">{rec.invoice_number}</TableCell>
-                  <TableCell>{rec.due_date ? new Date(rec.due_date).toLocaleDateString() : "-"}</TableCell>
+                  <TableCell>{rec.due_date ? formatDateOnly(rec.due_date, language) : "-"}</TableCell>
                   <TableCell className="text-right font-medium">{formatCurrency(rec.balance_due)}</TableCell>
                   <TableCell className="text-right">{rec.days_overdue > 0 ? <span className="text-red-600">{rec.days_overdue}</span> : <span className="text-green-600">0</span>}</TableCell>
                   <TableCell><Badge variant={rec.status === "overdue" ? "destructive" : "outline"}>{rec.status === "overdue" ? (isEs ? "Vencida" : "Overdue") : (isEs ? "Al Día" : "Current")}</Badge></TableCell>

@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 
 import { API_BASE as API } from "../../utils/api";
+import { formatDateOnly } from "../../utils/dates";
 
 export function CheckInOutSection() {
   const { language } = useLanguage();
@@ -208,7 +209,7 @@ export function CheckInOutSection() {
         
         <div class="info-grid">
           <div class="info-box"><label>Evento</label><span>${eventName}</span></div>
-          <div class="info-box"><label>Fecha de Salida</label><span>${note.checkout_date ? new Date(note.checkout_date).toLocaleDateString() : new Date().toLocaleDateString()}</span></div>
+          <div class="info-box"><label>Fecha de Salida</label><span>${note.checkout_date ? formatDateOnly(note.checkout_date, language) : formatDateOnly(new Date(), language)}</span></div>
           <div class="info-box"><label>Equipo (Debe Regresar)</label><span>${equipmentItems.length} items</span></div>
           <div class="info-box"><label>Desechables (No Regresan)</label><span>${disposableItems.length} items</span></div>
         </div>
@@ -511,14 +512,14 @@ export function CheckInOutSection() {
                         <TableCell>
                           <div className="flex items-center gap-1">
                             <Calendar className="w-3 h-3 text-muted-foreground" />
-                            {note.checkout_date ? new Date(note.checkout_date).toLocaleDateString() : "-"}
+                            {note.checkout_date ? formatDateOnly(note.checkout_date, language) : "-"}
                           </div>
                         </TableCell>
                         <TableCell>
                           {note.expected_return_date ? (
                             <div className={`flex items-center gap-1 ${isOverdue ? "text-red-600 font-semibold" : ""}`}>
                               <Clock className="w-3 h-3" />
-                              {new Date(note.expected_return_date).toLocaleDateString()}
+                              {formatDateOnly(note.expected_return_date, language)}
                               {isOverdue && <AlertTriangle className="w-3 h-3 ml-1" />}
                             </div>
                           ) : (
@@ -593,7 +594,7 @@ export function CheckInOutSection() {
                 <SelectContent>
                   {events.map(e => (
                     <SelectItem key={e.event_id} value={e.event_id}>
-                      {e.name} - {e.event_date ? new Date(e.event_date).toLocaleDateString() : "TBD"}
+                      {e.name} - {e.event_date ? formatDateOnly(e.event_date, language) : "TBD"}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -720,7 +721,7 @@ export function CheckInOutSection() {
             <div className="space-y-4">
               <div className="flex gap-4 text-sm">
                 <div><strong>{language === "es" ? "Evento:" : "Event:"}</strong> {getEventName(viewingNote.event_id)}</div>
-                <div><strong>{language === "es" ? "Salida:" : "Check-out:"}</strong> {viewingNote.checkout_date ? new Date(viewingNote.checkout_date).toLocaleDateString() : "-"}</div>
+                <div><strong>{language === "es" ? "Salida:" : "Check-out:"}</strong> {viewingNote.checkout_date ? formatDateOnly(viewingNote.checkout_date, language) : "-"}</div>
               </div>
 
               <div className="border rounded-lg max-h-80 overflow-y-auto">
@@ -843,7 +844,7 @@ export function CheckInOutSection() {
             <div className="space-y-4 flex-1 overflow-y-auto">
               <div className="flex gap-4 text-sm p-3 bg-muted/50 rounded-lg">
                 <div><strong>{language === "es" ? "Evento:" : "Event:"}</strong> {getEventName(editingNote.event_id)}</div>
-                <div><strong>{language === "es" ? "Salida:" : "Check-out:"}</strong> {editingNote.checkout_date ? new Date(editingNote.checkout_date).toLocaleDateString() : "-"}</div>
+                <div><strong>{language === "es" ? "Salida:" : "Check-out:"}</strong> {editingNote.checkout_date ? formatDateOnly(editingNote.checkout_date, language) : "-"}</div>
               </div>
 
               <div>

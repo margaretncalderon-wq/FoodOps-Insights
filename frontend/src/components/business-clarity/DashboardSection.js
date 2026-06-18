@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 
 import { API_BASE as API } from "../../utils/api";
+import { formatDateOnly } from "../../utils/dates";
 const formatCurrency = (amount) => `$${(amount || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 export function DashboardSection() {
@@ -70,7 +71,7 @@ export function DashboardSection() {
               </p>
               <p className={`text-xs ${isPeriodClosed ? "text-green-600" : "text-amber-600"}`}>
                 {isPeriodClosed 
-                  ? (isEs ? `Cerrado el ${new Date(periodStatus.closed_at).toLocaleDateString()}` : `Closed on ${new Date(periodStatus.closed_at).toLocaleDateString()}`)
+                  ? (isEs ? `Cerrado el ${formatDateOnly(periodStatus.closed_at, language)}` : `Closed on ${formatDateOnly(periodStatus.closed_at, language)}`)
                   : (isEs ? "Los datos mostrados son en tiempo real (período abierto)" : "Data shown is live (open period)")
                 }
               </p>
@@ -271,7 +272,7 @@ export function DashboardSection() {
               <TableBody>
                 {data.recent_payments.slice(0, 5).map((pay) => (
                   <TableRow key={pay.payment_id}>
-                    <TableCell className="text-sm">{new Date(pay.payment_date).toLocaleDateString()}</TableCell>
+                    <TableCell className="text-sm">{formatDateOnly(pay.payment_date, language)}</TableCell>
                     <TableCell className="font-medium text-green-600">{formatCurrency(pay.amount)}</TableCell>
                     <TableCell><Badge variant="outline" className="text-xs">{pay.payment_method}</Badge></TableCell>
                     <TableCell className="text-sm text-muted-foreground">{pay.reference || "-"}</TableCell>

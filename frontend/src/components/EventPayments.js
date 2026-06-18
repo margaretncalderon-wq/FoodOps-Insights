@@ -13,6 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from ".
 import { Textarea } from "./ui/textarea";
 import { toast } from "sonner";
 import { Plus, CreditCard, RefreshCw, DollarSign, CheckCircle, AlertTriangle, Banknote, ExternalLink } from "lucide-react";
+import { formatDateOnly } from "../utils/dates";
 
 
 const formatCurrency = (amount) => `$${(amount || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -286,8 +287,8 @@ export default function EventPayments({ eventId, event, client }) {
                 {invoices.map((inv) => (
                   <TableRow key={inv.invoice_id}>
                     <TableCell className="font-medium">{inv.invoice_number}</TableCell>
-                    <TableCell>{new Date(inv.issue_date).toLocaleDateString()}</TableCell>
-                    <TableCell>{new Date(inv.due_date).toLocaleDateString()}</TableCell>
+                    <TableCell>{formatDateOnly(inv.issue_date, language)}</TableCell>
+                    <TableCell>{formatDateOnly(inv.due_date, language)}</TableCell>
                     <TableCell className="text-right">{formatCurrency(inv.total)}</TableCell>
                     <TableCell className="text-right text-green-600">{formatCurrency(inv.paid_amount)}</TableCell>
                     <TableCell className="text-right font-medium">{formatCurrency(inv.balance_due)}</TableCell>
@@ -323,7 +324,7 @@ export default function EventPayments({ eventId, event, client }) {
               <TableBody>
                 {payments.map((pay) => (
                   <TableRow key={pay.payment_id}>
-                    <TableCell>{new Date(pay.payment_date).toLocaleDateString()}</TableCell>
+                    <TableCell>{formatDateOnly(pay.payment_date, language)}</TableCell>
                     <TableCell><Badge variant="outline">{pay.payment_method}</Badge></TableCell>
                     <TableCell className="text-right font-medium">{formatCurrency(pay.amount)}</TableCell>
                     <TableCell className="text-right text-green-600">{formatCurrency(pay.applied_amount)}</TableCell>
@@ -427,7 +428,7 @@ export default function EventPayments({ eventId, event, client }) {
                 {invoices.filter(i => i.status !== "paid").map(inv => (
                   <TableRow key={inv.invoice_id}>
                     <TableCell>{inv.invoice_number}</TableCell>
-                    <TableCell>{new Date(inv.due_date).toLocaleDateString()}</TableCell>
+                    <TableCell>{formatDateOnly(inv.due_date, language)}</TableCell>
                     <TableCell className="text-right font-medium text-red-600">{formatCurrency(inv.balance_due)}</TableCell>
                     <TableCell className="text-right">
                       <Input

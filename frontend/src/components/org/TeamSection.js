@@ -26,6 +26,7 @@ import {
 import { Label } from "../ui/label";
 
 import { API_BASE as API } from "../../utils/api";
+import { formatDateOnly } from "../../utils/dates";
 
 // Default system roles (fallback)
 const DEFAULT_ROLES = [
@@ -549,7 +550,7 @@ export function TeamSection() {
                     <div>
                       <p className="font-medium">{inv.email}</p>
                       <p className="text-sm text-muted-foreground">
-                        {isEs ? "Expira:" : "Expires:"} {new Date(inv.expires_at).toLocaleDateString()}
+                        {isEs ? "Expira:" : "Expires:"} {formatDateOnly(inv.expires_at, language)}
                       </p>
                     </div>
                   </div>

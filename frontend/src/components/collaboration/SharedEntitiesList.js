@@ -4,6 +4,7 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
 import { toast } from "sonner";
+import { formatDateOnly } from "../../utils/dates";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
@@ -87,7 +88,7 @@ export default function SharedEntitiesList() {
 
   const formatDate = (dateStr) => {
     if (!dateStr) return "-";
-    return new Date(dateStr).toLocaleDateString(isEs ? "es-ES" : "en-US", {
+    return formatDateOnly(dateStr, isEs ? "es" : "en", {
       year: "numeric",
       month: "short",
       day: "numeric"

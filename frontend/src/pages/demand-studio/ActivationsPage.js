@@ -35,6 +35,7 @@ import {
 } from "lucide-react";
 
 import { API_BASE as API } from "../../utils/api";
+import { formatDateOnly } from "../../utils/dates";
 
 const ACTIVATION_TYPES = [
   { value: "event", label: "Event", labelEs: "Evento" },
@@ -270,7 +271,7 @@ export default function ActivationsPage() {
   const formatEventDate = (dateStr) => {
     if (!dateStr) return isEs ? "Sin fecha" : "No date";
     try {
-      return new Date(dateStr).toLocaleDateString();
+      return formatDateOnly(dateStr, language);
     } catch {
       return dateStr;
     }

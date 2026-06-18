@@ -36,6 +36,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import CommentsSection from "../../components/shared/CommentsSection";
+import { formatDateOnly } from "../../utils/dates";
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
@@ -430,7 +431,7 @@ export default function NotesPage() {
                   <div className="flex items-center justify-between text-xs text-muted-foreground">
                     <span className="flex items-center gap-1">
                       <Calendar className="w-3 h-3" />
-                      {new Date(note.created_at).toLocaleDateString()}
+                      {formatDateOnly(note.created_at, language)}
                     </span>
                     {note.attachments?.length > 0 && (
                       <span className="flex items-center gap-1">

@@ -24,6 +24,7 @@ import {
 import { toast } from "sonner";
 import { API_BASE as API } from "../../utils/api";
 import StudioEditor from "./StudioEditor";
+import { formatDateOnly } from "../../utils/dates";
 
 // Default colors for color picker
 const COLOR_PRESETS = [
@@ -812,7 +813,7 @@ export default function BrandHub({ brandId = null }) {
                         <div>
                           <h4 className="font-medium">{page.title}</h4>
                           <p className="text-xs text-muted-foreground mt-1">
-                            {new Date(page.updated_at).toLocaleDateString()}
+                            {formatDateOnly(page.updated_at, language)}
                           </p>
                         </div>
                         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); togglePlaybookPin(page.page_id); }}>
@@ -857,7 +858,7 @@ export default function BrandHub({ brandId = null }) {
                         <div>
                           <h4 className="font-medium text-sm">{page.title}</h4>
                           <p className="text-xs text-muted-foreground">
-                            {new Date(page.updated_at).toLocaleDateString()}
+                            {formatDateOnly(page.updated_at, language)}
                           </p>
                         </div>
                       </div>

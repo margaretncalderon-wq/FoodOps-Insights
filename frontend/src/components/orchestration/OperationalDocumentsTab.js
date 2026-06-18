@@ -15,6 +15,7 @@ import {
 import PackingListEditor from "./PackingListEditor";
 
 import { API_BASE as API } from "../../utils/api";
+import { formatDateOnly } from "../../utils/dates";
 
 export default function OperationalDocumentsTab({ eventId, isLocked, language }) {
   const isEs = language === "es";
@@ -172,7 +173,7 @@ export default function OperationalDocumentsTab({ eventId, isLocked, language })
                               {isEs ? "Generado" : "Generated"}
                             </Badge>
                             <span className="text-xs text-muted-foreground">
-                              {new Date(existingDoc.updated_at || existingDoc.created_at).toLocaleDateString()}
+                              {formatDateOnly(existingDoc.updated_at || existingDoc.created_at)}
                             </span>
                           </div>
                           <div className="flex gap-2">
@@ -285,7 +286,7 @@ export default function OperationalDocumentsTab({ eventId, isLocked, language })
                   <div className="space-y-4">
                     <h3 className="text-xl font-bold">{previewDoc.content.event?.name}</h3>
                     <p className="text-muted-foreground">
-                      {previewDoc.content.event?.event_date && new Date(previewDoc.content.event.event_date).toLocaleDateString()} 
+                      {previewDoc.content.event?.event_date && formatDateOnly(previewDoc.content.event.event_date)} 
                       {" • "} 
                       {previewDoc.content.event?.guest_count} {isEs ? "invitados" : "guests"}
                     </p>

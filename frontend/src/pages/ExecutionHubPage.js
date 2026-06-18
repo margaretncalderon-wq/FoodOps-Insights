@@ -47,6 +47,7 @@ import {
   Eye,
 } from "lucide-react";
 import { toast } from "sonner";
+import { formatDateOnly } from "../utils/dates";
 
 // Status config uses translation keys
 const statusConfig = {
@@ -442,7 +443,7 @@ export default function ExecutionHubPage() {
                           {goal.target_date && (
                             <div className="flex items-center gap-1 text-xs text-muted-foreground">
                               <Calendar className="w-3 h-3" />
-                              {new Date(goal.target_date).toLocaleDateString()}
+                              {formatDateOnly(goal.target_date, language)}
                             </div>
                           )}
                           

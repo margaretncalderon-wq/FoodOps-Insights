@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 
 import { API_BASE as API } from "../../utils/api";
+import { formatDateOnly } from "../../utils/dates";
 
 // Module key aliases (map legacy/sub-module keys to display keys)
 const MODULE_KEY_ALIASES = {
@@ -570,7 +571,7 @@ export function BillingSection() {
                       {tx.payment_type === "subscription" ? (isEs ? "Suscripción" : "Subscription") : "Add-on"}
                     </p>
                     <p className="text-sm text-muted-foreground">
-                      {new Date(tx.created_at).toLocaleDateString()}
+                      {formatDateOnly(tx.created_at, language)}
                     </p>
                   </div>
                   <div className="flex items-center gap-3">

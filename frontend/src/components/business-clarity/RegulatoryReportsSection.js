@@ -38,6 +38,7 @@ import {
 import { toast } from "sonner";
 
 import { API_BASE as API } from "../../utils/api";
+import { formatDateOnly } from "../../utils/dates";
 
 const formatCurrency = (amount) => 
   `$${(amount || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -368,7 +369,7 @@ export function RegulatoryReportsSection() {
                       </TableCell>
                       <TableCell>{report.period} {report.year}</TableCell>
                       <TableCell className="text-sm text-muted-foreground">
-                        {new Date(report.created_at).toLocaleDateString()}
+                        {formatDateOnly(report.created_at, language)}
                       </TableCell>
                       <TableCell>{report.employee_count}</TableCell>
                       <TableCell className="font-medium">{formatCurrency(report.total_amount)}</TableCell>

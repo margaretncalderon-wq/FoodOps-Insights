@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 
 import { API_BASE as API } from "../utils/api";
+import { formatDateOnly } from "../utils/dates";
 
 export default function ConsolidatedPurchaseSection() {
   const { language } = useLanguage();
@@ -195,7 +196,7 @@ export default function ConsolidatedPurchaseSection() {
               <h2>${language === "es" ? "Requisición de Inventario" : "Inventory Requisition"}</h2>
             </div>
             <div style="text-align: right;">
-              <p><strong>${language === "es" ? "Fecha" : "Date"}:</strong> ${new Date().toLocaleDateString()}</p>
+              <p><strong>${language === "es" ? "Fecha" : "Date"}:</strong> ${formatDateOnly(new Date(), language)}</p>
               <p><strong>${language === "es" ? "Eventos" : "Events"}:</strong> ${purchaseData.events?.map(e => e.event_name).join(", ")}</p>
             </div>
           </div>
@@ -466,7 +467,7 @@ export default function ConsolidatedPurchaseSection() {
                             <div className="flex items-center gap-4 text-sm text-muted-foreground">
                               <span className="flex items-center gap-1">
                                 <Calendar className="w-3 h-3" />
-                                {event.event_date ? new Date(event.event_date).toLocaleDateString() : "TBD"}
+                                {event.event_date ? formatDateOnly(event.event_date, language) : "TBD"}
                               </span>
                               <span className="flex items-center gap-1">
                                 <Users className="w-3 h-3" />
@@ -800,7 +801,7 @@ export default function ConsolidatedPurchaseSection() {
                         <span className="text-muted-foreground ml-2">({event.guest_count} {language === "es" ? "pers." : "guests"})</span>
                         <div className="text-xs text-muted-foreground flex items-center gap-2 mt-0.5">
                           <Calendar className="w-3 h-3" />
-                          {event.date ? new Date(event.date).toLocaleDateString() : "TBD"}
+                          {event.date ? formatDateOnly(event.date, language) : "TBD"}
                           {event.time && (
                             <>
                               <Clock className="w-3 h-3 ml-2" />
@@ -963,7 +964,7 @@ export default function ConsolidatedPurchaseSection() {
                       <div className="flex items-center gap-4 text-sm text-muted-foreground mt-1">
                         <span className="flex items-center gap-1">
                           <Calendar className="w-3 h-3" />
-                          {event.event_date ? new Date(event.event_date).toLocaleDateString() : "TBD"}
+                          {event.event_date ? formatDateOnly(event.event_date, language) : "TBD"}
                         </span>
                         <span className="flex items-center gap-1">
                           <Users className="w-3 h-3" />
@@ -971,7 +972,7 @@ export default function ConsolidatedPurchaseSection() {
                         </span>
                         {event.procurement_completed_at && (
                           <span className="text-xs text-green-600">
-                            {language === "es" ? "Completado:" : "Completed:"} {new Date(event.procurement_completed_at).toLocaleDateString()}
+                            {language === "es" ? "Completado:" : "Completed:"} {formatDateOnly(event.procurement_completed_at, language)}
                           </span>
                         )}
                       </div>
@@ -1093,7 +1094,7 @@ export default function ConsolidatedPurchaseSection() {
             <DialogDescription>
               {viewingHistory?.procurement_completed_at && (
                 <span>
-                  {language === "es" ? "Completado el" : "Completed on"} {new Date(viewingHistory.procurement_completed_at).toLocaleDateString()}
+                  {language === "es" ? "Completado el" : "Completed on"} {formatDateOnly(viewingHistory.procurement_completed_at, language)}
                 </span>
               )}
             </DialogDescription>

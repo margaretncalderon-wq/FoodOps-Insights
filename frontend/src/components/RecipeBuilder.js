@@ -32,6 +32,7 @@ import {
 
 import { API_BASE as API } from "../utils/api";
 import IngredientWizard from "./culinary/IngredientWizard";
+import { formatDateOnly } from "../utils/dates";
 
 const RECIPE_TYPES = [
   { value: "base", label: "Base Recipe", labelEs: "Receta Base", icon: Beaker, color: "bg-purple-100 text-purple-700", description: "Salsas, fondos, masas básicas" },
@@ -1019,7 +1020,7 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
         
         <div class="footer">
           <div>${company.legal_name || company.trade_name || company.name || ''}</div>
-          <div>${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}</div>
+          <div>${formatDateOnly(new Date(), language)} ${new Date().toLocaleTimeString()}</div>
         </div>
       </body>
       </html>
@@ -2103,7 +2104,7 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
                       <div className="space-y-1">
                         {item.price_history.slice(-5).reverse().map((ph, i) => (
                           <div key={i} className="flex items-center justify-between text-sm text-muted-foreground">
-                            <span>{new Date(ph.date).toLocaleDateString()}</span>
+                            <span>{formatDateOnly(ph.date, language)}</span>
                             <span className="font-medium text-foreground">${ph.price?.toFixed(2)}</span>
                           </div>
                         ))}

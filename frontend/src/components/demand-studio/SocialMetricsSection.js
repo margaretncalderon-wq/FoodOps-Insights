@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 
 import { API_BASE as API } from "../../utils/api";
+import { formatDateOnly } from "../../utils/dates";
 
 const formatNumber = (num) => {
   if (!num) return "0";
@@ -435,7 +436,7 @@ export function SocialMetricsSection() {
                   </div>
                   {conn.last_sync_at && (
                     <p className="text-xs text-muted-foreground mt-2">
-                      {isEs ? "Última sync:" : "Last sync:"} {new Date(conn.last_sync_at).toLocaleDateString()}
+                      {isEs ? "Última sync:" : "Last sync:"} {formatDateOnly(conn.last_sync_at, language)}
                     </p>
                   )}
                 </CardContent>

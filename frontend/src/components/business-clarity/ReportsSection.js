@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 
 import { API_BASE as API } from "../../utils/api";
+import { formatDateOnly } from "../../utils/dates";
 const formatCurrency = (amount) => `$${(amount || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 export function ReportsSection() {
@@ -135,7 +136,7 @@ export function ReportsSection() {
       await import("jspdf-autotable");
       
       const doc = new jsPDF();
-      const date = new Date().toLocaleDateString();
+      const date = formatDateOnly(new Date(), language);
       const reportTitles = {
         snapshot: isEs ? "Resumen Financiero" : "Financial Snapshot",
         clients: isEs ? "Reporte por Cliente" : "Client Revenue Report",

@@ -670,7 +670,7 @@ function InventorySection() {
                 <TableBody>
                   {transactions.slice(0, 50).map(txn => (
                     <TableRow key={txn.transaction_id}>
-                      <TableCell>{new Date(txn.created_at).toLocaleDateString()}</TableCell>
+                      <TableCell>{formatDateOnly(txn.created_at, language)}</TableCell>
                       <TableCell className="font-medium">{getItemName(txn.inventory_item_id)}</TableCell>
                       <TableCell><Badge variant={txn.transaction_type === "Purchase" ? "default" : txn.transaction_type === "Waste" ? "destructive" : "secondary"}>{txn.transaction_type}</Badge></TableCell>
                       <TableCell className="text-right">{txn.transaction_type === "Purchase" ? "+" : "-"}{txn.quantity}</TableCell>
@@ -1115,7 +1115,7 @@ function InventorySection() {
                     <div>
                       <p className="text-sm font-medium">${entry.price?.toFixed(2)}/{selectedItemForHistory?.unit}</p>
                       <p className="text-xs text-muted-foreground">
-                        {entry.source || "Manual"} • {new Date(entry.date).toLocaleDateString()}
+                        {entry.source || "Manual"} • {formatDateOnly(entry.date, language)}
                       </p>
                     </div>
                     {idx === 0 && <Badge variant="secondary">{language === "es" ? "Más reciente" : "Latest"}</Badge>}

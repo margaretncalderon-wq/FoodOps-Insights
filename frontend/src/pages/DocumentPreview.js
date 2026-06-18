@@ -211,7 +211,7 @@ export default function DocumentPreview() {
             </p>
             <p className="text-sm text-muted-foreground mt-1">#{document?.document_id?.slice(-8)}</p>
             <p className="text-sm text-muted-foreground">
-              {language === "es" ? "Fecha" : "Date"}: {new Date(content.generated_at || document?.created_at).toLocaleDateString()}
+              {language === "es" ? "Fecha" : "Date"}: {formatDateOnly(content.generated_at || document?.created_at, language)}
             </p>
           </div>
         </div>

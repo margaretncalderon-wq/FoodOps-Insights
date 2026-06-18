@@ -27,6 +27,7 @@ import {
   XCircle
 } from "lucide-react";
 import { toast } from "sonner";
+import { formatDateOnly } from "../utils/dates";
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
@@ -287,6 +288,7 @@ export default function CollaborationDashboard() {
 
 // Reusable Share Card Component
 function ShareCard({ share, type, isEs, onNavigate, onRevoke }) {
+  const language = isEs ? "es" : "en";
   const isActive = share.status === "active";
   const permLabel = PERMISSION_LABELS[share.permission_level] || PERMISSION_LABELS.view;
   const statusLabel = STATUS_LABELS[share.status] || STATUS_LABELS.active;
@@ -342,7 +344,7 @@ function ShareCard({ share, type, isEs, onNavigate, onRevoke }) {
                 {/* Date */}
                 <span className="text-xs text-muted-foreground flex items-center gap-1">
                   <Clock className="w-3 h-3" />
-                  {new Date(share.created_at).toLocaleDateString()}
+                  {formatDateOnly(share.created_at, language)}
                 </span>
               </div>
               

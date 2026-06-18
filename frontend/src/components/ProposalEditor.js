@@ -75,6 +75,7 @@ import { CSS } from "@dnd-kit/utilities";
 
 import RecipePicker from "./RecipePicker";
 import RecipeScalingPanel from "./RecipeScalingPanel";
+import { formatDateOnly } from "../utils/dates";
 
 
 const CATEGORY_ICONS = {
@@ -1020,7 +1021,7 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
           unit_price: item.unit_price,
           discount_percent: 0
         }));
-        const dayLabels = selectedDays.map(d => d === "main" ? (language === "es" ? "Principal" : "Main") : new Date(d).toLocaleDateString()).join(", ");
+        const dayLabels = selectedDays.map(d => d === "main" ? (language === "es" ? "Principal" : "Main") : formatDateOnly(d, language)).join(", ");
         notes = `${language === "es" ? "Factura por día(s)" : "Invoice for day(s)"}: ${dayLabels}`;
       }
       
@@ -2985,7 +2986,7 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
                               </Badge>
                             )}
                             <span className="text-xs text-muted-foreground">
-                              {new Date(doc.created_at).toLocaleDateString(language === "es" ? "es-ES" : "en-US")}
+                              {formatDateOnly(doc.created_at, language)}
                             </span>
                           </div>
                         </div>
@@ -4417,7 +4418,7 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
                   <div className="border rounded-lg p-3 space-y-2 bg-muted/50">
                     {getEventDays().map(day => {
                       const isInvoiced = getInvoicedDays().includes(day);
-                      const dayLabel = new Date(day).toLocaleDateString(language === "es" ? "es-ES" : "en-US", { 
+                      const dayLabel = formatDateOnly(day, language, { 
                         weekday: "short", month: "short", day: "numeric" 
                       });
                       return (

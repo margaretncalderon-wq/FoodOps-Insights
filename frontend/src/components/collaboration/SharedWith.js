@@ -38,6 +38,7 @@ import {
   Shield
 } from "lucide-react";
 import { useLanguage } from "../../contexts/LanguageContext";
+import { formatDateOnly } from "../../utils/dates";
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
@@ -178,7 +179,7 @@ export default function SharedWith({
                           <PermIcon className="w-3 h-3" />
                           <span>{isEs ? permLabel.es : permLabel.en}</span>
                           <span>•</span>
-                          <span>{new Date(share.created_at).toLocaleDateString()}</span>
+                          <span>{formatDateOnly(share.created_at, language)}</span>
                         </div>
                       </div>
                     </div>

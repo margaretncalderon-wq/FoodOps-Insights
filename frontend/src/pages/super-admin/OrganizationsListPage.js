@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 
 import { API_BASE as API } from "../../utils/api";
+import { formatDateOnly } from "../../utils/dates";
 
 export default function OrganizationsListPage() {
   const navigate = useNavigate();
@@ -384,7 +385,7 @@ export default function OrganizationsListPage() {
                       </div>
                     </TableCell>
                     <TableCell className="text-gray-600 text-sm">
-                      {new Date(org.organization.created_at).toLocaleDateString()}
+                      {formatDateOnly(org.organization.created_at)}
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1">

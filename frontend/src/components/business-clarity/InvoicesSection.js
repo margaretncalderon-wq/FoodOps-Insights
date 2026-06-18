@@ -14,6 +14,7 @@ import { Textarea } from "../ui/textarea";
 import { CreditCard, RefreshCw, Download, Pencil, Loader2 } from "lucide-react";
 
 import { API_BASE as API } from "../../utils/api";
+import { formatDateOnly } from "../../utils/dates";
 const formatCurrency = (amount) => `$${(amount || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 export function InvoicesSection() {
@@ -207,8 +208,8 @@ export function InvoicesSection() {
                   <TableCell>{inv.status !== "paid" && <input type="checkbox" checked={selectedInvoices.includes(inv.invoice_id)} onChange={() => handleSelectInvoice(inv.invoice_id)} className="rounded" />}</TableCell>
                   <TableCell className="font-medium">{inv.invoice_number}</TableCell>
                   <TableCell>{inv.client_name || "-"}</TableCell>
-                  <TableCell className="text-sm">{inv.issue_date ? new Date(inv.issue_date).toLocaleDateString() : "-"}</TableCell>
-                  <TableCell className="text-sm text-muted-foreground">{inv.due_date ? new Date(inv.due_date).toLocaleDateString() : "-"}</TableCell>
+                  <TableCell className="text-sm">{inv.issue_date ? formatDateOnly(inv.issue_date, language) : "-"}</TableCell>
+                  <TableCell className="text-sm text-muted-foreground">{inv.due_date ? formatDateOnly(inv.due_date, language) : "-"}</TableCell>
                   <TableCell className="text-right">{formatCurrency(inv.total)}</TableCell>
                   <TableCell className="text-right text-green-600">{formatCurrency(inv.amount_paid || inv.paid_amount)}</TableCell>
                   <TableCell className="text-right font-medium">{formatCurrency(inv.balance_due)}</TableCell>

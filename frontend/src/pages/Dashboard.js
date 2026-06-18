@@ -360,7 +360,7 @@ export default function SystemPulse() {
                       {signal.target_date && (
                         <Badge variant="outline" className="text-xs border-yellow-500/50">
                           <Calendar className="w-3 h-3 mr-1" />
-                          {new Date(signal.target_date).toLocaleDateString()}
+                          {formatDateOnly(signal.target_date, language)}
                         </Badge>
                       )}
                       <ArrowRight className="w-4 h-4 text-muted-foreground" />
@@ -675,7 +675,7 @@ export default function SystemPulse() {
                           </div>
                           {task.due_date && (
                             <span className="text-xs text-muted-foreground">
-                              {new Date(task.due_date).toLocaleDateString()}
+                              {formatDateOnly(task.due_date, language)}
                             </span>
                           )}
                         </div>

@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 
 import { API_BASE as API } from "../../utils/api";
+import { formatDateOnly } from "../../utils/dates";
 
 // Operations Supplies types
 const OPS_SUPPLY_TYPES = [
@@ -844,7 +845,7 @@ export function InventorySection() {
                     const changePercent = entry.old_price > 0 ? ((change / entry.old_price) * 100).toFixed(1) : 0;
                     return (
                       <TableRow key={idx}>
-                        <TableCell>{new Date(entry.date).toLocaleDateString()}</TableCell>
+                        <TableCell>{formatDateOnly(entry.date, language)}</TableCell>
                         <TableCell>{entry.supplier_name || "-"}</TableCell>
                         <TableCell className="text-right font-mono">${entry.old_price?.toFixed(2)}</TableCell>
                         <TableCell className="text-right font-mono">${entry.new_price?.toFixed(2)}</TableCell>

@@ -16,6 +16,7 @@ import {
 import { Textarea } from "../ui/textarea";
 
 import { API_BASE as API } from "../../utils/api";
+import { formatDateOnly } from "../../utils/dates";
 
 const FOLLOW_UP_TYPES = [
   { value: "Call", labelEn: "Call", labelEs: "Llamada", icon: Phone },
@@ -192,7 +193,7 @@ export default function FollowUpsSection() {
               <span className="text-muted-foreground">•</span>
               <Calendar className="w-3 h-3" />
               <span className={item.status === "overdue" ? "text-red-600 font-medium" : ""}>
-                {new Date(item.follow_up_date).toLocaleDateString()}
+                {formatDateOnly(item.follow_up_date, language)}
               </span>
               {/* Owner Badge */}
               {item.owner_name && (
@@ -406,7 +407,7 @@ export default function FollowUpsSection() {
                 <p className="text-xs text-muted-foreground">
                   {FOLLOW_UP_TYPES.find(t => t.value === selectedItem.follow_up_type)?.[isEs ? "labelEs" : "labelEn"] || selectedItem.follow_up_type}
                   {" — "}
-                  {new Date(selectedItem.follow_up_date).toLocaleDateString()}
+                  {formatDateOnly(selectedItem.follow_up_date, language)}
                 </p>
               </div>
 

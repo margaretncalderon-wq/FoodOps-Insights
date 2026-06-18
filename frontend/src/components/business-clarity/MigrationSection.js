@@ -40,6 +40,7 @@ import {
 import { toast } from "sonner";
 
 import { API_BASE as API } from "../../utils/api";
+import { formatDateOnly } from "../../utils/dates";
 
 // Migration data types configuration - ORDER MATTERS for recommended import sequence
 const MIGRATION_TYPES = {
@@ -494,7 +495,7 @@ export function MigrationSection() {
                 <p className="text-sm text-muted-foreground">{isEs ? "Última Importación" : "Last Import"}</p>
                 <p className="text-lg font-medium">
                   {stats.lastImport 
-                    ? new Date(stats.lastImport).toLocaleDateString()
+                    ? formatDateOnly(stats.lastImport, language)
                     : (isEs ? "Nunca" : "Never")
                   }
                 </p>
@@ -620,7 +621,7 @@ export function MigrationSection() {
                       return (
                         <TableRow key={item.id}>
                           <TableCell>
-                            {new Date(item.created_at).toLocaleDateString()}
+                            {formatDateOnly(item.created_at, language)}
                           </TableCell>
                           <TableCell>
                             <div className="flex items-center gap-2">

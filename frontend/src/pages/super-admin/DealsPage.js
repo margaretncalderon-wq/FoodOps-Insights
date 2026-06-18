@@ -36,6 +36,7 @@ import {
   Pencil, Trash2, History, Building2, Percent, Calendar,
   DollarSign, Users
 } from "lucide-react";
+import { formatDateOnly } from "../../utils/dates";
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
@@ -237,7 +238,7 @@ export default function DealsPage() {
 
   const formatDate = (dateStr) => {
     if (!dateStr) return "-";
-    return new Date(dateStr).toLocaleDateString();
+    return formatDateOnly(dateStr);
   };
 
   return (

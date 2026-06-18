@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 
 import { API_BASE as API } from "../../utils/api";
+import { formatDateOnly } from "../../utils/dates";
 
 const fmtTime = (iso) => {
   if (!iso) return "—";
@@ -29,7 +30,7 @@ const fmtTime = (iso) => {
 };
 const fmtDate = (iso) => {
   if (!iso) return "—";
-  try { return new Date(iso).toLocaleDateString("es-DO"); } catch { return "—"; }
+  try { return formatDateOnly(iso, "es"); } catch { return "—"; }
 };
 const fmtHours = (mins) => mins == null ? "—" : `${(mins / 60).toFixed(2)}h`;
 

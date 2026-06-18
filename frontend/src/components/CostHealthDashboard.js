@@ -13,6 +13,7 @@ import {
 import { AlertTriangle, RefreshCw, TrendingUp, TrendingDown, ExternalLink, ShieldCheck, ChefHat, Wrench, Package, Receipt, Box } from "lucide-react";
 import { toast } from "sonner";
 import { useModules } from "../contexts/ModulesContext";
+import { formatDateOnly } from "../utils/dates";
 
 // Icon + label per item type — keeps the breakdown readable without emojis
 const ITEM_TYPE_META = {
@@ -550,7 +551,7 @@ export default function CostHealthDashboard({ mode = "section", onNavigate }) {
                           </p>
                           {p.event_date && (
                             <p className="text-xs text-muted-foreground">
-                              {new Date(p.event_date).toLocaleDateString()}
+                              {formatDateOnly(p.event_date, language)}
                             </p>
                           )}
                         </td>

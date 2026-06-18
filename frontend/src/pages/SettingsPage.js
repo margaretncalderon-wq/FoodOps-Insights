@@ -55,6 +55,7 @@ import CrmConfigSection from "../components/settings/CrmConfigSection";
 import LocaleSettingsSection from "../components/settings/LocaleSettingsSection";
 import MarginPolicySection from "../components/settings/MarginPolicySection";
 import { BillingSection, TeamSection } from "../components/org";
+import { formatDateOnly } from "../utils/dates";
 
 const CURRENCIES = ["USD", "EUR", "MXN", "COP", "ARS", "CLP", "PEN", "DOP"];
 const EVENT_TYPES = ["wedding", "corporate", "birthday", "social", "other"];
@@ -2736,7 +2737,7 @@ export default function SettingsPage() {
                     <div className="text-right">
                       <p className="font-semibold" style={{ color: formData.primary_color }}>{language === "es" ? "Propuesta" : "Proposal"}</p>
                       <p className="text-sm text-muted-foreground">#SAMPLE-001</p>
-                      <p className="text-sm text-muted-foreground">{new Date().toLocaleDateString()}</p>
+                      <p className="text-sm text-muted-foreground">{formatDateOnly(new Date(), language)}</p>
                     </div>
                   </div>
 
@@ -2745,7 +2746,7 @@ export default function SettingsPage() {
                     <div>
                       <h3 className="font-semibold mb-2 text-sm">{language === "es" ? "Detalles del Evento" : "Event Details"}</h3>
                       <p className="font-medium">{language === "es" ? "Boda de Ejemplo" : "Sample Wedding"}</p>
-                      <p className="text-sm text-muted-foreground">📅 {new Date(Date.now() + 30*24*60*60*1000).toLocaleDateString()}</p>
+                      <p className="text-sm text-muted-foreground">📅 {formatDateOnly(Date.now() + 30*24*60*60*1000, language)}</p>
                       <p className="text-sm text-muted-foreground">👥 150 {language === "es" ? "invitados" : "guests"}</p>
                     </div>
                     <div>

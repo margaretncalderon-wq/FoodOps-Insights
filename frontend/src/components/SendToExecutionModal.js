@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import axios from "axios";
 import { API } from "../utils/api";
 import { useLanguage } from "../contexts/LanguageContext";
+import { formatDateOnly } from "../utils/dates";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Textarea } from "./ui/textarea";
@@ -174,7 +175,7 @@ export default function SendToExecutionModal({
                 {event.event_date && (
                   <Badge variant="outline" className="flex items-center gap-1">
                     <Calendar className="w-3 h-3" />
-                    {new Date(event.event_date).toLocaleDateString(language === "es" ? "es-ES" : "en-US")}
+                    {formatDateOnly(event.event_date, language)}
                   </Badge>
                 )}
               </div>

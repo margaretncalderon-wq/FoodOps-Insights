@@ -8,6 +8,7 @@ import { Badge } from "../ui/badge";
 import { Download, Printer, CheckCircle2 } from "lucide-react";
 
 import { API_BASE as API } from "../../utils/api";
+import { formatDateOnly } from "../../utils/dates";
 const formatCurrency = (amount) => `$${(amount || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 export function PaymentReceiptModal({ open, onClose, payment }) {
@@ -166,7 +167,7 @@ export function PaymentReceiptModal({ open, onClose, payment }) {
       // Receipt number (right)
       doc.setFontSize(10);
       doc.text(`No: ${payment?.receipt_number || payment?.payment_id}`, pageWidth - margin, 28, { align: "right" });
-      doc.text(`${isEs ? "Fecha" : "Date"}: ${new Date(payment?.payment_date).toLocaleDateString()}`, pageWidth - margin, 34, { align: "right" });
+      doc.text(`${isEs ? "Fecha" : "Date"}: ${formatDateOnly(payment?.payment_date, language)}`, pageWidth - margin, 34, { align: "right" });
       
       y = Math.max(y, 45) + 10;
       
@@ -218,7 +219,7 @@ export function PaymentReceiptModal({ open, onClose, payment }) {
       doc.text(isEs ? "FECHA" : "DATE", margin + 5, y + 8);
       doc.setFontSize(12);
       doc.setTextColor(17, 17, 17);
-      doc.text(new Date(payment?.payment_date).toLocaleDateString(), margin + 5, y + 17);
+      doc.text(formatDateOnly(payment?.payment_date, language), margin + 5, y + 17);
       
       // Method box
       doc.setFillColor(249, 250, 251);
@@ -256,7 +257,7 @@ export function PaymentReceiptModal({ open, onClose, payment }) {
           head: [[isEs ? "Factura" : "Invoice", isEs ? "Fecha" : "Date", isEs ? "Monto" : "Amount"]],
           body: applications.map(app => [
             app.invoice_number || app.invoice_id || "-",
-            app.applied_at ? new Date(app.applied_at).toLocaleDateString() : "-",
+            app.applied_at ? formatDateOnly(app.applied_at, language) : "-",
             formatCurrency(app.amount_applied)
           ]),
           styles: { fontSize: 10 },
@@ -355,7 +356,7 @@ export function PaymentReceiptModal({ open, onClose, payment }) {
                 <strong>No:</strong> {payment.receipt_number || payment.payment_id}
               </p>
               <p className="text-sm text-gray-500">
-                <strong>{isEs ? "Fecha:" : "Date:"}</strong> {new Date(payment.payment_date).toLocaleDateString()}
+                <strong>{isEs ? "Fecha:" : "Date:"}</strong> {formatDateOnly(payment.payment_date, language)}
               </p>
             </div>
           </div>
@@ -393,7 +394,7 @@ export function PaymentReceiptModal({ open, onClose, payment }) {
                 {isEs ? "Fecha" : "Date"}
               </p>
               <p className="detail-value text-base font-medium text-gray-900">
-                {new Date(payment.payment_date).toLocaleDateString()}
+                {formatDateOnly(payment.payment_date, language)}
               </p>
             </div>
             <div className="detail-item bg-gray-50 p-4 rounded-lg">
@@ -455,7 +456,7 @@ export function PaymentReceiptModal({ open, onClose, payment }) {
                     <tr key={idx} className="border-b border-gray-100">
                       <td className="py-2">{app.invoice_number || app.invoice_id}</td>
                       <td className="py-2 text-gray-600">
-                        {app.applied_at ? new Date(app.applied_at).toLocaleDateString() : "-"}
+                        {app.applied_at ? formatDateOnly(app.applied_at, language) : "-"}
                       </td>
                       <td className="py-2 text-right font-medium">{formatCurrency(app.amount_applied)}</td>
                     </tr>

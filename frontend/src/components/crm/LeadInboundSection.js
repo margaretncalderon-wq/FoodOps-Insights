@@ -26,6 +26,7 @@ import CommsChannelTimeline from "./CommsChannelTimeline";
 import UnifiedCommsTimeline from "./UnifiedCommsTimeline";
 
 import { API_BASE as API } from "../../utils/api";
+import { formatDateOnly } from "../../utils/dates";
 
 const SOURCE_ICONS = {
   Website: Globe,
@@ -1055,7 +1056,7 @@ export default function LeadInboundSection() {
                       </div>
                       <div>
                         <p className="text-muted-foreground">{isEs ? "Recibido" : "Received"}</p>
-                        <p className="font-medium">{new Date(selectedLead.created_at).toLocaleDateString()}</p>
+                        <p className="font-medium">{formatDateOnly(selectedLead.created_at, language)}</p>
                       </div>
                     </div>
                   </CardContent>
@@ -1162,7 +1163,7 @@ export default function LeadInboundSection() {
                       {isEs ? "Seguimiento programado" : "Follow-up scheduled"}
                     </p>
                     <p className="text-yellow-700 text-xs mt-1">
-                      {selectedLead.follow_up_type} - {new Date(selectedLead.next_follow_up_date).toLocaleDateString()}
+                      {selectedLead.follow_up_type} - {formatDateOnly(selectedLead.next_follow_up_date, language)}
                     </p>
                   </div>
                 ) : (

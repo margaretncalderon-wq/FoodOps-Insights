@@ -37,6 +37,7 @@ import {
 import { toast } from "sonner";
 
 import { API_BASE as API } from "../../utils/api";
+import { formatDateOnly } from "../../utils/dates";
 
 const ONBOARDING_STATUS = {
   not_started: { label: "Not Started", labelEs: "No Iniciado", color: "bg-slate-100 text-slate-700" },
@@ -375,7 +376,7 @@ export function OnboardingSection() {
                     <div className="flex justify-between text-xs text-muted-foreground">
                       <div className="flex items-center gap-1">
                         <Calendar className="w-3 h-3" />
-                        {isEs ? "Inicio" : "Start"}: {onb.start_date ? new Date(onb.start_date).toLocaleDateString() : "-"}
+                        {isEs ? "Inicio" : "Start"}: {onb.start_date ? formatDateOnly(onb.start_date, language) : "-"}
                       </div>
                       <div className="flex items-center gap-1">
                         <CheckCircle2 className="w-3 h-3" />

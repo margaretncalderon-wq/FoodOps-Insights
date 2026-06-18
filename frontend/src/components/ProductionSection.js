@@ -26,6 +26,7 @@ import {
 import { API_BASE as API } from "../utils/api";
 import EventProductionPlan from "./EventProductionPlan";
 import KitchenBEO from "./KitchenBEO";
+import { formatDateOnly } from "../utils/dates";
 
 export default function ProductionSection() {
   const { language } = useLanguage();
@@ -226,7 +227,7 @@ export default function ProductionSection() {
       <!DOCTYPE html>
       <html>
       <head>
-        <title>Mise en Place - ${new Date().toLocaleDateString()}</title>
+        <title>Mise en Place - ${formatDateOnly(new Date(), language)}</title>
         <style>
           body { font-family: Arial, sans-serif; padding: 20px; }
           h1 { color: #333; border-bottom: 2px solid #333; padding-bottom: 10px; }
@@ -245,12 +246,12 @@ export default function ProductionSection() {
         </style>
       </head>
       <body>
-        <h1>🍳 Mise en Place - ${new Date().toLocaleDateString()}</h1>
+        <h1>🍳 Mise en Place - ${formatDateOnly(new Date(), language)}</h1>
         <p><strong>${isEs ? "Responsable" : "Responsible"}:</strong> _________________</p>
         <p><strong>${isEs ? "Fecha preparación" : "Prep Date"}:</strong> _________________</p>
         
         ${miseEnPlaceData?.events?.map(evt => `
-          <h2 class="event-header">📅 ${evt.event_name} - ${evt.event_date ? new Date(evt.event_date).toLocaleDateString() : ''}</h2>
+          <h2 class="event-header">📅 ${evt.event_name} - ${evt.event_date ? formatDateOnly(evt.event_date, language) : ''}</h2>
           <p>${evt.guest_count || 0} ${isEs ? "invitados" : "guests"}</p>
           
           ${evt.categories?.map(cat => `
@@ -421,7 +422,7 @@ export default function ProductionSection() {
                           {batch.status === "POSTED" && (
                             <span className="text-green-600">${batch.total_output_value?.toFixed(2)} {language === "es" ? "valor salida" : "output value"}</span>
                           )}
-                          <span>{new Date(batch.created_at).toLocaleDateString()}</span>
+                          <span>{formatDateOnly(batch.created_at, language)}</span>
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
@@ -820,7 +821,7 @@ export default function ProductionSection() {
                       <Badge variant="outline">{evt.guest_count} {language === "es" ? "invitados" : "guests"}</Badge>
                     </CardTitle>
                     <CardDescription>
-                      {evt.event_date ? new Date(evt.event_date).toLocaleDateString() : ''}
+                      {evt.event_date ? formatDateOnly(evt.event_date, language) : ''}
                     </CardDescription>
                   </CardHeader>
                   <CardContent>

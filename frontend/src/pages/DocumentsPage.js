@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import axios from "axios";
 import { Layout } from "../components/Layout";
 import { useLanguage } from "../contexts/LanguageContext";
+import { formatDateOnly } from "../utils/dates";
 import { Card, CardContent } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
@@ -119,7 +120,7 @@ export default function DocumentsPage() {
                           )}
                         </Badge>
                         <span className="text-sm text-muted-foreground">
-                          {new Date(doc.created_at).toLocaleDateString(language === "es" ? "es-ES" : "en-US")}
+                          {formatDateOnly(doc.created_at, language)}
                         </span>
                       </div>
                     </div>
@@ -144,7 +145,7 @@ export default function DocumentsPage() {
                 {doc.signed_at && (
                   <div className="mt-4 pt-4 border-t text-sm text-muted-foreground">
                     {language === "es" ? "Firmado por" : "Signed by"} {doc.signed_by} -{" "}
-                    {new Date(doc.signed_at).toLocaleDateString(language === "es" ? "es-ES" : "en-US")}
+                    {formatDateOnly(doc.signed_at, language)}
                   </div>
                 )}
               </CardContent>

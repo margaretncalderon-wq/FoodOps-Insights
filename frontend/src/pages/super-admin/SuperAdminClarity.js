@@ -24,6 +24,7 @@ import jsPDF from "jspdf";
 import "jspdf-autotable";
 
 import { API_BASE as API } from "../../utils/api";
+import { formatDateOnly } from "../../utils/dates";
 
 export default function SuperAdminClarity() {
   const { language } = useLanguage();
@@ -232,7 +233,7 @@ export default function SuperAdminClarity() {
     doc.setFontSize(10);
     doc.setTextColor(128, 128, 128);
     doc.text(`${isEs ? "Período" : "Period"}: ${period}`, 14, 38);
-    doc.text(`${isEs ? "Generado" : "Generated"}: ${new Date().toLocaleDateString()}`, 14, 44);
+    doc.text(`${isEs ? "Generado" : "Generated"}: ${formatDateOnly(new Date(), language)}`, 14, 44);
     
     // Summary Cards
     doc.setFontSize(12);

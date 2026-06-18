@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 
 import { API_BASE as API } from "../../utils/api";
+import { formatDateOnly } from "../../utils/dates";
 
 export default function EventBinderTab({ eventId }) {
   const { language } = useLanguage();
@@ -62,7 +63,7 @@ export default function EventBinderTab({ eventId }) {
 
   const formatDate = (dateStr) => {
     if (!dateStr) return isEs ? "Sin fecha" : "No date";
-    return new Date(dateStr).toLocaleDateString(language === "es" ? "es-MX" : "en-US", {
+    return formatDateOnly(dateStr, language, {
       weekday: 'long',
       year: 'numeric',
       month: 'long',

@@ -27,6 +27,7 @@ import UnifiedCommsTimeline from "./UnifiedCommsTimeline";
 import LeadKanbanView from "./LeadKanbanView";
 
 import { API_BASE as API } from "../../utils/api";
+import { formatDateOnly } from "../../utils/dates";
 
 // Cities by country
 const CITIES_BY_COUNTRY = {
@@ -948,7 +949,7 @@ export default function LeadOutreachSection() {
           {lead.next_follow_up_date ? (
             <div className="flex items-center gap-1 text-xs">
               <Clock className="w-3 h-3" />
-              {new Date(lead.next_follow_up_date).toLocaleDateString()}
+              {formatDateOnly(lead.next_follow_up_date, language)}
             </div>
           ) : (
             <span className="text-muted-foreground text-xs">-</span>
@@ -1577,7 +1578,7 @@ export default function LeadOutreachSection() {
                     <p className="text-muted-foreground text-xs">{isEs ? "Último Contacto" : "Last Contact"}</p>
                     <p className="font-medium">
                       {selectedLead.last_contact_date 
-                        ? new Date(selectedLead.last_contact_date).toLocaleDateString()
+                        ? formatDateOnly(selectedLead.last_contact_date, language)
                         : "-"}
                     </p>
                   </div>
@@ -1616,7 +1617,7 @@ export default function LeadOutreachSection() {
                       {isEs ? "Seguimiento programado" : "Follow-up scheduled"}
                     </p>
                     <p className="text-yellow-700 text-xs mt-1">
-                      {selectedLead.follow_up_type} - {new Date(selectedLead.next_follow_up_date).toLocaleDateString()}
+                      {selectedLead.follow_up_type} - {formatDateOnly(selectedLead.next_follow_up_date, language)}
                     </p>
                   </div>
                 ) : (

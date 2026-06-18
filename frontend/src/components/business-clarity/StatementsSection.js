@@ -10,6 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from ".
 import { Download, RefreshCw, AlertTriangle } from "lucide-react";
 
 import { API_BASE as API } from "../../utils/api";
+import { formatDateOnly } from "../../utils/dates";
 const formatCurrency = (amount) => `$${(amount || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 export function StatementsSection() {
@@ -58,7 +59,7 @@ export function StatementsSection() {
       doc.text(isEs ? "Estado de Cuenta" : "Account Statement", 14, 20);
       doc.setFontSize(12);
       doc.text(`${isEs ? "Cliente" : "Client"}: ${client?.display_name || "N/A"}`, 14, 30);
-      doc.text(`${isEs ? "Fecha" : "Date"}: ${new Date().toLocaleDateString()}`, 14, 36);
+      doc.text(`${isEs ? "Fecha" : "Date"}: ${formatDateOnly(new Date(), language)}`, 14, 36);
       if (client?.tax_id) {
         doc.text(`RNC/ID: ${client.tax_id}`, 14, 42);
       }
@@ -101,7 +102,7 @@ export function StatementsSection() {
             isEs ? "Saldo" : "Balance"
           ]],
           body: statement.activity.map(item => [
-            item.date ? new Date(item.date).toLocaleDateString() : "-",
+            item.date ? formatDateOnly(item.date, language) : "-",
             item.type === "invoice" ? (isEs ? "Factura" : "Invoice") : (isEs ? "Pago" : "Payment"),
             item.description || "-",
             item.debit > 0 ? formatCurrency(item.debit) : "-",
@@ -137,7 +138,7 @@ export function StatementsSection() {
     if (!statement?.activity?.length) return;
     const headers = ["Fecha", "Tipo", "Descripcion", "Debito", "Credito", "Saldo"];
     const rows = statement.activity.map(item => [
-      item.date ? new Date(item.date).toLocaleDateString() : "",
+      item.date ? formatDateOnly(item.date, language) : "",
       item.type === "invoice" ? "Factura" : "Pago",
       item.description,
       item.debit || 0,
@@ -261,7 +262,7 @@ export function StatementsSection() {
                 <TableBody>
                   {(statement.activity || []).map((item, i) => (
                     <TableRow key={i}>
-                      <TableCell>{item.date ? new Date(item.date).toLocaleDateString() : "-"}</TableCell>
+                      <TableCell>{item.date ? formatDateOnly(item.date, language) : "-"}</TableCell>
                       <TableCell><Badge variant={item.type === "invoice" ? "default" : "secondary"}>{item.type === "invoice" ? (isEs ? "Factura" : "Invoice") : (isEs ? "Pago" : "Payment")}</Badge></TableCell>
                       <TableCell>{item.description}</TableCell>
                       <TableCell className="text-right">{item.debit > 0 ? formatCurrency(item.debit) : "-"}</TableCell>

@@ -12,6 +12,7 @@ import { Button } from "../../components/ui/button";
 import { toast } from "sonner";
 
 import { API_BASE as API } from "../../utils/api";
+import { formatDateOnly } from "../../utils/dates";
 
 export default function SuperAdminOverview() {
   const { language } = useLanguage();
@@ -495,7 +496,7 @@ export default function SuperAdminOverview() {
                   <div className="text-right">
                     <p className="text-sm font-bold text-emerald-600 dark:text-green-400">{formatCurrency(tx.amount)}</p>
                     <p className="text-xs text-muted-foreground">
-                      {new Date(tx.created_at).toLocaleDateString()}
+                      {formatDateOnly(tx.created_at, language)}
                     </p>
                   </div>
                 </div>

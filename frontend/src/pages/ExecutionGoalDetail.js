@@ -64,6 +64,7 @@ import {
 import { toast } from "sonner";
 import ShareEntityDialog from "../components/collaboration/ShareEntityDialog";
 import SharedWith from "../components/collaboration/SharedWith";
+import { formatDateOnly } from "../utils/dates";
 
 const statusConfig = {
   planning: { labelKey: "planning", color: "bg-blue-500/20 text-blue-400 border-blue-500/30", icon: CircleDot },
@@ -474,7 +475,7 @@ export default function ExecutionGoalDetail() {
                 {goal.target_date && (
                   <span className="flex items-center gap-1">
                     <Calendar className="w-4 h-4" />
-                    {new Date(goal.target_date).toLocaleDateString()}
+                    {formatDateOnly(goal.target_date, language)}
                   </span>
                 )}
               </div>
@@ -622,7 +623,7 @@ export default function ExecutionGoalDetail() {
                                 {task.due_date && (
                                   <span className="flex items-center gap-1">
                                     <Calendar className="w-3 h-3" />
-                                    {new Date(task.due_date).toLocaleDateString()}
+                                    {formatDateOnly(task.due_date, language)}
                                   </span>
                                 )}
                                 {task.assignees?.length > 0 && (

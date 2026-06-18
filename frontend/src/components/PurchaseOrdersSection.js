@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 
 import { API_BASE as API } from "../utils/api";
+import { formatDateOnly } from "../utils/dates";
 
 const PO_STATUSES = [
   { value: "Draft", label: "Draft", labelEs: "Borrador", color: "bg-gray-100 text-gray-700" },
@@ -419,8 +420,8 @@ export default function PurchaseOrdersSection() {
           </div>
           <div class="po-info">
             <div class="po-number">${selectedPO?.po_number || ''}</div>
-            <div>Fecha: ${selectedPO?.created_at ? new Date(selectedPO.created_at).toLocaleDateString() : ''}</div>
-            ${selectedPO?.needed_by_date ? '<div>Necesario para: ' + new Date(selectedPO.needed_by_date).toLocaleDateString() + '</div>' : ''}
+            <div>Fecha: ${selectedPO?.created_at ? formatDateOnly(selectedPO.created_at, language) : ''}</div>
+            ${selectedPO?.needed_by_date ? '<div>Necesario para: ' + formatDateOnly(selectedPO.needed_by_date, language) + '</div>' : ''}
           </div>
         </div>
         
@@ -535,7 +536,7 @@ export default function PurchaseOrdersSection() {
                     <TableCell className="font-medium">{po.po_number}</TableCell>
                     <TableCell>{po.supplier_name}</TableCell>
                     <TableCell>{getStatusBadge(po.status)}</TableCell>
-                    <TableCell>{new Date(po.created_at).toLocaleDateString()}</TableCell>
+                    <TableCell>{formatDateOnly(po.created_at, language)}</TableCell>
                     <TableCell className="text-right font-semibold">${po.total?.toFixed(2)}</TableCell>
                     <TableCell>
                       <div className="flex gap-1">
@@ -691,7 +692,7 @@ export default function PurchaseOrdersSection() {
               {selectedPO?.po_number}
             </DialogTitle>
             <DialogDescription>
-              {selectedPO?.supplier_name} • {selectedPO && new Date(selectedPO.created_at).toLocaleDateString()}
+              {selectedPO?.supplier_name} • {selectedPO && formatDateOnly(selectedPO.created_at, language)}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
@@ -972,7 +973,7 @@ export default function PurchaseOrdersSection() {
                 <div className="text-right">
                   <p className="text-2xl font-bold">{selectedPO?.po_number}</p>
                   <p className="text-sm text-muted-foreground">
-                    {selectedPO?.created_at && new Date(selectedPO.created_at).toLocaleDateString()}
+                    {selectedPO?.created_at && formatDateOnly(selectedPO.created_at, language)}
                   </p>
                 </div>
               </div>

@@ -10,6 +10,7 @@ import { Badge } from "../ui/badge";
 import { Save, RefreshCw, Target, FileText, AlertTriangle, Lock, CheckCircle } from "lucide-react";
 
 import { API_BASE as API } from "../../utils/api";
+import { formatDateOnly } from "../../utils/dates";
 
 export default function EventBlueprintTab({ eventId, event, onUpdate }) {
   const { language } = useLanguage();
@@ -81,7 +82,7 @@ export default function EventBlueprintTab({ eventId, event, onUpdate }) {
             <div>
               <p className="text-sm text-muted-foreground">{isEs ? "Fecha" : "Date"}</p>
               <p className="font-medium">
-                {event?.event_date ? new Date(event.event_date).toLocaleDateString() : "TBD"}
+                {event?.event_date ? formatDateOnly(event.event_date, language) : "TBD"}
               </p>
             </div>
             <div>

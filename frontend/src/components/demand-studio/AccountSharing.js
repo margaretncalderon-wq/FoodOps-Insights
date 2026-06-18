@@ -28,6 +28,7 @@ import {
   Linkedin, Youtube, Hash, AtSign
 } from "lucide-react";
 import { toast } from "sonner";
+import { formatDateOnly } from "../../utils/dates";
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
@@ -342,7 +343,7 @@ export default function AccountSharing({ accounts = [] }) {
                         {link.expires_at && (
                           <span className="text-[10px] text-muted-foreground flex items-center">
                             <Clock className="w-3 h-3 mr-1" />
-                            {new Date(link.expires_at).toLocaleDateString()}
+                            {formatDateOnly(link.expires_at, language)}
                           </span>
                         )}
                         <span className="text-[10px] text-muted-foreground">

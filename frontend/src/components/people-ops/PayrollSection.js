@@ -39,6 +39,7 @@ import { API_BASE as API } from "../../utils/api";
 import { VariablePayWidget } from "./VariablePayWidget";
 import { Switch } from "../ui/switch";
 import { useCurrencyFormatter } from "../../hooks/useCurrencyFormatter";
+import { formatDateOnly } from "../../utils/dates";
 
 const STATUS_CONFIG = {
   draft: { 
@@ -384,7 +385,7 @@ export function PayrollSection() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        {new Date(period.payment_date).toLocaleDateString()}
+                        {formatDateOnly(period.payment_date, language)}
                       </TableCell>
                       <TableCell className="text-center">
                         <Badge variant="outline">{period.total_employees}</Badge>

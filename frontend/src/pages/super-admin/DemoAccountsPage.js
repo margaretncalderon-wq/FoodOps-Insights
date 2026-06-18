@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 
 import { API_BASE as API } from "../../utils/api";
+import { formatDateOnly } from "../../utils/dates";
 
 const INDUSTRY_OPTIONS = [
   { value: "events", labelEn: "Events & Hospitality", labelEs: "Eventos y Hospitalidad" },
@@ -881,12 +882,12 @@ export default function DemoAccountsPage() {
               <div className="p-3 bg-muted rounded-lg text-sm">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">{isEs ? "Trial actual expira:" : "Current trial expires:"}</span>
-                  <span className="font-medium">{new Date(selectedAccount.trial_ends_at).toLocaleDateString()}</span>
+                  <span className="font-medium">{formatDateOnly(selectedAccount.trial_ends_at, language)}</span>
                 </div>
                 <div className="flex justify-between mt-1">
                   <span className="text-muted-foreground">{isEs ? "Nuevo vencimiento:" : "New expiration:"}</span>
                   <span className="font-medium text-amber-600">
-                    {new Date(new Date(selectedAccount.trial_ends_at).getTime() + extendDays * 24 * 60 * 60 * 1000).toLocaleDateString()}
+                    {formatDateOnly(new Date(selectedAccount.trial_ends_at).getTime() + extendDays * 24 * 60 * 60 * 1000, language)}
                   </span>
                 </div>
               </div>

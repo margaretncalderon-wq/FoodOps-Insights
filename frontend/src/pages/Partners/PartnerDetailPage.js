@@ -865,7 +865,7 @@ export default function PartnerDetailPage() {
                                   <div>
                                     <p className="font-medium">{inv.invoice_number || `INV-${i + 1}`}</p>
                                     <p className="text-sm text-muted-foreground">
-                                      {inv.invoice_date ? new Date(inv.invoice_date).toLocaleDateString() : "-"}
+                                      {inv.invoice_date ? formatDateOnly(inv.invoice_date, language) : "-"}
                                     </p>
                                   </div>
                                   <div className="text-right">
@@ -904,7 +904,7 @@ export default function PartnerDetailPage() {
                                   <div>
                                     <p className="font-medium">{po.po_number || `PO-${i + 1}`}</p>
                                     <p className="text-sm text-muted-foreground">
-                                      {po.created_at ? new Date(po.created_at).toLocaleDateString() : "-"}
+                                      {po.created_at ? formatDateOnly(po.created_at, language) : "-"}
                                     </p>
                                   </div>
                                   <div className="text-right">
@@ -1134,11 +1134,11 @@ export default function PartnerDetailPage() {
               <CardContent className="pt-4 text-sm text-muted-foreground space-y-2">
                 <div className="flex justify-between">
                   <span>{isEs ? "Creado" : "Created"}</span>
-                  <span>{new Date(partner.created_at).toLocaleDateString()}</span>
+                  <span>{formatDateOnly(partner.created_at, language)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>{isEs ? "Actualizado" : "Updated"}</span>
-                  <span>{new Date(partner.updated_at).toLocaleDateString()}</span>
+                  <span>{formatDateOnly(partner.updated_at, language)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>ID</span>

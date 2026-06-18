@@ -14,6 +14,7 @@ import { Textarea } from "../ui/textarea";
 import { Plus, RefreshCw, FileText, BarChart3, Target, AlertTriangle } from "lucide-react";
 
 import { API_BASE as API } from "../../utils/api";
+import { formatDateOnly } from "../../utils/dates";
 const formatCurrency = (amount) => `$${(amount || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 // Expense Categories Section (formerly Fixed Costs)
@@ -284,7 +285,7 @@ export function FixedCostsSection() {
               <CardDescription>
                 {analysis?.date_range && (
                   <span>
-                    {new Date(analysis.date_range.start).toLocaleDateString()} - {new Date(analysis.date_range.end).toLocaleDateString()}
+                    {formatDateOnly(analysis.date_range.start, language)} - {formatDateOnly(analysis.date_range.end, language)}
                   </span>
                 )}
               </CardDescription>

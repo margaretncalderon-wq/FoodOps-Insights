@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 import { toast } from "sonner";
 import { API_BASE as API } from "../../utils/api";
+import { formatDateOnly } from "../../utils/dates";
 import RichTextEditor from "../ui/RichTextEditor";
 
 const COMM_TYPES = [
@@ -131,7 +132,7 @@ export default function CommunicationsTimeline({ entityType, entityId, entityNam
                 </div>
                 <p className="text-[10px] text-muted-foreground">
                   {log.owner_name && `${log.owner_name} · `}
-                  {new Date(log.created_at).toLocaleDateString("es-ES", { day: "2-digit", month: "short" })}
+                  {formatDateOnly(log.created_at, "es", { day: "2-digit", month: "short" })}
                 </p>
               </div>
             </div>

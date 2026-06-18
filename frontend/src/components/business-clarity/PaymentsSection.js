@@ -16,6 +16,7 @@ import { Plus, RefreshCw, Calendar, FileText, ShoppingCart, Receipt, CreditCard 
 import { PaymentReceiptModal } from "./PaymentReceiptModal";
 
 import { API_BASE as API } from "../../utils/api";
+import { formatDateOnly } from "../../utils/dates";
 const formatCurrency = (amount) => `$${(amount || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 export function PaymentsSection() {
@@ -245,7 +246,7 @@ export function PaymentsSection() {
               {payments.map(pay => (
                 <TableRow key={pay.payment_id}>
                   <TableCell className="font-mono text-sm">{pay.receipt_number || pay.payment_id?.slice(-8)}</TableCell>
-                  <TableCell>{new Date(pay.payment_date).toLocaleDateString()}</TableCell>
+                  <TableCell>{formatDateOnly(pay.payment_date, language)}</TableCell>
                   <TableCell>{pay.client_name || "-"}</TableCell>
                   <TableCell><Badge variant="outline">{getPaymentMethodLabel(pay.payment_method)}</Badge></TableCell>
                   <TableCell className="text-right font-medium">{formatCurrency(pay.amount)}</TableCell>
@@ -368,7 +369,7 @@ export function PaymentsSection() {
                                 </TableCell>
                                 <TableCell className="font-medium">{inv.invoice_number}</TableCell>
                                 <TableCell className="text-sm text-muted-foreground">
-                                  {inv.issue_date ? new Date(inv.issue_date).toLocaleDateString() : "-"}
+                                  {inv.issue_date ? formatDateOnly(inv.issue_date, language) : "-"}
                                 </TableCell>
                                 <TableCell className="text-right">{formatCurrency(inv.total)}</TableCell>
                                 <TableCell className="text-right font-medium text-amber-600">
@@ -433,7 +434,7 @@ export function PaymentsSection() {
                                   {ord.name || ord.event_name || `#${ord.event_id?.slice(-6)}`}
                                 </TableCell>
                                 <TableCell className="text-sm text-muted-foreground">
-                                  {ord.date ? new Date(ord.date).toLocaleDateString() : "-"}
+                                  {ord.date ? formatDateOnly(ord.date, language) : "-"}
                                 </TableCell>
                                 <TableCell className="text-right">{formatCurrency(totalValue)}</TableCell>
                                 <TableCell className="text-right font-medium text-amber-600">

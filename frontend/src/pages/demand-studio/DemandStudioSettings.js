@@ -16,6 +16,7 @@ import {
 import { toast } from "sonner";
 import BrandHub from "../../components/demand-studio/BrandHub";
 import CompanyShareSettings from "../../components/demand-studio/CompanyShareSettings";
+import { formatDateOnly } from "../../utils/dates";
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
@@ -634,7 +635,7 @@ export default function DemandStudioSettings() {
                       <div>
                         <p className="font-medium">{invite.email}</p>
                         <p className="text-xs text-muted-foreground">
-                          {isEs ? "Expira:" : "Expires:"} {new Date(invite.expires_at).toLocaleDateString()}
+                          {isEs ? "Expira:" : "Expires:"} {formatDateOnly(invite.expires_at, language)}
                         </p>
                       </div>
                       <Button 

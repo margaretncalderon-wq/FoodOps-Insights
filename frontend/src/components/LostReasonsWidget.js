@@ -10,6 +10,7 @@ import { Badge } from "./ui/badge";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recharts";
 import { Archive, TrendingDown, ExternalLink, ChevronDown, ChevronUp } from "lucide-react";
 import { lostReasonLabel } from "./LostReasonDialog";
+import { formatDateOnly } from "../utils/dates";
 
 // Distinct, colorblind-friendly palette for reason segments.
 const REASON_COLORS = {
@@ -29,7 +30,7 @@ const formatCurrency = (n) =>
 const formatDate = (iso, language) => {
   if (!iso) return "";
   try {
-    return new Date(iso).toLocaleDateString(language === "es" ? "es-ES" : "en-US", {
+    return formatDateOnly(iso, language, {
       day: "2-digit", month: "short", year: "numeric",
     });
   } catch (_e) {

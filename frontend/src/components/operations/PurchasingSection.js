@@ -8,6 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from ".
 import { Plus, ShoppingCart, ClipboardList } from "lucide-react";
 
 import { API_BASE as API } from "../../utils/api";
+import { formatDateOnly } from "../../utils/dates";
 
 export function PurchasingSection() {
   const { language } = useLanguage();
@@ -76,7 +77,7 @@ export function PurchasingSection() {
                     <TableRow key={po.po_id}>
                       <TableCell className="font-mono">{po.po_number}</TableCell>
                       <TableCell>{po.supplier_name}</TableCell>
-                      <TableCell>{new Date(po.created_at).toLocaleDateString()}</TableCell>
+                      <TableCell>{formatDateOnly(po.created_at, language)}</TableCell>
                       <TableCell className="text-right font-mono">${(po.total_amount || 0).toFixed(2)}</TableCell>
                       <TableCell>
                         <Badge variant={po.status === "received" ? "default" : po.status === "sent" ? "secondary" : "outline"}>

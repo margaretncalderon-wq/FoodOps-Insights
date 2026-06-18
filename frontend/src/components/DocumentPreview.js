@@ -18,6 +18,7 @@ import {
   Package, Calendar, Users, MapPin, Phone, Mail, Building2,
   ClipboardList, ScrollText, Receipt, MenuSquare, Clock
 } from "lucide-react";
+import { formatDateOnly } from "../utils/dates";
 import { parseDateOnly } from "../utils/dates";
 
 
@@ -753,7 +754,7 @@ export default function DocumentPreview({
                     {proposal?.proposal_number}
                   </p>
                   <p className="text-sm text-muted-foreground">
-                    {new Date().toLocaleDateString()}
+                    {formatDateOnly(new Date(), language)}
                   </p>
                 </div>
               </div>

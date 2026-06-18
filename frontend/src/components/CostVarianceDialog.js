@@ -11,6 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from ".
 import { Label } from "./ui/label";
 import { AlertTriangle, Loader2, Info, TrendingUp, TrendingDown } from "lucide-react";
 import { API_BASE as API } from "../utils/api";
+import { formatDateOnly } from "../utils/dates";
 
 const SEVERITY_META = {
   ok: { cls: "bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-300", labelEn: "OK", labelEs: "OK" },
@@ -137,7 +138,7 @@ export default function CostVarianceDialog({ open, onOpenChange, initialEventId 
                   <p className="text-[10px] uppercase opacity-70">{isEs ? "Evento enlazado" : "Linked event"}</p>
                   <p className="font-semibold text-base">{focusedEvent.event_name}</p>
                   <p className="text-xs opacity-80">
-                    {focusedEvent.event_date ? new Date(focusedEvent.event_date).toLocaleDateString() : "—"} · {focusedEvent.guest_count} {isEs ? "invitados" : "guests"}
+                    {focusedEvent.event_date ? formatDateOnly(focusedEvent.event_date, language) : "—"} · {focusedEvent.guest_count} {isEs ? "invitados" : "guests"}
                   </p>
                 </div>
                 <Badge className={`${SEVERITY_META[focusedEvent.severity]?.cls} text-xs`}>
@@ -185,7 +186,7 @@ export default function CostVarianceDialog({ open, onOpenChange, initialEventId 
                   <TableRow key={e.event_id} data-testid={`cv-row-${e.event_id}`}>
                     <TableCell className="font-medium">{e.event_name}</TableCell>
                     <TableCell className="text-xs text-muted-foreground">
-                      {e.event_date ? new Date(e.event_date).toLocaleDateString() : "—"}
+                      {e.event_date ? formatDateOnly(e.event_date, language) : "—"}
                     </TableCell>
                     <TableCell className="text-right font-mono">${e.theoretical_cost.toFixed(2)}</TableCell>
                     <TableCell className="text-right font-mono">${e.actual_cost.toFixed(2)}</TableCell>

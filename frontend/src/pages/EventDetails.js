@@ -394,7 +394,7 @@ export default function EventDetails() {
                   </Badge>
                   {event.lost_reason_at && (
                     <span className="text-xs text-muted-foreground">
-                      · {new Date(event.lost_reason_at).toLocaleDateString(language === "es" ? "es-ES" : "en-US")}
+                      · {formatDateOnly(event.lost_reason_at, language)}
                     </span>
                   )}
                   <Button
@@ -613,7 +613,7 @@ export default function EventDetails() {
                         </span>
                         {task.due_date && (
                           <span className="text-sm text-muted-foreground ml-auto">
-                            {new Date(task.due_date).toLocaleDateString()}
+                            {formatDateOnly(task.due_date, language)}
                           </span>
                         )}
                       </div>

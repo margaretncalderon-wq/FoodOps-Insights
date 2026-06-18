@@ -51,6 +51,7 @@ import { SocialMetricsSection } from "../../components/demand-studio/SocialMetri
 import CommentsSection from "../../components/shared/CommentsSection";
 import RichTextEditor from "../../components/ui/RichTextEditor";
 import { GlobalActivityLog } from "../../components/GlobalActivityLog";
+import { formatDateOnly } from "../../utils/dates";
 
 const PLATFORMS = [
   { value: "instagram", label: "Instagram", icon: Instagram, color: "bg-pink-500" },
@@ -2296,7 +2297,7 @@ export default function SocialMediaPage() {
                       filteredPosts.map(post => (
                         <tr key={post.post_id} className="border-b hover:bg-muted/30">
                           <td className="p-3 text-sm">
-                            {post.scheduled_at ? new Date(post.scheduled_at).toLocaleDateString() : "-"}
+                            {post.scheduled_at ? formatDateOnly(post.scheduled_at, language) : "-"}
                           </td>
                           <td className="p-3 text-sm">{getAccountName(post.social_account_id)}</td>
                           <td className="p-3">{getFormatBadge(post.format)}</td>
@@ -2530,7 +2531,7 @@ export default function SocialMediaPage() {
                               {post.scheduled_at && (
                                 <div className="text-xs text-muted-foreground">
                                   <span className="block">{isEs ? "Publicar:" : "Publish:"}</span>
-                                  {new Date(post.scheduled_at).toLocaleDateString()}
+                                  {formatDateOnly(post.scheduled_at, language)}
                                 </div>
                               )}
                             </div>
@@ -2614,7 +2615,7 @@ export default function SocialMediaPage() {
                                 <span>•</span>
                                 <span className="flex items-center gap-1">
                                   <Video className="w-3 h-3" />
-                                  {new Date(post.production_date + "T00:00:00").toLocaleDateString()}
+                                  {formatDateOnly(post.production_date + "T00:00:00", language)}
                                 </span>
                               </>
                             )}
@@ -2641,7 +2642,7 @@ export default function SocialMediaPage() {
                         {post.scheduled_at && (
                           <div className="text-xs text-muted-foreground text-right">
                             <span className="block">{isEs ? "Publicar:" : "Publish:"}</span>
-                            {new Date(post.scheduled_at).toLocaleDateString()}
+                            {formatDateOnly(post.scheduled_at, language)}
                           </div>
                         )}
                       </div>

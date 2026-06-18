@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import axios from "axios";
 import { toast } from "sonner";
 import { useLanguage } from "../../contexts/LanguageContext";
+import { formatDateOnly } from "../../utils/dates";
 import { Card, CardContent } from "../ui/card";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
@@ -130,15 +131,14 @@ export default function PerformanceTab() {
   const periodLabel = useMemo(() => {
     if (!data) return "";
     const cur = data.current_period;
+    const lang = isEs ? "es" : "en";
     if (granularity === "day") {
-      return new Date(cur.start).toLocaleDateString(isEs ? "es-ES" : "en-US", { weekday: "long", month: "short", day: "numeric" });
+      return formatDateOnly(cur.start, lang, { weekday: "long", month: "short", day: "numeric" });
     }
     if (granularity === "week") {
-      const s = new Date(cur.start);
-      const e = new Date(cur.end);
-      return `${s.toLocaleDateString(isEs ? "es-ES" : "en-US", { month: "short", day: "numeric" })} – ${e.toLocaleDateString(isEs ? "es-ES" : "en-US", { month: "short", day: "numeric" })}`;
+      return `${formatDateOnly(cur.start, lang, { month: "short", day: "numeric" })} – ${formatDateOnly(cur.end, lang, { month: "short", day: "numeric" })}`;
     }
-    return new Date(cur.start).toLocaleDateString(isEs ? "es-ES" : "en-US", { month: "long", year: "numeric" });
+    return formatDateOnly(cur.start, lang, { month: "long", year: "numeric" });
   }, [data, granularity, isEs]);
 
   const offsetButtons = [

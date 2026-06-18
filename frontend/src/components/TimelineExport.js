@@ -21,6 +21,7 @@ import {
   MapPin,
 } from "lucide-react";
 import { toast } from "sonner";
+import { formatDateOnly } from "../utils/dates";
 
 // Activity type colors for PDF
 const ACTIVITY_COLORS = {
@@ -91,7 +92,7 @@ export default function TimelineExport({
       doc.setFontSize(10);
       doc.setFont("helvetica", "normal");
       doc.text(
-        `${isEs ? "Timeline del Evento" : "Event Timeline"} - ${isEs ? "Generado" : "Generated"}: ${new Date().toLocaleDateString()}`,
+        `${isEs ? "Timeline del Evento" : "Event Timeline"} - ${isEs ? "Generado" : "Generated"}: ${formatDateOnly(new Date())}`,
         margin,
         28
       );

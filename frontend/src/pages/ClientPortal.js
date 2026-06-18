@@ -464,7 +464,7 @@ export default function ClientPortal() {
                 </Badge>
               </div>
               <div className="text-right text-sm text-muted-foreground">
-                <p>{isEs ? "Fecha" : "Date"}: {new Date(content.generated_at || document.created_at).toLocaleDateString()}</p>
+                <p>{isEs ? "Fecha" : "Date"}: {formatDateOnly(content.generated_at || document.created_at)}</p>
                 <p>#{document.document_id?.slice(-8)}</p>
               </div>
             </div>

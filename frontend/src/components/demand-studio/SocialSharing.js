@@ -27,6 +27,7 @@ import {
   Loader2, ExternalLink, Clock, Lock, Unlock, RefreshCw
 } from "lucide-react";
 import { toast } from "sonner";
+import { formatDateOnly } from "../../utils/dates";
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
@@ -399,7 +400,7 @@ export default function SocialSharing({ selectedOrgId }) {
                         {link.expires_at && (
                           <span className="flex items-center gap-1">
                             <Clock className="w-3 h-3" />
-                            {isEs ? "Expira:" : "Expires:"} {new Date(link.expires_at).toLocaleDateString()}
+                            {isEs ? "Expira:" : "Expires:"} {formatDateOnly(link.expires_at, language)}
                           </span>
                         )}
                       </div>

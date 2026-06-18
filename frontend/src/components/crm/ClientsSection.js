@@ -30,6 +30,7 @@ import CommsChannelTimeline from "./CommsChannelTimeline";
 import UnifiedCommsTimeline from "./UnifiedCommsTimeline";
 
 import { API_BASE as API } from "../../utils/api";
+import { formatDateOnly } from "../../utils/dates";
 
 const CLIENT_SOURCES = ["Website", "Instagram", "QR", "Referral", "Direct", "Other"];
 const CLIENT_INDUSTRIES = [
@@ -797,7 +798,7 @@ export default function ClientsSection() {
                     <CardContent className="pt-4 text-center">
                       <div className="text-lg font-medium">
                         {selectedClient.last_event_date 
-                          ? new Date(selectedClient.last_event_date).toLocaleDateString()
+                          ? formatDateOnly(selectedClient.last_event_date, language)
                           : "-"}
                       </div>
                       <p className="text-sm text-muted-foreground">{isEs ? "Último Evento" : "Last Event"}</p>
@@ -897,7 +898,7 @@ export default function ClientsSection() {
                               <p className="font-medium">{event.name}</p>
                               <div className="flex items-center gap-4 text-sm text-muted-foreground">
                                 <span>
-                                  {event.event_date ? new Date(event.event_date).toLocaleDateString() : "TBD"}
+                                  {event.event_date ? formatDateOnly(event.event_date, language) : "TBD"}
                                 </span>
                                 {event.event_type && (
                                   <Badge variant="outline" className="text-xs">{event.event_type}</Badge>
