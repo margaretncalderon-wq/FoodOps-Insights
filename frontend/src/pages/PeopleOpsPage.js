@@ -21,6 +21,7 @@ import { OnboardingSection } from "../components/people-ops/OnboardingSection";
 import { PerformanceSection } from "../components/people-ops/PerformanceSection";
 import { OrgChartSection } from "../components/people-ops/OrgChartSection";
 import { MonthEndClosingSection } from "../components/people-ops/MonthEndClosingSection";
+import { TimeClockSection } from "../components/people-ops/TimeClockSection";
 import { useCurrencyFormatter } from "../hooks/useCurrencyFormatter";
 
 // Icons
@@ -75,6 +76,7 @@ export default function PeopleOpsPage() {
     "/people-ops/month-end": "month-end",
     "/people-ops/time-off": "time-off",
     "/people-ops/overtime": "overtime",
+    "/people-ops/time-clock": "time-clock",
     "/people-ops/loans": "loans",
     "/people-ops/benefits": "benefits",
     "/people-ops/offboarding": "offboarding",
@@ -269,7 +271,7 @@ export default function PeopleOpsPage() {
                 <DropdownMenuTrigger asChild>
                   <button 
                     className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
-                      isGroupActive(["time-off", "overtime"])
+                      isGroupActive(["time-off", "overtime", "time-clock"])
                         ? "border-violet-600 text-violet-600"
                         : "border-transparent text-muted-foreground hover:text-foreground hover:border-muted"
                     }`}
@@ -294,6 +296,14 @@ export default function PeopleOpsPage() {
                   >
                     <Clock className="w-4 h-4 mr-2" />
                     {isEs ? "Horas Extra" : "Overtime"}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem 
+                    onClick={() => handleTabChange("time-clock", "/people-ops/time-clock")}
+                    className={activeTab === "time-clock" ? "bg-violet-50 text-violet-700" : ""}
+                    data-testid="nav-time-clock"
+                  >
+                    <Clock className="w-4 h-4 mr-2" />
+                    {isEs ? "Reloj Checador" : "Time Clock"}
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -428,6 +438,7 @@ export default function PeopleOpsPage() {
           <Route path="onboarding" element={<OnboardingSection />} />
           <Route path="performance" element={<PerformanceSection />} />
           <Route path="month-end" element={<MonthEndClosingSection />} />
+          <Route path="time-clock" element={<TimeClockSection />} />
         </Routes>
       </div>
     </Layout>

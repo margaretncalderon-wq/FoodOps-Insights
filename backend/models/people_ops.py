@@ -173,6 +173,7 @@ class EmployeeCreate(BaseModel):
     base_salary: float
     payment_frequency: PaymentFrequency = PaymentFrequency.BIWEEKLY
     currency: Optional[str] = None  # Falls back to company.currency if not set
+    weekly_hours_regular: float = 44.0  # Regular working hours per week (RD legal max: 44)
     bank_name: Optional[str] = None
     bank_account: Optional[str] = None
     bank_account_type: Optional[str] = None  # savings, checking, payroll
@@ -314,6 +315,7 @@ class EmployeeUpdate(BaseModel):
     afp_provider: Optional[str] = None
     ars_provider: Optional[str] = None
     currency: Optional[str] = None
+    weekly_hours_regular: Optional[float] = None  # Field staged for future use (Time Clock module)
     
     # Allowances
     has_lunch_allowance: Optional[bool] = None

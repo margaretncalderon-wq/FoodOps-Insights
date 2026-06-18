@@ -23556,6 +23556,9 @@ app.include_router(month_end_router)  # /api/people-ops/month-end/*
 from routers.fx import router as fx_router
 app.include_router(fx_router)  # /api/fx/*
 
+from routers.time_clock import router as time_clock_router
+app.include_router(time_clock_router)  # /api/people-ops/time-clock/*
+
 # Include Comms router (Kora Comms - omnichannel messaging)
 from routers.comms import comms_router
 api_router.include_router(comms_router)  # /api/comms/*
