@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useLanguage } from "../../contexts/LanguageContext";
+import { formatDateOnly } from "../../utils/dates";
 import axios from "axios";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Button } from "../ui/button";
@@ -321,7 +322,7 @@ export function EmployeeDirectory() {
                       </Badge>
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
-                      {emp.hire_date ? new Date(emp.hire_date).toLocaleDateString() : "-"}
+                      {emp.hire_date ? formatDateOnly(emp.hire_date, language) : "-"}
                     </TableCell>
                     <TableCell>
                       <ChevronRight className="w-4 h-4 text-muted-foreground" />

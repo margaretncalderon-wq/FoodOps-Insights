@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useLanguage } from "../../contexts/LanguageContext";
 import { useOrgConfig } from "../../contexts/OrgConfigContext";
 import { buildCurrencyFormatter } from "../../hooks/useCurrencyFormatter";
+import { formatDateOnly } from "../../utils/dates";
 import { FxConvertBadge } from "../FxConvertBadge";
 import axios from "axios";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../ui/card";
@@ -467,7 +468,7 @@ export function EmployeeProfile() {
                     </div>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">{isEs ? "Fecha Ingreso" : "Hire Date"}</span>
-                      <span>{employee.hire_date ? new Date(employee.hire_date).toLocaleDateString() : "-"}</span>
+                      <span>{employee.hire_date ? formatDateOnly(employee.hire_date, language) : "-"}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">{isEs ? "Contrato" : "Contract"}</span>
@@ -807,7 +808,7 @@ export function EmployeeProfile() {
                       <div>
                         <p className="font-medium">{change.reason}</p>
                         <p className="text-sm text-muted-foreground">
-                          {new Date(change.effective_date).toLocaleDateString()}
+                          {formatDateOnly(change.effective_date, language)}
                         </p>
                       </div>
                       <div className="text-right">
