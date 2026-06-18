@@ -1,6 +1,20 @@
 # Kora OS - Changelog
 
 
+## February 2026 — Iteration 193
+
+### Bug Fixes: Client Engagement + Event Orchestration (4 bugs)
+1. **Thousands separator (system-wide)**: New `utils/format.js → fmtNum(n)` helper using `Intl.NumberFormat`. Bulk-replaced 292 `.toFixed(2)` occurrences across 64 files. `DocumentPreview.formatCurrency` now uses `buildCurrencyFormatter` (Intl.NumberFormat with locale). Output: `RD$6,481.25` instead of `RD$6481.25`.
+2. **Meals split in calendar**: `EngagementCalendar` now fetches `/api/orchestration/calendar` (with `services` per event). New `getEntriesForDate` helper renders each meal (Desayuno, Almuerzo) as its own block in Month + Week views with time prefix. Each block has `data-testid="calendar-entry-{eventId}-{idx}"`.
+3. **Skipped days bug**: `_expand_event_dates` in `backend/server.py` (2 locations) and `EngagementCalendar.getEventsForDate` now respect explicit `event_dates` arrays — no consecutive-range backfill when user supplied non-consecutive dates.
+4. **Signature & Stamp on all docs**: New `Company` model fields `signature_image_url`, `stamp_image_url`, `signatory_name`, `signatory_title`. New POST `/api/settings/company/signature` and `/stamp` upload endpoints (multipart, 2MB max, base64 data URL). Settings UI adds "Firma y Sello" Card. `DocumentPreview` renders a `document-signature-block` at the bottom of every doc with stamp+signature on the left and client signature line on the right ("Firma del cliente — Aprobado").
+
+### Side fix
+- Timezone bug across system (Iteration 192.5): `new Date("YYYY-MM-DD").toLocaleDateString()` was showing day-before in UTC-X timezones. Bulk-replaced 138 occurrences across 73 files with `formatDateOnly(value, language)` helper.
+
+Tested via `testing_agent_v3_fork` iteration_193 — **100% backend (7/7) + 100% frontend (all 4 bugs)**.
+
+
 ## February 2026 — Iteration 192
 
 ### Bug Fix: Salary Configuration UI + Bilingual Departments (People Ops)
