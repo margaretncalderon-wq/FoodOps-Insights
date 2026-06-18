@@ -248,6 +248,14 @@ async def update_entry(entry_id: str, data: TimeEntryUpdate, user: User = Depend
     if not entry:
         raise HTTPException(status_code=404, detail="Entry not found")
     
+    # Snapshot BEFORE state for audit
+    before_state = {
+        "clock_in": entry.get("clock_in"),
+        "clock_out": entry.get("clock_out"),
+        "total_minutes": entry.get("total_minutes"),
+        "notes": entry.get("notes"),
+    }
+    
     update_data: dict = {}
     if data.clock_in:
         update_data["clock_in"] = data.clock_in
@@ -268,21 +276,78 @@ async def update_entry(entry_id: str, data: TimeEntryUpdate, user: User = Depend
         except ValueError:
             pass
     
-    update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(timezone.utc).isoformat()
+    update_data["updated_at"] = now
     await db.time_entries.update_one(
         {"entry_id": entry_id, "company_id": company_id},
         {"$set": update_data}
     )
-    return {"message": "Entry updated"}
+    
+    # Audit log: record only changed fields
+    after_state = {
+        "clock_in": update_data.get("clock_in", before_state["clock_in"]),
+        "clock_out": update_data.get("clock_out", before_state["clock_out"]),
+        "total_minutes": update_data.get("total_minutes", before_state["total_minutes"]),
+        "notes": update_data.get("notes", before_state["notes"]),
+    }
+    diff = {k: {"before": before_state[k], "after": after_state[k]} for k in before_state if before_state[k] != after_state[k]}
+    if diff:
+        await db.time_clock_audit.insert_one({
+            "audit_id": f"audit_{uuid.uuid4().hex[:12]}",
+            "entry_id": entry_id,
+            "company_id": company_id,
+            "action": "update",
+            "diff": diff,
+            "before": before_state,
+            "after": after_state,
+            "changed_by": user.user_id,
+            "changed_by_name": getattr(user, "name", None) or user.email,
+            "changed_at": now,
+        })
+    
+    return {"message": "Entry updated", "fields_changed": list(diff.keys())}
 
 
 @router.delete("/entries/{entry_id}")
 async def delete_entry(entry_id: str, user: User = Depends(get_current_user)):
     company_id, _ = await check_people_ops_access(user, "edit")
-    res = await db.time_entries.delete_one({"entry_id": entry_id, "company_id": company_id})
-    if res.deleted_count == 0:
+    entry = await db.time_entries.find_one({"entry_id": entry_id, "company_id": company_id}, {"_id": 0})
+    if not entry:
         raise HTTPException(status_code=404, detail="Entry not found")
+    
+    await db.time_entries.delete_one({"entry_id": entry_id, "company_id": company_id})
+    
+    # Audit log
+    await db.time_clock_audit.insert_one({
+        "audit_id": f"audit_{uuid.uuid4().hex[:12]}",
+        "entry_id": entry_id,
+        "company_id": company_id,
+        "action": "delete",
+        "before": {
+            "clock_in": entry.get("clock_in"),
+            "clock_out": entry.get("clock_out"),
+            "total_minutes": entry.get("total_minutes"),
+            "notes": entry.get("notes"),
+            "employee_id": entry.get("employee_id"),
+            "employee_name": entry.get("employee_name"),
+        },
+        "changed_by": user.user_id,
+        "changed_by_name": getattr(user, "name", None) or user.email,
+        "changed_at": datetime.now(timezone.utc).isoformat(),
+    })
+    
     return {"message": "Entry deleted"}
+
+
+@router.get("/entries/{entry_id}/audit")
+async def get_entry_audit(entry_id: str, user: User = Depends(get_current_user)):
+    """Return audit history for a specific time entry (admins/managers only)."""
+    company_id, _ = await check_people_ops_access(user, "view")
+    logs = await db.time_clock_audit.find(
+        {"entry_id": entry_id, "company_id": company_id},
+        {"_id": 0}
+    ).sort("changed_at", -1).to_list(200)
+    return logs
 
 
 @router.get("/weekly-summary")

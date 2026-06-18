@@ -49,6 +49,7 @@ export function TimeClockSection() {
   const [manualData, setManualData] = useState({ employee_id: "", clock_in: "", clock_out: "", notes: "" });
   const [editEntry, setEditEntry] = useState(null);  // entry being edited (admin)
   const [editData, setEditData] = useState({ clock_in: "", clock_out: "", notes: "" });
+  const [editAudit, setEditAudit] = useState([]);  // audit history of the entry being edited
   
   const fetchAll = useCallback(async () => {
     setLoading(true);
@@ -132,13 +133,23 @@ export function TimeClockSection() {
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
   };
   
-  const openEdit = (entry) => {
+  const openEdit = async (entry) => {
     setEditEntry(entry);
     setEditData({
       clock_in: isoToLocalInput(entry.clock_in),
       clock_out: isoToLocalInput(entry.clock_out),
       notes: entry.notes || "",
     });
+    // Fetch audit history
+    try {
+      const res = await axios.get(
+        `${API}/api/people-ops/time-clock/entries/${entry.entry_id}/audit`,
+        { withCredentials: true }
+      );
+      setEditAudit(res.data || []);
+    } catch (err) {
+      setEditAudit([]);
+    }
   };
   
   const handleEditSubmit = async () => {
@@ -429,7 +440,7 @@ export function TimeClockSection() {
       </Dialog>
       
       {/* Edit Entry Dialog (admin) */}
-      <Dialog open={!!editEntry} onOpenChange={(o) => { if (!o) setEditEntry(null); }}>
+      <Dialog open={!!editEntry} onOpenChange={(o) => { if (!o) { setEditEntry(null); setEditAudit([]); } }}>
         <DialogContent className="max-w-md" data-testid="edit-entry-dialog">
           <DialogHeader>
             <DialogTitle>{isEs ? "Editar Marcación" : "Edit Entry"}</DialogTitle>
@@ -477,6 +488,40 @@ export function TimeClockSection() {
                 </div>
               );
             })()}
+            
+            {/* Audit history */}
+            {editAudit.length > 0 && (
+              <div className="pt-3 border-t" data-testid="audit-history">
+                <p className="text-sm font-medium mb-2 flex items-center gap-1">
+                  <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
+                  {isEs ? "Historial de cambios" : "Change history"}
+                  <Badge variant="outline" className="ml-1">{editAudit.length}</Badge>
+                </p>
+                <div className="space-y-1.5 max-h-40 overflow-y-auto text-xs">
+                  {editAudit.map((log) => (
+                    <div key={log.audit_id} className="p-2 rounded bg-muted/40 border">
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium">
+                          {log.action === "delete" ? (isEs ? "🗑 Eliminado" : "🗑 Deleted") : (isEs ? "✏️ Editado" : "✏️ Updated")}
+                        </span>
+                        <span className="text-muted-foreground">{fmtDate(log.changed_at)} {fmtTime(log.changed_at)}</span>
+                      </div>
+                      <div className="text-muted-foreground mt-0.5">
+                        {isEs ? "Por" : "By"} <strong>{log.changed_by_name || log.changed_by}</strong>
+                      </div>
+                      {log.diff && Object.entries(log.diff).map(([field, change]) => (
+                        <div key={field} className="mt-1 text-xs">
+                          <span className="text-muted-foreground">{field}:</span>{" "}
+                          <span className="line-through text-rose-600">{String(change.before || "—")}</span>
+                          <span className="mx-1">→</span>
+                          <span className="text-emerald-700 font-medium">{String(change.after || "—")}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditEntry(null)}>{isEs ? "Cancelar" : "Cancel"}</Button>
