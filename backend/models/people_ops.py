@@ -9,7 +9,9 @@ from enum import Enum
 
 class DepartmentCreate(BaseModel):
     """Create a new department"""
-    name: str
+    name: str  # Primary display name (typically Spanish for ES users)
+    name_en: Optional[str] = None  # English label (optional)
+    name_es: Optional[str] = None  # Spanish label (optional)
     code: Optional[str] = None
     description: Optional[str] = None
     head_user_id: Optional[str] = None  # Department head/manager
@@ -23,6 +25,8 @@ class Department(BaseModel):
     department_id: str
     company_id: str
     name: str
+    name_en: Optional[str] = None
+    name_es: Optional[str] = None
     code: Optional[str] = None
     description: Optional[str] = None
     head_user_id: Optional[str] = None
@@ -39,6 +43,8 @@ class Department(BaseModel):
 class DepartmentUpdate(BaseModel):
     """Update department fields"""
     name: Optional[str] = None
+    name_en: Optional[str] = None
+    name_es: Optional[str] = None
     code: Optional[str] = None
     description: Optional[str] = None
     head_user_id: Optional[str] = None

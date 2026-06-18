@@ -53,6 +53,8 @@ export function OrganizationStructureSection() {
   const [editingDept, setEditingDept] = useState(null);
   const [deptForm, setDeptForm] = useState({
     name: "",
+    name_en: "",
+    name_es: "",
     code: "",
     description: "",
     head_user_id: "",
@@ -114,6 +116,8 @@ export function OrganizationStructureSection() {
       setEditingDept(dept);
       setDeptForm({
         name: dept.name || "",
+        name_en: dept.name_en || "",
+        name_es: dept.name_es || "",
         code: dept.code || "",
         description: dept.description || "",
         head_user_id: dept.head_user_id || "",
@@ -124,6 +128,8 @@ export function OrganizationStructureSection() {
       setEditingDept(null);
       setDeptForm({
         name: "",
+        name_en: "",
+        name_es: "",
         code: "",
         description: "",
         head_user_id: "",
@@ -397,9 +403,15 @@ export function OrganizationStructureSection() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {departments.map((dept) => (
+                  {departments.map((dept) => {
+                    const localizedName = isEs ? (dept.name_es || dept.name) : (dept.name_en || dept.name);
+                    const altName = isEs ? dept.name_en : dept.name_es;
+                    return (
                     <TableRow key={dept.department_id}>
-                      <TableCell className="font-medium">{dept.name}</TableCell>
+                      <TableCell className="font-medium">
+                        <div>{localizedName}</div>
+                        {altName && <div className="text-xs text-muted-foreground">{altName}</div>}
+                      </TableCell>
                       <TableCell className="text-muted-foreground">{dept.code || "-"}</TableCell>
                       <TableCell>{dept.head_name || "-"}</TableCell>
                       <TableCell className="text-center">{dept.employee_count || 0}</TableCell>
@@ -420,7 +432,8 @@ export function OrganizationStructureSection() {
                         </div>
                       </TableCell>
                     </TableRow>
-                  ))}
+                    );
+                  })}
                   {departments.length === 0 && (
                     <TableRow>
                       <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
@@ -516,6 +529,7 @@ export function OrganizationStructureSection() {
               <div>
                 <Label>{isEs ? "Nombre" : "Name"} *</Label>
                 <Input
+                  data-testid="dept-name-input"
                   value={deptForm.name}
                   onChange={(e) => setDeptForm({...deptForm, name: e.target.value})}
                   placeholder={isEs ? "Ej: Marketing" : "E.g., Marketing"}
@@ -529,6 +543,33 @@ export function OrganizationStructureSection() {
                   placeholder="MKT"
                   maxLength={10}
                 />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>{isEs ? "Nombre en Español" : "Spanish Name"}</Label>
+                <Input
+                  data-testid="dept-name-es-input"
+                  value={deptForm.name_es}
+                  onChange={(e) => setDeptForm({...deptForm, name_es: e.target.value})}
+                  placeholder={isEs ? "Ej: Cocina" : "E.g., Cocina"}
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  {isEs ? "Mostrado a usuarios en español" : "Shown to Spanish users"}
+                </p>
+              </div>
+              <div>
+                <Label>{isEs ? "Nombre en Inglés" : "English Name"}</Label>
+                <Input
+                  data-testid="dept-name-en-input"
+                  value={deptForm.name_en}
+                  onChange={(e) => setDeptForm({...deptForm, name_en: e.target.value})}
+                  placeholder={isEs ? "Ej: Kitchen" : "E.g., Kitchen"}
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  {isEs ? "Mostrado a usuarios en inglés" : "Shown to English users"}
+                </p>
               </div>
             </div>
             

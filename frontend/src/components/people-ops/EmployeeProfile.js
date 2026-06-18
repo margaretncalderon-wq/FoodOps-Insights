@@ -290,6 +290,13 @@ export function EmployeeProfile() {
                   <>
                     <div>
                       <label className="text-sm text-muted-foreground">{isEs ? "Puesto" : "Job Role"}</label>
+                      <Input
+                        data-testid="edit-job-title"
+                        value={editData.job_title || ""}
+                        onChange={(e) => setEditData({ ...editData, job_title: e.target.value })}
+                        placeholder={isEs ? "Ej: Chef Ejecutivo, Vendedor..." : "E.g., Executive Chef, Salesperson..."}
+                        className="mb-2"
+                      />
                       <Select 
                         value={editData.job_role_id || "none"} 
                         onValueChange={(v) => {
@@ -301,21 +308,19 @@ export function EmployeeProfile() {
                           });
                         }}
                       >
-                        <SelectTrigger>
-                          <SelectValue placeholder={isEs ? "Seleccionar puesto..." : "Select role..."} />
+                        <SelectTrigger data-testid="edit-job-role-select">
+                          <SelectValue placeholder={isEs ? "O selecciona del catálogo de Recruitment..." : "Or pick from Recruitment catalog..."} />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="none">{isEs ? "Sin asignar" : "Unassigned"}</SelectItem>
+                          <SelectItem value="none">{isEs ? "Sin asignar (usar texto arriba)" : "Unassigned (use text above)"}</SelectItem>
                           {jobPostings.map(job => (
                             <SelectItem key={job.id} value={job.id}>{job.title}</SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
-                      {jobPostings.length === 0 && (
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {isEs ? "Crear puestos en Recruitment" : "Create roles in Recruitment"}
-                        </p>
-                      )}
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {isEs ? "Escribe el puesto libremente o vincúlalo a un puesto formal de Recruitment para reportes." : "Type the role freely, or link to a formal Recruitment role for reporting."}
+                      </p>
                     </div>
                     <div>
                       <label className="text-sm text-muted-foreground">{isEs ? "Departamento" : "Department"}</label>
@@ -323,10 +328,11 @@ export function EmployeeProfile() {
                         value={editData.department_id || "none"} 
                         onValueChange={(v) => {
                           const dept = departments.find(d => d.department_id === v);
+                          const localizedName = dept ? (isEs ? (dept.name_es || dept.name) : (dept.name_en || dept.name)) : "";
                           setEditData({ 
                             ...editData, 
                             department_id: v === "none" ? "" : v,
-                            department: dept?.name || editData.department
+                            department: localizedName || editData.department
                           });
                         }}
                       >
@@ -335,9 +341,12 @@ export function EmployeeProfile() {
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="none">{isEs ? "Sin asignar" : "Unassigned"}</SelectItem>
-                          {departments.filter(d => d.is_active !== false).map(dept => (
-                            <SelectItem key={dept.department_id} value={dept.department_id}>{dept.name}</SelectItem>
-                          ))}
+                          {departments.filter(d => d.is_active !== false).map(dept => {
+                            const display = isEs ? (dept.name_es || dept.name) : (dept.name_en || dept.name);
+                            return (
+                              <SelectItem key={dept.department_id} value={dept.department_id}>{display}</SelectItem>
+                            );
+                          })}
                         </SelectContent>
                       </Select>
                     </div>
@@ -444,7 +453,13 @@ export function EmployeeProfile() {
                     </div>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">{isEs ? "Departamento" : "Department"}</span>
-                      <span>{employee.department || "-"}</span>
+                      <span>{(() => {
+                        const dept = departments.find(d => d.department_id === employee.department_id);
+                        if (dept) {
+                          return isEs ? (dept.name_es || dept.name) : (dept.name_en || dept.name);
+                        }
+                        return employee.department || "-";
+                      })()}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Cost Center</span>
@@ -595,6 +610,102 @@ export function EmployeeProfile() {
 
         {/* Compensation Tab */}
         <TabsContent value="compensation" className="space-y-6">
+          {/* Salary Configuration Card - Editable */}
+          {editing && (
+            <Card className="border-violet-200 bg-violet-50/30">
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <DollarSign className="w-4 h-4" />
+                  {isEs ? "Configuración de Salario" : "Salary Configuration"}
+                </CardTitle>
+                <CardDescription>
+                  {isEs
+                    ? "Ingresa el salario base, frecuencia de pago y moneda del empleado."
+                    : "Set the employee's base salary, payment frequency and currency."}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="text-sm text-muted-foreground">{isEs ? "Salario Base" : "Base Salary"} *</label>
+                    <Input
+                      data-testid="edit-base-salary"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      placeholder="0.00"
+                      value={editData.base_salary ?? ""}
+                      onChange={(e) => setEditData({ ...editData, base_salary: e.target.value === "" ? 0 : parseFloat(e.target.value) })}
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {isEs ? "Monto en la moneda seleccionada" : "Amount in the selected currency"}
+                    </p>
+                  </div>
+                  <div>
+                    <label className="text-sm text-muted-foreground">{isEs ? "Moneda" : "Currency"}</label>
+                    <Select
+                      value={editData.currency || companyCurrency || "USD"}
+                      onValueChange={(v) => setEditData({ ...editData, currency: v })}
+                    >
+                      <SelectTrigger data-testid="edit-salary-currency">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="USD">USD - US Dollar</SelectItem>
+                        <SelectItem value="EUR">EUR - Euro</SelectItem>
+                        <SelectItem value="GBP">GBP - British Pound</SelectItem>
+                        <SelectItem value="MXN">MXN - Mexican Peso</SelectItem>
+                        <SelectItem value="DOP">DOP - Dominican Peso</SelectItem>
+                        <SelectItem value="COP">COP - Colombian Peso</SelectItem>
+                        <SelectItem value="ARS">ARS - Argentine Peso</SelectItem>
+                        <SelectItem value="BRL">BRL - Brazilian Real</SelectItem>
+                        <SelectItem value="CLP">CLP - Chilean Peso</SelectItem>
+                        <SelectItem value="PEN">PEN - Peruvian Sol</SelectItem>
+                        <SelectItem value="CAD">CAD - Canadian Dollar</SelectItem>
+                        <SelectItem value="CHF">CHF - Swiss Franc</SelectItem>
+                        <SelectItem value="JPY">JPY - Japanese Yen</SelectItem>
+                        <SelectItem value="CNY">CNY - Chinese Yuan</SelectItem>
+                        <SelectItem value="INR">INR - Indian Rupee</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <label className="text-sm text-muted-foreground">{isEs ? "Frecuencia de Pago" : "Payment Frequency"}</label>
+                    <Select
+                      value={editData.payment_frequency || "biweekly"}
+                      onValueChange={(v) => setEditData({ ...editData, payment_frequency: v })}
+                    >
+                      <SelectTrigger data-testid="edit-payment-frequency">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="weekly">{isEs ? "Semanal" : "Weekly"}</SelectItem>
+                        <SelectItem value="biweekly">{isEs ? "Quincenal" : "Biweekly"}</SelectItem>
+                        <SelectItem value="monthly">{isEs ? "Mensual" : "Monthly"}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div>
+                  <label className="text-sm text-muted-foreground">{isEs ? "Horas Regulares por Semana" : "Regular Hours per Week"}</label>
+                  <Input
+                    data-testid="edit-weekly-hours"
+                    type="number"
+                    min="0"
+                    max="60"
+                    step="0.5"
+                    value={editData.weekly_hours_regular ?? 44}
+                    onChange={(e) => setEditData({ ...editData, weekly_hours_regular: e.target.value === "" ? 44 : parseFloat(e.target.value) })}
+                    className="max-w-xs"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {isEs ? "Usado para calcular tarifa por hora (default RD: 44 h)" : "Used to derive hourly rate (RD default: 44 h)"}
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <Card className="border-emerald-200 bg-emerald-50/30">
               <CardContent className="pt-6">
@@ -602,10 +713,22 @@ export function EmployeeProfile() {
                 {(() => {
                   const empCurrency = employee.currency || companyCurrency || "USD";
                   const empFormatter = buildCurrencyFormatter(empCurrency);
+                  const salaryValue = Number(employee.base_salary || 0);
                   return (
                     <>
-                      <p className="text-3xl font-bold text-emerald-700">{empFormatter(employee.base_salary)}</p>
-                      <FxConvertBadge amount={employee.base_salary} from={empCurrency} className="mt-1" />
+                      <p className="text-3xl font-bold text-emerald-700" data-testid="display-base-salary">
+                        {salaryValue > 0 ? empFormatter(salaryValue) : (isEs ? "Sin definir" : "Not set")}
+                      </p>
+                      {salaryValue > 0 && (
+                        <FxConvertBadge amount={salaryValue} from={empCurrency} className="mt-1" />
+                      )}
+                      {salaryValue === 0 && (
+                        <p className="text-xs text-amber-600 mt-1">
+                          {isEs
+                            ? "Haz clic en \"Editar\" arriba para configurar el salario"
+                            : "Click \"Edit\" above to configure salary"}
+                        </p>
+                      )}
                     </>
                   );
                 })()}

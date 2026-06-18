@@ -1,0 +1,36 @@
+{
+  "summary": "Tested iteration 192 changes for People Ops salary configuration UI, bilingual departments, and job-title free-text. All backend tests (6/6) passed. All frontend critical flows verified: violet Salary Configuration card with 4 inputs appears in Edit mode on Compensation tab, saves persist via PUT /api/people-ops/employees/{id}, display-base-salary shows formatted amount, Job Role section has both free-text input + Select dropdown, departments dialog has bilingual Spanish/English name inputs, table renders localized names with alternate name smaller below.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Settings → Org Structure navigation", "issues": ["Org Structure entry is nested under the Finance dropdown menu (alongside Billing/Taxes) rather than Team — semantically a People/Team concern. Consider moving under Team or making it a top-level Settings tab so Spanish-speaking users (and admins like demo.agency) can find it more easily."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_people_ops_salary_bilingual_depts.py",
+    "/app/test_reports/pytest/iter192_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "models/people_ops.py: Department.name remains required while name_en/name_es are optional. If the long-term plan is true bilingual storage, consider making either name_en or name_es required and deriving `name` for display — current model risks `name` drifting from name_es when users edit only one.",
+    "routers/people_ops.py POST /departments correctly persists name_en/name_es, but does NOT enforce uniqueness on (company_id, name_en) or (company_id, name_es) — only on `name`. Could allow duplicate localized labels.",
+    "EmployeeProfile.js: Salary Configuration card uses `editing && ...` conditional render — fine. But the violet card sits ABOVE the read-only KPI cards in edit mode, doubling the height; consider hiding the read-only KPI strip when editing for cleaner UX.",
+    "OrganizationStructureSection.js dialog: name_es/name_en inputs lack helper validation — empty strings are submitted instead of null when user leaves them blank, which can break the 'fallback to name' logic if backend stores ''.",
+    "people_ops.py PUT /departments only checks `if data.name_en is not None` — so empty string '' is persisted. Backend should also treat empty string as None for clean fallback semantics."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_people_ops_salary_bilingual_depts.py"
+  ],
+  "success_rate": {"backend": "100% (6/6)", "frontend": "100% (15/15 critical assertions)"},
+  "test_credentials": "demo.agency@kora.com / Evoque2024!",
+  "seed_data_creation": "Created and left two TEST_ departments via backend test: TEST_VentasUpdated/TEST_VentasActualizado (originally TEST_Ventas/TEST_Sales) and TEST_LegacyDept. Cleanup fixture exists; departments visible in UI as 'Inactive' confirms backend update worked. Updated employee emp_91f4dfa58d68 (María González) base_salary to 75000 DOP, job_title=TEST_JobTitleFreeText.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Iteration 192 features all working end-to-end. Salary card uses data-testids edit-base-salary/edit-salary-currency/edit-payment-frequency/edit-weekly-hours and display-base-salary. Job Role free-text uses edit-job-title with edit-job-role-select fallback. Departments dialog has dept-name-input, dept-name-es-input, dept-name-en-input. Navigation to Org Structure: /settings → Finance dropdown → Org Structure menuitem (NOT Team). Test employee María González (emp_91f4dfa58d68) now has TEST_JobTitleFreeText job title and 75000 DOP salary. Two TEST_ departments seeded (consider cleanup).",
+  "rca of the issue": "Not applicable — all P0 user complaints addressed: (1) Salary input now clearly visible in violet card under Compensation tab when Edit is active, (2) base_salary defaults handled — UI shows 'Sin definir' when 0, (3) job_title is now free-text via Input + optional Select fallback, (4) Departments support name_en/name_es with bilingual table rendering."
+}
