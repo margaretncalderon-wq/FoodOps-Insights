@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 
 import { API_BASE as API } from "../../utils/api";
+import { fmtNum } from "../../utils/format";
 
 const MONTHS_ES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
 const MONTHS_EN = ["January","February","March","April","May","June","July","August","September","October","November","December"];
@@ -443,7 +444,7 @@ function MonthEndDetail({ closing, employees, isEs, loading, formatCurrency, onC
                 {!pctSumOK && (
                   <div className="p-2 rounded-md bg-amber-50 border border-amber-200 text-xs text-amber-800 flex items-center gap-2">
                     <AlertTriangle className="w-4 h-4" />
-                    {isEs ? `Los porcentajes suman ${pctSum.toFixed(2)}%, deberían sumar 100%.` : `Percentages sum to ${pctSum.toFixed(2)}%, should equal 100%.`}
+                    {isEs ? `Los porcentajes suman ${fmtNum(pctSum)}%, deberían sumar 100%.` : `Percentages sum to ${fmtNum(pctSum)}%, should equal 100%.`}
                   </div>
                 )}
                 

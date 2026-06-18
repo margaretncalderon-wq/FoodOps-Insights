@@ -18,6 +18,7 @@ import {
 
 import { API_BASE as API } from "../../utils/api";
 import { formatDateOnly } from "../../utils/dates";
+import { fmtNum } from "../../utils/format";
 
 // Module key aliases (map legacy/sub-module keys to display keys)
 const MODULE_KEY_ALIASES = {
@@ -575,7 +576,7 @@ export function BillingSection() {
                     </p>
                   </div>
                   <div className="flex items-center gap-3">
-                    <span className="font-bold">${tx.amount?.toFixed(2)}</span>
+                    <span className="font-bold">${fmtNum(tx.amount)}</span>
                     <Badge className="bg-green-500">
                       {isEs ? "Pagado" : "Paid"}
                     </Badge>

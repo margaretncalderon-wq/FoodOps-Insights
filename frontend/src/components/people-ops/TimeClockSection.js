@@ -21,6 +21,7 @@ import {
 
 import { API_BASE as API } from "../../utils/api";
 import { formatDateOnly } from "../../utils/dates";
+import { fmtNum } from "../../utils/format";
 
 const fmtTime = (iso) => {
   if (!iso) return "—";
@@ -32,7 +33,7 @@ const fmtDate = (iso) => {
   if (!iso) return "—";
   try { return formatDateOnly(iso, "es"); } catch { return "—"; }
 };
-const fmtHours = (mins) => mins == null ? "—" : `${(mins / 60).toFixed(2)}h`;
+const fmtHours = (mins) => mins == null ? "—" : `${fmtNum((mins / 60))}h`;
 
 export function TimeClockSection() {
   const { language } = useLanguage();
@@ -485,7 +486,7 @@ export function TimeClockSection() {
               return (
                 <div className="p-2 rounded bg-violet-50 border border-violet-200 text-xs">
                   <span className="text-violet-700">{isEs ? "Total recalculado:" : "Recomputed total:"}</span>
-                  <span className="ml-2 font-bold text-violet-900">{(mins / 60).toFixed(2)}h</span>
+                  <span className="ml-2 font-bold text-violet-900">{fmtNum((mins / 60))}h</span>
                 </div>
               );
             })()}

@@ -4,6 +4,7 @@ import { useLanguage } from "../contexts/LanguageContext";
 import { Button } from "../components/ui/button";
 import { Loader2, CheckCircle2, XCircle, PartyPopper } from "lucide-react";
 import { toast } from "sonner";
+import { fmtNum } from "../utils/format";
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
@@ -108,7 +109,7 @@ export default function PaymentSuccessPage() {
                     {isEs ? "Total pagado" : "Total paid"}
                   </span>
                   <span className="font-bold text-[#1F2937]">
-                    ${paymentData.amount?.toFixed(2) || "0.00"} USD
+                    ${fmtNum(paymentData.amount) || "0.00"} USD
                   </span>
                 </div>
                 {paymentData.modules && paymentData.modules.length > 0 && (

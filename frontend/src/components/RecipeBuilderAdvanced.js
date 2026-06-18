@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 
 import { API_BASE as API } from "../utils/api";
+import { fmtNum } from "../utils/format";
 
 const RECIPE_TYPES = [
   { value: "base", label: "Base Recipe", labelEs: "Receta Base", desc: "Sauces, stocks, seasonings" },
@@ -432,11 +433,11 @@ export default function RecipeBuilderAdvanced() {
                 <div className="border-t pt-2 mt-2">
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">{t("totalCost")}</span>
-                    <span className="font-semibold text-green-600">${recipe.total_cost?.toFixed(2)}</span>
+                    <span className="font-semibold text-green-600">${fmtNum(recipe.total_cost)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">{t("costPerPortion")}</span>
-                    <span className="font-semibold">${recipe.cost_per_portion?.toFixed(2)}</span>
+                    <span className="font-semibold">${fmtNum(recipe.cost_per_portion)}</span>
                   </div>
                   {recipe.sell_price > 0 && (
                     <div className="flex justify-between">
@@ -550,7 +551,7 @@ export default function RecipeBuilderAdvanced() {
                   <SelectContent>
                     {ingredients.filter(i => i.inventory_type === "food").map(ing => (
                       <SelectItem key={ing.ingredient_id} value={ing.ingredient_id}>
-                        {ing.name} (${ing.cost_per_unit?.toFixed(2)}/{ing.unit})
+                        {ing.name} (${fmtNum(ing.cost_per_unit)}/{ing.unit})
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -595,7 +596,7 @@ export default function RecipeBuilderAdvanced() {
                             <span className="text-sm w-10">{ing.waste_factor_pct || 0}%</span>
                           </div>
                         </TableCell>
-                        <TableCell className="text-right font-mono">${ing.total_cost?.toFixed(2)}</TableCell>
+                        <TableCell className="text-right font-mono">${fmtNum(ing.total_cost)}</TableCell>
                         <TableCell>
                           <Button variant="ghost" size="icon" onClick={() => removeIngredient(ing.item_id)}>
                             <X className="w-4 h-4" />
@@ -620,7 +621,7 @@ export default function RecipeBuilderAdvanced() {
                           <Badge variant={getTypeBadgeVariant(r.recipe_type)} className="text-xs">
                             {t(r.recipe_type)}
                           </Badge>
-                          {r.name} (${r.cost_per_yield?.toFixed(2)}/{r.yield_unit})
+                          {r.name} (${fmtNum(r.cost_per_yield)}/{r.yield_unit})
                         </div>
                       </SelectItem>
                     ))}
@@ -653,7 +654,7 @@ export default function RecipeBuilderAdvanced() {
                           <Input type="number" min="0" step="0.01" className="w-20" value={sub.quantity_used} onChange={(e) => updateSubRecipe(sub.child_recipe_id, "quantity_used", parseFloat(e.target.value) || 0)} />
                         </TableCell>
                         <TableCell className="text-muted-foreground">{sub.unit}</TableCell>
-                        <TableCell className="text-right font-mono">${sub.total_cost?.toFixed(2)}</TableCell>
+                        <TableCell className="text-right font-mono">${fmtNum(sub.total_cost)}</TableCell>
                         <TableCell>
                           <Button variant="ghost" size="icon" onClick={() => removeSubRecipe(sub.child_recipe_id)}>
                             <X className="w-4 h-4" />
@@ -679,20 +680,20 @@ export default function RecipeBuilderAdvanced() {
                   <div className="grid grid-cols-2 gap-4">
                     <div className="p-4 bg-muted/50 rounded-lg">
                       <p className="text-sm text-muted-foreground">{language === "es" ? "Costo Ingredientes" : "Ingredients Cost"}</p>
-                      <p className="text-2xl font-bold">${recipeForm.ingredients.reduce((sum, i) => sum + (i.total_cost || 0), 0).toFixed(2)}</p>
+                      <p className="text-2xl font-bold">${fmtNum(recipeForm.ingredients.reduce((sum, i) => sum + (i.total_cost || 0), 0))}</p>
                     </div>
                     <div className="p-4 bg-muted/50 rounded-lg">
                       <p className="text-sm text-muted-foreground">{language === "es" ? "Costo Sub-Recetas" : "Sub-Recipes Cost"}</p>
-                      <p className="text-2xl font-bold">${recipeForm.sub_recipes.reduce((sum, s) => sum + (s.total_cost || 0), 0).toFixed(2)}</p>
+                      <p className="text-2xl font-bold">${fmtNum(recipeForm.sub_recipes.reduce((sum, s) => sum + (s.total_cost || 0), 0))}</p>
                     </div>
                     <div className="p-4 bg-primary/10 rounded-lg">
                       <p className="text-sm text-muted-foreground">{t("totalCost")}</p>
-                      <p className="text-3xl font-bold text-primary">${calculateTotalCost().toFixed(2)}</p>
+                      <p className="text-3xl font-bold text-primary">${fmtNum(calculateTotalCost())}</p>
                     </div>
                     <div className="p-4 bg-green-100 dark:bg-green-900/20 rounded-lg">
                       <p className="text-sm text-muted-foreground">{t("costPerPortion")}</p>
                       <p className="text-3xl font-bold text-green-600">
-                        ${(calculateTotalCost() / (recipeForm.yield_quantity * recipeForm.portions_per_yield) || 0).toFixed(2)}
+                        ${fmtNum((calculateTotalCost() / (recipeForm.yield_quantity * recipeForm.portions_per_yield) || 0))}
                       </p>
                     </div>
                   </div>

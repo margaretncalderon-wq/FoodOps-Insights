@@ -19,6 +19,7 @@ import {
 
 import { API_BASE as API } from "../../utils/api";
 import { formatDateOnly } from "../../utils/dates";
+import { fmtNum } from "../../utils/format";
 
 // Operations Supplies types
 const OPS_SUPPLY_TYPES = [
@@ -481,9 +482,9 @@ export function InventorySection() {
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex flex-col items-end">
-                            <span className="font-mono">${(item.cost_per_unit || 0).toFixed(2)}</span>
+                            <span className="font-mono">${fmtNum((item.cost_per_unit || 0))}</span>
                             {depreciation && (
-                              <span className="text-xs text-muted-foreground" title={`${language === "es" ? "Valor actual" : "Current value"}: $${depreciation.currentValue.toFixed(2)}`}>
+                              <span className="text-xs text-muted-foreground" title={`${language === "es" ? "Valor actual" : "Current value"}: $${fmtNum(depreciation.currentValue)}`}>
                                 {language === "es" ? "Dep:" : "Dep:"} ${depreciation.accumulatedDepreciation.toFixed(0)}
                               </span>
                             )}
@@ -847,8 +848,8 @@ export function InventorySection() {
                       <TableRow key={idx}>
                         <TableCell>{formatDateOnly(entry.date, language)}</TableCell>
                         <TableCell>{entry.supplier_name || "-"}</TableCell>
-                        <TableCell className="text-right font-mono">${entry.old_price?.toFixed(2)}</TableCell>
-                        <TableCell className="text-right font-mono">${entry.new_price?.toFixed(2)}</TableCell>
+                        <TableCell className="text-right font-mono">${fmtNum(entry.old_price)}</TableCell>
+                        <TableCell className="text-right font-mono">${fmtNum(entry.new_price)}</TableCell>
                         <TableCell className="text-right">
                           <span className={`flex items-center justify-end gap-1 ${change > 0 ? "text-red-600" : change < 0 ? "text-green-600" : ""}`}>
                             {change > 0 ? <TrendingUp className="w-3 h-3" /> : change < 0 ? <TrendingDown className="w-3 h-3" /> : null}

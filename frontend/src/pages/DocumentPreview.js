@@ -11,6 +11,7 @@ import { Badge } from "../components/ui/badge";
 import { toast } from "sonner";
 import { ArrowLeft, Download, FileText, CheckCircle, Calendar, Users, MapPin, DollarSign, ChefHat, Package } from "lucide-react";
 import { formatDateOnly } from "../utils/dates";
+import { fmtNum } from "../utils/format";
 
 
 export default function DocumentPreview() {
@@ -343,12 +344,12 @@ export default function DocumentPreview() {
                         <td className="text-center py-2">{item.quantity}</td>
                         {showPrices && (
                           <>
-                            <td className="text-right py-2">${item.unit_price?.toFixed(2)}</td>
+                            <td className="text-right py-2">${fmtNum(item.unit_price)}</td>
                             <td className="text-right py-2">
-                              ${item.subtotal?.toFixed(2)}
+                              ${fmtNum(item.subtotal)}
                               {item.discount_amount > 0 && (
                                 <span className="text-xs text-destructive block">
-                                  (-${item.discount_amount?.toFixed(2)})
+                                  (-${fmtNum(item.discount_amount)})
                                 </span>
                               )}
                             </td>
@@ -368,23 +369,23 @@ export default function DocumentPreview() {
                   <div className="w-64 space-y-2">
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">{language === "es" ? "Subtotal" : "Subtotal"}:</span>
-                      <span>${financials.subtotal?.toFixed(2) || "0.00"}</span>
+                      <span>${fmtNum(financials.subtotal) || "0.00"}</span>
                     </div>
                     {financials.discount_amount > 0 && (
                       <div className="flex justify-between text-destructive">
                         <span>{language === "es" ? "Descuento" : "Discount"}:</span>
-                        <span>-${financials.discount_amount?.toFixed(2)}</span>
+                        <span>-${fmtNum(financials.discount_amount)}</span>
                       </div>
                     )}
                     {financials.tax_details?.map((tax, i) => (
                       <div key={i} className="flex justify-between">
                         <span className="text-muted-foreground">{tax.name} ({tax.rate}%):</span>
-                        <span>${tax.amount?.toFixed(2)}</span>
+                        <span>${fmtNum(tax.amount)}</span>
                       </div>
                     ))}
                     <div className="flex justify-between font-bold text-lg border-t pt-2">
                       <span>{t("total")}:</span>
-                      <span>${financials.total?.toFixed(2) || "0.00"}</span>
+                      <span>${fmtNum(financials.total) || "0.00"}</span>
                     </div>
                   </div>
                 </div>
@@ -411,8 +412,8 @@ export default function DocumentPreview() {
                   <tr key={index} className="border-b">
                     <td className="py-2">{recipe.name}</td>
                     <td className="text-center py-2">{event.guest_count}</td>
-                    <td className="text-right py-2">${(recipe.cost_per_serving || recipe.cost_per_portion || 0).toFixed(2)}</td>
-                    <td className="text-right py-2">${((recipe.cost_per_serving || recipe.cost_per_portion || 0) * event.guest_count).toFixed(2)}</td>
+                    <td className="text-right py-2">${fmtNum((recipe.cost_per_serving || recipe.cost_per_portion || 0))}</td>
+                    <td className="text-right py-2">${fmtNum(((recipe.cost_per_serving || recipe.cost_per_portion || 0) * event.guest_count))}</td>
                   </tr>
                 ))}
               </tbody>

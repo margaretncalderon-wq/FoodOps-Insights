@@ -2,6 +2,7 @@
 // Falls back to USD when not configured.
 
 import { useOrgConfig } from "../contexts/OrgConfigContext";
+import { fmtNum } from "../utils/format";
 
 const CURRENCY_LOCALES = {
   USD: "en-US", EUR: "es-ES", GBP: "en-GB",
@@ -23,7 +24,7 @@ export function buildCurrencyFormatter(currency) {
         maximumFractionDigits: 2,
       }).format(Number(n) || 0);
   } catch {
-    return (n) => `${code} ${(Number(n) || 0).toFixed(2)}`;
+    return (n) => `${code} ${fmtNum((Number(n) || 0))}`;
   }
 }
 

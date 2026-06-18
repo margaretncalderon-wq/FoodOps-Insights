@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 
 import { API_BASE as API } from "../utils/api";
+import { fmtNum } from "../utils/format";
 
 const MENU_TYPES = [
   { value: "plated", label: "Plated", labelEs: "Emplatado" },
@@ -452,7 +453,7 @@ export default function PlatedMenuBuilder({ onClose, onSave, initialMenu = null,
                           .map(r => ({
                             value: r.recipe_id,
                             label: r.name,
-                            secondary: r.cost_per_portion != null ? `$${(r.cost_per_portion || 0).toFixed(2)}` : null,
+                            secondary: r.cost_per_portion != null ? `$${fmtNum((r.cost_per_portion || 0))}` : null,
                             keywords: [r.recipe_code || ""].filter(Boolean),
                           }))}
                         placeholder={t("addDish")}
@@ -506,8 +507,8 @@ export default function PlatedMenuBuilder({ onClose, onSave, initialMenu = null,
                       </div>
                       <div className="md:col-span-3 text-xs text-amber-700">
                         {language === "es"
-                          ? `Ej: "Elige ${course.min_choices || 1} de ${(course.items || []).length}". Si eligen más de ${course.max_choices ?? "todas"}, se cobra $${(course.extra_choice_price || 0).toFixed(2)} extra por invitado por cada adicional.`
-                          : `E.g., "Choose ${course.min_choices || 1} of ${(course.items || []).length}". Selecting more than ${course.max_choices ?? "all"} adds $${(course.extra_choice_price || 0).toFixed(2)} per guest each.`}
+                          ? `Ej: "Elige ${course.min_choices || 1} de ${(course.items || []).length}". Si eligen más de ${course.max_choices ?? "todas"}, se cobra $${fmtNum((course.extra_choice_price || 0))} extra por invitado por cada adicional.`
+                          : `E.g., "Choose ${course.min_choices || 1} of ${(course.items || []).length}". Selecting more than ${course.max_choices ?? "all"} adds $${fmtNum((course.extra_choice_price || 0))} per guest each.`}
                       </div>
                     </div>
                   )}
@@ -548,10 +549,10 @@ export default function PlatedMenuBuilder({ onClose, onSave, initialMenu = null,
                                       <SelectValue placeholder={language === "es" ? "Estándar" : "Standard"} />
                                     </SelectTrigger>
                                     <SelectContent>
-                                      <SelectItem value="default">{language === "es" ? "Estándar" : "Standard"} (${recipe?.cost_per_portion?.toFixed(2) || "0.00"})</SelectItem>
+                                      <SelectItem value="default">{language === "es" ? "Estándar" : "Standard"} (${fmtNum(recipe?.cost_per_portion) || "0.00"})</SelectItem>
                                       {formats.map(fmt => (
                                         <SelectItem key={fmt.format_id} value={fmt.format_id}>
-                                          {fmt.format_name} {formatQtyUnit(fmt.portions_obtained, fmt.portion_unit) && `(${formatQtyUnit(fmt.portions_obtained, fmt.portion_unit)})`} (${fmt.cost_per_portion?.toFixed(2)})
+                                          {fmt.format_name} {formatQtyUnit(fmt.portions_obtained, fmt.portion_unit) && `(${formatQtyUnit(fmt.portions_obtained, fmt.portion_unit)})`} (${fmtNum(fmt.cost_per_portion)})
                                         </SelectItem>
                                       ))}
                                     </SelectContent>
@@ -568,7 +569,7 @@ export default function PlatedMenuBuilder({ onClose, onSave, initialMenu = null,
                                   onChange={(e) => updateDishPortions(course.course_id, item.recipe_id, e.target.value)}
                                 />
                               </TableCell>
-                              <TableCell className="text-right font-mono text-sm">${lineCost.toFixed(2)}</TableCell>
+                              <TableCell className="text-right font-mono text-sm">${fmtNum(lineCost)}</TableCell>
                               <TableCell>
                                 <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => removeDishFromCourse(course.course_id, item.recipe_id)}>
                                   <X className="w-4 h-4 text-red-500" />
@@ -641,7 +642,7 @@ export default function PlatedMenuBuilder({ onClose, onSave, initialMenu = null,
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent>
-                    <p>{t("suggestedPrice")}: ${suggestedPricePerGuest.toFixed(2)}</p>
+                    <p>{t("suggestedPrice")}: ${fmtNum(suggestedPricePerGuest)}</p>
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
@@ -697,21 +698,21 @@ export default function PlatedMenuBuilder({ onClose, onSave, initialMenu = null,
               <DollarSign className="w-3 h-3" />
               {t("costPerGuest")}
             </div>
-            <p className="text-xl font-bold">${costPerGuest.toFixed(2)}</p>
+            <p className="text-xl font-bold">${fmtNum(costPerGuest)}</p>
           </div>
           <div className="text-center p-3 bg-muted/50 rounded-lg">
             <div className="flex items-center justify-center gap-1 text-xs text-muted-foreground mb-1">
               <Percent className="w-3 h-3" />
               {t("costWithBuffer")}
             </div>
-            <p className="text-xl font-bold">${costWithBuffer.toFixed(2)}</p>
+            <p className="text-xl font-bold">${fmtNum(costWithBuffer)}</p>
           </div>
           <div className="text-center p-3 bg-blue-50 rounded-lg border border-blue-200">
             <div className="flex items-center justify-center gap-1 text-xs text-blue-600 mb-1">
               <Lightbulb className="w-3 h-3" />
               {t("suggestedPrice")}
             </div>
-            <p className="text-xl font-bold text-blue-600">${suggestedPricePerGuest.toFixed(2)}</p>
+            <p className="text-xl font-bold text-blue-600">${fmtNum(suggestedPricePerGuest)}</p>
           </div>
           <div className="text-center p-3 bg-muted/50 rounded-lg">
             <div className="flex items-center justify-center gap-1 text-xs text-muted-foreground mb-1">
@@ -728,7 +729,7 @@ export default function PlatedMenuBuilder({ onClose, onSave, initialMenu = null,
               {t("profit")} ({form.default_guest_count} pax)
             </div>
             <p className={`text-xl font-bold ${totalProfit < 0 ? "text-red-500" : "text-green-600"}`}>
-              ${totalProfit.toFixed(2)}
+              ${fmtNum(totalProfit)}
             </p>
           </div>
         </div>
@@ -740,16 +741,16 @@ export default function PlatedMenuBuilder({ onClose, onSave, initialMenu = null,
             <div className="grid grid-cols-3 gap-4 text-center">
               <div>
                 <p className="text-muted-foreground">{t("totalRevenue")}</p>
-                <p className="font-semibold text-lg">${totalRevenue.toFixed(2)}</p>
+                <p className="font-semibold text-lg">${fmtNum(totalRevenue)}</p>
               </div>
               <div>
                 <p className="text-muted-foreground">{t("totalCost")}</p>
-                <p className="font-semibold text-lg">${totalCost.toFixed(2)}</p>
+                <p className="font-semibold text-lg">${fmtNum(totalCost)}</p>
               </div>
               <div>
                 <p className="text-muted-foreground">{t("profit")}</p>
                 <p className={`font-semibold text-lg ${totalProfit < 0 ? "text-red-500" : "text-green-600"}`}>
-                  ${totalProfit.toFixed(2)}
+                  ${fmtNum(totalProfit)}
                 </p>
               </div>
             </div>

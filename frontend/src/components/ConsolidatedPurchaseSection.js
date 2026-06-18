@@ -24,6 +24,7 @@ import {
 
 import { API_BASE as API } from "../utils/api";
 import { formatDateOnly } from "../utils/dates";
+import { fmtNum } from "../utils/format";
 
 export default function ConsolidatedPurchaseSection() {
   const { language } = useLanguage();
@@ -216,7 +217,7 @@ export default function ConsolidatedPurchaseSection() {
                 <tr>
                   <td>${idx + 1}</td>
                   <td>${item.item_name}</td>
-                  <td style="text-align: right;">${item.in_stock?.toFixed(2)}</td>
+                  <td style="text-align: right;">${fmtNum(item.in_stock)}</td>
                   <td>${item.unit}</td>
                   <td>${item.recipes_used?.join(", ") || "-"}</td>
                 </tr>
@@ -627,7 +628,7 @@ export default function ConsolidatedPurchaseSection() {
                           <div className="text-right">
                             <span className="font-mono text-amber-700">{(item.to_purchase || item.shortage || 0).toFixed(1)} {item.unit}</span>
                             <span className="text-xs text-muted-foreground ml-2">
-                              (${((item.to_purchase || item.shortage || 0) * (item.unit_cost || item.cost_per_unit || 0)).toFixed(2)})
+                              (${fmtNum(((item.to_purchase || item.shortage || 0) * (item.unit_cost || item.cost_per_unit || 0)))})
                             </span>
                           </div>
                         </div>
@@ -755,7 +756,7 @@ export default function ConsolidatedPurchaseSection() {
                           </span>
                         </div>
                         <span className="text-xs text-muted-foreground">
-                          ${item.total_cost?.toFixed(2)}
+                          ${fmtNum(item.total_cost)}
                         </span>
                       </div>
                     </div>
@@ -1050,7 +1051,7 @@ export default function ConsolidatedPurchaseSection() {
                   <TableRow key={idx}>
                     <TableCell>{item.item_name}</TableCell>
                     <TableCell className="text-right font-mono text-emerald-700">
-                      {(item.in_stock || 0).toFixed(2)} {item.unit}
+                      {fmtNum((item.in_stock || 0))} {item.unit}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -1121,7 +1122,7 @@ export default function ConsolidatedPurchaseSection() {
                       <TableRow key={idx}>
                         <TableCell>{item.item_name}</TableCell>
                         <TableCell className="text-right">{item.in_stock?.toFixed(1)} {item.unit}</TableCell>
-                        <TableCell className="text-right">${item.total_cost?.toFixed(2) || "0.00"}</TableCell>
+                        <TableCell className="text-right">${fmtNum(item.total_cost) || "0.00"}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -1149,13 +1150,13 @@ export default function ConsolidatedPurchaseSection() {
                       <TableRow key={idx}>
                         <TableCell>{item.item_name}</TableCell>
                         <TableCell className="text-right">{item.to_purchase?.toFixed(1)} {item.unit}</TableCell>
-                        <TableCell className="text-right">${item.total_cost?.toFixed(2) || "0.00"}</TableCell>
+                        <TableCell className="text-right">${fmtNum(item.total_cost) || "0.00"}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
                 </Table>
                 <div className="text-right mt-2 font-bold">
-                  Total: ${viewingHistory.procurement_history.total_cost?.toFixed(2)}
+                  Total: ${fmtNum(viewingHistory.procurement_history.total_cost)}
                 </div>
               </div>
             )}

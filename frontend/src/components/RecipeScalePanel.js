@@ -15,6 +15,7 @@ import {
 } from "./ui/dialog";
 import { Calculator, Save, RefreshCw, Users, ChefHat } from "lucide-react";
 import { toast } from "sonner";
+import { fmtNum } from "../utils/format";
 
 /**
  * RecipeScalePanel — live preview of a recipe scaled to a target portion count,
@@ -188,15 +189,15 @@ export default function RecipeScalePanel({ recipe }) {
               </div>
               <div className="rounded border bg-muted/20 p-2">
                 <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{isEs ? "Costo total" : "Total cost"}</p>
-                <p className="text-base font-semibold">${preview.total_cost_scaled.toFixed(2)}</p>
+                <p className="text-base font-semibold">${fmtNum(preview.total_cost_scaled)}</p>
               </div>
               <div className="rounded border bg-muted/20 p-2">
                 <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{isEs ? "$ / porción" : "$ / portion"}</p>
-                <p className="text-base font-semibold">${preview.cost_per_portion_scaled.toFixed(2)}</p>
+                <p className="text-base font-semibold">${fmtNum(preview.cost_per_portion_scaled)}</p>
               </div>
               <div className="rounded border bg-muted/20 p-2">
                 <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{isEs ? "Original $/p" : "Original $/p"}</p>
-                <p className="text-base font-semibold opacity-70">${preview.original_cost_per_portion.toFixed(2)}</p>
+                <p className="text-base font-semibold opacity-70">${fmtNum(preview.original_cost_per_portion)}</p>
               </div>
             </div>
           )}
@@ -273,7 +274,7 @@ export default function RecipeScalePanel({ recipe }) {
                         </td>
                         <td className="px-3 py-2 text-xs text-muted-foreground">{i.unit}</td>
                         <td className="px-3 py-2 text-right font-mono text-xs">
-                          ${i.line_cost.toFixed(2)}
+                          ${fmtNum(i.line_cost)}
                         </td>
                       </tr>
                     );
@@ -347,7 +348,7 @@ export default function RecipeScalePanel({ recipe }) {
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">{isEs ? "Costo total" : "Total cost"}</span>
-                <span className="font-mono">${(preview?.total_cost_scaled || 0).toFixed(2)}</span>
+                <span className="font-mono">${fmtNum((preview?.total_cost_scaled || 0))}</span>
               </div>
             </div>
           </div>

@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 
 import { API_BASE as API } from "../../utils/api";
+import { fmtNum } from "../../utils/format";
 const formatCurrency = (amount) => `$${(amount || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 export function PhysicalCountSection() {
@@ -337,7 +338,7 @@ export function PhysicalCountSection() {
                       <TableCell className="font-medium">{item.name}</TableCell>
                       <TableCell className="text-xs text-muted-foreground">{item.category}</TableCell>
                       <TableCell className="text-right font-mono">
-                        {item.system_qty.toFixed(2)} {item.unit}
+                        {fmtNum(item.system_qty)} {item.unit}
                       </TableCell>
                       <TableCell className="text-center">
                         <Input
@@ -354,7 +355,7 @@ export function PhysicalCountSection() {
                         (item.variance_qty || 0) > 0 ? "text-green-600" : ""
                       }`}>
                         {item.counted_qty !== "" && item.counted_qty !== null 
-                          ? `${(item.variance_qty || 0) > 0 ? "+" : ""}${item.variance_qty?.toFixed(2) || "0.00"}`
+                          ? `${(item.variance_qty || 0) > 0 ? "+" : ""}${fmtNum(item.variance_qty) || "0.00"}`
                           : "—"
                         }
                       </TableCell>

@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 
 import { API_BASE as API } from "../../utils/api";
+import { fmtNum } from "../../utils/format";
 const formatCurrency = (amount) => `$${(amount || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 export function PayablesSection() {
@@ -865,7 +866,7 @@ export function PayablesSection() {
                   type="button" 
                   variant="outline" 
                   size="sm"
-                  onClick={() => setPaymentForm({ ...paymentForm, amount: ((selectedForPayment?.balance_due || 0) / 2).toFixed(2) })}
+                  onClick={() => setPaymentForm({ ...paymentForm, amount: fmtNum(((selectedForPayment?.balance_due || 0) / 2)) })}
                 >
                   50%
                 </Button>

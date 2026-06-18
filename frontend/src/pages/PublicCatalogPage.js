@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../components/
 import { Mail, Phone, MapPin, Globe, Loader2, ChefHat, Send, CheckCircle2, X } from "lucide-react";
 
 import { API_BASE as API } from "../utils/api";
+import { fmtNum } from "../utils/format";
 
 /**
  * Public Catalog page — accessible without auth at /catalog/:slug
@@ -185,7 +186,7 @@ export default function PublicCatalogPage() {
                       )}
                       <div className="flex items-center justify-between pt-3 border-t">
                         {catalog.show_prices && price > 0 ? (
-                          <span className="text-lg font-bold" style={{ color: primary }}>${price.toFixed(2)}</span>
+                          <span className="text-lg font-bold" style={{ color: primary }}>${fmtNum(price)}</span>
                         ) : (
                           <span className="text-xs text-slate-500">{t("Precio bajo cotización", "Price on request")}</span>
                         )}
@@ -261,7 +262,7 @@ export default function PublicCatalogPage() {
                         <div className="flex flex-wrap gap-1.5 mb-3 text-[10px]">
                           {formats.map((f) => (
                             <span key={f.format_id} className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-700">
-                              {f.format_name}: ${(f.sell_price || f.suggested_price || 0).toFixed(2)}
+                              {f.format_name}: ${fmtNum((f.sell_price || f.suggested_price || 0))}
                             </span>
                           ))}
                         </div>
@@ -269,7 +270,7 @@ export default function PublicCatalogPage() {
                       <div className="flex items-center justify-between pt-2 border-t">
                         {catalog.show_prices && minPrice > 0 ? (
                           <span className="text-sm font-bold" style={{ color: primary }}>
-                            {formats.length > 1 ? t("desde ", "from ") : ""}${minPrice.toFixed(2)}
+                            {formats.length > 1 ? t("desde ", "from ") : ""}${fmtNum(minPrice)}
                           </span>
                         ) : (
                           <span className="text-[10px] text-slate-500">{t("Bajo cotización", "On request")}</span>

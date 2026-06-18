@@ -15,6 +15,7 @@ import {
   Utensils, Wine, Armchair, Package, Clock, DollarSign, CalendarDays
 } from "lucide-react";
 import { formatDateOnly } from "../utils/dates";
+import { fmtNum } from "../utils/format";
 
 
 // Item type icons
@@ -205,10 +206,10 @@ export default function ClientPortal() {
               {showPrices && (
                 <>
                   <td className="text-right py-3 px-2 font-mono">
-                    ${(item.unit_price || 0).toFixed(2)}
+                    ${fmtNum((item.unit_price || 0))}
                   </td>
                   <td className="text-right py-3 px-2 font-mono font-medium">
-                    ${((item.quantity || 1) * (item.unit_price || 0)).toFixed(2)}
+                    ${fmtNum(((item.quantity || 1) * (item.unit_price || 0)))}
                   </td>
                 </>
               )}
@@ -397,9 +398,9 @@ export default function ClientPortal() {
                       )}
                     </td>
                     <td className="text-center py-3 px-3">{event.guest_count}</td>
-                    <td className="text-right py-3 px-3 font-mono">${(recipe.cost_per_serving || recipe.cost_per_portion || 0).toFixed(2)}</td>
+                    <td className="text-right py-3 px-3 font-mono">${fmtNum((recipe.cost_per_serving || recipe.cost_per_portion || 0))}</td>
                     <td className="text-right py-3 px-3 font-mono font-medium">
-                      ${((recipe.cost_per_serving || recipe.cost_per_portion || 0) * (event.guest_count || 1)).toFixed(2)}
+                      ${fmtNum(((recipe.cost_per_serving || recipe.cost_per_portion || 0) * (event.guest_count || 1)))}
                     </td>
                   </tr>
                 ))}
@@ -527,24 +528,24 @@ export default function ClientPortal() {
                   <div className="w-full max-w-xs space-y-2">
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">{isEs ? "Subtotal" : "Subtotal"}</span>
-                      <span className="font-mono">${(financials.subtotal || 0).toFixed(2)}</span>
+                      <span className="font-mono">${fmtNum((financials.subtotal || 0))}</span>
                     </div>
                     {financials.discount_amount > 0 && (
                       <div className="flex justify-between text-sm text-success">
                         <span>{isEs ? "Descuento" : "Discount"} ({financials.discount_percent}%)</span>
-                        <span className="font-mono">-${financials.discount_amount.toFixed(2)}</span>
+                        <span className="font-mono">-${fmtNum(financials.discount_amount)}</span>
                       </div>
                     )}
                     {financials.tax_amount > 0 && (
                       <div className="flex justify-between text-sm">
                         <span className="text-muted-foreground">{isEs ? "Impuesto" : "Tax"} ({financials.tax_percent}%)</span>
-                        <span className="font-mono">${financials.tax_amount.toFixed(2)}</span>
+                        <span className="font-mono">${fmtNum(financials.tax_amount)}</span>
                       </div>
                     )}
                     <Separator />
                     <div className="flex justify-between font-semibold text-lg">
                       <span>Total</span>
-                      <span className="font-mono">${(financials.total || 0).toFixed(2)}</span>
+                      <span className="font-mono">${fmtNum((financials.total || 0))}</span>
                     </div>
                   </div>
                 </div>

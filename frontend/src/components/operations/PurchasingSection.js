@@ -9,6 +9,7 @@ import { Plus, ShoppingCart, ClipboardList } from "lucide-react";
 
 import { API_BASE as API } from "../../utils/api";
 import { formatDateOnly } from "../../utils/dates";
+import { fmtNum } from "../../utils/format";
 
 export function PurchasingSection() {
   const { language } = useLanguage();
@@ -78,7 +79,7 @@ export function PurchasingSection() {
                       <TableCell className="font-mono">{po.po_number}</TableCell>
                       <TableCell>{po.supplier_name}</TableCell>
                       <TableCell>{formatDateOnly(po.created_at, language)}</TableCell>
-                      <TableCell className="text-right font-mono">${(po.total_amount || 0).toFixed(2)}</TableCell>
+                      <TableCell className="text-right font-mono">${fmtNum((po.total_amount || 0))}</TableCell>
                       <TableCell>
                         <Badge variant={po.status === "received" ? "default" : po.status === "sent" ? "secondary" : "outline"}>
                           {po.status}

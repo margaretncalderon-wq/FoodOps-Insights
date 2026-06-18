@@ -10,6 +10,7 @@ import { Search, ChefHat, Loader2, ArrowLeft, Sparkles, AlertTriangle, Check } f
 
 import { API_BASE as API } from "../utils/api";
 import { formatQtyUnit, formatPerUnit } from "../utils/portionUnits";
+import { fmtNum } from "../utils/format";
 
 /**
  * RecipePicker — Two-stage searchable picker for adding a recipe to a quote / proposal.
@@ -179,7 +180,7 @@ export default function RecipePicker({
                         </p>
                       </div>
                       <div className="text-right flex-shrink-0">
-                        <p className="text-xs font-mono">${cost.toFixed(2)}</p>
+                        <p className="text-xs font-mono">${fmtNum(cost)}</p>
                         <p className="text-[10px] text-muted-foreground">{formatPerUnit(r.portion_unit, language)}</p>
                       </div>
                     </CommandItem>
@@ -229,7 +230,7 @@ export default function RecipePicker({
                   data-testid="format-picker-default"
                 >
                   <Check className="w-4 h-4 mr-1" />
-                  {isEs ? "Usar costo base" : "Use base cost"} (${(selectedRecipe.cost_per_portion || 0).toFixed(2)})
+                  {isEs ? "Usar costo base" : "Use base cost"} (${fmtNum((selectedRecipe.cost_per_portion || 0))})
                 </Button>
               </div>
             ) : (
@@ -253,11 +254,11 @@ export default function RecipePicker({
                           {f.is_default && <Badge variant="secondary" className="text-[9px] h-4 px-1">{isEs ? "Default" : "Default"}</Badge>}
                         </div>
                         <p className="text-[10px] text-muted-foreground">
-                          {formatQtyUnit(f.portions_obtained, f.portion_unit)} · {isEs ? "costo" : "cost"} ${(f.cost_per_portion || 0).toFixed(2)}
+                          {formatQtyUnit(f.portions_obtained, f.portion_unit)} · {isEs ? "costo" : "cost"} ${fmtNum((f.cost_per_portion || 0))}
                         </p>
                       </div>
                       <div className="text-right flex-shrink-0">
-                        <p className="text-sm font-mono font-semibold">${(f.sell_price || f.suggested_price || 0).toFixed(2)}</p>
+                        <p className="text-sm font-mono font-semibold">${fmtNum((f.sell_price || f.suggested_price || 0))}</p>
                         <p className={`text-[10px] font-medium ${marginColor}`}>
                           {margin.toFixed(0)}% {isEs ? "margen" : "margin"}
                         </p>

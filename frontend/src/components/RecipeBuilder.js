@@ -33,6 +33,7 @@ import {
 import { API_BASE as API } from "../utils/api";
 import IngredientWizard from "./culinary/IngredientWizard";
 import { formatDateOnly } from "../utils/dates";
+import { fmtNum } from "../utils/format";
 
 const RECIPE_TYPES = [
   { value: "base", label: "Base Recipe", labelEs: "Receta Base", icon: Beaker, color: "bg-purple-100 text-purple-700", description: "Salsas, fondos, masas básicas" },
@@ -173,7 +174,7 @@ function IngredientPicker({ ingredients, alreadyAddedIds, onPick, onRepair, isEs
                       </p>
                     </div>
                     <div className="text-right flex-shrink-0">
-                      <p className="text-xs font-mono">${cost.toFixed(2)}</p>
+                      <p className="text-xs font-mono">${fmtNum(cost)}</p>
                       <p className="text-[10px] text-muted-foreground">/ {baseUnit}</p>
                     </div>
                   </CommandItem>
@@ -939,8 +940,8 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
                     <td class="text-center">${ing.quantity}</td>
                     <td class="text-center">${ing.unit}</td>
                     <td class="text-center">${waste > 0 ? waste + '%' : '-'}</td>
-                    <td class="text-right">$${(ing.cost_per_unit || 0).toFixed(2)}</td>
-                    <td class="text-right">$${cost.toFixed(2)}</td>
+                    <td class="text-right">$${fmtNum((ing.cost_per_unit || 0))}</td>
+                    <td class="text-right">$${fmtNum(cost)}</td>
                   </tr>
                 `;
               }).join('')}
@@ -950,15 +951,15 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
           <div class="cost-summary">
             <div class="cost-box">
               <div class="cost-label">Costo Total</div>
-              <div class="cost-value">$${totalCost.toFixed(2)}</div>
+              <div class="cost-value">$${fmtNum(totalCost)}</div>
             </div>
             <div class="cost-box">
               <div class="cost-label">Costo / Porción</div>
-              <div class="cost-value">$${costPerPortion.toFixed(2)}</div>
+              <div class="cost-value">$${fmtNum(costPerPortion)}</div>
             </div>
             <div class="cost-box highlight">
               <div class="cost-label">Precio Venta</div>
-              <div class="cost-value">$${form.sell_price.toFixed(2)}</div>
+              <div class="cost-value">$${fmtNum(form.sell_price)}</div>
             </div>
           </div>
         </div>
@@ -981,8 +982,8 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
                   <tr>
                     <td>${pf.format_name}${pf.is_default ? ' ⭐' : ''}</td>
                     <td class="text-center">${pf.portions_obtained}</td>
-                    <td class="text-right">$${pf.cost_per_portion?.toFixed(2) || '0.00'}</td>
-                    <td class="text-right">$${pf.sell_price?.toFixed(2) || '0.00'}</td>
+                    <td class="text-right">$${fmtNum(pf.cost_per_portion) || '0.00'}</td>
+                    <td class="text-right">$${fmtNum(pf.sell_price) || '0.00'}</td>
                     <td class="text-right">${pf.margin_pct?.toFixed(1) || '0'}%</td>
                   </tr>
                 `).join('')}
@@ -1464,7 +1465,7 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
                         <TableCell className="font-medium">{sub.child_recipe_name}</TableCell>
                         <TableCell><Input type="number" min="0" step="0.01" className="w-20 text-right" value={sub.quantity_used} onChange={(e) => updateSubRecipe(sub.child_recipe_id, "quantity_used", parseFloat(e.target.value) || 0)} /></TableCell>
                         <TableCell className="text-muted-foreground">{sub.unit}</TableCell>
-                        <TableCell className="text-right font-mono">${(sub.total_cost || 0).toFixed(2)}</TableCell>
+                        <TableCell className="text-right font-mono">${fmtNum((sub.total_cost || 0))}</TableCell>
                         <TableCell><Button variant="ghost" size="icon" onClick={() => removeSubRecipe(sub.child_recipe_id)}><X className="w-4 h-4 text-red-500" /></Button></TableCell>
                       </TableRow>
                     ))}
@@ -1480,11 +1481,11 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="text-center p-3 bg-background rounded-lg">
                   <p className="text-xs text-muted-foreground">{t("totalCost")}</p>
-                  <p className="text-2xl font-bold text-green-600">${totalCost.toFixed(2)}</p>
+                  <p className="text-2xl font-bold text-green-600">${fmtNum(totalCost)}</p>
                 </div>
                 <div className="text-center p-3 bg-background rounded-lg">
                   <p className="text-xs text-muted-foreground">{t("costPerPortion")}</p>
-                  <p className="text-2xl font-bold">${costPerPortion.toFixed(2)}</p>
+                  <p className="text-2xl font-bold">${fmtNum(costPerPortion)}</p>
                 </div>
                 <div className="text-center p-3 bg-background rounded-lg">
                   <p className="text-xs text-muted-foreground">{t("foodCostPercent")}</p>
@@ -1494,7 +1495,7 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
                 </div>
                 <div className="text-center p-3 bg-background rounded-lg">
                   <p className="text-xs text-muted-foreground">{t("margin")}</p>
-                  <p className={`text-2xl font-bold ${margin < 0 ? "text-red-500" : "text-green-500"}`}>${margin.toFixed(2)}</p>
+                  <p className={`text-2xl font-bold ${margin < 0 ? "text-red-500" : "text-green-500"}`}>${fmtNum(margin)}</p>
                 </div>
               </div>
               {suggestedSellPrice != null && (
@@ -1503,7 +1504,7 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
                     <span className="text-emerald-700 font-semibold">
                       {language === "es" ? "Precio de venta sugerido:" : "Suggested sale price:"}
                     </span>
-                    <span className="text-2xl font-bold text-emerald-700 ml-2">${suggestedSellPrice.toFixed(2)}</span>
+                    <span className="text-2xl font-bold text-emerald-700 ml-2">${fmtNum(suggestedSellPrice)}</span>
                     <span className="text-xs text-muted-foreground ml-2">
                       ({language === "es" ? "basado en" : "based on"} {targetMarginPct.toFixed(0)}% {language === "es" ? "de margen" : "margin"})
                     </span>
@@ -1513,7 +1514,7 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
                     size="sm"
                     variant="outline"
                     className="bg-white"
-                    onClick={() => setForm((prev) => ({ ...prev, sell_price: Number(suggestedSellPrice.toFixed(2)) }))}
+                    onClick={() => setForm((prev) => ({ ...prev, sell_price: Number(fmtNum(suggestedSellPrice)) }))}
                     data-testid="recipe-apply-suggested-price"
                   >
                     {language === "es" ? "Aplicar" : "Apply"}
@@ -1597,8 +1598,8 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
                           {pf.is_default && <Badge variant="secondary" className="ml-2">{language === "es" ? "Predeterminado" : "Default"}</Badge>}
                         </TableCell>
                         <TableCell className="text-right">{formatQtyUnit(pf.portions_obtained, pf.portion_unit)}</TableCell>
-                        <TableCell className="text-right">${pf.cost_per_portion?.toFixed(2)}</TableCell>
-                        <TableCell className="text-right">${pf.sell_price?.toFixed(2)}</TableCell>
+                        <TableCell className="text-right">${fmtNum(pf.cost_per_portion)}</TableCell>
+                        <TableCell className="text-right">${fmtNum(pf.sell_price)}</TableCell>
                         <TableCell className="text-right">
                           <span className={pf.margin_pct < 30 ? "text-red-500" : pf.margin_pct < 50 ? "text-yellow-500" : "text-green-500"}>
                             {pf.margin_pct?.toFixed(1)}%
@@ -1737,7 +1738,7 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
                         <TableRow key={pf.format_id}>
                           <TableCell className="font-medium">{pf.packaging_item_name || item?.name || pf.packaging_inventory_item_id}</TableCell>
                           <TableCell className="text-right">{pf.qty_per_portion}</TableCell>
-                          <TableCell className="text-right text-muted-foreground">${unitCost.toFixed(2)}</TableCell>
+                          <TableCell className="text-right text-muted-foreground">${fmtNum(unitCost)}</TableCell>
                           <TableCell className="text-right font-medium">${costPerPortion.toFixed(4)}</TableCell>
                           <TableCell className="text-muted-foreground text-sm">{pf.notes || "-"}</TableCell>
                           <TableCell><Button variant="ghost" size="icon" onClick={() => handleDeletePackagingFormat(pf.format_id)}><Trash2 className="w-4 h-4 text-red-500" /></Button></TableCell>
@@ -1827,7 +1828,7 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-blue-800">{language === "es" ? "Costo por Ración:" : "Cost per Portion:"}</span>
                   <span className="text-lg font-bold text-blue-900">
-                    ${(totalCost / portionForm.portions_obtained).toFixed(2)}
+                    ${fmtNum((totalCost / portionForm.portions_obtained))}
                   </span>
                 </div>
               </div>
@@ -1883,14 +1884,14 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
               <div className="p-4 bg-green-50 border border-green-200 rounded-lg space-y-2">
                 <div className="grid grid-cols-2 gap-x-4 text-sm">
                   <span className="text-green-700">{language === "es" ? "Costo Ración:" : "Portion Cost:"}</span>
-                  <span className="font-medium text-right">${(totalCost / portionForm.portions_obtained).toFixed(2)}</span>
+                  <span className="font-medium text-right">${fmtNum((totalCost / portionForm.portions_obtained))}</span>
                   
                   <span className="text-green-700">{language === "es" ? "Precio de Venta:" : "Sell Price:"}</span>
-                  <span className="font-medium text-right">${portionForm.sell_price.toFixed(2)}</span>
+                  <span className="font-medium text-right">${fmtNum(portionForm.sell_price)}</span>
                   
                   <span className="text-green-700">{language === "es" ? "Margen Bruto:" : "Gross Margin:"}</span>
                   <span className="font-bold text-right text-green-800">
-                    ${(portionForm.sell_price - totalCost / portionForm.portions_obtained).toFixed(2)} ({portionForm.target_margin_pct.toFixed(1)}%)
+                    ${fmtNum((portionForm.sell_price - totalCost / portionForm.portions_obtained))} ({portionForm.target_margin_pct.toFixed(1)}%)
                   </span>
                 </div>
               </div>
@@ -1979,7 +1980,7 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
                             {pf.is_default && <Badge variant="secondary" className="ml-2 text-xs">{language === "es" ? "Predeterminado" : "Default"}</Badge>}
                           </div>
                           <div className="text-xs text-muted-foreground">
-                            {language === "es" ? "Costo" : "Cost"}: ${(pf.cost_per_portion || 0).toFixed(2)} · {language === "es" ? "Precio" : "Price"}: ${(pf.sell_price || 0).toFixed(2)}
+                            {language === "es" ? "Costo" : "Cost"}: ${fmtNum((pf.cost_per_portion || 0))} · {language === "es" ? "Precio" : "Price"}: ${fmtNum((pf.sell_price || 0))}
                           </div>
                         </div>
                       </div>
@@ -2036,7 +2037,7 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
                       <SelectItem key={item.ingredient_id} value={item.ingredient_id}>
                         <div className="flex items-center justify-between w-full gap-4">
                           <span>{item.name}</span>
-                          <span className="text-muted-foreground text-sm">${item.cost_per_unit?.toFixed(2)}/{item.unit}</span>
+                          <span className="text-muted-foreground text-sm">${fmtNum(item.cost_per_unit)}/{item.unit}</span>
                         </div>
                       </SelectItem>
                     ))
@@ -2055,7 +2056,7 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
                   return (
                     <div className="grid grid-cols-2 gap-2 text-sm">
                       <span className="text-blue-700">{language === "es" ? "Costo Unitario:" : "Unit Cost:"}</span>
-                      <span className="text-right font-medium">${costPerUnit.toFixed(2)}/{selectedItem?.unit}</span>
+                      <span className="text-right font-medium">${fmtNum(costPerUnit)}/{selectedItem?.unit}</span>
                       <span className="text-blue-700">{language === "es" ? "Cantidad por Porción:" : "Qty per Portion:"}</span>
                       <span className="text-right font-medium">{packagingForm.qty_per_portion}</span>
                       <span className="text-blue-800 font-semibold">{language === "es" ? "Costo por Porción:" : "Cost per Portion:"}</span>
@@ -2098,14 +2099,14 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
                   <div key={idx} className="border rounded-lg p-4">
                     <div className="flex items-center justify-between mb-2">
                       <span className="font-medium">{item.item_name}</span>
-                      <Badge>${item.current_cost?.toFixed(2)}</Badge>
+                      <Badge>${fmtNum(item.current_cost)}</Badge>
                     </div>
                     {item.price_history?.length > 0 ? (
                       <div className="space-y-1">
                         {item.price_history.slice(-5).reverse().map((ph, i) => (
                           <div key={i} className="flex items-center justify-between text-sm text-muted-foreground">
                             <span>{formatDateOnly(ph.date, language)}</span>
-                            <span className="font-medium text-foreground">${ph.price?.toFixed(2)}</span>
+                            <span className="font-medium text-foreground">${fmtNum(ph.price)}</span>
                           </div>
                         ))}
                       </div>

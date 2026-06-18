@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { Plus, Edit, Trash2, FileText, Building2, Calendar, DollarSign, Loader2 } from "lucide-react";
 
 import { API_BASE as API } from "../../utils/api";
+import { fmtNum } from "../../utils/format";
 
 const AGREEMENT_TYPES = [
   { value: "rental", label: "Equipment Rental", labelEs: "Alquiler de Equipos" },
@@ -193,7 +194,7 @@ export function AgreementsSection() {
                 {agreement.monthly_cost > 0 && (
                   <div className="flex items-center gap-2 text-sm">
                     <DollarSign className="w-4 h-4 text-muted-foreground" />
-                    <span>${agreement.monthly_cost.toFixed(2)}/{isEs ? "mes" : "month"}</span>
+                    <span>${fmtNum(agreement.monthly_cost)}/{isEs ? "mes" : "month"}</span>
                   </div>
                 )}
                 <div className="flex justify-end gap-1 pt-2 border-t">

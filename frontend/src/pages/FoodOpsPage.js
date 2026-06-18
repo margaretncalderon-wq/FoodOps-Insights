@@ -4,6 +4,7 @@ import { Routes, Route, NavLink, Navigate, useLocation, useNavigate, useSearchPa
 import axios from "axios";
 import { toast } from "sonner";
 import { Layout } from "../components/Layout";
+import { fmtNum } from "../utils/format";
 import { PhysicalCountSection } from "../components/culinary/PhysicalCountSection";
 import ImportExportSection from "../components/settings/ImportExportSection";
 import KitchenSheetsBatch from "../components/KitchenSheetsBatch";
@@ -477,7 +478,7 @@ function InventorySection() {
         <Card><CardContent className="pt-4"><div className="flex items-center gap-3"><Package className="h-8 w-8 text-primary" /><div><p className="text-sm text-muted-foreground">{t("items")}</p><p className="text-2xl font-bold">{items.length}</p></div></div></CardContent></Card>
         <Card><CardContent className="pt-4"><div className="flex items-center gap-3"><Truck className="h-8 w-8 text-blue-500" /><div><p className="text-sm text-muted-foreground">{t("suppliers")}</p><p className="text-2xl font-bold">{suppliers.length}</p></div></div></CardContent></Card>
         <Card><CardContent className="pt-4"><div className="flex items-center gap-3"><AlertTriangle className="h-8 w-8 text-yellow-500" /><div><p className="text-sm text-muted-foreground">{t("lowStock")}</p><p className="text-2xl font-bold">{lowStockItems.length}</p></div></div></CardContent></Card>
-        <Card><CardContent className="pt-4"><div className="flex items-center gap-3"><DollarSign className="h-8 w-8 text-green-500" /><div><p className="text-sm text-muted-foreground">{language === "es" ? "Valor Total" : "Total Value"}</p><p className="text-2xl font-bold">${items.reduce((sum, item) => sum + (item.stock_quantity || 0) * (item.cost_per_unit || 0), 0).toFixed(2)}</p></div></div></CardContent></Card>
+        <Card><CardContent className="pt-4"><div className="flex items-center gap-3"><DollarSign className="h-8 w-8 text-green-500" /><div><p className="text-sm text-muted-foreground">{language === "es" ? "Valor Total" : "Total Value"}</p><p className="text-2xl font-bold">${fmtNum(items.reduce((sum, item) => sum + (item.stock_quantity || 0) * (item.cost_per_unit || 0), 0))}</p></div></div></CardContent></Card>
       </div>
       
       {/* Value by Type - Collapsible Summary */}
@@ -492,7 +493,7 @@ function InventorySection() {
             {INVENTORY_TYPES.map(type => (
               <div key={type.value} className="p-3 bg-muted/50 rounded-lg">
                 <p className="text-xs text-muted-foreground">{language === "es" ? type.labelEs : type.label}</p>
-                <p className="text-lg font-semibold">${valueByType[type.value]?.value.toFixed(2) || "0.00"}</p>
+                <p className="text-lg font-semibold">${fmtNum(valueByType[type.value]?.value) || "0.00"}</p>
                 <p className="text-xs text-muted-foreground">{valueByType[type.value]?.count || 0} {language === "es" ? "items" : "items"}</p>
               </div>
             ))}
@@ -611,7 +612,7 @@ function InventorySection() {
                           {available} {item.unit}
                         </span>
                       </TableCell>
-                      <TableCell className="text-right">${(item.cost_per_unit || 0).toFixed(2)}/{item.unit}</TableCell>
+                      <TableCell className="text-right">${fmtNum((item.cost_per_unit || 0))}/{item.unit}</TableCell>
                       <TableCell>{getSupplierName(item.preferred_supplier_id)}</TableCell>
                       <TableCell>
                         <div className="flex gap-1">
@@ -700,7 +701,7 @@ function InventorySection() {
                         <TableCell className="font-medium">{item.name}</TableCell>
                         <TableCell className="text-right text-red-500 font-semibold">{item.stock_quantity || 0} {item.unit}</TableCell>
                         <TableCell className="text-right">{item.par_level} {item.unit}</TableCell>
-                        <TableCell className="text-right text-red-500">{(item.par_level - (item.stock_quantity || 0)).toFixed(2)} {item.unit}</TableCell>
+                        <TableCell className="text-right text-red-500">{fmtNum((item.par_level - (item.stock_quantity || 0)))} {item.unit}</TableCell>
                         <TableCell>{getSupplierName(item.preferred_supplier_id)}</TableCell>
                         <TableCell><Button variant="outline" size="sm" onClick={() => { setTransactionForm({ inventory_item_id: item.ingredient_id, transaction_type: "Purchase", quantity: item.par_level - (item.stock_quantity || 0), notes: "" }); setTransactionDialogOpen(true); }}><ShoppingCart className="w-4 h-4 mr-1" />{language === "es" ? "Ordenar" : "Order"}</Button></TableCell>
                       </TableRow>
@@ -1100,7 +1101,7 @@ function InventorySection() {
             {/* Current Price */}
             <div className="p-3 bg-primary/10 rounded-lg">
               <p className="text-sm text-muted-foreground">{language === "es" ? "Precio Actual" : "Current Price"}</p>
-              <p className="text-2xl font-bold">${selectedItemForHistory?.cost_per_unit?.toFixed(2) || "0.00"}/{selectedItemForHistory?.unit}</p>
+              <p className="text-2xl font-bold">${fmtNum(selectedItemForHistory?.cost_per_unit) || "0.00"}/{selectedItemForHistory?.unit}</p>
             </div>
             
             {/* History List */}
@@ -1113,7 +1114,7 @@ function InventorySection() {
                 {priceHistory.slice().reverse().map((entry, idx) => (
                   <div key={idx} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
                     <div>
-                      <p className="text-sm font-medium">${entry.price?.toFixed(2)}/{selectedItemForHistory?.unit}</p>
+                      <p className="text-sm font-medium">${fmtNum(entry.price)}/{selectedItemForHistory?.unit}</p>
                       <p className="text-xs text-muted-foreground">
                         {entry.source || "Manual"} • {formatDateOnly(entry.date, language)}
                       </p>
@@ -1236,7 +1237,7 @@ function InventorySection() {
                             <TableCell className="text-xs">{row.data?.brand || "-"}</TableCell>
                             <TableCell className="text-xs">{row.data?.category || "-"}</TableCell>
                             <TableCell className="text-xs">{row.data?.unit || "-"}</TableCell>
-                            <TableCell className="text-xs text-right">${row.data?.cost_per_unit?.toFixed(2) || "0.00"}</TableCell>
+                            <TableCell className="text-xs text-right">${fmtNum(row.data?.cost_per_unit) || "0.00"}</TableCell>
                             <TableCell className="text-xs text-right">{row.data?.stock_quantity || 0}</TableCell>
                             <TableCell className="text-xs max-w-[200px]">
                               {row.errors?.length > 0 && (
@@ -1739,11 +1740,11 @@ function RecipesSection() {
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-sm">{language === "es" ? "Costo Total" : "Total Cost"}</span>
-                      <span className="font-semibold text-green-600">${(recipe.total_cost || 0).toFixed(2)}</span>
+                      <span className="font-semibold text-green-600">${fmtNum((recipe.total_cost || 0))}</span>
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-sm">{language === "es" ? "Costo/Porción" : "Cost/Portion"}</span>
-                      <span className="font-semibold">${(recipe.cost_per_portion || 0).toFixed(2)}</span>
+                      <span className="font-semibold">${fmtNum((recipe.cost_per_portion || 0))}</span>
                     </div>
                     {recipe.sell_price > 0 && (
                       <div className="flex items-center justify-between">
@@ -1839,10 +1840,10 @@ function RecipesSection() {
                         return (
                           <TableRow key={c.recipe_id}>
                             <TableCell className="font-medium">{c.name}</TableCell>
-                            <TableCell className="text-right font-mono text-xs text-muted-foreground">${c.old_total_cost.toFixed(2)}</TableCell>
-                            <TableCell className="text-right font-mono text-xs font-semibold">${c.new_total_cost.toFixed(2)}</TableCell>
+                            <TableCell className="text-right font-mono text-xs text-muted-foreground">${fmtNum(c.old_total_cost)}</TableCell>
+                            <TableCell className="text-right font-mono text-xs font-semibold">${fmtNum(c.new_total_cost)}</TableCell>
                             <TableCell className={`text-right font-mono text-xs font-semibold ${isUp ? "text-amber-700" : "text-red-600"}`}>
-                              {isUp ? "+" : ""}${c.diff_amount.toFixed(2)} <span className="opacity-60">({isUp ? "+" : ""}{c.diff_pct.toFixed(1)}%)</span>
+                              {isUp ? "+" : ""}${fmtNum(c.diff_amount)} <span className="opacity-60">({isUp ? "+" : ""}{c.diff_pct.toFixed(1)}%)</span>
                             </TableCell>
                             <TableCell className="text-right text-xs">
                               {c.sell_price > 0 ? `${c.new_food_cost_pct.toFixed(1)}%` : "—"}
@@ -2155,12 +2156,12 @@ function PlatedMenusSection() {
                       )}
                       <div className="pt-2 border-t flex items-center justify-between">
                         <span className="text-sm">{language === "es" ? "Costo/Comensal" : "Cost/Guest"}</span>
-                        <span className="font-semibold text-green-600">${(menu.cost_per_guest || 0).toFixed(2)}</span>
+                        <span className="font-semibold text-green-600">${fmtNum((menu.cost_per_guest || 0))}</span>
                       </div>
                       {menu.buffer_percentage > 0 && (
                         <div className="flex items-center justify-between">
                           <span className="text-sm text-muted-foreground">+{menu.buffer_percentage}% buffer</span>
-                          <span className="font-semibold">${(menu.cost_with_buffer || 0).toFixed(2)}</span>
+                          <span className="font-semibold">${fmtNum((menu.cost_with_buffer || 0))}</span>
                         </div>
                       )}
                       {(() => {
@@ -2175,10 +2176,10 @@ function PlatedMenusSection() {
                           <div className={`mt-2 rounded-md border px-2 py-1.5 text-xs ${color}`} data-testid={`menu-projected-${menu.menu_id}`}>
                             <div className="flex items-center justify-between">
                               <span className="font-medium">{language === "es" ? "Costo proyectado" : "Projected cost"}</span>
-                              <span className="font-mono font-semibold">${proj.projected_cost_per_guest.toFixed(2)}</span>
+                              <span className="font-mono font-semibold">${fmtNum(proj.projected_cost_per_guest)}</span>
                             </div>
                             <div className="text-[10px] opacity-80 mt-0.5">
-                              vs ${proj.theoretical_cost_per_guest.toFixed(2)} ({language === "es" ? "teórico" : "theoretical"}) ·
+                              vs ${fmtNum(proj.theoretical_cost_per_guest)} ({language === "es" ? "teórico" : "theoretical"}) ·
                               {overrun >= 0 ? " +" : " "}{pct.toFixed(1)}%
                             </div>
                           </div>
@@ -2221,8 +2222,8 @@ function PlatedMenusSection() {
                               </Button>
                             </div>
                             <div className="mt-1 text-[11px] opacity-80">
-                              {language === "es" ? "Snapshot" : "Snapshot"}: ${st.snapshot_cost_per_guest.toFixed(2)} →{" "}
-                              {language === "es" ? "Actual" : "Live"}: ${st.live_cost_per_guest.toFixed(2)}
+                              {language === "es" ? "Snapshot" : "Snapshot"}: ${fmtNum(st.snapshot_cost_per_guest)} →{" "}
+                              {language === "es" ? "Actual" : "Live"}: ${fmtNum(st.live_cost_per_guest)}
                             </div>
                           </div>
                         );
@@ -2432,7 +2433,7 @@ function PurchasesSection() {
                       <div className="text-right">
                         <span className="text-sm font-mono text-amber-700">{item.shortage?.toFixed(1)} {item.unit}</span>
                         <span className="text-xs text-muted-foreground ml-2">
-                          (${((item.shortage || 0) * (item.cost_per_unit || 0)).toFixed(2)})
+                          (${fmtNum(((item.shortage || 0) * (item.cost_per_unit || 0)))})
                         </span>
                       </div>
                     </div>
@@ -2473,7 +2474,7 @@ function PurchasesSection() {
                       <Badge variant="outline">{supplierData.items.length} items</Badge>
                     </div>
                     <div className="flex items-center gap-4">
-                      <span className="font-semibold text-lg">${supplierData.total_cost?.toFixed(2)}</span>
+                      <span className="font-semibold text-lg">${fmtNum(supplierData.total_cost)}</span>
                       <Button variant="outline" size="sm" onClick={() => handleSavePurchaseList(supplierId, supplierData)}>
                         {language === "es" ? "Guardar" : "Save"}
                       </Button>
@@ -2489,7 +2490,7 @@ function PurchasesSection() {
                             <TableCell className="text-right">{item.required_qty} {item.unit}</TableCell>
                             <TableCell className="text-right">{item.in_stock_qty} {item.unit}</TableCell>
                             <TableCell className="text-right font-semibold">{item.to_purchase_qty > 0 ? <span className="text-red-500">{item.to_purchase_qty}</span> : <span className="text-green-500">0</span>}</TableCell>
-                            <TableCell className="text-right">${item.total_cost?.toFixed(2)}</TableCell>
+                            <TableCell className="text-right">${fmtNum(item.total_cost)}</TableCell>
                             <TableCell><Badge variant={item.status === "InStock" ? "default" : item.status === "Short" ? "destructive" : "secondary"}>{item.status}</Badge></TableCell>
                           </TableRow>
                         ))}
@@ -2513,7 +2514,7 @@ function PurchasesSection() {
                       <TableRow key={list.purchase_list_id}>
                         <TableCell className="font-medium">{list.supplier_name || "-"}</TableCell>
                         <TableCell>{list.items?.length || 0}</TableCell>
-                        <TableCell className="text-right">${list.total_cost?.toFixed(2)}</TableCell>
+                        <TableCell className="text-right">${fmtNum(list.total_cost)}</TableCell>
                         <TableCell><Badge variant={list.status === "Received" ? "default" : list.status === "Ordered" ? "secondary" : "outline"}>{list.status}</Badge></TableCell>
                         <TableCell>
                           {list.status === "Draft" && <Button variant="outline" size="sm" onClick={() => handleUpdateStatus(list.purchase_list_id, "Ordered")}>{language === "es" ? "Ordenar" : "Order"}</Button>}

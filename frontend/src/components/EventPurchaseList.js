@@ -13,6 +13,7 @@ import {
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "./ui/collapsible";
 
 import { API_BASE as API } from "../utils/api";
+import { fmtNum } from "../utils/format";
 
 export default function EventPurchaseList({ eventId, eventName }) {
   const { language } = useLanguage();
@@ -218,7 +219,7 @@ export default function EventPurchaseList({ eventId, eventName }) {
                       </div>
                       <div className="flex items-center gap-4">
                         <span className="font-semibold text-lg">
-                          ${supplierData.total_cost?.toFixed(2) || "0.00"}
+                          ${fmtNum(supplierData.total_cost) || "0.00"}
                         </span>
                         <Button 
                           variant="outline" 
@@ -262,8 +263,8 @@ export default function EventPurchaseList({ eventId, eventName }) {
                                 <span className="text-green-500">0</span>
                               )}
                             </TableCell>
-                            <TableCell className="text-right">${item.unit_cost?.toFixed(2)}</TableCell>
-                            <TableCell className="text-right">${item.total_cost?.toFixed(2)}</TableCell>
+                            <TableCell className="text-right">${fmtNum(item.unit_cost)}</TableCell>
+                            <TableCell className="text-right">${fmtNum(item.total_cost)}</TableCell>
                             <TableCell>{getItemStatusBadge(item.status)}</TableCell>
                           </TableRow>
                         ))}
@@ -304,7 +305,7 @@ export default function EventPurchaseList({ eventId, eventName }) {
                       {list.supplier_name || t("noSupplier")}
                     </TableCell>
                     <TableCell>{list.items?.length || 0} {t("items")}</TableCell>
-                    <TableCell className="text-right">${list.total_cost?.toFixed(2)}</TableCell>
+                    <TableCell className="text-right">${fmtNum(list.total_cost)}</TableCell>
                     <TableCell>{getStatusBadge(list.status)}</TableCell>
                     <TableCell>
                       <div className="flex gap-2">

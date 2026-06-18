@@ -26,6 +26,7 @@ import {
 
 import { API_BASE as API } from "../utils/api";
 import { formatDateOnly } from "../utils/dates";
+import { fmtNum } from "../utils/format";
 
 const PO_STATUSES = [
   { value: "Draft", label: "Draft", labelEs: "Borrador", color: "bg-gray-100 text-gray-700" },
@@ -446,15 +447,15 @@ export default function PurchaseOrdersSection() {
                 <td>${line.item_name}</td>
                 <td class="text-right">${line.qty_ordered}</td>
                 <td class="text-right">${line.purchase_unit || ''}</td>
-                <td class="text-right">$${line.unit_cost?.toFixed(2) || '0.00'}</td>
-                <td class="text-right">$${line.line_total?.toFixed(2) || '0.00'}</td>
+                <td class="text-right">$${fmtNum(line.unit_cost) || '0.00'}</td>
+                <td class="text-right">$${fmtNum(line.line_total) || '0.00'}</td>
               </tr>
             `).join('') || ''}
           </tbody>
           <tfoot>
             <tr>
               <td colspan="4" class="text-right total">TOTAL:</td>
-              <td class="text-right total">$${selectedPO?.total?.toFixed(2) || '0.00'}</td>
+              <td class="text-right total">$${fmtNum(selectedPO?.total) || '0.00'}</td>
             </tr>
           </tfoot>
         </table>
@@ -537,7 +538,7 @@ export default function PurchaseOrdersSection() {
                     <TableCell>{po.supplier_name}</TableCell>
                     <TableCell>{getStatusBadge(po.status)}</TableCell>
                     <TableCell>{formatDateOnly(po.created_at, language)}</TableCell>
-                    <TableCell className="text-right font-semibold">${po.total?.toFixed(2)}</TableCell>
+                    <TableCell className="text-right font-semibold">${fmtNum(po.total)}</TableCell>
                     <TableCell>
                       <div className="flex gap-1">
                         <Button variant="ghost" size="icon" onClick={() => openViewDialog(po)} title={t("view")}>
@@ -634,7 +635,7 @@ export default function PurchaseOrdersSection() {
                 <Select onValueChange={(v) => { const item = inventory.find(i => i.ingredient_id === v); if (item) addLine(item); }}>
                   <SelectTrigger className="w-64"><SelectValue placeholder={t("addLine")} /></SelectTrigger>
                   <SelectContent>
-                    {inventory.map(item => (<SelectItem key={item.ingredient_id} value={item.ingredient_id}>{item.name} (${item.cost_per_unit?.toFixed(2)}/{item.unit})</SelectItem>))}
+                    {inventory.map(item => (<SelectItem key={item.ingredient_id} value={item.ingredient_id}>{item.name} (${fmtNum(item.cost_per_unit)}/{item.unit})</SelectItem>))}
                   </SelectContent>
                 </Select>
               </div>
@@ -660,7 +661,7 @@ export default function PurchaseOrdersSection() {
                         <TableCell><Input type="number" min="0.01" step="0.01" className="w-20" value={line.qty_ordered} onChange={(e) => updateLine(idx, "qty_ordered", parseFloat(e.target.value) || 0)} /></TableCell>
                         <TableCell><Input className="w-16" value={line.purchase_unit} onChange={(e) => updateLine(idx, "purchase_unit", e.target.value)} /></TableCell>
                         <TableCell><Input type="number" min="0" step="0.01" className="w-24" value={line.unit_cost} onChange={(e) => updateLine(idx, "unit_cost", parseFloat(e.target.value) || 0)} /></TableCell>
-                        <TableCell className="text-right font-mono">${(line.qty_ordered * line.unit_cost).toFixed(2)}</TableCell>
+                        <TableCell className="text-right font-mono">${fmtNum((line.qty_ordered * line.unit_cost))}</TableCell>
                         <TableCell><Button variant="ghost" size="icon" onClick={() => removeLine(idx)}><X className="w-4 h-4 text-red-500" /></Button></TableCell>
                       </TableRow>
                     ))}
@@ -671,7 +672,7 @@ export default function PurchaseOrdersSection() {
               <div className="flex justify-end mt-4 pt-4 border-t">
                 <div className="text-right">
                   <p className="text-sm text-muted-foreground">{t("total")}</p>
-                  <p className="text-2xl font-bold">${formSubtotal.toFixed(2)}</p>
+                  <p className="text-2xl font-bold">${fmtNum(formSubtotal)}</p>
                 </div>
               </div>
             </div>
@@ -703,7 +704,7 @@ export default function PurchaseOrdersSection() {
               </div>
               <div className="text-right">
                 <p className="text-sm text-muted-foreground">{t("total")}</p>
-                <p className="text-2xl font-bold">${selectedPO?.total?.toFixed(2)}</p>
+                <p className="text-2xl font-bold">${fmtNum(selectedPO?.total)}</p>
               </div>
             </div>
             
@@ -723,8 +724,8 @@ export default function PurchaseOrdersSection() {
                     <TableCell className="font-medium">{line.item_name}</TableCell>
                     <TableCell className="text-right">{line.qty_ordered} {line.purchase_unit}</TableCell>
                     <TableCell className="text-right">{line.qty_received || 0}</TableCell>
-                    <TableCell className="text-right">${line.unit_cost?.toFixed(2)}</TableCell>
-                    <TableCell className="text-right font-mono">${line.line_total?.toFixed(2)}</TableCell>
+                    <TableCell className="text-right">${fmtNum(line.unit_cost)}</TableCell>
+                    <TableCell className="text-right font-mono">${fmtNum(line.line_total)}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -997,8 +998,8 @@ export default function PurchaseOrdersSection() {
                     <TableRow key={idx}>
                       <TableCell>{line.item_name}</TableCell>
                       <TableCell className="text-right">{line.qty_ordered} {line.purchase_unit}</TableCell>
-                      <TableCell className="text-right">${line.unit_cost?.toFixed(2)}</TableCell>
-                      <TableCell className="text-right">${line.line_total?.toFixed(2)}</TableCell>
+                      <TableCell className="text-right">${fmtNum(line.unit_cost)}</TableCell>
+                      <TableCell className="text-right">${fmtNum(line.line_total)}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -1007,7 +1008,7 @@ export default function PurchaseOrdersSection() {
               <div className="flex justify-end mt-4 pt-4 border-t">
                 <div className="text-right">
                   <p className="text-sm text-muted-foreground">Total</p>
-                  <p className="text-2xl font-bold">${selectedPO?.total?.toFixed(2)}</p>
+                  <p className="text-2xl font-bold">${fmtNum(selectedPO?.total)}</p>
                 </div>
               </div>
             </div>
@@ -1031,7 +1032,7 @@ export default function PurchaseOrdersSection() {
               {t("registerInvoice")}: {selectedPO?.po_number}
             </DialogTitle>
             <DialogDescription>
-              {selectedPO?.supplier_name} • ${selectedPO?.total?.toFixed(2)}
+              {selectedPO?.supplier_name} • ${fmtNum(selectedPO?.total)}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">

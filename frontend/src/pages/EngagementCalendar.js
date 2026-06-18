@@ -77,10 +77,21 @@ export default function EngagementCalendar({ embedded = false }) {
 
   const fetchEvents = useCallback(async () => {
     try {
-      const res = await axios.get(`${API}/api/events`, { withCredentials: true });
-      setEvents(res.data);
+      // Use orchestration/calendar endpoint to receive enriched events with:
+      //   - calendar_dates  -> respects event_dates array (no skipped-day backfill)
+      //   - services        -> meal-by-meal breakdown (Desayuno, Almuerzo, ...) so
+      //                        each meal can render as its own calendar entry.
+      const res = await axios.get(`${API}/api/orchestration/calendar`, { withCredentials: true });
+      setEvents(res.data?.events || []);
     } catch (err) {
       console.error(err);
+      // Fallback: legacy /api/events without service breakdown
+      try {
+        const fallback = await axios.get(`${API}/api/events`, { withCredentials: true });
+        setEvents(fallback.data);
+      } catch (e2) {
+        console.error(e2);
+      }
     }
     setLoading(false);
   }, []);
@@ -144,15 +155,23 @@ export default function EngagementCalendar({ embedded = false }) {
     return matchesStatus && matchesType;
   });
 
-  // Get events for a specific date (including multi-day events)
+  // Get events for a specific date.
+  //
+  // Respects `event.calendar_dates` when provided (the new enriched payload):
+  // an event only appears on the dates IT EXPLICITLY SAYS it spans, so a
+  // proposal with non-consecutive dates (e.g. Mar 5, Mar 7, Mar 10) does NOT
+  // bleed into the days between.
+  //
+  // Falls back to event_date..end_date range for legacy payloads.
   const getEventsForDate = (date) => {
     const dateStr = date.toISOString().split('T')[0];
     return filteredEvents.filter(event => {
+      if (Array.isArray(event.calendar_dates) && event.calendar_dates.length > 0) {
+        return event.calendar_dates.includes(dateStr);
+      }
       if (!event.event_date) return false;
       const eventStartDate = event.event_date.split('T')[0];
       const eventEndDate = event.end_date ? event.end_date.split('T')[0] : eventStartDate;
-      
-      // Check if the date falls within the event range
       return dateStr >= eventStartDate && dateStr <= eventEndDate;
     }).sort((a, b) => {
       // Sort by start_time if available
@@ -163,6 +182,34 @@ export default function EngagementCalendar({ embedded = false }) {
       if (b.start_time) return 1;
       return 0;
     });
+  };
+
+  // Get individual meal/service entries for a date so each meal (Desayuno,
+  // Almuerzo, ...) renders as its own calendar block. Returns an array of
+  // `{event, service}` pairs, or `{event, service: null}` when the event has
+  // no service breakdown for that date (legacy / TBD).
+  const getEntriesForDate = (date) => {
+    const dateStr = date.toISOString().split('T')[0];
+    const entries = [];
+    for (const event of getEventsForDate(date)) {
+      const svcs = (event.services || []).filter(s => (s.date || "") === dateStr);
+      if (svcs.length === 0) {
+        entries.push({ event, service: null });
+      } else {
+        // Sort within the day by time then title so Desayuno (08:00) appears
+        // above Almuerzo (12:00).
+        svcs.sort((a, b) => {
+          const ta = a.time || "99:99";
+          const tb = b.time || "99:99";
+          if (ta !== tb) return ta.localeCompare(tb);
+          return (a.title || "").localeCompare(b.title || "");
+        });
+        for (const s of svcs) {
+          entries.push({ event, service: s });
+        }
+      }
+    }
+    return entries;
   };
 
   // Check if event is multi-day
@@ -509,7 +556,7 @@ export default function EngagementCalendar({ embedded = false }) {
               {/* Calendar Days - Compact */}
               <div className="grid grid-cols-7 gap-px bg-muted/50 rounded-lg overflow-hidden">
                 {generateMonthDays().map((dayInfo, index) => {
-                  const dayEvents = getEventsForDate(dayInfo.date);
+                  const dayEntries = getEntriesForDate(dayInfo.date);
                   const isCurrentDay = isToday(dayInfo.date);
                   
                   return (
@@ -525,31 +572,40 @@ export default function EngagementCalendar({ embedded = false }) {
                         {dayInfo.date.getDate()}
                       </div>
                       <div className="space-y-0.5">
-                        {dayEvents.map(event => {
+                        {dayEntries.map(({ event, service }, entryIdx) => {
                           const colors = getStatusColor(event.stage);
                           const multiDayPos = getMultiDayPosition(event, dayInfo.date);
                           const isMultiDay = isMultiDayEvent(event);
-                          
+                          // Compose the label: when we have a per-meal service,
+                          // surface the meal title + time prominently so users
+                          // can see at-a-glance how many pedidos exist that day.
+                          const label = service
+                            ? `${service.time ? formatTime(service.time) + " " : ""}${service.title || event.name}`
+                            : event.name;
+                          const tooltip = service
+                            ? `${event.name} · ${service.title || ""}${service.time ? " @ " + formatTime(service.time) : ""}`
+                            : `${event.name} - ${stageDisplay(normalizeStage(event.stage), isEs)}${event.start_time ? ` @ ${formatTime(event.start_time)}` : ""}`;
                           return (
                             <div
-                              key={`${event.event_id}-${dayInfo.date.toISOString()}`}
+                              key={`${event.event_id}-${dayInfo.date.toISOString()}-${entryIdx}`}
                               onClick={() => openEventDetail(event)}
                               className={`text-xs px-1 py-0.5 cursor-pointer truncate ${colors.bg} ${colors.text} hover:opacity-80 transition-opacity ${
-                                isMultiDay 
-                                  ? multiDayPos === "start" 
-                                    ? "rounded-l" 
-                                    : multiDayPos === "end" 
-                                      ? "rounded-r" 
+                                isMultiDay && !service
+                                  ? multiDayPos === "start"
+                                    ? "rounded-l"
+                                    : multiDayPos === "end"
+                                      ? "rounded-r"
                                       : ""
                                   : "rounded"
                               }`}
-                              title={`${event.name} - ${stageDisplay(normalizeStage(event.stage), isEs)}${event.start_time ? ` @ ${formatTime(event.start_time)}` : ""}`}
+                              title={tooltip}
+                              data-testid={`calendar-entry-${event.event_id}-${entryIdx}`}
                             >
-                              {isMultiDay && multiDayPos !== "start" && (
+                              {isMultiDay && !service && multiDayPos !== "start" && (
                                 <span className="opacity-60 mr-0.5">↔</span>
                               )}
-                              <span className="truncate">{event.name}</span>
-                              {isMultiDay && (
+                              <span className="truncate">{label}</span>
+                              {isMultiDay && !service && (
                                 <span className="opacity-70 ml-1 font-mono text-[10px]">{getMultiDayIndex(event, dayInfo.date)}</span>
                               )}
                             </div>
@@ -582,7 +638,7 @@ export default function EngagementCalendar({ embedded = false }) {
               {/* Week Events */}
               <div className="grid grid-cols-7 gap-1 min-h-[400px]">
                 {generateWeekDays().map((date, index) => {
-                  const dayEvents = getEventsForDate(date);
+                  const dayEntries = getEntriesForDate(date);
                   const isCurrentDay = isToday(date);
                   
                   return (
@@ -591,32 +647,39 @@ export default function EngagementCalendar({ embedded = false }) {
                       className={`p-2 border rounded-lg ${isCurrentDay ? "ring-2 ring-primary" : ""}`}
                     >
                       <div className="space-y-2">
-                        {dayEvents.map(event => {
+                        {dayEntries.map(({ event, service }, entryIdx) => {
                           const colors = getStatusColor(event.stage);
                           const isMultiDay = isMultiDayEvent(event);
                           const multiDayPos = getMultiDayPosition(event, date);
+                          // Time/title preference: per-meal first, fallback to event-level.
+                          const timeText = service?.time || event.start_time;
+                          const endText = service?.end_time || event.end_time;
+                          const titleText = service?.title || event.name;
                           
                           return (
                             <div
-                              key={`${event.event_id}-${date.toISOString()}`}
+                              key={`${event.event_id}-${date.toISOString()}-${entryIdx}`}
                               onClick={() => openEventDetail(event)}
                               className={`p-2 rounded cursor-pointer ${colors.bg} ${colors.border} ${colors.text} border hover:opacity-80 transition-opacity`}
                             >
-                              {event.start_time && (
+                              {timeText && (
                                 <div className="text-xs font-semibold mb-1 flex items-center gap-1">
                                   <Clock className="w-3 h-3" />
-                                  {formatTime(event.start_time)}
-                                  {event.end_time && ` - ${formatTime(event.end_time)}`}
+                                  {formatTime(timeText)}
+                                  {endText && ` - ${formatTime(endText)}`}
                                 </div>
                               )}
                               <div className="font-medium text-sm truncate">
-                                {isMultiDay && multiDayPos !== "start" && <span className="opacity-60">↔ </span>}
-                                {event.name}
+                                {isMultiDay && !service && multiDayPos !== "start" && <span className="opacity-60">↔ </span>}
+                                {titleText}
                               </div>
+                              {service && (
+                                <div className="text-xs opacity-70 truncate">{event.name}</div>
+                              )}
                               <div className="text-xs opacity-75">{event.client_name}</div>
                               <div className="flex items-center gap-1 mt-1">
                                 <Badge className={`text-xs ${colors.bg} ${colors.text}`}>{stageDisplay(normalizeStage(event.stage), isEs)}</Badge>
-                                {isMultiDay && (
+                                {isMultiDay && !service && (
                                   <Badge variant="outline" className="text-xs">
                                     {(isEs ? "Multi-día " : "Multi-day ")}{getMultiDayIndex(event, date)}
                                   </Badge>
@@ -625,7 +688,7 @@ export default function EngagementCalendar({ embedded = false }) {
                             </div>
                           );
                         })}
-                        {dayEvents.length === 0 && (
+                        {dayEntries.length === 0 && (
                           <div className="text-xs text-muted-foreground text-center py-4">
                             {isEs ? "Sin eventos" : "No events"}
                           </div>

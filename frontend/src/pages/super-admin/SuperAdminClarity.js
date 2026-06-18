@@ -25,6 +25,7 @@ import "jspdf-autotable";
 
 import { API_BASE as API } from "../../utils/api";
 import { formatDateOnly } from "../../utils/dates";
+import { fmtNum } from "../../utils/format";
 
 export default function SuperAdminClarity() {
   const { language } = useLanguage();
@@ -179,7 +180,7 @@ export default function SuperAdminClarity() {
       categoryLabels[cost.category] || cost.category,
       `$${cost.amount}`,
       cost.frequency === "monthly" ? (isEs ? "Mensual" : "Monthly") : (isEs ? "Anual" : "Yearly"),
-      `$${cost.frequency === "monthly" ? cost.amount : (cost.amount / 12).toFixed(2)}`,
+      `$${cost.frequency === "monthly" ? cost.amount : fmtNum((cost.amount / 12))}`,
       cost.notes || ""
     ]);
     
@@ -190,7 +191,7 @@ export default function SuperAdminClarity() {
       "",
       "",
       "",
-      `$${totalFixedCosts.toFixed(2)}`,
+      `$${fmtNum(totalFixedCosts)}`,
       ""
     ]);
     rows.push([
@@ -198,7 +199,7 @@ export default function SuperAdminClarity() {
       "",
       "",
       "",
-      `$${(totalFixedCosts * 12).toFixed(2)}`,
+      `$${fmtNum((totalFixedCosts * 12))}`,
       ""
     ]);
     
@@ -242,17 +243,17 @@ export default function SuperAdminClarity() {
     
     doc.setFontSize(10);
     doc.setTextColor(80, 80, 80);
-    doc.text(`${isEs ? "Total Mensual" : "Monthly Total"}: $${totalFixedCosts.toFixed(2)}`, 14, 64);
-    doc.text(`${isEs ? "Total Anual" : "Annual Total"}: $${(totalFixedCosts * 12).toFixed(2)}`, 14, 70);
+    doc.text(`${isEs ? "Total Mensual" : "Monthly Total"}: $${fmtNum(totalFixedCosts)}`, 14, 64);
+    doc.text(`${isEs ? "Total Anual" : "Annual Total"}: $${fmtNum((totalFixedCosts * 12))}`, 14, 70);
     doc.text(`${isEs ? "Número de Conceptos" : "Number of Items"}: ${fixedCosts.length}`, 14, 76);
     
     // Table
     const tableData = fixedCosts.map(cost => [
       cost.name,
       categoryLabels[cost.category] || cost.category,
-      `$${cost.amount.toFixed(2)}`,
+      `$${fmtNum(cost.amount)}`,
       cost.frequency === "monthly" ? (isEs ? "Mensual" : "Monthly") : (isEs ? "Anual" : "Yearly"),
-      `$${(cost.frequency === "monthly" ? cost.amount : cost.amount / 12).toFixed(2)}`
+      `$${fmtNum((cost.frequency === "monthly" ? cost.amount : cost.amount / 12))}`
     ]);
     
     doc.autoTable({
@@ -270,7 +271,7 @@ export default function SuperAdminClarity() {
         "",
         "",
         "",
-        `$${totalFixedCosts.toFixed(2)}`
+        `$${fmtNum(totalFixedCosts)}`
       ]],
       theme: "striped",
       headStyles: { fillColor: [58, 77, 63], textColor: 255 },
@@ -293,7 +294,7 @@ export default function SuperAdminClarity() {
       }, {})
     ).map(([cat, amount]) => [
       categoryLabels[cat] || cat,
-      `$${amount.toFixed(2)}`,
+      `$${fmtNum(amount)}`,
       `${((amount / totalFixedCosts) * 100).toFixed(1)}%`
     ]);
     

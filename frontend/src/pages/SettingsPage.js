@@ -56,6 +56,7 @@ import LocaleSettingsSection from "../components/settings/LocaleSettingsSection"
 import MarginPolicySection from "../components/settings/MarginPolicySection";
 import { BillingSection, TeamSection } from "../components/org";
 import { formatDateOnly } from "../utils/dates";
+import { fmtNum } from "../utils/format";
 
 const CURRENCIES = ["USD", "EUR", "MXN", "COP", "ARS", "CLP", "PEN", "DOP"];
 const EVENT_TYPES = ["wedding", "corporate", "birthday", "social", "other"];
@@ -189,8 +190,15 @@ export default function SettingsPage() {
     catalog_description: "",
     catalog_hero_image_url: "",
     catalog_show_prices: true,
+    // Signature & Stamp (embedded into every generated document)
+    signature_image_url: "",
+    stamp_image_url: "",
+    signatory_name: "",
+    signatory_title: "",
   });
   const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [uploadingSignature, setUploadingSignature] = useState(false);
+  const [uploadingStamp, setUploadingStamp] = useState(false);
   const [activeTermsTab, setActiveTermsTab] = useState("proposal");
   const [showDocPreview, setShowDocPreview] = useState(false);
   
@@ -332,6 +340,11 @@ export default function SettingsPage() {
         catalog_description: response.data.catalog_description || "",
         catalog_hero_image_url: response.data.catalog_hero_image_url || "",
         catalog_show_prices: response.data.catalog_show_prices !== false,
+        // Signature & Stamp
+        signature_image_url: response.data.signature_image_url || "",
+        stamp_image_url: response.data.stamp_image_url || "",
+        signatory_name: response.data.signatory_name || "",
+        signatory_title: response.data.signatory_title || "",
       });
     } catch (error) {
       console.error("Failed to fetch company:", error);
@@ -712,6 +725,45 @@ export default function SettingsPage() {
       toast.error(error.response?.data?.detail || (language === "es" ? "Error al subir logo" : "Failed to upload logo"));
     } finally {
       setUploadingLogo(false);
+    }
+  };
+
+  // Generic helper for signature & stamp uploads — both endpoints share the
+  // same shape as /company/logo (POST multipart/form-data, returns data URL).
+  const handleSignatureOrStampUpload = async (event, kind) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error(language === "es" ? "Solo se permiten imágenes" : "Image files only");
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error(language === "es" ? "El archivo es muy grande. Máximo 2MB" : "File too large. Max 2MB");
+      return;
+    }
+    const setBusy = kind === "signature" ? setUploadingSignature : setUploadingStamp;
+    setBusy(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await axios.post(`${API}/settings/company/${kind}`, fd, {
+        withCredentials: true,
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      const field = kind === "signature" ? "signature_image_url" : "stamp_image_url";
+      setFormData({ ...formData, [field]: res.data[field] });
+      toast.success(
+        language === "es"
+          ? (kind === "signature" ? "Firma subida correctamente" : "Sello subido correctamente")
+          : (kind === "signature" ? "Signature uploaded" : "Stamp uploaded")
+      );
+    } catch (err) {
+      toast.error(
+        err.response?.data?.detail ||
+          (language === "es" ? "Error al subir archivo" : "Failed to upload file")
+      );
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -2573,7 +2625,182 @@ export default function SettingsPage() {
                 </CardContent>
               </Card>
 
-              {/* Public Catalog Card */}
+              {/* Signature & Stamp Card — appended to all generated documents */}
+              <Card data-testid="signature-stamp-card">
+                <CardHeader>
+                  <CardTitle className="font-heading text-lg flex items-center gap-2">
+                    <Edit className="w-5 h-5" />
+                    {language === "es" ? "Firma y Sello (Documentos)" : "Signature & Stamp (Documents)"}
+                  </CardTitle>
+                  <CardDescription>
+                    {language === "es"
+                      ? "Sube tu firma autorizada y sello empresarial. Aparecerán automáticamente en TODOS los documentos generados (cotizaciones, BEOs, recibos, etc.), junto a un espacio para que el cliente firme como aprobado."
+                      : "Upload your authorized signature and company stamp. They will appear automatically on EVERY generated document (proposals, BEOs, receipts, etc.) next to a client signature space."}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div className="grid sm:grid-cols-2 gap-6">
+                    {/* Signature uploader */}
+                    <div>
+                      <Label className="mb-2 block">
+                        {language === "es" ? "Firma Autorizada" : "Authorized Signature"}
+                      </Label>
+                      <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-4 text-center bg-background">
+                        {formData.signature_image_url ? (
+                          <div className="space-y-3">
+                            <img
+                              src={formData.signature_image_url}
+                              alt="Signature"
+                              className="max-h-24 mx-auto object-contain"
+                              data-testid="signature-preview"
+                            />
+                            <div className="flex items-center justify-center gap-4">
+                              <label className="cursor-pointer">
+                                <input
+                                  type="file"
+                                  className="hidden"
+                                  accept="image/png,image/jpeg,image/webp"
+                                  onChange={(e) => handleSignatureOrStampUpload(e, "signature")}
+                                  disabled={uploadingSignature}
+                                  data-testid="signature-upload-input"
+                                />
+                                <span className="text-xs text-primary hover:underline flex items-center gap-1">
+                                  {uploadingSignature ? <Loader2 className="w-3 h-3 animate-spin" /> : <Edit className="w-3 h-3" />}
+                                  {language === "es" ? "Cambiar" : "Change"}
+                                </span>
+                              </label>
+                              <button
+                                type="button"
+                                className="text-xs text-destructive hover:underline"
+                                onClick={() => setFormData({ ...formData, signature_image_url: "" })}
+                              >
+                                {language === "es" ? "Eliminar" : "Remove"}
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <label className="cursor-pointer block py-4">
+                            <input
+                              type="file"
+                              className="hidden"
+                              accept="image/png,image/jpeg,image/webp"
+                              onChange={(e) => handleSignatureOrStampUpload(e, "signature")}
+                              disabled={uploadingSignature}
+                              data-testid="signature-upload-input"
+                            />
+                            <Upload className="w-8 h-8 mx-auto text-muted-foreground mb-2" />
+                            <span className="text-sm text-muted-foreground">
+                              {uploadingSignature ? (
+                                <span className="flex items-center justify-center gap-2">
+                                  <Loader2 className="w-4 h-4 animate-spin" />
+                                  {language === "es" ? "Subiendo..." : "Uploading..."}
+                                </span>
+                              ) : (
+                                language === "es" ? "Subir firma" : "Upload signature"
+                              )}
+                            </span>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {language === "es"
+                                ? "PNG con fondo transparente (máx 2MB)"
+                                : "PNG with transparent background (max 2MB)"}
+                            </p>
+                          </label>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Stamp uploader */}
+                    <div>
+                      <Label className="mb-2 block">
+                        {language === "es" ? "Sello Empresarial" : "Company Stamp"}
+                      </Label>
+                      <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-4 text-center bg-background">
+                        {formData.stamp_image_url ? (
+                          <div className="space-y-3">
+                            <img
+                              src={formData.stamp_image_url}
+                              alt="Stamp"
+                              className="max-h-24 mx-auto object-contain"
+                              data-testid="stamp-preview"
+                            />
+                            <div className="flex items-center justify-center gap-4">
+                              <label className="cursor-pointer">
+                                <input
+                                  type="file"
+                                  className="hidden"
+                                  accept="image/png,image/jpeg,image/webp"
+                                  onChange={(e) => handleSignatureOrStampUpload(e, "stamp")}
+                                  disabled={uploadingStamp}
+                                  data-testid="stamp-upload-input"
+                                />
+                                <span className="text-xs text-primary hover:underline flex items-center gap-1">
+                                  {uploadingStamp ? <Loader2 className="w-3 h-3 animate-spin" /> : <Edit className="w-3 h-3" />}
+                                  {language === "es" ? "Cambiar" : "Change"}
+                                </span>
+                              </label>
+                              <button
+                                type="button"
+                                className="text-xs text-destructive hover:underline"
+                                onClick={() => setFormData({ ...formData, stamp_image_url: "" })}
+                              >
+                                {language === "es" ? "Eliminar" : "Remove"}
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <label className="cursor-pointer block py-4">
+                            <input
+                              type="file"
+                              className="hidden"
+                              accept="image/png,image/jpeg,image/webp"
+                              onChange={(e) => handleSignatureOrStampUpload(e, "stamp")}
+                              disabled={uploadingStamp}
+                              data-testid="stamp-upload-input"
+                            />
+                            <Upload className="w-8 h-8 mx-auto text-muted-foreground mb-2" />
+                            <span className="text-sm text-muted-foreground">
+                              {uploadingStamp ? (
+                                <span className="flex items-center justify-center gap-2">
+                                  <Loader2 className="w-4 h-4 animate-spin" />
+                                  {language === "es" ? "Subiendo..." : "Uploading..."}
+                                </span>
+                              ) : (
+                                language === "es" ? "Subir sello" : "Upload stamp"
+                              )}
+                            </span>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {language === "es"
+                                ? "PNG con fondo transparente (máx 2MB)"
+                                : "PNG with transparent background (max 2MB)"}
+                            </p>
+                          </label>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid sm:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>{language === "es" ? "Nombre del Firmante" : "Signatory Name"}</Label>
+                      <Input
+                        value={formData.signatory_name}
+                        onChange={(e) => setFormData({ ...formData, signatory_name: e.target.value })}
+                        placeholder={language === "es" ? "Ej: María García" : "E.g., María García"}
+                        data-testid="signatory-name-input"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>{language === "es" ? "Cargo del Firmante" : "Signatory Title"}</Label>
+                      <Input
+                        value={formData.signatory_title}
+                        onChange={(e) => setFormData({ ...formData, signatory_title: e.target.value })}
+                        placeholder={language === "es" ? "Ej: Gerente General" : "E.g., General Manager"}
+                        data-testid="signatory-title-input"
+                      />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
               <Card data-testid="catalog-settings-card">
                 <CardHeader>
                   <CardTitle className="font-heading text-lg flex items-center gap-2">
@@ -3112,7 +3339,7 @@ export default function SettingsPage() {
                           {item.description && <p className="text-xs text-muted-foreground mb-1">{item.description}</p>}
                           <div className="flex flex-wrap gap-2 text-sm text-muted-foreground">
                             <span>{getCategoryName(item.category_id)}</span>
-                            <span className="font-mono">${item.default_price?.toFixed(2)}</span>
+                            <span className="font-mono">${fmtNum(item.default_price)}</span>
                             {item.recipe_name && (
                               <span className="text-green-600 dark:text-green-400 flex items-center gap-1">
                                 <Utensils className="w-3 h-3" /> {item.recipe_name}
@@ -3130,7 +3357,7 @@ export default function SettingsPage() {
                             )}
                             {item.calculated_cost && (
                               <span className="text-muted-foreground">
-                                {language === "es" ? "Costo" : "Cost"}: ${item.calculated_cost?.toFixed(2)} 
+                                {language === "es" ? "Costo" : "Cost"}: ${fmtNum(item.calculated_cost)} 
                                 <span className="text-xs ml-1">({item.cost_source})</span>
                               </span>
                             )}
@@ -3277,7 +3504,7 @@ export default function SettingsPage() {
                           <SelectItem value="none">{language === "es" ? "Sin receta" : "No recipe"}</SelectItem>
                           {recipes.map(r => (
                             <SelectItem key={r.recipe_id} value={r.recipe_id}>
-                              {r.name} - ${(r.cost_per_portion || r.cost_per_serving || 0).toFixed(2)} {language === "es" ? "costo" : "cost"}
+                              {r.name} - ${fmtNum((r.cost_per_portion || r.cost_per_serving || 0))} {language === "es" ? "costo" : "cost"}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -3322,7 +3549,7 @@ export default function SettingsPage() {
                               <SelectItem value="none">{language === "es" ? "Sin formato específico (usar receta general)" : "No specific format (use general recipe)"}</SelectItem>
                               {picklistRecipeFormats.map(f => (
                                 <SelectItem key={f.format_id} value={f.format_id}>
-                                  {f.format_name} — {language === "es" ? "Costo" : "Cost"} ${(f.cost_per_portion || 0).toFixed(2)} · {language === "es" ? "Precio" : "Price"} ${(f.sell_price || f.suggested_price || 0).toFixed(2)}{f.is_default ? ` · ${language === "es" ? "Predeterminado" : "Default"}` : ""}
+                                  {f.format_name} — {language === "es" ? "Costo" : "Cost"} ${fmtNum((f.cost_per_portion || 0))} · {language === "es" ? "Precio" : "Price"} ${fmtNum((f.sell_price || f.suggested_price || 0))}{f.is_default ? ` · ${language === "es" ? "Predeterminado" : "Default"}` : ""}
                                 </SelectItem>
                               ))}
                             </SelectContent>
@@ -3343,7 +3570,7 @@ export default function SettingsPage() {
                           <SelectItem value="none">{language === "es" ? "Sin inventario" : "No inventory"}</SelectItem>
                           {inventoryItems.map(inv => (
                             <SelectItem key={inv.item_id} value={inv.item_id}>
-                              {inv.name} - ${(inv.unit_cost || 0).toFixed(2)}
+                              {inv.name} - ${fmtNum((inv.unit_cost || 0))}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -3527,10 +3754,10 @@ export default function SettingsPage() {
                                   </td>
                                   <td className="px-2 py-1.5 text-muted-foreground truncate max-w-[200px]">{r.description || "—"}</td>
                                   <td className={`px-2 py-1.5 text-right font-mono ${r.errors.includes("price") ? "text-red-600" : ""}`}>
-                                    ${(r.price || 0).toFixed(2)}
+                                    ${fmtNum((r.price || 0))}
                                   </td>
                                   <td className={`px-2 py-1.5 text-right font-mono text-muted-foreground ${r.errors.includes("cost") ? "text-red-600" : ""}`}>
-                                    {r.cost == null ? "—" : `$${r.cost.toFixed(2)}`}
+                                    {r.cost == null ? "—" : `$${fmtNum(r.cost)}`}
                                   </td>
                                 </tr>
                               ))}
@@ -3613,7 +3840,7 @@ export default function SettingsPage() {
                                       key={idx} 
                                       className={`text-xs ${variant.is_default ? 'bg-primary' : 'bg-muted text-foreground'}`}
                                     >
-                                      {variant.name}: ${variant.final_price?.toFixed(2)}
+                                      {variant.name}: ${fmtNum(variant.final_price)}
                                       {variant.discount_value > 0 && (
                                         <span className="ml-1 opacity-75">
                                           ({variant.discount_type === 'percentage' ? `-${variant.discount_value}%` : `-$${variant.discount_value}`})
@@ -3627,12 +3854,12 @@ export default function SettingsPage() {
                               <div className="flex items-center gap-4 text-sm">
                                 <span className="font-mono font-medium">
                                   {menu.is_fixed_price ? `${language === "es" ? "Precio Fijo" : "Fixed"}: ` : ""}
-                                  ${menu.total_price?.toFixed(2)}
+                                  ${fmtNum(menu.total_price)}
                                 </span>
                                 {featureFlags?.is_margin_tracking_enabled && (
                                   <>
                                     <span className="text-muted-foreground">
-                                      {language === "es" ? "Costo" : "Cost"}: ${menu.total_cost?.toFixed(2)}
+                                      {language === "es" ? "Costo" : "Cost"}: ${fmtNum(menu.total_cost)}
                                     </span>
                                     <span className={menu.margin_percentage < 20 ? 'text-destructive' : menu.margin_percentage > 50 ? 'text-green-600' : 'text-amber-600'}>
                                       {language === "es" ? "Margen" : "Margin"}: {menu.margin_percentage?.toFixed(0)}%
@@ -3745,7 +3972,7 @@ export default function SettingsPage() {
                       <SelectContent>
                         {picklist.filter(p => p.is_active !== false).map(item => (
                           <SelectItem key={item.item_id} value={item.item_id}>
-                            {item.name} - ${item.default_price?.toFixed(2)} ({item.item_type})
+                            {item.name} - ${fmtNum(item.default_price)} ({item.item_type})
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -3770,7 +3997,7 @@ export default function SettingsPage() {
                                 {item.custom_name || picklistItem?.name || "Item"}
                               </span>
                               <span className="text-sm text-muted-foreground">
-                                ${((picklistItem?.default_price || 0) * item.quantity).toFixed(2)}
+                                ${fmtNum(((picklistItem?.default_price || 0) * item.quantity))}
                               </span>
                               <Button type="button" variant="ghost" size="icon" onClick={() => removeItemFromMenu(idx)}>
                                 <Trash2 className="w-4 h-4 text-destructive" />

@@ -12,6 +12,7 @@ import { Card, CardContent } from "./ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./ui/table";
 import { Calculator, Loader2, AlertTriangle, ChefHat, Package, Info } from "lucide-react";
 import { API_BASE as API } from "../utils/api";
+import { fmtNum } from "../utils/format";
 
 /**
  * EventProductionPlan — P1-A modal.
@@ -131,7 +132,7 @@ export default function EventProductionPlan({ open, onOpenChange, events = [] })
               <Card>
                 <CardContent className="p-3">
                   <p className="text-[10px] uppercase text-muted-foreground">{language === "es" ? "Costo Insumos" : "Input Cost"}</p>
-                  <p className="font-semibold text-lg text-primary">${(t.total_input_cost || 0).toFixed(2)}</p>
+                  <p className="font-semibold text-lg text-primary">${fmtNum((t.total_input_cost || 0))}</p>
                 </CardContent>
               </Card>
               <Card className={t.shortage_count > 0 ? "border-red-300" : ""}>
@@ -175,7 +176,7 @@ export default function EventProductionPlan({ open, onOpenChange, events = [] })
                           </TableCell>
                           <TableCell className="text-right font-mono">{r.portions_required}</TableCell>
                           <TableCell className="text-right font-mono text-muted-foreground">×{r.scale_factor}</TableCell>
-                          <TableCell className="text-right font-mono">${r.total_cost.toFixed(2)}</TableCell>
+                          <TableCell className="text-right font-mono">${fmtNum(r.total_cost)}</TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -220,7 +221,7 @@ export default function EventProductionPlan({ open, onOpenChange, events = [] })
                           <TableCell className={`text-right font-mono ${ing.shortage > 0 ? "text-red-600 font-semibold" : ""}`}>
                             {ing.shortage > 0 ? `${ing.shortage} ${ing.unit}` : "—"}
                           </TableCell>
-                          <TableCell className="text-right font-mono">${ing.total_cost.toFixed(2)}</TableCell>
+                          <TableCell className="text-right font-mono">${fmtNum(ing.total_cost)}</TableCell>
                         </TableRow>
                       ))}
                     </TableBody>

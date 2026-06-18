@@ -14,6 +14,7 @@ import { Textarea } from "./ui/textarea";
 import { toast } from "sonner";
 import { Plus, CreditCard, RefreshCw, DollarSign, CheckCircle, AlertTriangle, Banknote, ExternalLink } from "lucide-react";
 import { formatDateOnly } from "../utils/dates";
+import { fmtNum } from "../utils/format";
 
 
 const formatCurrency = (amount) => `$${(amount || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -150,7 +151,7 @@ export default function EventPayments({ eventId, event, client }) {
       if (remaining <= 0) break;
       const toApply = Math.min(remaining, inv.balance_due || 0);
       if (toApply > 0) {
-        autoAmounts[inv.invoice_id] = toApply.toFixed(2);
+        autoAmounts[inv.invoice_id] = fmtNum(toApply);
         remaining -= toApply;
       }
     }

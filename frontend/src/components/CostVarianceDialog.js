@@ -12,6 +12,7 @@ import { Label } from "./ui/label";
 import { AlertTriangle, Loader2, Info, TrendingUp, TrendingDown } from "lucide-react";
 import { API_BASE as API } from "../utils/api";
 import { formatDateOnly } from "../utils/dates";
+import { fmtNum } from "../utils/format";
 
 const SEVERITY_META = {
   ok: { cls: "bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-300", labelEn: "OK", labelEs: "OK" },
@@ -149,9 +150,9 @@ export default function CostVarianceDialog({ open, onOpenChange, initialEventId 
                 </Badge>
               </div>
               <div className="grid grid-cols-3 gap-2 text-xs">
-                <div><span className="opacity-70">{isEs ? "Teórico" : "Theoretical"}:</span> <span className="font-mono font-semibold">${focusedEvent.theoretical_cost.toFixed(2)}</span></div>
-                <div><span className="opacity-70">{isEs ? "Real" : "Actual"}:</span> <span className="font-mono font-semibold">${focusedEvent.actual_cost.toFixed(2)}</span></div>
-                <div><span className="opacity-70">{isEs ? "Variación" : "Variance"}:</span> <span className="font-mono font-semibold">${focusedEvent.variance_amount.toFixed(2)}</span></div>
+                <div><span className="opacity-70">{isEs ? "Teórico" : "Theoretical"}:</span> <span className="font-mono font-semibold">${fmtNum(focusedEvent.theoretical_cost)}</span></div>
+                <div><span className="opacity-70">{isEs ? "Real" : "Actual"}:</span> <span className="font-mono font-semibold">${fmtNum(focusedEvent.actual_cost)}</span></div>
+                <div><span className="opacity-70">{isEs ? "Variación" : "Variance"}:</span> <span className="font-mono font-semibold">${fmtNum(focusedEvent.variance_amount)}</span></div>
               </div>
               {focusedEvent.production_batches?.length > 0 && (
                 <p className="text-xs opacity-80">
@@ -188,8 +189,8 @@ export default function CostVarianceDialog({ open, onOpenChange, initialEventId 
                     <TableCell className="text-xs text-muted-foreground">
                       {e.event_date ? formatDateOnly(e.event_date, language) : "—"}
                     </TableCell>
-                    <TableCell className="text-right font-mono">${e.theoretical_cost.toFixed(2)}</TableCell>
-                    <TableCell className="text-right font-mono">${e.actual_cost.toFixed(2)}</TableCell>
+                    <TableCell className="text-right font-mono">${fmtNum(e.theoretical_cost)}</TableCell>
+                    <TableCell className="text-right font-mono">${fmtNum(e.actual_cost)}</TableCell>
                     <TableCell className="text-right font-mono">
                       <span className={e.is_overrun ? "text-rose-600 font-semibold" : "text-emerald-600 font-semibold"}>
                         {e.is_overrun ? <TrendingUp className="inline w-3 h-3 mr-0.5" /> : <TrendingDown className="inline w-3 h-3 mr-0.5" />}

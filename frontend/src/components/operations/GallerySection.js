@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Image, Loader2 } from "lucide-react";
 
 import { API_BASE as API } from "../../utils/api";
+import { fmtNum } from "../../utils/format";
 
 export function GallerySection() {
   const { language } = useLanguage();
@@ -117,7 +118,7 @@ export function GallerySection() {
                   </div>
                   <div>
                     <span className="text-muted-foreground">{isEs ? "Costo:" : "Cost:"}</span>
-                    <span className="ml-2 font-medium">${(selectedImage.cost_per_unit || 0).toFixed(2)}</span>
+                    <span className="ml-2 font-medium">${fmtNum((selectedImage.cost_per_unit || 0))}</span>
                   </div>
                 </div>
                 {selectedImage.notes && (

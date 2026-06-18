@@ -25,6 +25,7 @@ import {
 
 import { API_BASE as API } from "../../utils/api";
 import { formatDateOnly } from "../../utils/dates";
+import { fmtNum } from "../../utils/format";
 
 const ROLES = ["owner", "admin", "ops", "finance", "viewer"];
 
@@ -780,7 +781,7 @@ export default function OrganizationDetailPage() {
                 {modules.active_modules?.length > 0 && (
                   <div className="mt-4 pt-4 border-t border-gray-200 flex justify-between">
                     <span className="text-gray-500">Monthly Module Cost</span>
-                    <span className="font-bold text-green-400">${modules.monthly_module_cost?.toFixed(2) || "0.00"}/mes</span>
+                    <span className="font-bold text-green-400">${fmtNum(modules.monthly_module_cost) || "0.00"}/mes</span>
                   </div>
                 )}
               </CardContent>

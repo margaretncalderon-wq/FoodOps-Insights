@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, createContext, useContext } from "react";
 import axios from "axios";
 import { API_BASE as API } from "../utils/api";
+import { fmtNum } from "../utils/format";
 
 const LocaleContext = createContext(null);
 
@@ -51,7 +52,7 @@ export function LocaleProvider({ children }) {
     try {
       return new Intl.NumberFormat(loc, { style: "currency", currency: locale.currency }).format(amount);
     } catch {
-      return `${locale.currency} ${Number(amount).toFixed(2)}`;
+      return `${locale.currency} ${fmtNum((amount))}`;
     }
   }, [locale.currency, currencies]);
 

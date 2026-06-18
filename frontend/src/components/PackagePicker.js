@@ -10,6 +10,7 @@ import { Badge } from "./ui/badge";
 import { Package, ArrowLeft, Layers, Loader2, Check } from "lucide-react";
 
 import { API_BASE as API } from "../utils/api";
+import { fmtNum } from "../utils/format";
 
 /**
  * PackagePicker — Load a saved Menu/Package into a proposal in one click.
@@ -163,7 +164,7 @@ export default function PackagePicker({ proposalId, quantityMultiplier = 1, onLo
                       </div>
                       <div className="text-right flex-shrink-0">
                         <p className="text-xs font-mono">
-                          ${(m.is_fixed_price && m.default_price ? m.default_price : m.total_price || 0).toFixed(2)}
+                          ${fmtNum((m.is_fixed_price && m.default_price ? m.default_price : m.total_price || 0))}
                         </p>
                       </div>
                     </CommandItem>

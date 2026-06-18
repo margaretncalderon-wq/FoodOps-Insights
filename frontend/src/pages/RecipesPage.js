@@ -16,6 +16,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "../components/ui/dropdown-menu";
+import { fmtNum } from "../utils/format";
 
 
 // Canonical dietary tag list — keep in sync with Recipe.dietary_tags emitted by FE/BE.
@@ -297,7 +298,7 @@ export default function RecipesPage() {
                   </div>
                   <span className="flex items-center gap-1 font-medium text-primary">
                     <DollarSign className="w-4 h-4" />
-                    {(recipe.cost_per_portion || recipe.cost_per_serving || 0).toFixed(2)}
+                    {fmtNum((recipe.cost_per_portion || recipe.cost_per_serving || 0))}
                   </span>
                 </div>
               </CardContent>

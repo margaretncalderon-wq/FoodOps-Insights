@@ -14,6 +14,7 @@ import { AlertTriangle, RefreshCw, TrendingUp, TrendingDown, ExternalLink, Shiel
 import { toast } from "sonner";
 import { useModules } from "../contexts/ModulesContext";
 import { formatDateOnly } from "../utils/dates";
+import { fmtNum } from "../utils/format";
 
 // Icon + label per item type — keeps the breakdown readable without emojis
 const ITEM_TYPE_META = {
@@ -79,7 +80,7 @@ export default function CostHealthDashboard({ mode = "section", onNavigate }) {
   const selectedProposals = proposals.filter((p) => selected[p.proposal_id]);
   const selectedDelta = selectedProposals.reduce((s, p) => s + (p.delta_total || 0), 0);
 
-  const fmtMoney = (n) => `${n < 0 ? "-" : ""}$${Math.abs(n).toFixed(2)}`;
+  const fmtMoney = (n) => `${n < 0 ? "-" : ""}$${fmtNum(Math.abs(n))}`;
   const fmtPct = (n) => `${n > 0 ? "+" : ""}${(n || 0).toFixed(1)}%`;
   const marginColor = (pct) => {
     if (pct == null) return "text-muted-foreground";
@@ -626,7 +627,7 @@ export default function CostHealthDashboard({ mode = "section", onNavigate }) {
                           )}
                         </td>
                         <td className="px-3 py-2.5 text-right text-xs text-muted-foreground">
-                          ${(p.total_amount || 0).toFixed(2)}
+                          ${fmtNum((p.total_amount || 0))}
                         </td>
                         <td className="px-3 py-2.5">
                           <Button

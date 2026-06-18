@@ -1,0 +1,29 @@
+{
+  "summary": "Iteration 193 — Verified 4 bugfixes in Client Engagement + Event Orchestration: (1) Currency thousands separator in PDF/preview; (2) Calendar shows multiple meals/sections per day; (3) Calendar respects explicit non-consecutive event_dates (doesn't fill skipped days); (4) Signature/Stamp/Signatory upload + auto-embed in documents. Backend: 7/7 pytest passed. Frontend: All 4 bugs verified end-to-end on demo.agency@kora.com — settings page has Signature & Stamp card with 4 testids, calendar shows separate entries per section with `calendar-entry-{eventId}-{idx}`, document preview (Proposal/Contract) renders `document-signature-block` with stamp+signature images, signatory name 'TEST_Signer_7608dd' (persisted via PUT /settings/company), 'Director General' title, 'Authorized by' caption, and 'Client signature — Approved' on right; subtotal/total render as RD$100,600.00 with comma separator and 2 decimals.",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_proposal_calendar_signature_bugfixes.py",
+    "/app/test_reports/pytest/iter193_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "_expand_event_dates correctly short-circuits when explicit event_dates exist — good defensive coding. The same helper is defined twice (lines ~4223 and ~15815 in server.py); both were fixed but this duplication should be extracted into a shared utility in a future refactor.",
+    "signature/stamp upload stores image as base64 data URL in MongoDB — works but inflates document size; consider GridFS / object storage if many companies upload high-resolution images.",
+    "DocumentPreview signature block correctly renders on all document types (verified on Proposal/Contract). Recommend smoke-checking BEO and Delivery Note variants in next iteration if not yet done."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_proposal_calendar_signature_bugfixes.py"
+  ],
+  "success_rate": { "backend": "100%", "frontend": "100%" },
+  "test_credentials": "demo.agency@kora.com / Evoque2024! (from /app/memory/test_credentials.md)",
+  "seed_data_creation": "Patched existing event event_e04d56815daf with event_dates=['2026-03-05','2026-03-07','2026-03-10'] to validate Bug #3. Also wrote signatory_name='TEST_Signer_<random>' + signatory_title='Director General' + uploaded 1x1 PNG signature + stamp via the new endpoints.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "All 4 reported bugs are resolved. fmtNum utility working across proposal cards (e.g. $100,600), event detail items ($52,500.00, $25,500.00), and DocumentPreview (RD$100,600.00). Signature block has data-testid `document-signature-block` with 2 nested <img> tags + signatory text. Calendar uses `calendar-entry-{eventId}-{idx}` selectors. For Bug #3 the calendar_dates response from GET /api/orchestration/calendar?start_date=...&end_date=... returns exactly the explicit dates (verified via curl + UI showing the skipped day as blank).",
+  "rca of the issue": "Bug #3 RCA: _expand_event_dates was unconditionally expanding event_date→end_date as a consecutive range even when event_dates list was provided. Fix correctly returns sorted(set(explicit_dates ∪ {primary})) early without range expansion when explicit_dates is non-empty. Bug #1 RCA: bare toFixed(2) does not insert thousands separators; replaced with Intl.NumberFormat (en-US) via new fmtNum util and buildCurrencyFormatter in DocumentPreview. Bug #2 RCA: calendar previously grouped only by (date, section_time) without preserving per-section entries; new getEntriesForDate splits events into per-section entries (section_title + section_time). Bug #4: new Company model fields + multipart upload endpoints + base64 data URL persistence + DocumentPreview footer block injection."
+}

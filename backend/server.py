@@ -224,6 +224,10 @@ class Company(BaseModel):
     company_id: str
     name: str
     logo_url: Optional[str] = None
+    signature_image_url: Optional[str] = None  # Authorized signatory's signature
+    stamp_image_url: Optional[str] = None  # Company seal/stamp
+    signatory_name: Optional[str] = None  # Name displayed under the signature
+    signatory_title: Optional[str] = None  # Title displayed under the signature
     primary_color: str = "#3A4D3F"
     secondary_color: str = "#E5DCC5"
     default_language: str = "en"
@@ -4219,13 +4223,19 @@ async def get_kitchen_beo(event_id: str, user: User = Depends(get_current_user))
     def _expand_event_dates(ev):
         from datetime import date as _date
         dates: set = set()
+        explicit_dates = []
         for d in ev.get("event_dates") or []:
             nd = _norm_date(d)
             if nd:
+                explicit_dates.append(nd)
                 dates.add(nd)
         primary = _norm_date(ev.get("event_date"))
         if primary:
             dates.add(primary)
+        # Only expand consecutively when no explicit event_dates list is provided
+        # (otherwise we'd fill in skipped days the user explicitly omitted).
+        if explicit_dates:
+            return sorted(dates)
         end = _norm_date(ev.get("end_date"))
         if primary and end and end > primary:
             try:
@@ -6733,6 +6743,49 @@ async def upload_company_logo(file: UploadFile = File(...), user: User = Depends
     
     return {"logo_url": logo_data_url}
 
+
+@settings_router.post("/company/signature")
+async def upload_company_signature(file: UploadFile = File(...), user: User = Depends(get_current_user)):
+    """Upload an authorized signatory's signature image (PNG with transparent
+    background recommended). Stored as base64 data URL on the company doc.
+    Embedded at the bottom of every generated document (proposal, BEO,
+    delivery note, etc.) above the signature line.
+    """
+    import base64
+    allowed_types = ["image/jpeg", "image/png", "image/webp"]
+    if file.content_type not in allowed_types:
+        raise HTTPException(status_code=400, detail="Invalid file type. Use JPEG, PNG or WebP")
+    content = await file.read()
+    if len(content) > 2 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="File too large. Maximum size is 2MB")
+    data_url = f"data:{file.content_type};base64,{base64.b64encode(content).decode('utf-8')}"
+    await db.companies.update_one(
+        {"company_id": user.company_id},
+        {"$set": {"signature_image_url": data_url}},
+    )
+    return {"signature_image_url": data_url}
+
+
+@settings_router.post("/company/stamp")
+async def upload_company_stamp(file: UploadFile = File(...), user: User = Depends(get_current_user)):
+    """Upload the company seal/stamp image. PNG with transparent background
+    recommended so it overlays cleanly on top of the signature line.
+    """
+    import base64
+    allowed_types = ["image/jpeg", "image/png", "image/webp"]
+    if file.content_type not in allowed_types:
+        raise HTTPException(status_code=400, detail="Invalid file type. Use JPEG, PNG or WebP")
+    content = await file.read()
+    if len(content) > 2 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="File too large. Maximum size is 2MB")
+    data_url = f"data:{file.content_type};base64,{base64.b64encode(content).decode('utf-8')}"
+    await db.companies.update_one(
+        {"company_id": user.company_id},
+        {"$set": {"stamp_image_url": data_url}},
+    )
+    return {"stamp_image_url": data_url}
+
+
 @settings_router.put("/company")
 async def update_company_settings(data: dict, user: User = Depends(get_current_user)):
     allowed_fields = [
@@ -6753,6 +6806,9 @@ async def update_company_settings(data: dict, user: User = Depends(get_current_u
         # Public Catalog
         "catalog_slug", "catalog_published", "catalog_headline",
         "catalog_description", "catalog_hero_image_url", "catalog_show_prices",
+        # Document signature & stamp (appended to PDFs / preview of every doc)
+        "signature_image_url", "stamp_image_url",
+        "signatory_name", "signatory_title",
     ]
     update_data = {k: v for k, v in data.items() if k in allowed_fields}
 
@@ -15759,13 +15815,21 @@ async def get_events_calendar(
     def _expand_event_dates(ev: dict) -> List[str]:
         """All YYYY-MM-DD dates this event spans."""
         dates: set = set()
+        explicit_dates = []
         for d in ev.get("event_dates") or []:
             nd = _norm_date(d)
             if nd:
+                explicit_dates.append(nd)
                 dates.add(nd)
         primary = _norm_date(ev.get("event_date"))
         if primary:
             dates.add(primary)
+        # Only expand consecutively from primary→end_date when the user has NOT
+        # provided an explicit non-consecutive `event_dates` list. This prevents
+        # filling in skipped days (e.g. event_dates=[Mar 5, Mar 7, Mar 10] should
+        # NOT include Mar 6, 8, 9 just because end_date=Mar 10).
+        if explicit_dates:
+            return sorted(dates)
         end = _norm_date(ev.get("end_date"))
         if primary and end and end > primary:
             try:

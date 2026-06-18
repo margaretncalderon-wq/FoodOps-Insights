@@ -27,6 +27,7 @@ import { API_BASE as API } from "../utils/api";
 import EventProductionPlan from "./EventProductionPlan";
 import KitchenBEO from "./KitchenBEO";
 import { formatDateOnly } from "../utils/dates";
+import { fmtNum } from "../utils/format";
 
 export default function ProductionSection() {
   const { language } = useLanguage();
@@ -418,9 +419,9 @@ export default function ProductionSection() {
                         </div>
                         <div className="flex items-center gap-4 text-sm text-muted-foreground">
                           <span>{batch.lines?.length || 0} {language === "es" ? "recetas" : "recipes"}</span>
-                          <span>${batch.total_input_cost?.toFixed(2)} {language === "es" ? "costo entrada" : "input cost"}</span>
+                          <span>${fmtNum(batch.total_input_cost)} {language === "es" ? "costo entrada" : "input cost"}</span>
                           {batch.status === "POSTED" && (
-                            <span className="text-green-600">${batch.total_output_value?.toFixed(2)} {language === "es" ? "valor salida" : "output value"}</span>
+                            <span className="text-green-600">${fmtNum(batch.total_output_value)} {language === "es" ? "valor salida" : "output value"}</span>
                           )}
                           <span>{formatDateOnly(batch.created_at, language)}</span>
                         </div>
@@ -642,13 +643,13 @@ export default function ProductionSection() {
                 </Card>
                 <Card>
                   <CardContent className="p-4 text-center">
-                    <p className="text-2xl font-bold">${viewBatch.total_input_cost?.toFixed(2)}</p>
+                    <p className="text-2xl font-bold">${fmtNum(viewBatch.total_input_cost)}</p>
                     <p className="text-xs text-muted-foreground">{language === "es" ? "Costo Entrada" : "Input Cost"}</p>
                   </CardContent>
                 </Card>
                 <Card className={viewBatch.status === "POSTED" ? "bg-green-50" : ""}>
                   <CardContent className="p-4 text-center">
-                    <p className="text-2xl font-bold">${viewBatch.total_output_value?.toFixed(2)}</p>
+                    <p className="text-2xl font-bold">${fmtNum(viewBatch.total_output_value)}</p>
                     <p className="text-xs text-muted-foreground">{language === "es" ? "Valor Salida" : "Output Value"}</p>
                   </CardContent>
                 </Card>
@@ -715,12 +716,12 @@ export default function ProductionSection() {
                               <TableCell>
                                 <Badge variant="outline" className="text-xs">{input.item_type}</Badge>
                               </TableCell>
-                              <TableCell className="text-right">{input.required_qty?.toFixed(2)} {input.unit}</TableCell>
+                              <TableCell className="text-right">{fmtNum(input.required_qty)} {input.unit}</TableCell>
                               <TableCell className={`text-right ${shortage ? "text-red-600 font-bold" : ""}`}>
-                                {input.in_stock?.toFixed(2)} {input.unit}
+                                {fmtNum(input.in_stock)} {input.unit}
                                 {shortage && <AlertTriangle className="w-4 h-4 inline ml-1" />}
                               </TableCell>
-                              <TableCell className="text-right">${input.total_cost?.toFixed(2)}</TableCell>
+                              <TableCell className="text-right">${fmtNum(input.total_cost)}</TableCell>
                             </TableRow>
                           );
                         })

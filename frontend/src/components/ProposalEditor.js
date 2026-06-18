@@ -76,6 +76,7 @@ import { CSS } from "@dnd-kit/utilities";
 import RecipePicker from "./RecipePicker";
 import RecipeScalingPanel from "./RecipeScalingPanel";
 import { formatDateOnly } from "../utils/dates";
+import { fmtNum } from "../utils/format";
 
 
 const CATEGORY_ICONS = {
@@ -1155,8 +1156,8 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
       const source = picklistItem.cost_source || "manual";
       toast.info(
         language === "es" 
-          ? `Costo: $${internal_cost.toFixed(2)} (${source}) | Margen: ${margin.toFixed(0)}%`
-          : `Cost: $${internal_cost.toFixed(2)} (${source}) | Margin: ${margin.toFixed(0)}%`
+          ? `Costo: $${fmtNum(internal_cost)} (${source}) | Margen: ${margin.toFixed(0)}%`
+          : `Cost: $${fmtNum(internal_cost)} (${source}) | Margin: ${margin.toFixed(0)}%`
       );
     }
   };
@@ -1183,8 +1184,8 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
       : (language === "es" ? "Costo base" : "Base cost");
     toast.info(
       language === "es"
-        ? `${fmtMsg} · Costo: $${internal_cost.toFixed(2)} | Precio: $${unit_price.toFixed(2)}`
-        : `${fmtMsg} · Cost: $${internal_cost.toFixed(2)} | Price: $${unit_price.toFixed(2)}`,
+        ? `${fmtMsg} · Costo: $${fmtNum(internal_cost)} | Precio: $${fmtNum(unit_price)}`
+        : `${fmtMsg} · Cost: $${fmtNum(internal_cost)} | Price: $${fmtNum(unit_price)}`,
     );
   };
 
@@ -1764,7 +1765,7 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
             <div className="mt-2 flex flex-wrap gap-1">
               {(staleness.stale_items || []).slice(0, 3).map((it) => (
                 <Badge key={it.item_id} variant="outline" className={`text-[10px] ${staleness.can_refresh ? "border-amber-300 text-amber-700" : "border-slate-300 text-slate-600"}`}>
-                  {it.recipe_name}: ${it.snapshot_cost.toFixed(2)} → ${it.current_cost.toFixed(2)} ({it.diff_pct > 0 ? "+" : ""}{it.diff_pct.toFixed(0)}%)
+                  {it.recipe_name}: ${fmtNum(it.snapshot_cost)} → ${fmtNum(it.current_cost)} ({it.diff_pct > 0 ? "+" : ""}{it.diff_pct.toFixed(0)}%)
                 </Badge>
               ))}
               {staleness.stale_count > 3 && (
@@ -1898,15 +1899,15 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
                 className={`flex items-center gap-2 px-3 py-1 rounded-md border text-xs ${color}`}
                 title={
                   language === "es"
-                    ? `Costo de comida total: $${foodCost.toFixed(2)} · Ingreso food: $${foodRevenue.toFixed(2)} · Target food cost: ${targetPct}%`
-                    : `Total food cost: $${foodCost.toFixed(2)} · Food revenue: $${foodRevenue.toFixed(2)} · Target food cost: ${targetPct}%`
+                    ? `Costo de comida total: $${fmtNum(foodCost)} · Ingreso food: $${fmtNum(foodRevenue)} · Target food cost: ${targetPct}%`
+                    : `Total food cost: $${fmtNum(foodCost)} · Food revenue: $${fmtNum(foodRevenue)} · Target food cost: ${targetPct}%`
                 }
                 data-testid="food-cost-per-guest-kpi"
               >
                 <span className="text-base leading-none">{icon}</span>
                 <div className="flex flex-col leading-tight">
                   <span className="font-semibold">
-                    ${costPerGuest.toFixed(2)} <span className="font-normal opacity-70">/{language === "es" ? "invitado" : "guest"}</span>
+                    ${fmtNum(costPerGuest)} <span className="font-normal opacity-70">/{language === "es" ? "invitado" : "guest"}</span>
                   </span>
                   <span className="text-[10px] opacity-80">
                     {language === "es" ? "Food cost" : "Food cost"}: <strong>{foodCostPct.toFixed(1)}%</strong>
@@ -2238,11 +2239,11 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
                     <div className="flex items-center gap-4">
                       {featureFlags?.is_margin_tracking_enabled && typeCost > 0 && (
                         <span className="text-xs text-muted-foreground">
-                          {language === "es" ? "Margen" : "Margin"}: ${typeMargin.toFixed(2)}
+                          {language === "es" ? "Margen" : "Margin"}: ${fmtNum(typeMargin)}
                         </span>
                       )}
                       <Badge variant="outline" className="font-mono">
-                        ${typeTotal.toFixed(2)}
+                        ${fmtNum(typeTotal)}
                       </Badge>
                     </div>
                   </div>
@@ -2456,7 +2457,7 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
                                         if (subtotal <= 0) return null;
                                         return (
                                           <Badge variant="secondary" className="font-mono text-xs ml-1" data-testid={`section-subtotal-${section.title || "default"}`}>
-                                            ${subtotal.toFixed(2)}
+                                            ${fmtNum(subtotal)}
                                           </Badge>
                                         );
                                       })()}
@@ -2523,7 +2524,7 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
                                                   const dt = item.discount_type || (item.discount_pct ? "percentage" : null);
                                                   const dv = item.discount_value != null ? item.discount_value : item.discount_pct;
                                                   if (!dv || dv <= 0) return null;
-                                                  const label = dt === "fixed" ? `-$${Number(dv).toFixed(2)}` : `-${Number(dv)}%`;
+                                                  const label = dt === "fixed" ? `-$${fmtNum((dv))}` : `-${Number(dv)}%`;
                                                   return (
                                                     <span className="text-xs px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 border border-emerald-200 font-medium">
                                                       {label}
@@ -2553,7 +2554,7 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
                                                     if (!isBelow) return null;
                                                     return (
                                                       <span className="text-xs text-emerald-700 inline-flex items-center gap-1" data-testid={`suggested-price-${item.item_id}`}>
-                                                        💡 {language === "es" ? "Precio sugerido" : "Suggested"}: <strong>${sugg.toFixed(2)}</strong>
+                                                        💡 {language === "es" ? "Precio sugerido" : "Suggested"}: <strong>${fmtNum(sugg)}</strong>
                                                       </span>
                                                     );
                                                   })()}
@@ -2568,16 +2569,16 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
                                             </div>
                                             <div className="text-right">
                                               <p className="text-sm">
-                                                {item.quantity} × ${item.unit_price?.toFixed(2)}
+                                                {item.quantity} × ${fmtNum(item.unit_price)}
                                               </p>
                                               {featureFlags?.is_margin_tracking_enabled && item.internal_cost !== null && (
                                                 <p className="text-xs text-muted-foreground">
-                                                  {language === "es" ? "Costo" : "Cost"}: ${(item.internal_cost * item.quantity).toFixed(2)}
+                                                  {language === "es" ? "Costo" : "Cost"}: ${fmtNum((item.internal_cost * item.quantity))}
                                                 </p>
                                               )}
                                             </div>
                                             <p className="font-medium w-24 text-right">
-                                              ${item.total_price?.toFixed(2)}
+                                              ${fmtNum(item.total_price)}
                                             </p>
                                             {!isLocked && (
                                               <>
@@ -2619,9 +2620,9 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
                                                 <div key={ch.item_id} className="flex items-center gap-2 text-sm py-1.5" data-testid={`child-item-${ch.item_id}`}>
                                                   <span className="text-muted-foreground text-xs">└─</span>
                                                   <span className="flex-1 truncate">{ch.description}</span>
-                                                  <span className="text-xs text-muted-foreground">{ch.quantity}{ch.unit_price > 0 ? ` × $${ch.unit_price.toFixed(2)}` : ` · ${language === "es" ? "incluido" : "included"}`}</span>
+                                                  <span className="text-xs text-muted-foreground">{ch.quantity}{ch.unit_price > 0 ? ` × $${fmtNum(ch.unit_price)}` : ` · ${language === "es" ? "incluido" : "included"}`}</span>
                                                   <span className="font-medium w-20 text-right text-sm">
-                                                    {ch.total_price > 0 ? `$${ch.total_price.toFixed(2)}` : "—"}
+                                                    {ch.total_price > 0 ? `$${fmtNum(ch.total_price)}` : "—"}
                                                   </span>
                                                   {!isLocked && (
                                                     <>
@@ -2729,7 +2730,7 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
               <CardContent className="space-y-4">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">{language === "es" ? "Subtotal" : "Subtotal"}</span>
-                  <span className="font-mono">${proposal.subtotal?.toFixed(2) || "0.00"}</span>
+                  <span className="font-mono">${fmtNum(proposal.subtotal) || "0.00"}</span>
                 </div>
 
                 {/* Discount with type selector */}
@@ -2775,7 +2776,7 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
                     />
                     {proposal.discount_amount > 0 && (
                       <span className="text-sm text-muted-foreground w-24 text-right">
-                        -${proposal.discount_amount?.toFixed(2)}
+                        -${fmtNum(proposal.discount_amount)}
                       </span>
                     )}
                   </div>
@@ -2810,7 +2811,7 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
                       </SelectContent>
                     </Select>
                     <span className="font-mono w-24 text-right">
-                      ${proposal.total_tax?.toFixed(2) || "0.00"}
+                      ${fmtNum(proposal.total_tax) || "0.00"}
                     </span>
                   </div>
                 </div>
@@ -2818,7 +2819,7 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
                 <div className="border-t pt-4 flex justify-between items-center">
                   <span className="font-semibold text-lg">{language === "es" ? "Total" : "Total"}</span>
                   <span className="font-heading text-2xl font-bold">
-                    ${proposal.total?.toFixed(2) || "0.00"}
+                    ${fmtNum(proposal.total) || "0.00"}
                   </span>
                 </div>
 
@@ -2874,20 +2875,20 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
                   <Card>
                     <CardContent className="p-4">
                       <p className="text-sm text-muted-foreground">{language === "es" ? "Ingresos" : "Revenue"}</p>
-                      <p className="text-2xl font-bold text-foreground">${financials?.total_revenue?.toFixed(2) || "0.00"}</p>
+                      <p className="text-2xl font-bold text-foreground">${fmtNum(financials?.total_revenue) || "0.00"}</p>
                     </CardContent>
                   </Card>
                   <Card>
                     <CardContent className="p-4">
                       <p className="text-sm text-muted-foreground">{language === "es" ? "Costo" : "Cost"}</p>
-                      <p className="text-2xl font-bold text-muted-foreground">${financials?.total_cost?.toFixed(2) || "0.00"}</p>
+                      <p className="text-2xl font-bold text-muted-foreground">${fmtNum(financials?.total_cost) || "0.00"}</p>
                     </CardContent>
                   </Card>
                   <Card>
                     <CardContent className="p-4">
                       <p className="text-sm text-muted-foreground">{language === "es" ? "Margen Bruto" : "Gross Margin"}</p>
                       <p className={`text-2xl font-bold ${financials?.margin_percentage < 20 ? 'text-destructive' : 'text-success'}`}>
-                        ${financials?.gross_margin?.toFixed(2) || "0.00"}
+                        ${fmtNum(financials?.gross_margin) || "0.00"}
                       </p>
                     </CardContent>
                   </Card>
@@ -2918,10 +2919,10 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
                             <span className="text-sm text-muted-foreground">({data.count} items)</span>
                           </div>
                           <div className="flex items-center gap-6 text-sm">
-                            <span>{language === "es" ? "Ingresos" : "Revenue"}: ${data.revenue?.toFixed(2)}</span>
-                            <span className="text-muted-foreground">{language === "es" ? "Costo" : "Cost"}: ${data.cost?.toFixed(2)}</span>
+                            <span>{language === "es" ? "Ingresos" : "Revenue"}: ${fmtNum(data.revenue)}</span>
+                            <span className="text-muted-foreground">{language === "es" ? "Costo" : "Cost"}: ${fmtNum(data.cost)}</span>
                             <span className={data.margin < 0 ? 'text-destructive' : 'text-success'}>
-                              {language === "es" ? "Margen" : "Margin"}: ${data.margin?.toFixed(2)}
+                              {language === "es" ? "Margen" : "Margin"}: ${fmtNum(data.margin)}
                             </span>
                           </div>
                         </div>
@@ -3101,7 +3102,7 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
                           </span>
                         </div>
                         <div className="flex items-center gap-2">
-                          <span className="font-mono">${(inv.total || 0).toFixed(2)}</span>
+                          <span className="font-mono">${fmtNum((inv.total || 0))}</span>
                           <Button
                             variant="ghost"
                             size="sm"
@@ -3115,7 +3116,7 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
                     ))}
                     <div className="pt-2 border-t border-amber-300 flex justify-between font-medium">
                       <span>{language === "es" ? "Total Facturado" : "Total Invoiced"}</span>
-                      <span className="font-mono">${getTotalInvoiced().toFixed(2)}</span>
+                      <span className="font-mono">${fmtNum(getTotalInvoiced())}</span>
                     </div>
                   </div>
                 </div>
@@ -3418,16 +3419,16 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
                           <td className="px-2 py-2 text-muted-foreground">{it.section_title || "—"}</td>
                           <td className="px-2 py-2 truncate max-w-[280px]">{it.description}</td>
                           <td className={`px-2 py-2 text-right font-mono ${it._is_stale_price ? "text-amber-700 font-semibold" : ""}`}>
-                            ${(it.unit_price || 0).toFixed(2)}
+                            ${fmtNum((it.unit_price || 0))}
                           </td>
                           <td className={`px-2 py-2 text-right font-mono ${it._is_stale_price ? "text-emerald-700 font-semibold" : "text-muted-foreground"}`}>
-                            {it._current_price != null ? `$${it._current_price.toFixed(2)}` : "—"}
+                            {it._current_price != null ? `$${fmtNum(it._current_price)}` : "—"}
                           </td>
                           <td className={`px-2 py-2 text-right font-mono ${it._is_stale_cost ? "text-amber-700 font-semibold" : "text-muted-foreground"}`}>
-                            {it.internal_cost != null ? `$${it.internal_cost.toFixed(2)}` : "—"}
+                            {it.internal_cost != null ? `$${fmtNum(it.internal_cost)}` : "—"}
                           </td>
                           <td className={`px-2 py-2 text-right font-mono ${it._is_stale_cost ? "text-emerald-700 font-semibold" : "text-muted-foreground"}`}>
-                            {it._current_cost != null ? `$${it._current_cost.toFixed(2)}` : "—"}
+                            {it._current_cost != null ? `$${fmtNum(it._current_cost)}` : "—"}
                           </td>
                           <td className="px-2 py-2 text-center">
                             {stale ? (
@@ -3619,7 +3620,7 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
                                   {item.recipe_id && <Badge variant="outline" className="text-[9px] h-4 px-1">Recipe</Badge>}
                                   {item.inventory_item_id && <Badge variant="outline" className="text-[9px] h-4 px-1">Inv</Badge>}
                                 </div>
-                                <span className="text-xs font-mono text-muted-foreground flex-shrink-0">${(item.default_price || 0).toFixed(2)}</span>
+                                <span className="text-xs font-mono text-muted-foreground flex-shrink-0">${fmtNum((item.default_price || 0))}</span>
                               </div>
                             ))}
                             {groups[k].length > 12 && (
@@ -3774,7 +3775,7 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
                   return (
                     <div className="mt-1.5 flex items-center gap-2 flex-wrap text-xs">
                       <span className={`inline-flex items-center gap-1 ${below ? "text-emerald-700" : "text-muted-foreground"}`}>
-                        💡 {language === "es" ? "Sugerido" : "Suggested"}: <strong>${sugg.toFixed(2)}</strong>
+                        💡 {language === "es" ? "Sugerido" : "Suggested"}: <strong>${fmtNum(sugg)}</strong>
                       </span>
                       {below && (
                         <Button
@@ -3782,7 +3783,7 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
                           variant="outline"
                           size="sm"
                           className="h-6 px-2 text-xs bg-emerald-50 border-emerald-300 text-emerald-700 hover:bg-emerald-100"
-                          onClick={() => setNewItem({ ...newItem, unit_price: Number(sugg.toFixed(2)) })}
+                          onClick={() => setNewItem({ ...newItem, unit_price: Number(fmtNum(sugg)) })}
                           data-testid="apply-suggested-price"
                         >
                           {language === "es" ? "Aplicar" : "Apply"}
@@ -3861,8 +3862,8 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
                   const net = Math.max(0, gross - discAmount);
                   return (
                     <div className="mt-1.5 text-xs text-emerald-700">
-                      {language === "es" ? "Total con descuento" : "Discounted total"}: <strong>${net.toFixed(2)}</strong>
-                      <span className="text-muted-foreground"> (-${discAmount.toFixed(2)})</span>
+                      {language === "es" ? "Total con descuento" : "Discounted total"}: <strong>${fmtNum(net)}</strong>
+                      <span className="text-muted-foreground"> (-${fmtNum(discAmount)})</span>
                     </div>
                   );
                 })()}
@@ -4059,7 +4060,7 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
                   )}
                   {log.impact_on_total !== undefined && log.impact_on_total !== 0 && (
                     <Badge variant="outline" className={`mt-2 ${log.impact_on_total > 0 ? 'text-success' : 'text-destructive'}`}>
-                      {log.impact_on_total > 0 ? '+' : ''}${log.impact_on_total.toFixed(2)}
+                      {log.impact_on_total > 0 ? '+' : ''}${fmtNum(log.impact_on_total)}
                     </Badge>
                   )}
                 </div>
@@ -4222,12 +4223,12 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
                                   )}
                                   <div className="flex items-center gap-4 text-sm mb-1">
                                     <span className="font-mono">
-                                      ${(pm.cost_with_buffer || pm.cost_per_guest || 0).toFixed(2)}
+                                      ${fmtNum((pm.cost_with_buffer || pm.cost_per_guest || 0))}
                                       <span className="text-xs text-muted-foreground ml-1">/{language === "es" ? "invitado" : "guest"}</span>
                                     </span>
                                     {(event?.guest_count || event?.num_guests) > 0 && (
                                       <span className="text-xs text-muted-foreground">
-                                        × {event.guest_count || event.num_guests} = <strong>${((pm.cost_with_buffer || pm.cost_per_guest || 0) * (event.guest_count || event.num_guests)).toFixed(2)}</strong>
+                                        × {event.guest_count || event.num_guests} = <strong>${fmtNum(((pm.cost_with_buffer || pm.cost_per_guest || 0) * (event.guest_count || event.num_guests)))}</strong>
                                       </span>
                                     )}
                                   </div>
@@ -4297,7 +4298,7 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
                                         className={`text-xs cursor-pointer hover:opacity-80 ${variant.is_default ? 'bg-primary' : 'bg-muted text-foreground'}`}
                                         onClick={(e) => { e.stopPropagation(); handleAddMenu(menu, variant); }}
                                       >
-                                        {variant.name}: ${variant.final_price?.toFixed(2)}
+                                        {variant.name}: ${fmtNum(variant.final_price)}
                                         {variant.discount_value > 0 && (
                                           <span className="ml-1 opacity-75">
                                             ({variant.discount_type === 'percentage' ? `-${variant.discount_value}%` : `-$${variant.discount_value}`})
@@ -4308,11 +4309,11 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
                                   </div>
                                 ) : (
                                   <div className="flex items-center gap-4 text-sm mb-2">
-                                    <span className="font-mono font-medium">${menu.total_price?.toFixed(2)}</span>
+                                    <span className="font-mono font-medium">${fmtNum(menu.total_price)}</span>
                                     {featureFlags?.is_margin_tracking_enabled && (
                                       <>
                                         <span className="text-muted-foreground">
-                                          {language === "es" ? "Costo" : "Cost"}: ${menu.total_cost?.toFixed(2)}
+                                          {language === "es" ? "Costo" : "Cost"}: ${fmtNum(menu.total_cost)}
                                         </span>
                                         <span className={menu.margin_percentage < 20 ? 'text-destructive' : menu.margin_percentage > 50 ? 'text-green-600' : 'text-amber-600'}>
                                           {language === "es" ? "Margen" : "Margin"}: {menu.margin_percentage?.toFixed(0)}%
@@ -4362,7 +4363,7 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
                   disabled={existingInvoices.some(inv => inv.invoice_type === "deposit")}
                 >
                   <span className="font-medium">{language === "es" ? "Total" : "Full"}</span>
-                  <span className="text-xs opacity-80">${(financials?.total || 0).toFixed(2)}</span>
+                  <span className="text-xs opacity-80">${fmtNum((financials?.total || 0))}</span>
                 </Button>
                 
                 {/* Deposit (50%) */}
@@ -4373,7 +4374,7 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
                   disabled={existingInvoices.some(inv => inv.invoice_type === "deposit" || inv.invoice_type === "full")}
                 >
                   <span className="font-medium">{language === "es" ? "Depósito 50%" : "50% Deposit"}</span>
-                  <span className="text-xs opacity-80">${((financials?.total || 0) * 0.5).toFixed(2)}</span>
+                  <span className="text-xs opacity-80">${fmtNum(((financials?.total || 0) * 0.5))}</span>
                 </Button>
                 
                 {/* Final Balance */}
@@ -4386,7 +4387,7 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
                   >
                     <span className="font-medium">{language === "es" ? "Saldo Final" : "Final Balance"}</span>
                     <span className="text-xs opacity-80">
-                      ${((financials?.total || 0) - getTotalInvoiced()).toFixed(2)}
+                      ${fmtNum(((financials?.total || 0) - getTotalInvoiced()))}
                     </span>
                   </Button>
                 )}
@@ -4458,11 +4459,11 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
                 </span>
                 <span className="text-xl font-bold text-green-700 font-mono">
                   ${invoiceType === "full" 
-                    ? (financials?.total || 0).toFixed(2)
+                    ? fmtNum((financials?.total || 0))
                     : invoiceType === "deposit"
-                    ? ((financials?.total || 0) * 0.5).toFixed(2)
+                    ? fmtNum(((financials?.total || 0) * 0.5))
                     : invoiceType === "final"
-                    ? ((financials?.total || 0) - getTotalInvoiced()).toFixed(2)
+                    ? fmtNum(((financials?.total || 0) - getTotalInvoiced()))
                     : "0.00"
                   }
                 </span>
@@ -4557,7 +4558,7 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
                         className="w-28"
                       />
                       <span className="text-sm font-medium w-24 text-right">
-                        ${((line.quantity || 0) * (line.unit_price || 0)).toFixed(2)}
+                        ${fmtNum(((line.quantity || 0) * (line.unit_price || 0)))}
                       </span>
                       <Button variant="ghost" size="sm" onClick={() => removeInvoiceLine(idx)}>
                         <Trash2 className="w-4 h-4 text-red-500" />
@@ -4618,23 +4619,23 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
                         <>
                           <div className="flex justify-between">
                             <span>{language === "es" ? "Subtotal:" : "Subtotal:"}</span>
-                            <span>${subtotal.toFixed(2)}</span>
+                            <span>${fmtNum(subtotal)}</span>
                           </div>
                           {editingInvoice.discount_percent > 0 && (
                             <div className="flex justify-between text-red-600">
                               <span>{language === "es" ? "Descuento:" : "Discount:"} ({editingInvoice.discount_percent}%)</span>
-                              <span>-${discountAmount.toFixed(2)}</span>
+                              <span>-${fmtNum(discountAmount)}</span>
                             </div>
                           )}
                           {editingInvoice.tax_rate > 0 && (
                             <div className="flex justify-between">
                               <span>{language === "es" ? "IVA:" : "Tax:"} ({editingInvoice.tax_rate}%)</span>
-                              <span>${taxAmount.toFixed(2)}</span>
+                              <span>${fmtNum(taxAmount)}</span>
                             </div>
                           )}
                           <div className="flex justify-between font-bold text-lg border-t pt-1">
                             <span>Total:</span>
-                            <span>${total.toFixed(2)}</span>
+                            <span>${fmtNum(total)}</span>
                           </div>
                         </>
                       );

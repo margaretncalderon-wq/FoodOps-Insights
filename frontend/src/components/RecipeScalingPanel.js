@@ -16,6 +16,7 @@ import {
 } from "./ui/select";
 import { Calculator, Loader2, ChefHat, Info } from "lucide-react";
 import { toast } from "sonner";
+import { fmtNum } from "../utils/format";
 
 /**
  * Inline READ-ONLY Recipe Scaling Panel for ProposalEditor.
@@ -103,7 +104,7 @@ export default function RecipeScalingPanel({ recipes = [], defaultPortions = 0 }
                 {recipes.map((r) => (
                   <SelectItem key={r.recipe_id} value={r.recipe_id}>
                     {r.name}
-                    {r.cost_per_portion ? ` — $${Number(r.cost_per_portion).toFixed(2)}` : ""}
+                    {r.cost_per_portion ? ` — $${fmtNum((r.cost_per_portion))}` : ""}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -137,7 +138,7 @@ export default function RecipeScalingPanel({ recipes = [], defaultPortions = 0 }
             {language === "es" ? "Rinde base" : "Base yield"}: {selectedRecipe.yield_quantity || 1}{" "}
             {selectedRecipe.yield_unit || "portion"} ·{" "}
             {language === "es" ? "Costo/porción" : "Cost/portion"}: $
-            {Number(selectedRecipe.cost_per_portion || 0).toFixed(2)}
+            {fmtNum((selectedRecipe.cost_per_portion || 0))}
           </div>
         )}
 
@@ -157,7 +158,7 @@ export default function RecipeScalingPanel({ recipes = [], defaultPortions = 0 }
                   {language === "es" ? "Costo total" : "Total cost"}
                 </p>
                 <p className="font-semibold text-sm text-primary" data-testid="scaling-total-cost">
-                  ${(result.total_cost_scaled || 0).toFixed(2)}
+                  ${fmtNum((result.total_cost_scaled || 0))}
                 </p>
               </div>
               <div>
@@ -165,7 +166,7 @@ export default function RecipeScalingPanel({ recipes = [], defaultPortions = 0 }
                   {language === "es" ? "Costo/porción" : "Cost/portion"}
                 </p>
                 <p className="font-semibold text-sm" data-testid="scaling-cost-per-portion">
-                  ${(result.cost_per_portion_scaled || 0).toFixed(2)}
+                  ${fmtNum((result.cost_per_portion_scaled || 0))}
                 </p>
               </div>
             </div>
@@ -190,11 +191,11 @@ export default function RecipeScalingPanel({ recipes = [], defaultPortions = 0 }
                     <tr key={idx} className="border-t">
                       <td className="px-2 py-1">{ing.name || ing.ingredient_id}</td>
                       <td className="px-2 py-1 text-right font-mono">
-                        {Number(ing.quantity_scaled ?? ing.quantity_original ?? 0).toFixed(2)}{" "}
+                        {fmtNum((ing.quantity_scaled ?? ing.quantity_original ?? 0))}{" "}
                         <span className="text-muted-foreground">{ing.unit}</span>
                       </td>
                       <td className="px-2 py-1 text-right font-mono">
-                        ${Number(ing.line_cost || 0).toFixed(2)}
+                        ${fmtNum((ing.line_cost || 0))}
                       </td>
                     </tr>
                   ))}
@@ -205,7 +206,7 @@ export default function RecipeScalingPanel({ recipes = [], defaultPortions = 0 }
                           ↳ {sub.name || sub.child_recipe_id}
                         </td>
                         <td className="px-2 py-1 text-right font-mono">
-                          {Number(sub.quantity_scaled || 0).toFixed(2)}{" "}
+                          {fmtNum((sub.quantity_scaled || 0))}{" "}
                           <span className="text-muted-foreground">{sub.unit}</span>
                         </td>
                         <td className="px-2 py-1 text-right text-muted-foreground">—</td>

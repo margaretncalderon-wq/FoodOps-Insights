@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 
 import { API_BASE as API } from "../../utils/api";
+import { fmtNum } from "../../utils/format";
 const formatCurrency = (amount) => `$${(amount || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 export function CloseReconciliationSection() {
@@ -837,10 +838,10 @@ export function CloseReconciliationSection() {
                             .map(item => (
                               <TableRow key={item.ingredient_id} className="bg-red-50/50">
                                 <TableCell className="font-medium">{item.name}</TableCell>
-                                <TableCell className="text-right font-mono">{item.system_qty?.toFixed(2)} {item.unit}</TableCell>
-                                <TableCell className="text-right font-mono">{parseFloat(item.counted_qty)?.toFixed(2)} {item.unit}</TableCell>
+                                <TableCell className="text-right font-mono">{fmtNum(item.system_qty)} {item.unit}</TableCell>
+                                <TableCell className="text-right font-mono">{fmtNum(parseFloat(item.counted_qty))} {item.unit}</TableCell>
                                 <TableCell className={`text-right font-mono ${(item.variance_qty || 0) < 0 ? "text-red-600" : "text-green-600"}`}>
-                                  {(item.variance_qty || 0) > 0 ? "+" : ""}{item.variance_qty?.toFixed(2)}
+                                  {(item.variance_qty || 0) > 0 ? "+" : ""}{fmtNum(item.variance_qty)}
                                 </TableCell>
                                 <TableCell className={`text-right font-mono ${(item.variance_value || 0) < 0 ? "text-red-600" : "text-amber-600"}`}>
                                   {formatCurrency(item.variance_value || 0)}

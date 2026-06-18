@@ -35,6 +35,7 @@ import {
 } from "../ui/table";
 
 import { API_BASE as API } from "../../utils/api";
+import { fmtNum } from "../../utils/format";
 
 export default function PackingListEditor({ eventId, language }) {
   const isEs = language === "es";
@@ -326,7 +327,7 @@ export default function PackingListEditor({ eventId, language }) {
                             />
                           </TableCell>
                           <TableCell className="text-right font-mono">
-                            ${(item.replacement_cost || 0).toFixed(2)}
+                            ${fmtNum((item.replacement_cost || 0))}
                           </TableCell>
                           <TableCell>
                             <Input

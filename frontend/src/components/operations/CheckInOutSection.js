@@ -17,6 +17,7 @@ import {
 
 import { API_BASE as API } from "../../utils/api";
 import { formatDateOnly } from "../../utils/dates";
+import { fmtNum } from "../../utils/format";
 
 export function CheckInOutSection() {
   const { language } = useLanguage();
@@ -448,7 +449,7 @@ export function CheckInOutSection() {
               <div>
                 <p className="text-sm text-muted-foreground">{language === "es" ? "Pérdidas Acumuladas" : "Total Losses"}</p>
                 <p className="text-2xl font-bold text-red-600">
-                  ${deliveryNotes.reduce((sum, n) => sum + (n.total_loss_cost || 0), 0).toFixed(2)}
+                  ${fmtNum(deliveryNotes.reduce((sum, n) => sum + (n.total_loss_cost || 0), 0))}
                 </p>
               </div>
               <AlertTriangle className="w-8 h-8 text-red-500 opacity-50" />
@@ -672,7 +673,7 @@ export function CheckInOutSection() {
                         </TableCell>
                         <TableCell className="text-right font-mono">
                           {item.inventory_type === "equipment" 
-                            ? `$${(item.replacement_cost || 0).toFixed(2)}`
+                            ? `$${fmtNum((item.replacement_cost || 0))}`
                             : <span className="text-muted-foreground">N/A</span>}
                         </TableCell>
                       </TableRow>
@@ -778,7 +779,7 @@ export function CheckInOutSection() {
                           <TableCell className="text-right font-mono">
                             {isEquipment ? (
                               lossCost > 0 ? (
-                                <span className="text-red-600">${lossCost.toFixed(2)}</span>
+                                <span className="text-red-600">${fmtNum(lossCost)}</span>
                               ) : (
                                 <span className="text-green-600">$0.00</span>
                               )
@@ -894,7 +895,7 @@ export function CheckInOutSection() {
                               />
                             </TableCell>
                             <TableCell className="text-right font-mono">
-                              ${(item.replacement_cost || 0).toFixed(2)}
+                              ${fmtNum((item.replacement_cost || 0))}
                             </TableCell>
                             <TableCell>
                               <Button 

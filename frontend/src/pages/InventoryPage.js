@@ -31,6 +31,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "../components/ui/dropdown-menu";
+import { fmtNum } from "../utils/format";
 
 
 const CATEGORIES = ["produce", "meat", "dairy", "dry_goods", "spices", "beverages", "other"];
@@ -448,7 +449,7 @@ export default function InventoryPage() {
                             )}
                           </td>
                           <td className="p-4 text-right font-mono">
-                            ${ing.cost_per_unit.toFixed(2)}/{ing.unit}
+                            ${fmtNum(ing.cost_per_unit)}/{ing.unit}
                           </td>
                           <td className="p-4 text-right">
                             <DropdownMenu>

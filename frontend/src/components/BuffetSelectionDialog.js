@@ -6,6 +6,7 @@ import { Badge } from "./ui/badge";
 import { Checkbox } from "./ui/checkbox";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { AlertTriangle, Check, DollarSign } from "lucide-react";
+import { fmtNum } from "../utils/format";
 
 /**
  * BuffetSelectionDialog
@@ -183,17 +184,17 @@ export default function BuffetSelectionDialog({ open, onClose, menu, guestCount,
             <div className="grid grid-cols-3 gap-2 text-sm">
               <div className="text-center p-2 bg-muted/40 rounded">
                 <div className="text-xs text-muted-foreground">{language === "es" ? "Base × invitados" : "Base × guests"}</div>
-                <div className="font-semibold">${summary.totalBase.toFixed(2)}</div>
-                <div className="text-xs text-muted-foreground">${summary.basePrice.toFixed(2)} × {summary.guests}</div>
+                <div className="font-semibold">${fmtNum(summary.totalBase)}</div>
+                <div className="text-xs text-muted-foreground">${fmtNum(summary.basePrice)} × {summary.guests}</div>
               </div>
               <div className="text-center p-2 bg-amber-50 rounded border border-amber-200">
                 <div className="text-xs text-amber-700">{language === "es" ? "Extras" : "Extras"}</div>
-                <div className="font-semibold text-amber-700">${summary.totalExtras.toFixed(2)}</div>
-                <div className="text-xs text-muted-foreground">${summary.extrasPerGuest.toFixed(2)}/{language === "es" ? "inv." : "guest"}</div>
+                <div className="font-semibold text-amber-700">${fmtNum(summary.totalExtras)}</div>
+                <div className="text-xs text-muted-foreground">${fmtNum(summary.extrasPerGuest)}/{language === "es" ? "inv." : "guest"}</div>
               </div>
               <div className="text-center p-2 bg-green-50 rounded border border-green-200">
                 <div className="text-xs text-green-700 flex items-center justify-center gap-1"><DollarSign className="w-3 h-3" />{language === "es" ? "Total Menú" : "Menu Total"}</div>
-                <div className="font-bold text-green-700 text-lg">${summary.grand.toFixed(2)}</div>
+                <div className="font-bold text-green-700 text-lg">${fmtNum(summary.grand)}</div>
               </div>
             </div>
           )}

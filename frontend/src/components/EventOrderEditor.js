@@ -33,6 +33,7 @@ import {
   Armchair, Users, Flower2, Package, GripVertical, Percent,
   DollarSign, ChevronDown, ChevronRight, Loader2, AlertTriangle, Search
 } from "lucide-react";
+import { fmtNum } from "../utils/format";
 
 
 const CATEGORY_ICONS = {
@@ -245,9 +246,9 @@ export default function EventOrderEditor({ eventId, event, onDocumentGenerated }
         const margin = sellPrice > 0 ? ((sellPrice - recipeCost) / sellPrice) * 100 : 0;
         
         if (margin < 20) {
-          priceAlert = { type: "low", message: language === "es" ? `¡Alerta! Margen muy bajo (${margin.toFixed(0)}%). Costo: $${recipeCost.toFixed(2)}` : `Warning! Very low margin (${margin.toFixed(0)}%). Cost: $${recipeCost.toFixed(2)}` };
+          priceAlert = { type: "low", message: language === "es" ? `¡Alerta! Margen muy bajo (${margin.toFixed(0)}%). Costo: $${fmtNum(recipeCost)}` : `Warning! Very low margin (${margin.toFixed(0)}%). Cost: $${fmtNum(recipeCost)}` };
         } else if (margin > 80) {
-          priceAlert = { type: "high", message: language === "es" ? `Nota: Margen alto (${margin.toFixed(0)}%). Costo: $${recipeCost.toFixed(2)}` : `Note: High margin (${margin.toFixed(0)}%). Cost: $${recipeCost.toFixed(2)}` };
+          priceAlert = { type: "high", message: language === "es" ? `Nota: Margen alto (${margin.toFixed(0)}%). Costo: $${fmtNum(recipeCost)}` : `Note: High margin (${margin.toFixed(0)}%). Cost: $${fmtNum(recipeCost)}` };
         }
       }
     }
@@ -287,8 +288,8 @@ export default function EventOrderEditor({ eventId, event, onDocumentGenerated }
 
     toast.info(
       language === "es" 
-        ? `Costo de receta: $${recipeCost.toFixed(2)}. Precio sugerido: $${suggestedPrice.toFixed(2)} (33% food cost)`
-        : `Recipe cost: $${recipeCost.toFixed(2)}. Suggested price: $${suggestedPrice.toFixed(2)} (33% food cost)`
+        ? `Costo de receta: $${fmtNum(recipeCost)}. Precio sugerido: $${fmtNum(suggestedPrice)} (33% food cost)`
+        : `Recipe cost: $${fmtNum(recipeCost)}. Suggested price: $${fmtNum(suggestedPrice)} (33% food cost)`
     );
   };
 
@@ -428,7 +429,7 @@ export default function EventOrderEditor({ eventId, event, onDocumentGenerated }
                     </div>
                   </div>
                   <Badge variant="outline" className="font-mono">
-                    ${categoryTotal.toFixed(2)}
+                    ${fmtNum(categoryTotal)}
                   </Badge>
                 </div>
               </CardHeader>
@@ -456,16 +457,16 @@ export default function EventOrderEditor({ eventId, event, onDocumentGenerated }
                         </div>
                         <div className="text-right">
                           <p className="text-sm">
-                            {item.quantity} × ${item.unit_price.toFixed(2)}
+                            {item.quantity} × ${fmtNum(item.unit_price)}
                           </p>
                           {item.discount_amount > 0 && (
                             <p className="text-xs text-destructive">
-                              -${item.discount_amount.toFixed(2)}
+                              -${fmtNum(item.discount_amount)}
                             </p>
                           )}
                         </div>
                         <p className="font-medium w-24 text-right">
-                          ${item.subtotal.toFixed(2)}
+                          ${fmtNum(item.subtotal)}
                         </p>
                         <Button 
                           variant="ghost" 
@@ -514,7 +515,7 @@ export default function EventOrderEditor({ eventId, event, onDocumentGenerated }
           <CardContent className="space-y-4">
             <div className="flex justify-between">
               <span className="text-muted-foreground">{language === "es" ? "Subtotal" : "Subtotal"}</span>
-              <span className="font-mono">${order.subtotal?.toFixed(2) || "0.00"}</span>
+              <span className="font-mono">${fmtNum(order.subtotal) || "0.00"}</span>
             </div>
 
             {/* Discount */}
@@ -560,7 +561,7 @@ export default function EventOrderEditor({ eventId, event, onDocumentGenerated }
                   </SelectContent>
                 </Select>
                 <span className="font-mono w-24 text-right">
-                  ${order.total_tax?.toFixed(2) || "0.00"}
+                  ${fmtNum(order.total_tax) || "0.00"}
                 </span>
               </div>
             </div>
@@ -568,7 +569,7 @@ export default function EventOrderEditor({ eventId, event, onDocumentGenerated }
             <div className="border-t pt-4 flex justify-between items-center">
               <span className="font-semibold text-lg">{language === "es" ? "Total" : "Total"}</span>
               <span className="font-heading text-2xl font-bold">
-                ${order.total?.toFixed(2) || "0.00"}
+                ${fmtNum(order.total) || "0.00"}
               </span>
             </div>
 
@@ -692,7 +693,7 @@ export default function EventOrderEditor({ eventId, event, onDocumentGenerated }
                             </Badge>
                           )}
                         </div>
-                        <span className="text-sm font-mono">${item.default_price.toFixed(2)}</span>
+                        <span className="text-sm font-mono">${fmtNum(item.default_price)}</span>
                       </div>
                     );
                   })}
@@ -725,7 +726,7 @@ export default function EventOrderEditor({ eventId, event, onDocumentGenerated }
                 <SelectContent>
                   {recipes.map(recipe => (
                     <SelectItem key={recipe.recipe_id} value={recipe.recipe_id}>
-                      {recipe.name} - ${(recipe.cost_per_portion || recipe.cost_per_serving || 0).toFixed(2)} costo
+                      {recipe.name} - ${fmtNum((recipe.cost_per_portion || recipe.cost_per_serving || 0))} costo
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -829,7 +830,7 @@ export default function EventOrderEditor({ eventId, event, onDocumentGenerated }
                         : "text-success"
                   }`}>
                     <AlertTriangle className="w-3 h-3" />
-                    {language === "es" ? "Costo" : "Cost"}: ${newItem._recipeCost.toFixed(2)} | 
+                    {language === "es" ? "Costo" : "Cost"}: ${fmtNum(newItem._recipeCost)} | 
                     {language === "es" ? " Margen" : " Margin"}: {newItem.unit_price > 0 ? (((newItem.unit_price - newItem._recipeCost) / newItem.unit_price) * 100).toFixed(0) : 0}%
                   </div>
                 )}

@@ -19,6 +19,7 @@ import {
 import { SearchableSelect } from "../components/ui/searchable-select";
 import { toast } from "sonner";
 import { ArrowLeft, Plus, Trash2, Sparkles, Loader2 } from "lucide-react";
+import { fmtNum } from "../utils/format";
 
 
 const CATEGORIES = ["appetizer", "main", "dessert", "beverage", "side", "sauce", "other"];
@@ -491,7 +492,7 @@ export default function RecipeBuilder() {
                             </span>
                           </div>
                           <div className="flex items-center gap-4">
-                            <span className="font-mono">${(ing.quantity * ing.cost_per_unit).toFixed(2)}</span>
+                            <span className="font-mono">${fmtNum((ing.quantity * ing.cost_per_unit))}</span>
                             <Button
                               type="button"
                               variant="ghost"
@@ -565,12 +566,12 @@ export default function RecipeBuilder() {
                   </div>
                   <div className="flex justify-between items-center py-2 border-b">
                     <span className="text-muted-foreground">{t("totalCost")}</span>
-                    <span className="font-heading text-xl font-bold">${totalCost.toFixed(2)}</span>
+                    <span className="font-heading text-xl font-bold">${fmtNum(totalCost)}</span>
                   </div>
                   <div className="flex justify-between items-center py-2">
                     <span className="text-muted-foreground">{t("costPerServing")}</span>
                     <span className="font-heading text-2xl font-bold text-primary">
-                      ${costPerServing.toFixed(2)}
+                      ${fmtNum(costPerServing)}
                     </span>
                   </div>
                   <Button type="submit" className="w-full" disabled={loading} data-testid="save-recipe-btn">

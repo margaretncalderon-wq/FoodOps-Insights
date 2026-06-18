@@ -20,6 +20,8 @@ import {
 } from "lucide-react";
 import { formatDateOnly } from "../utils/dates";
 import { parseDateOnly } from "../utils/dates";
+import { buildCurrencyFormatter } from "../hooks/useCurrencyFormatter";
+import { fmtNum } from "../utils/format";
 
 
 // Document type configurations
@@ -142,14 +144,7 @@ export default function DocumentPreview({
 
   const formatCurrency = (amount) => {
     const currency = company?.currency || "USD";
-    // Use symbol if defined, otherwise use the currency code as fallback
-    const symbol = CURRENCY_SYMBOLS[currency] || `${currency} `;
-    const value = (amount || 0).toFixed(2);
-    // For currencies like EUR, symbol goes after in some locales
-    if (currency === "EUR" && language === "es") {
-      return `${value} ${symbol}`;
-    }
-    return `${symbol}${value}`;
+    return buildCurrencyFormatter(currency)(amount);
   };
 
   // Get currency code for display
@@ -1067,7 +1062,7 @@ export default function DocumentPreview({
                                     const dv = item.discount_value != null ? item.discount_value : item.discount_pct;
                                     if (!dv || dv <= 0) return null;
                                     const label = dt === "fixed"
-                                      ? `${language === "es" ? "Descuento" : "Discount"} -$${Number(dv).toFixed(2)}`
+                                      ? `${language === "es" ? "Descuento" : "Discount"} -$${fmtNum((dv))}`
                                       : `${language === "es" ? "Descuento" : "Discount"} -${Number(dv)}%`;
                                     return (
                                       <span className="inline-block mt-1 text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 font-medium">
@@ -1222,6 +1217,57 @@ export default function DocumentPreview({
                   {language === "es" ? "Datos Bancarios" : "Bank Details"}
                 </h4>
                 <pre className="whitespace-pre-wrap font-mono text-xs">{template.bank_details}</pre>
+              </div>
+            )}
+
+            {/* Signature & Stamp block — appears on every generated document
+                so users don't need to print + sign by hand. */}
+            {(company?.signature_image_url || company?.stamp_image_url || company?.signatory_name) && (
+              <div className="signatures grid grid-cols-1 md:grid-cols-2 gap-8 mt-10 pt-6 print:break-inside-avoid" data-testid="document-signature-block">
+                {/* Provider signature */}
+                <div className="text-center">
+                  <div className="relative h-24 mb-2 flex items-end justify-center">
+                    {company?.stamp_image_url && (
+                      <img
+                        src={company.stamp_image_url}
+                        alt="Stamp"
+                        className="absolute opacity-80"
+                        style={{ maxHeight: "96px", maxWidth: "120px", right: "20%", bottom: 0 }}
+                      />
+                    )}
+                    {company?.signature_image_url && (
+                      <img
+                        src={company.signature_image_url}
+                        alt="Signature"
+                        className="relative z-10"
+                        style={{ maxHeight: "72px", maxWidth: "200px" }}
+                      />
+                    )}
+                  </div>
+                  <div className="border-t border-foreground/40 pt-1">
+                    <p className="text-sm font-medium">
+                      {company?.signatory_name || company?.name || ""}
+                    </p>
+                    {company?.signatory_title && (
+                      <p className="text-xs text-muted-foreground">{company.signatory_title}</p>
+                    )}
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {language === "es" ? "Por la empresa" : "Authorized by"}
+                    </p>
+                  </div>
+                </div>
+                {/* Client signature - blank space for client to sign */}
+                <div className="text-center">
+                  <div className="h-24 mb-2" />
+                  <div className="border-t border-foreground/40 pt-1">
+                    <p className="text-sm font-medium">
+                      {proposal?.client_name || "_______________________"}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {language === "es" ? "Firma del cliente — Aprobado" : "Client signature — Approved"}
+                    </p>
+                  </div>
+                </div>
               </div>
             )}
 
