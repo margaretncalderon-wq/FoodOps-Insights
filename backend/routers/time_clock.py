@@ -121,12 +121,20 @@ async def clock_in(data: ClockInRequest, user: User = Depends(get_current_user))
 
 @router.post("/clock-out")
 async def clock_out(data: ClockOutRequest, user: User = Depends(get_current_user)):
-    """End the active shift for the current user (or specified entry_id)."""
+    """End the active shift for the current user (or specified entry_id, admin only)."""
     company_id = user.company_id or user.active_org_id
     query: dict = {"company_id": company_id, "clock_out": None}
     
+    is_admin = user.role in ("owner", "admin", "hr")
+    
     if data.entry_id:
-        query["entry_id"] = data.entry_id
+        if not is_admin:
+            # Non-admin can only close their own entry; verify ownership
+            emp = await _resolve_employee(user, None)
+            query["entry_id"] = data.entry_id
+            query["employee_id"] = emp["employee_id"]
+        else:
+            query["entry_id"] = data.entry_id
     else:
         # Self path: find user's employee
         emp = await _resolve_employee(user, None)
@@ -287,7 +295,13 @@ async def weekly_summary(
     Flags OT breach when total weekly hours > weekly_hours_regular (or 44 default) and beyond 68 = legal cap (RD)."""
     company_id, _ = await check_people_ops_access(user, "view")
     
-    ref = date_cls.fromisoformat(week_start) if week_start else date_cls.today()
+    if week_start:
+        try:
+            ref = date_cls.fromisoformat(week_start)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="week_start must be YYYY-MM-DD")
+    else:
+        ref = date_cls.today()
     start, end = _week_range(ref)
     
     query: dict = {

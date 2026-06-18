@@ -123,8 +123,14 @@ export function TimeClockSection() {
   };
   
   const activeShift = current?.active_shift;
+  const [nowTick, setNowTick] = useState(Date.now());
+  useEffect(() => {
+    if (!activeShift) return;
+    const id = setInterval(() => setNowTick(Date.now()), 60000); // tick every minute
+    return () => clearInterval(id);
+  }, [activeShift]);
   const liveDuration = activeShift
-    ? Math.round((Date.now() - new Date(activeShift.clock_in).getTime()) / 60000)
+    ? Math.round((nowTick - new Date(activeShift.clock_in).getTime()) / 60000)
     : 0;
   
   return (

@@ -1,5 +1,31 @@
 # Kora OS — Product Requirements Document
 
+## People Ops — Time Clock / Attendance Module (Feb 18, 2026)
+
+**Status:** ✅ Complete (Backend 13/13 pytest + 25/25 regression, Frontend 100%).
+
+### Implemented
+- **Backend** `/app/backend/routers/time_clock.py` con 8 endpoints:
+  - `POST /clock-in` y `/clock-out` (self-service)
+  - `POST /manual-entry` (admin retroactivo)
+  - `GET /current`, `/entries`, `/weekly-summary`
+  - `PUT /entries/{id}`, `DELETE /entries/{id}` (admin)
+  - Detección automática de OT cuando `total_hours > employee.weekly_hours_regular` (default 44h)
+  - Alerta legal cap breach RD cuando `> 68h/semana`
+- **Models**: `Employee.weekly_hours_regular: float = 44.0` (campo en BD para uso futuro y por el Time Clock module ya).
+- **Frontend** `TimeClockSection.js` con tabs:
+  - **My Clock** (todos): botón grande Clock In/Out, lista de marcaciones propias
+  - **Weekly Summary** (admin): 4 KPI cards + tabla semanal con badges de status (OK / OT / >68h breach) + dialog entrada manual
+  - Live duration tick cada minuto
+- **Seguridad**: non-admin solo puede cerrar SU propio turno (verificación de ownership en clock_out).
+- Mountado en `People Ops → Time → Reloj Checador` (`/people-ops/time-clock`).
+
+### Test report
+- `/app/backend/tests/test_time_clock_module.py` (13 ✅ + 25 regression ✅)
+- `/app/test_reports/iteration_191.json`
+
+---
+
 ## People Ops — Live FX Currency Conversion (Feb 18, 2026)
 
 **Status:** ✅ Complete (Backend 9/9 pytest, Frontend 100%).
