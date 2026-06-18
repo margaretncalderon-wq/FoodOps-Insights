@@ -47,6 +47,8 @@ export function TimeClockSection() {
   const [loading, setLoading] = useState(true);
   const [manualOpen, setManualOpen] = useState(false);
   const [manualData, setManualData] = useState({ employee_id: "", clock_in: "", clock_out: "", notes: "" });
+  const [editEntry, setEditEntry] = useState(null);  // entry being edited (admin)
+  const [editData, setEditData] = useState({ clock_in: "", clock_out: "", notes: "" });
   
   const fetchAll = useCallback(async () => {
     setLoading(true);
@@ -116,6 +118,41 @@ export function TimeClockSection() {
     if (!window.confirm(isEs ? "¿Eliminar esta entrada?" : "Delete this entry?")) return;
     try {
       await axios.delete(`${API}/api/people-ops/time-clock/entries/${entry_id}`, { withCredentials: true });
+      await fetchAll();
+    } catch (err) {
+      alert(err.response?.data?.detail || "Error");
+    }
+  };
+  
+  // Convert ISO datetime → "YYYY-MM-DDTHH:MM" for datetime-local input (in user's local TZ)
+  const isoToLocalInput = (iso) => {
+    if (!iso) return "";
+    const d = new Date(iso);
+    const pad = (n) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  };
+  
+  const openEdit = (entry) => {
+    setEditEntry(entry);
+    setEditData({
+      clock_in: isoToLocalInput(entry.clock_in),
+      clock_out: isoToLocalInput(entry.clock_out),
+      notes: entry.notes || "",
+    });
+  };
+  
+  const handleEditSubmit = async () => {
+    if (!editEntry) return;
+    try {
+      const payload = { notes: editData.notes };
+      if (editData.clock_in) payload.clock_in = new Date(editData.clock_in).toISOString();
+      if (editData.clock_out) payload.clock_out = new Date(editData.clock_out).toISOString();
+      await axios.put(
+        `${API}/api/people-ops/time-clock/entries/${editEntry.entry_id}`,
+        payload,
+        { withCredentials: true }
+      );
+      setEditEntry(null);
       await fetchAll();
     } catch (err) {
       alert(err.response?.data?.detail || "Error");
@@ -331,9 +368,14 @@ export function TimeClockSection() {
                         <TableCell>{fmtTime(e.clock_out)}</TableCell>
                         <TableCell className="text-right">{fmtHours(e.total_minutes)}</TableCell>
                         <TableCell>
-                          <Button variant="ghost" size="sm" className="text-red-600" onClick={() => handleDelete(e.entry_id)}>
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </Button>
+                          <div className="flex items-center gap-1">
+                            <Button variant="ghost" size="sm" onClick={() => openEdit(e)} data-testid={`edit-entry-${e.entry_id}`}>
+                              <Edit2 className="w-3.5 h-3.5" />
+                            </Button>
+                            <Button variant="ghost" size="sm" className="text-red-600" onClick={() => handleDelete(e.entry_id)}>
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -382,6 +424,63 @@ export function TimeClockSection() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setManualOpen(false)}>{isEs ? "Cancelar" : "Cancel"}</Button>
             <Button onClick={handleManualSubmit}>{isEs ? "Guardar" : "Save"}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Edit Entry Dialog (admin) */}
+      <Dialog open={!!editEntry} onOpenChange={(o) => { if (!o) setEditEntry(null); }}>
+        <DialogContent className="max-w-md" data-testid="edit-entry-dialog">
+          <DialogHeader>
+            <DialogTitle>{isEs ? "Editar Marcación" : "Edit Entry"}</DialogTitle>
+            <DialogDescription>
+              {editEntry?.employee_name} · {editEntry?.work_date}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-sm font-medium">{isEs ? "Entrada" : "Clock In"}</label>
+                <Input
+                  type="datetime-local"
+                  value={editData.clock_in}
+                  onChange={(e) => setEditData({ ...editData, clock_in: e.target.value })}
+                  data-testid="edit-clock-in"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium">{isEs ? "Salida" : "Clock Out"}</label>
+                <Input
+                  type="datetime-local"
+                  value={editData.clock_out}
+                  onChange={(e) => setEditData({ ...editData, clock_out: e.target.value })}
+                  data-testid="edit-clock-out"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="text-sm font-medium">{isEs ? "Notas" : "Notes"}</label>
+              <Input
+                value={editData.notes}
+                onChange={(e) => setEditData({ ...editData, notes: e.target.value })}
+                placeholder={isEs ? "Motivo del ajuste..." : "Reason for adjustment..."}
+              />
+            </div>
+            {editData.clock_in && editData.clock_out && (() => {
+              const ci = new Date(editData.clock_in);
+              const co = new Date(editData.clock_out);
+              const mins = Math.max(0, Math.round((co - ci) / 60000));
+              return (
+                <div className="p-2 rounded bg-violet-50 border border-violet-200 text-xs">
+                  <span className="text-violet-700">{isEs ? "Total recalculado:" : "Recomputed total:"}</span>
+                  <span className="ml-2 font-bold text-violet-900">{(mins / 60).toFixed(2)}h</span>
+                </div>
+              );
+            })()}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditEntry(null)}>{isEs ? "Cancelar" : "Cancel"}</Button>
+            <Button onClick={handleEditSubmit} data-testid="save-edit-entry">{isEs ? "Guardar Cambios" : "Save Changes"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
