@@ -142,8 +142,8 @@ async def create_department(
         "department_id": department_id,
         "company_id": company_id,
         "name": data.name,
-        "name_en": data.name_en,
-        "name_es": data.name_es,
+        "name_en": data.name_en or None,
+        "name_es": data.name_es or None,
         "code": data.code,
         "description": data.description,
         "head_user_id": data.head_user_id,
@@ -217,9 +217,9 @@ async def update_department(
     if data.name is not None:
         update_doc["name"] = data.name
     if data.name_en is not None:
-        update_doc["name_en"] = data.name_en
+        update_doc["name_en"] = data.name_en or None
     if data.name_es is not None:
-        update_doc["name_es"] = data.name_es
+        update_doc["name_es"] = data.name_es or None
     if data.code is not None:
         update_doc["code"] = data.code
     if data.description is not None:

@@ -1,5 +1,15 @@
 # Kora OS - Changelog
 
+
+## February 2026 — Iteration 192
+
+### Bug Fix: Salary Configuration UI + Bilingual Departments (People Ops)
+- **EmployeeProfile.js Compensation tab**: Added editable violet "Configuración de Salario" card with inputs for `base_salary`, `currency`, `payment_frequency`, `weekly_hours_regular` (only visible in Edit mode). Read-only card now shows "Sin definir / Not set" with helpful hint when salary=0.
+- **EmployeeProfile.js Employment Info card**: Job Role is now editable via free-text Input (primary) with an optional Select dropdown to link to Recruitment catalog (data-testids: `edit-job-title`, `edit-job-role-select`).
+- **Departments bilingual support**: New optional `name_en` and `name_es` fields in Department model. POST/PUT `/api/people-ops/departments` persist them. OrganizationStructureSection dialog adds dedicated Spanish/English name inputs. Departments table and EmployeeProfile dropdown render localized name based on UI language with fallback to `name`.
+- Empty string values for `name_en`/`name_es` are normalized to `None` to preserve fallback semantics.
+- Tested via testing_agent_v3_fork iteration_192 — 100% pass on backend (6/6) and frontend (15/15).
+
 ## March 14-15, 2026
 
 ### Feature: Rich Text Content Editor for Posts & Ideas (Demand Studio)
