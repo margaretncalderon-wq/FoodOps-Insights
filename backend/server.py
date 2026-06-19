@@ -7151,18 +7151,57 @@ async def get_portal_document(document_id: str, token: Optional[str] = None):
     return doc
 
 @portal_router.post("/document/{document_id}/sign")
-async def client_sign_document(document_id: str, data: dict):
+async def client_sign_document(document_id: str, data: dict, request: Request):
+    """Client-facing signature capture. Saves the drawn signature data URL,
+    signer name, optional email, IP and User-Agent for audit trail. Marks
+    the document as 'signed'.
+
+    For proposal/quote documents this also propagates the signature onto the
+    underlying proposal record so the admin sees the client's actual approval
+    on the proposal preview.
+    """
     now = datetime.now(timezone.utc)
     signature = data.get("signature")
     signed_by = data.get("signed_by", "Client")
-    
+    signed_email = (data.get("signed_email") or "").strip() or None
+    client_ip = request.client.host if request.client else None
+    user_agent = request.headers.get("user-agent")
+
+    update = {
+        "signature": signature,
+        "signed_at": now.isoformat(),
+        "signed_by": signed_by,
+        "signed_email": signed_email,
+        "signed_ip": client_ip,
+        "signed_user_agent": user_agent,
+        "status": "signed",
+        "updated_at": now.isoformat(),
+    }
     result = await db.documents.update_one(
         {"document_id": document_id},
-        {"$set": {"signature": signature, "signed_at": now.isoformat(), "signed_by": signed_by, "status": "signed", "updated_at": now.isoformat()}}
+        {"$set": update}
     )
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Document not found")
-    return {"message": "Document signed successfully"}
+
+    # Propagate to the linked proposal so admin preview shows the actual
+    # client-captured signature in the "Firma del cliente" block.
+    doc = await db.documents.find_one({"document_id": document_id}, {"_id": 0, "proposal_id": 1, "document_type": 1})
+    if doc and doc.get("proposal_id") and doc.get("document_type") in ("proposal", "quote"):
+        await db.proposals.update_one(
+            {"proposal_id": doc["proposal_id"]},
+            {"$set": {
+                "client_signature": signature,
+                "client_signed_at": now.isoformat(),
+                "client_signed_by": signed_by,
+                "client_signed_email": signed_email,
+                "client_signed_ip": client_ip,
+                "status": "approved",
+                "updated_at": now.isoformat(),
+            }}
+        )
+
+    return {"message": "Document signed successfully", "signed_at": now.isoformat()}
 
 @portal_router.get("/event/{event_id}/delivery-notes")
 async def get_portal_delivery_notes(event_id: str):

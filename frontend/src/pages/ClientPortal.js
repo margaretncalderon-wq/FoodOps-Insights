@@ -42,6 +42,7 @@ export default function ClientPortal() {
   const [loading, setLoading] = useState(true);
   const [signing, setSigning] = useState(false);
   const [signedBy, setSignedBy] = useState("");
+  const [signedEmail, setSignedEmail] = useState("");
   const [saving, setSaving] = useState(false);
   const sigCanvasRef = useRef(null);
 
@@ -76,6 +77,7 @@ export default function ClientPortal() {
       await axios.post(`${API}/portal/document/${documentId}/sign`, {
         signature,
         signed_by: signedBy,
+        signed_email: signedEmail.trim() || null,
       });
       toast.success("Document signed successfully!");
       fetchDocument();
@@ -554,10 +556,13 @@ export default function ClientPortal() {
 
             {/* Existing Signature */}
             {document.signature && (
-              <div className="pt-8 border-t">
-                <p className="text-sm text-muted-foreground mb-4">
-                  {isEs ? "Firmado por" : "Signed by"}: {document.signed_by}
+              <div className="pt-8 border-t" data-testid="signed-display">
+                <p className="text-sm text-muted-foreground mb-1">
+                  {isEs ? "Aprobado y firmado por" : "Approved and signed by"}: <span className="font-semibold text-foreground">{document.signed_by}</span>
                 </p>
+                {document.signed_email && (
+                  <p className="text-xs text-muted-foreground mb-3">{document.signed_email}</p>
+                )}
                 <img src={document.signature} alt="Signature" className="max-h-24" />
                 <p className="text-xs text-muted-foreground mt-2">
                   {new Date(document.signed_at).toLocaleString()}
@@ -565,30 +570,62 @@ export default function ClientPortal() {
               </div>
             )}
 
-            {/* Sign Button */}
-            {document.status !== "signed" && !signing && document.requires_signature && (
-              <div className="pt-8 border-t">
-                <Button onClick={() => setSigning(true)} className="w-full sm:w-auto" data-testid="start-sign-btn">
-                  {isEs ? "Firmar Documento" : "Sign Document"}
-                </Button>
-              </div>
-            )}
+            {/* Sign / Approve CTA */}
+            {document.status !== "signed" && !signing && document.requires_signature && (() => {
+              const isProposal = ["proposal", "quote"].includes(document.document_type);
+              const cta = isProposal
+                ? (isEs ? "Aprobar Cotización" : "Approve Quote")
+                : (isEs ? "Firmar Documento" : "Sign Document");
+              return (
+                <div className="pt-8 border-t">
+                  <Button onClick={() => setSigning(true)} className="w-full sm:w-auto" data-testid="start-sign-btn" size="lg">
+                    <CheckCircle className="w-5 h-5 mr-2" />
+                    {cta}
+                  </Button>
+                  {isProposal && (
+                    <p className="text-xs text-muted-foreground mt-2">
+                      {isEs
+                        ? "Al firmar, confirmas que aceptas los términos y montos de esta cotización."
+                        : "By signing, you confirm acceptance of the terms and amounts in this quote."}
+                    </p>
+                  )}
+                </div>
+              );
+            })()}
 
             {/* Signature Form */}
-            {signing && (
+            {signing && (() => {
+              const isProposal = ["proposal", "quote"].includes(document.document_type);
+              return (
               <div className="pt-8 border-t space-y-4">
-                <h3 className="font-heading font-semibold">{isEs ? "Firmar Documento" : "Sign Document"}</h3>
-                <div className="space-y-2">
-                  <Label>{isEs ? "Su Nombre" : "Your Name"}</Label>
-                  <Input
-                    value={signedBy}
-                    onChange={(e) => setSignedBy(e.target.value)}
-                    placeholder={isEs ? "Ingrese su nombre completo" : "Enter your full name"}
-                    data-testid="signature-name-input"
-                  />
+                <h3 className="font-heading font-semibold text-lg">
+                  {isProposal
+                    ? (isEs ? "Aprobar y Firmar Cotización" : "Approve & Sign Quote")
+                    : (isEs ? "Firmar Documento" : "Sign Document")}
+                </h3>
+                <div className="grid sm:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>{isEs ? "Nombre Completo" : "Full Name"} *</Label>
+                    <Input
+                      value={signedBy}
+                      onChange={(e) => setSignedBy(e.target.value)}
+                      placeholder={isEs ? "Ingrese su nombre completo" : "Enter your full name"}
+                      data-testid="signature-name-input"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>{isEs ? "Email (opcional)" : "Email (optional)"}</Label>
+                    <Input
+                      type="email"
+                      value={signedEmail}
+                      onChange={(e) => setSignedEmail(e.target.value)}
+                      placeholder="usuario@dominio.com"
+                      data-testid="signature-email-input"
+                    />
+                  </div>
                 </div>
                 <div className="space-y-2">
-                  <Label>{isEs ? "Firma" : "Signature"}</Label>
+                  <Label>{isEs ? "Dibuje su firma aquí" : "Draw your signature here"} *</Label>
                   <div className="border rounded-lg bg-white">
                     <SignatureCanvas
                       ref={sigCanvasRef}
@@ -600,21 +637,36 @@ export default function ClientPortal() {
                       }}
                     />
                   </div>
+                  <p className="text-xs text-muted-foreground">
+                    {isEs
+                      ? "Use el dedo (móvil) o el mouse (PC) para firmar dentro del recuadro."
+                      : "Use your finger (mobile) or mouse (desktop) to sign inside the box."}
+                  </p>
                 </div>
-                <div className="flex gap-3">
-                  <Button variant="outline" onClick={handleClearSignature}>
+                {isProposal && (
+                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-900">
+                    {isEs
+                      ? "Al hacer clic en \"Firmar y Aprobar\" confirmas que aceptas todos los términos, condiciones y montos de esta cotización. Este registro queda guardado con tu nombre, email, firma y fecha."
+                      : "By clicking \"Sign & Approve\" you confirm acceptance of all terms, conditions and amounts in this quote. This is recorded with your name, email, signature and timestamp."}
+                  </div>
+                )}
+                <div className="flex flex-wrap gap-3">
+                  <Button variant="outline" onClick={handleClearSignature} data-testid="clear-sig-btn">
                     {isEs ? "Limpiar" : "Clear"}
                   </Button>
                   <Button variant="outline" onClick={() => setSigning(false)}>
                     {isEs ? "Cancelar" : "Cancel"}
                   </Button>
                   <Button onClick={handleSign} disabled={saving} data-testid="confirm-portal-sign-btn">
-                    {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                    {isEs ? "Firmar y Enviar" : "Sign & Submit"}
+                    {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <CheckCircle className="w-4 h-4 mr-2" />}
+                    {isProposal
+                      ? (isEs ? "Firmar y Aprobar" : "Sign & Approve")
+                      : (isEs ? "Firmar y Enviar" : "Sign & Submit")}
                   </Button>
                 </div>
               </div>
-            )}
+              );
+            })()}
           </CardContent>
         </Card>
 

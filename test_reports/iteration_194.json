@@ -1,0 +1,62 @@
+{
+  "summary": "Iteration 194 — Tested digital signature capture on Client Portal. Backend: 5/5 pytest passed (POST /api/portal/document/{id}/sign correctly persists signature, signed_by, signed_email, signed_ip, signed_user_agent, signed_at, status='signed'; GET returns them; propagation logic correctly writes client_signature/client_signed_*/status='approved' onto proposals when document has proposal_id + document_type in (proposal,quote)). Frontend (ClientPortal /portal/:documentId): CTA 'Approve Quote' (English locale on demo company), opens form with Full Name + Email (optional) + signature canvas + amber legal disclosure + 'Sign & Approve' confirm button. All data-testids present (start-sign-btn, signature-name-input, signature-email-input, confirm-portal-sign-btn, signed-display, document-signature-block, client-captured-signature). CRITICAL FINDING: the document creation endpoints (POST /api/documents/generate/{event_id}/{doc_type} at line 6016, POST /api/documents at line 5860, and regenerate at line 6235) do NOT set the `proposal_id` field on the inserted document. The sign endpoint at line 7189-7202 propagates ONLY when `doc.get('proposal_id')` is truthy, so in the production flow signing a generated proposal/quote document will NEVER propagate to the proposals collection, meaning admin DocumentPreview will not render the client-captured signature. Propagation logic itself works (verified by patching proposal_id directly via MongoDB).",
+  "backend_issues": {
+    "critical": [
+      {
+        "endpoint": "/api/documents/generate/{event_id}/{doc_type} (and /api/documents POST, /api/documents/{id}/regenerate)",
+        "issue": "Document insert payload does not include `proposal_id` even though a proposal record is fetched by event_id at line 6027-6030. Because /api/portal/document/{id}/sign gates the propagation to the proposals collection on `doc.get('proposal_id')`, the production sign flow will NEVER write client_signature/client_signed_*/status='approved' onto the proposal. Admin DocumentPreview will therefore not render the client-captured signature on the right-side `document-signature-block` for documents created via the standard generate flow.",
+        "priority": "CRITICAL"
+      }
+    ],
+    "minor": [
+      {
+        "endpoint": "/api/portal/document/{id}/sign",
+        "issue": "When `signed_email` is omitted, the persisted field becomes null. GET portal/document returns `signed_email: null` (not absent). This is acceptable but verify ClientPortal `signed-display` does not render an empty email line — code at ClientPortal.js:563 already guards with `{document.signed_email && ...}` so OK."
+      },
+      {
+        "endpoint": "/api/portal/document/{id}/sign",
+        "issue": "request.client.host behind Kubernetes ingress will be the cluster-internal IP, not the true client IP. Consider reading `X-Forwarded-For` header for accurate audit trail. Not blocking."
+      },
+      {
+        "endpoint": "/api/proposals (list)",
+        "issue": "No GET /api/proposals listing endpoint exists. Only /api/proposals/event/{event_id} is exposed. Confirmed not a regression (was never there), just noting for future."
+      }
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {
+        "flow": "Client signs proposal via portal → Admin opens proposal preview",
+        "issue": "Because the document-side propagation never fires (see backend critical above), `proposal.client_signature` stays null and DocumentPreview right-side signature block will fall back to its placeholder state instead of showing the captured signature. End-to-end flow is broken on the rendering side despite portal UI working perfectly.",
+        "affected_selectors": ["document-signature-block", "client-captured-signature"]
+      }
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_portal_signature_iter194.py",
+    "/app/test_reports/pytest/iter194_results.xml"
+  ],
+  "action_items": [
+    "CRITICAL: In /app/backend/server.py at line 6208 (generate_document), set `proposal_id: proposal.get('proposal_id') if proposal else None` on the inserted document. Apply the same to line 5865 (create_document) and line 6341 (regenerate_document — include in $set). Without this, the iteration-194 propagation logic is unreachable for real users.",
+    "OPTIONAL (resilience): In /api/portal/document/{id}/sign, if `doc.proposal_id` is missing but `doc.event_id` exists and document_type ∈ (proposal,quote), fall back to looking up the proposal by event_id before updating. This keeps already-generated legacy documents working.",
+    "Consider reading X-Forwarded-For header (first IP in CSV) for signed_ip instead of request.client.host — current value will be the cluster-internal pod IP, not the real client."
+  ],
+  "critical_code_review_comments": [
+    "The sign endpoint correctly captures IP + User-Agent + timestamp and writes a complete audit record on `documents`. Implementation of the new fields is clean.",
+    "Propagation guard `doc.get('proposal_id') and doc.get('document_type') in ('proposal','quote')` is correct in isolation, but the upstream document creation does not populate proposal_id — so in practice this branch never executes. Recommend adding proposal_id at document creation OR falling back to event_id-based lookup.",
+    "ClientPortal.js correctly conditions CTA wording and amber disclosure on `['proposal','quote'].includes(document.document_type)` — clean code. Email input is appropriately marked optional.",
+    "DocumentPreview.js renders `client-captured-signature` from `proposal.client_signature` — depends on backend propagation which is currently unreachable (see action items)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_portal_signature_iter194.py"
+  ],
+  "success_rate": { "backend": "100% (5/5 pytest, but a critical integration gap was identified outside of the unit-tested endpoint)", "frontend": "100% (Client Portal UI verified end-to-end; admin DocumentPreview not retested because dependent backend gap will leave it empty)" },
+  "test_credentials": "demo.agency@kora.com / Evoque2024! (from /app/memory/test_credentials.md)",
+  "seed_data_creation": "Generated 3 portal documents via POST /api/documents/generate/{event_id}/(proposal|quote) for event_e85909bec938 and others. Patched one document via MongoDB direct write to set proposal_id+document_type='proposal' so the propagation branch could be exercised. Signed multiple documents with TEST_Signer_* / TEST_NoEmail_* / TEST_Propagated_* names.",
+  "retest_needed": true,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "All 5 pytest cases in /app/backend/tests/test_portal_signature_iter194.py pass. The critical gap is that documents created by the generate endpoint don't carry proposal_id, so the iter-194 propagation to the proposals collection is unreachable in the live flow. After main agent adds proposal_id to document insert in server.py line ~6208 (and ideally line 5865 + 6341), re-run pytest backend/tests/test_portal_signature_iter194.py — the propagation test will then succeed WITHOUT the MongoDB patch (you can remove the patch lines). Also re-do a full e2e UI run: open /portal/{generated_doc_id}, sign, then open /proposals/{proposal_id} → Preview tab → verify `document-signature-block` shows `client-captured-signature` image + signer name + timestamp.",
+  "rca of the issue": "The new sign endpoint at /app/backend/server.py:7189 reads `doc.proposal_id` to decide whether to propagate. But the document creation endpoints at lines 5865, 6208, and 6339 never set `proposal_id` on the document — they only set `event_id`. Therefore the production code path is: generate → sign → propagation gate fails silently → proposal.client_signature stays null → admin DocumentPreview renders empty. The fix is one-line: include `proposal_id: proposal.get('proposal_id') if proposal else None` in the insert document dict at line 6208 (and apply equivalent fixes to 5865 and the regenerate $set at 6341). Alternative defensive fix: in the sign endpoint, fall back to `db.proposals.find_one({'event_id': doc['event_id']})` when proposal_id is missing."
+}

@@ -1256,16 +1256,32 @@ export default function DocumentPreview({
                     </p>
                   </div>
                 </div>
-                {/* Client signature - blank space for client to sign */}
+                {/* Client signature - shows captured signature when client has
+                    approved via the portal, otherwise blank space for manual signing. */}
                 <div className="text-center">
-                  <div className="h-24 mb-2" />
+                  <div className="relative h-24 mb-2 flex items-end justify-center">
+                    {proposal?.client_signature && (
+                      <img
+                        src={proposal.client_signature}
+                        alt="Client Signature"
+                        className="relative z-10"
+                        style={{ maxHeight: "72px", maxWidth: "200px" }}
+                        data-testid="client-captured-signature"
+                      />
+                    )}
+                  </div>
                   <div className="border-t border-foreground/40 pt-1">
                     <p className="text-sm font-medium">
-                      {proposal?.client_name || "_______________________"}
+                      {proposal?.client_signed_by || proposal?.client_name || "_______________________"}
                     </p>
                     <p className="text-xs text-muted-foreground mt-0.5">
                       {language === "es" ? "Firma del cliente — Aprobado" : "Client signature — Approved"}
                     </p>
+                    {proposal?.client_signed_at && (
+                      <p className="text-[10px] text-muted-foreground mt-0.5">
+                        {new Date(proposal.client_signed_at).toLocaleString()}
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>
