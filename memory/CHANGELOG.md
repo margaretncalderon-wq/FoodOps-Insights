@@ -1,6 +1,17 @@
 # Kora OS - Changelog
 
 
+## February 2026 — Iteration 194-195
+
+### Feature: Digital Approval Capture on Client Portal
+- **Client Portal** (`/portal/:documentId`): When document type is `proposal`/`quote`, CTA reads "Aprobar Cotización" / "Approve Quote". New email input field (optional). Amber disclosure box about acceptance terms. Confirm button reads "Firmar y Aprobar".
+- **Backend** (`POST /api/portal/document/{id}/sign`):
+  - Persists `signature` (data URL), `signed_by`, `signed_email`, `signed_ip` (X-Forwarded-For aware), `signed_user_agent`, `signed_at`, `status='signed'`.
+  - Propagates to linked `proposals` record (status=`approved`, client_signature, client_signed_*). When `doc.proposal_id` is missing (legacy docs), falls back to lookup by `event_id`.
+- **DocumentPreview**: Right-side signature block now renders `client-captured-signature` image when `proposal.client_signature` exists, plus signer name + timestamp.
+- Tested via `testing_agent_v3_fork` iter 194 → 195. **Backend 7/7 pytest passing**. E2E portal sign verified with real client IP captured.
+
+
 ## February 2026 — Iteration 193
 
 ### Bug Fixes: Client Engagement + Event Orchestration (4 bugs)
