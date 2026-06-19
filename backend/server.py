@@ -7164,7 +7164,11 @@ async def client_sign_document(document_id: str, data: dict, request: Request):
     signature = data.get("signature")
     signed_by = data.get("signed_by", "Client")
     signed_email = (data.get("signed_email") or "").strip() or None
-    client_ip = request.client.host if request.client else None
+    # Behind an ingress/proxy the request.client.host is the internal cluster
+    # IP. Honour X-Forwarded-For (first hop = real client) when present so the
+    # audit record matches the actual signer.
+    xff = (request.headers.get("x-forwarded-for") or "").split(",")[0].strip()
+    client_ip = xff or (request.client.host if request.client else None)
     user_agent = request.headers.get("user-agent")
 
     update = {
@@ -7186,20 +7190,35 @@ async def client_sign_document(document_id: str, data: dict, request: Request):
 
     # Propagate to the linked proposal so admin preview shows the actual
     # client-captured signature in the "Firma del cliente" block.
-    doc = await db.documents.find_one({"document_id": document_id}, {"_id": 0, "proposal_id": 1, "document_type": 1})
-    if doc and doc.get("proposal_id") and doc.get("document_type") in ("proposal", "quote"):
-        await db.proposals.update_one(
-            {"proposal_id": doc["proposal_id"]},
-            {"$set": {
-                "client_signature": signature,
-                "client_signed_at": now.isoformat(),
-                "client_signed_by": signed_by,
-                "client_signed_email": signed_email,
-                "client_signed_ip": client_ip,
-                "status": "approved",
-                "updated_at": now.isoformat(),
-            }}
-        )
+    doc = await db.documents.find_one(
+        {"document_id": document_id},
+        {"_id": 0, "proposal_id": 1, "document_type": 1, "event_id": 1}
+    )
+    if doc and doc.get("document_type") in ("proposal", "quote"):
+        # Prefer the explicit proposal_id on the document; fall back to a
+        # lookup by event_id so legacy generated docs (which never set
+        # proposal_id) still propagate the client approval correctly.
+        proposal_id = doc.get("proposal_id")
+        if not proposal_id and doc.get("event_id"):
+            linked = await db.proposals.find_one(
+                {"event_id": doc["event_id"]},
+                {"_id": 0, "proposal_id": 1},
+            )
+            if linked:
+                proposal_id = linked.get("proposal_id")
+        if proposal_id:
+            await db.proposals.update_one(
+                {"proposal_id": proposal_id},
+                {"$set": {
+                    "client_signature": signature,
+                    "client_signed_at": now.isoformat(),
+                    "client_signed_by": signed_by,
+                    "client_signed_email": signed_email,
+                    "client_signed_ip": client_ip,
+                    "status": "approved",
+                    "updated_at": now.isoformat(),
+                }}
+            )
 
     return {"message": "Document signed successfully", "signed_at": now.isoformat()}
 

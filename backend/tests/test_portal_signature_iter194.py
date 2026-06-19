@@ -159,34 +159,44 @@ class TestPortalSignFlow:
         # signed_at present
         assert doc.get("signed_at"), "signed_at missing"
 
-    def test_sign_propagates_to_proposal_collection(self, admin, proposal_and_document):
-        """Verify propagation logic: when a document has a linked proposal_id
-        and document_type in ('proposal','quote'), signing should push
-        client_signature/client_signed_* + status='approved' onto proposals.
-        
-        Note: /api/documents/generate/{event_id}/proposal does NOT currently
-        write `proposal_id` onto the document. To test the propagation logic
-        in isolation, we patch the document directly via MongoDB to attach
-        proposal_id, then call the sign endpoint and verify proposal record.
+    def test_sign_propagates_to_proposal_collection(self, admin):
+        """Verify propagation logic via the standard generate→sign flow
+        (no MongoDB direct patch). The sign endpoint now falls back to
+        looking up the proposal by event_id when document.proposal_id is
+        missing, so legacy/default-generated documents propagate too.
         """
-        from pymongo import MongoClient as _MC
+        # Seed a fresh event-based proposal+document via normal API flow
+        r = admin.get(f"{BASE_URL}/api/events")
+        assert r.status_code == 200
+        events = r.json()
+        target = None
+        for ev in events[:15]:
+            event_id = ev.get("event_id") or ev.get("id")
+            if not event_id:
+                continue
+            proposal = _get_or_create_proposal_for_event(admin, event_id)
+            if not proposal or not proposal.get("proposal_id"):
+                continue
+            g = admin.post(f"{BASE_URL}/api/documents/generate/{event_id}/proposal")
+            if g.status_code != 200:
+                continue
+            d = g.json()
+            doc_id = d.get("document_id") or d.get("id")
+            if not doc_id:
+                continue
+            target = {
+                "proposal_id": proposal["proposal_id"],
+                "event_id": event_id,
+                "document_id": doc_id,
+            }
+            break
+        assert target, "Could not seed event+proposal+document via API"
 
-        proposal_id = proposal_and_document["proposal_id"]
-        event_id = proposal_and_document["event_id"]
-        document_id = proposal_and_document["document_id"]
+        proposal_id = target["proposal_id"]
+        event_id = target["event_id"]
+        document_id = target["document_id"]
 
-        mongo_url = os.environ.get("MONGO_URL", "mongodb://localhost:27017")
-        db_name = os.environ.get("DB_NAME", "test_database")
-        mc = _MC(mongo_url)
-        mdb = mc[db_name]
-        # Patch the document to set proposal_id
-        upd = mdb.documents.update_one(
-            {"document_id": document_id},
-            {"$set": {"proposal_id": proposal_id, "document_type": "proposal"}},
-        )
-        assert upd.matched_count == 1, "Could not patch document with proposal_id in MongoDB"
-
-        # Now sign with a marker signer
+        # Sign via the public portal endpoint — no DB patch
         signer_name = f"TEST_Propagated_{uuid.uuid4().hex[:6]}"
         signer_email = f"propagate_{uuid.uuid4().hex[:6]}@example.com"
         sess = requests.Session()
@@ -263,3 +273,74 @@ class TestPortalSignFlow:
             timeout=15,
         )
         assert r.status_code == 404
+
+    def test_sign_uses_x_forwarded_for_first_hop(self, admin):
+        """signed_ip must equal the first IP in X-Forwarded-For when present,
+        and fall back to request.client.host when absent.
+        """
+        # Generate a fresh document
+        r = admin.get(f"{BASE_URL}/api/events")
+        events = r.json()
+        doc_id = None
+        for ev in events[:15]:
+            event_id = ev.get("event_id") or ev.get("id")
+            if not event_id:
+                continue
+            g = admin.post(f"{BASE_URL}/api/documents/generate/{event_id}/proposal")
+            if g.status_code == 200 and g.json().get("document_id"):
+                doc_id = g.json().get("document_id")
+                break
+        assert doc_id, "Could not generate a fresh document for XFF test"
+
+        # Sign with X-Forwarded-For header
+        sess = requests.Session()
+        sess.headers.update({
+            "Content-Type": "application/json",
+            "User-Agent": "XFFTest/iter194",
+            "X-Forwarded-For": "203.0.113.42, 10.0.0.1",
+        })
+        r = sess.post(
+            f"{BASE_URL}/api/portal/document/{doc_id}/sign",
+            json={
+                "signature": TINY_PNG_DATA_URL,
+                "signed_by": f"TEST_XFF_{uuid.uuid4().hex[:6]}",
+            },
+            timeout=30,
+        )
+        assert r.status_code == 200, f"Sign failed: {r.text}"
+
+        # Verify signed_ip is the first hop of XFF
+        d = requests.get(f"{BASE_URL}/api/portal/document/{doc_id}").json()
+        assert d.get("signed_ip") == "203.0.113.42", \
+            f"signed_ip should be the first XFF hop, got: {d.get('signed_ip')}"
+
+    def test_sign_without_xff_falls_back_to_client_host(self, admin):
+        """When X-Forwarded-For is absent, signed_ip falls back to a non-empty
+        value (request.client.host — typically the ingress IP in this env).
+        """
+        r = admin.get(f"{BASE_URL}/api/events")
+        events = r.json()
+        doc_id = None
+        for ev in events[:15]:
+            event_id = ev.get("event_id") or ev.get("id")
+            if not event_id:
+                continue
+            g = admin.post(f"{BASE_URL}/api/documents/generate/{event_id}/proposal")
+            if g.status_code == 200 and g.json().get("document_id"):
+                doc_id = g.json().get("document_id")
+                break
+        assert doc_id, "Could not generate a fresh document for fallback test"
+
+        # Note: requests inside the cluster may still set XFF via ingress.
+        # We can't strip the ingress-added XFF, so just verify signed_ip
+        # is a non-empty string (the real check is the XFF-positive test above).
+        sess = requests.Session()
+        sess.headers.update({"Content-Type": "application/json"})
+        r = sess.post(
+            f"{BASE_URL}/api/portal/document/{doc_id}/sign",
+            json={"signature": TINY_PNG_DATA_URL, "signed_by": "TEST_Fallback"},
+            timeout=30,
+        )
+        assert r.status_code == 200
+        d = requests.get(f"{BASE_URL}/api/portal/document/{doc_id}").json()
+        assert d.get("signed_ip"), "signed_ip should be a non-empty value"
