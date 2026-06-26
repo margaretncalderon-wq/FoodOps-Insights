@@ -4539,11 +4539,13 @@ async def list_kitchen_beo_batch(
         eds = _event_dates(ev)
         if not eds:
             continue
-        if all(d < qstart for d in eds):
-            continue
-        if all(d > qend for d in eds):
-            continue
-        filtered.append(ev)
+        # Include the event ONLY if at least one of its actual event dates
+        # falls inside [qstart, qend]. Previously this used span-overlap
+        # semantics, which surfaced an event with dates [Mar 5, Mar 7, Mar 10]
+        # for a window of just [Mar 6, Mar 6] even though it has no kitchen
+        # activity on Mar 6.
+        if any(qstart <= d <= qend for d in eds):
+            filtered.append(ev)
 
     # Generate a BEO for each event (reusing the single-event endpoint logic)
     sheets: list = []

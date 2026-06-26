@@ -1,6 +1,15 @@
 # Kora OS - Changelog
 
 
+## February 2026 — Iteration 197
+
+### Bug Fix: Third calendar missing meal-split (user follow-up)
+- **CalendarPage.js** (`/calendar`): Was still hitting `/api/events` and rendering one chip per event, hiding breakfast/lunch on the same day. Now fetches `/api/orchestration/calendar` (services + calendar_dates), uses `getEntriesForDate` like the other two calendars, and renders one chip per meal with the time prefix (e.g. "08:00 Desayuno", "12:00 Almuerzo"). Skipped-day backfill also respected.
+- **Regression suite**: New pytest `/app/backend/tests/test_calendar_meal_split.py` (2 tests) verifies the backend returns 2 distinct services for a same-day Desayuno + Almuerzo proposal.
+- **All 3 calendars now consistent**: `EngagementCalendar.js`, `EventCalendarTab.js`, `CalendarPage.js`.
+- Backend also tightened: `/api/kitchen-beo/batch` window filter switched from "span overlap" to "any date inside window" so non-consecutive multi-day events don't surface in windows that contain no actual event date.
+
+
 ## February 2026 — Iteration 194-195
 
 ### Feature: Digital Approval Capture on Client Portal

@@ -37,10 +37,21 @@ export default function CalendarPage({ embedded = false }) {
 
   const fetchEvents = async () => {
     try {
-      const response = await axios.get(`${API}/events`, { withCredentials: true });
-      setEvents(response.data);
+      // Use orchestration/calendar to receive enriched events with:
+      //   - calendar_dates  -> respects event_dates (no skipped-day backfill)
+      //   - services        -> meal-by-meal breakdown so each meal renders as
+      //                        its own calendar entry (Desayuno, Almuerzo, etc.)
+      const response = await axios.get(`${API}/orchestration/calendar`, { withCredentials: true });
+      setEvents(response.data?.events || []);
     } catch (error) {
-      console.error("Failed to fetch events:", error);
+      console.error("Failed to fetch enriched calendar:", error);
+      // Fallback: legacy /events without service breakdown
+      try {
+        const fallback = await axios.get(`${API}/events`, { withCredentials: true });
+        setEvents(fallback.data);
+      } catch (e2) {
+        console.error("Failed to fetch events:", e2);
+      }
     } finally {
       setLoading(false);
     }
@@ -87,10 +98,14 @@ export default function CalendarPage({ embedded = false }) {
   const tbdEvents = events.filter((e) => !e.event_date && !e.start_date);
 
   const getEventsForDate = (date) => {
+    const dateStr = format(date, "yyyy-MM-dd");
     return events.filter((event) => {
-      // Skip events without a valid date
+      // Prefer the enriched calendar_dates (respects non-consecutive event_dates)
+      if (Array.isArray(event.calendar_dates) && event.calendar_dates.length > 0) {
+        return event.calendar_dates.includes(dateStr);
+      }
+      // Legacy fallback for events without calendar_dates
       if (!event.event_date && !event.start_date) return false;
-      
       try {
         const eventStart = parseISO(event.event_date || event.start_date);
         const eventEnd = event.end_date ? parseISO(event.end_date) : eventStart;
@@ -99,6 +114,29 @@ export default function CalendarPage({ embedded = false }) {
         return false;
       }
     });
+  };
+
+  // Returns `{event, service}` entries so each meal (Desayuno, Almuerzo, ...)
+  // renders as its own block on the calendar — user wants to "see how many
+  // pedidos" there are per day at a glance.
+  const getEntriesForDate = (date) => {
+    const dateStr = format(date, "yyyy-MM-dd");
+    const entries = [];
+    for (const event of getEventsForDate(date)) {
+      const svcs = (event.services || []).filter((s) => (s.date || "") === dateStr);
+      if (svcs.length === 0) {
+        entries.push({ event, service: null });
+      } else {
+        svcs.sort((a, b) => {
+          const ta = a.time || "99:99";
+          const tb = b.time || "99:99";
+          if (ta !== tb) return ta.localeCompare(tb);
+          return (a.title || "").localeCompare(b.title || "");
+        });
+        for (const s of svcs) entries.push({ event, service: s });
+      }
+    }
+    return entries;
   };
 
   const getDaysInMonth = () => {
@@ -168,7 +206,7 @@ export default function CalendarPage({ embedded = false }) {
         
         {/* Day cells */}
         {days.map((day) => {
-          const dayEvents = getEventsForDate(day);
+          const dayEntries = getEntriesForDate(day);
           const isToday = isSameDay(day, new Date());
           const isSelected = selectedDate && isSameDay(day, selectedDate);
 
@@ -184,16 +222,26 @@ export default function CalendarPage({ embedded = false }) {
                 {format(day, "d")}
               </div>
               <div className="space-y-1">
-                {dayEvents.map((event) => (
-                  <Link
-                    key={event.event_id}
-                    to={`/events/${event.event_id}`}
-                    className={`block text-xs p-1 rounded truncate border-l-2 ${eventTypeColors[event.event_type] || "border-l-gray-500"} bg-white hover:bg-muted`}
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    {event.name}
-                  </Link>
-                ))}
+                {dayEntries.map(({ event, service }, idx) => {
+                  // When the event has per-meal services, lead the chip with
+                  // the time + meal title so users see "08:00 Desayuno" and
+                  // "12:00 Almuerzo" as separate entries.
+                  const label = service
+                    ? `${service.time ? service.time + " " : ""}${service.title || event.name}`
+                    : event.name;
+                  return (
+                    <Link
+                      key={`${event.event_id}-${idx}`}
+                      to={`/events/${event.event_id}`}
+                      data-testid={`calendar-entry-${event.event_id}-${idx}`}
+                      className={`block text-xs p-1 rounded truncate border-l-2 ${eventTypeColors[event.event_type] || "border-l-gray-500"} bg-white hover:bg-muted`}
+                      onClick={(e) => e.stopPropagation()}
+                      title={service ? `${event.name} · ${service.title || ""}` : event.name}
+                    >
+                      {label}
+                    </Link>
+                  );
+                })}
               </div>
             </div>
           );
