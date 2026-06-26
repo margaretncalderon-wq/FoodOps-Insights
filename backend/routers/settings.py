@@ -663,16 +663,17 @@ async def create_variable_pay_run(data: dict, user: User = Depends(get_current_u
             
             gross = ot_data["amount"]
             
-            # Calculate deductions
-            afp = gross * (payroll_config.get("afp_employee_rate", 2.87) / 100)
-            ars = gross * (payroll_config.get("ars_employee_rate", 3.04) / 100)
-            # ISR on gross (simplified - should be based on annual projection)
-            isr = 0
-            if payroll_config.get("isr_enabled", True) and gross > 0:
-                monthly_equiv = gross
-                annual_equiv = monthly_equiv * 12
-                if annual_equiv > 416220:
-                    isr = gross * 0.15  # Simplified
+            # ---- Variable pay deductions (DR labor law)
+            # AFP (pensión) y ARS/SFS (salud) se calculan sobre el SALARIO BASE
+            # MENSUAL y se descuentan en la nómina regular, NO en pagos
+            # variables como horas extras, comisiones, bonos o incentivos.
+            # ISR (impuesto sobre la renta) puede aplicarse según política
+            # interna pero requiere cálculo progresivo sobre ingreso acumulado;
+            # por defecto NO lo aplicamos para evitar deducciones incorrectas.
+            # El admin puede añadir descuentos manualmente vía `extra_deductions`.
+            afp = 0.0
+            ars = 0.0
+            isr = 0.0
             
             total_ded = afp + ars + isr
             net = gross - total_ded
@@ -816,14 +817,10 @@ async def create_variable_pay_run(data: dict, user: User = Depends(get_current_u
             if gross <= 0:
                 continue
             
-            # Calculate deductions
-            afp = gross * (payroll_config.get("afp_employee_rate", 2.87) / 100)
-            ars = gross * (payroll_config.get("ars_employee_rate", 3.04) / 100)
-            isr = 0
-            if payroll_config.get("isr_enabled", True) and gross > 0:
-                annual_equiv = gross * 12
-                if annual_equiv > 416220:
-                    isr = gross * 0.15
+            # ---- Variable pay deductions: NONE by default (see overtime block above).
+            afp = 0.0
+            ars = 0.0
+            isr = 0.0
             
             total_ded = afp + ars + isr
             net = gross - total_ded
@@ -901,13 +898,10 @@ async def create_variable_pay_run(data: dict, user: User = Depends(get_current_u
                 # Distribute proportionally
                 gross = (pct / total_percentage) * pool_amount
                 
-                afp = gross * (payroll_config.get("afp_employee_rate", 2.87) / 100)
-                ars = gross * (payroll_config.get("ars_employee_rate", 3.04) / 100)
-                isr = 0
-                if payroll_config.get("isr_enabled", True) and gross > 0:
-                    annual_equiv = gross * 12
-                    if annual_equiv > 416220:
-                        isr = gross * 0.15
+                # ---- Variable pay deductions: NONE by default (see overtime block).
+                afp = 0.0
+                ars = 0.0
+                isr = 0.0
                 
                 total_ded = afp + ars + isr
                 net = gross - total_ded
@@ -972,13 +966,9 @@ async def create_variable_pay_run(data: dict, user: User = Depends(get_current_u
                 if not emp:
                     continue
                 
-                afp = gross * (payroll_config.get("afp_employee_rate", 2.87) / 100)
-                ars = gross * (payroll_config.get("ars_employee_rate", 3.04) / 100)
-                isr = 0
-                if payroll_config.get("isr_enabled", True) and gross > 0:
-                    annual_equiv = gross * 12
-                    if annual_equiv > 416220:
-                        isr = gross * 0.15
+                afp = 0.0
+                ars = 0.0
+                isr = 0.0
                 
                 total_ded = afp + ars + isr
                 net = gross - total_ded
@@ -1120,13 +1110,11 @@ async def update_variable_pay_entry(
     
     gross = overtime + commission + bonus + incentive
     
-    afp = gross * (payroll_config.get("afp_employee_rate", 2.87) / 100)
-    ars = gross * (payroll_config.get("ars_employee_rate", 3.04) / 100)
-    isr = 0
-    if payroll_config.get("isr_enabled", True) and gross > 0:
-        annual_equiv = gross * 12
-        if annual_equiv > 416220:
-            isr = gross * 0.15
+    # Variable pay deductions: NONE by default (TSS is paid on base salary in
+    # regular payroll, not on bonuses/incentives/commissions/overtime).
+    afp = 0.0
+    ars = 0.0
+    isr = 0.0
     
     total_ded = afp + ars + isr
     net = gross - total_ded
