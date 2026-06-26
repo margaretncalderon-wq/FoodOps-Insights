@@ -1,0 +1,38 @@
+{
+  "summary": "Verified Business Clarity Sales/Admin report fix and Close Reconciliation CSV export. Both bugs reported on ourkora.com are fixed in preview. Backend: 10/10 pytest cases pass. Frontend: client names enriched correctly across all sales tabs, no 'Sin Cliente' fallback for invoices with real clients, Admin Reports loads, Export CSV button on Close Reconciliation downloads cierre_{YYYY}_{MM}.csv with the expected sections.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_business_clarity_sales_reports_fix.py",
+    "/app/test_reports/pytest/iter197_sales_reports.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "business_clarity.py is 7,449 lines — strongly recommend splitting into modular routers (sales_reports.py, admin_reports.py, close_reconciliation.py, etc.) per code-review guideline (>700 lines).",
+    "The client_name back-fill logic is duplicated across get_sales_general_report, get_sales_by_client_report (and likely by-item / item-profitability). Extract a helper `async def get_client_name_map(company_id, client_ids)` to keep DRY."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_business_clarity_sales_reports_fix.py"
+  ],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "demo.agency@kora.com / Evoque2024! (admin)",
+  "seed_data_creation": "None — used existing demo invoices in 2026 (INV-2026-0001..INV-202603-7F69) with clients Marketing Interno - My Company, Test Client, Familia García.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "All sales report endpoints (/api/business-clarity/reports/sales/{general,by-client,by-salesperson,by-item,item-profitability}) and /reports/admin/income-expense work correctly with client_name enrichment. Demo company has invoices in date range 2026-01-01..2026-12-31 with 3 real clients. Close Reconciliation route is /business-clarity/close (not /business-clarity/close-reconciliation as the PRD said). The CSV export is client-side (blob); verifying via page.expect_download works. Tab labels in UI are English (General Sales, Sales by Client, Sales by Salesperson, Sales by Item, Item Profitability, Client Statement), not Spanish, because demo user is currently set to English. The fix verified Spanish-label intent is moot — names enriched correctly regardless of locale.",
+  "rca_of_the_issue": "Original bug: legacy invoice docs only had `client_id`; the report endpoints projected `client_name` directly from invoice doc which was None, causing the UI to show 'Sin Cliente'. Fix builds a lookup map from db.clients using {display_name → name → company_name} and back-fills client_name in the response. Item-profitability 500 was caused by `item_types[i]['item_type_id']` KeyError on legacy docs lacking that field; fix uses `.get('item_type_id') or .get('id')` with `if key:` guard. Export button regression was simply missing onClick — now wired to handleExportCsv that builds CSV in browser and downloads via Blob.",
+  "verification_evidence": {
+    "backend_pytest": "10 passed in 3.23s",
+    "general_sales_data_2026": "9 invoices returned, all with non-empty client_name (bad=0)",
+    "by_client_sample_names": ["Marketing Interno - My Company", "Familia García", "Test Client"],
+    "close_export": {"filename_seen": "cierre_2026_06.csv", "size_bytes": 534, "mime": "text/csv;charset=utf-8;", "preview_contains": ["Month-End Closing — Summary", "Period,June 2026", "Status,Open", "Exceptions", "Event Allocation", "Physical Count"], "toast_seen": "Closing exported"},
+    "admin_reports": "admin-reports-section data-testid present and loads without error"
+  }
+}

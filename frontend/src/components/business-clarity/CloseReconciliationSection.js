@@ -200,6 +200,126 @@ export function CloseReconciliationSection() {
     }
   };
 
+  // Export period close to CSV. Includes summary KPIs, exceptions, event
+  // allocation breakdown and (when available) physical count adjustments.
+  const handleExportCsv = () => {
+    if (!periodData) {
+      toast.error(isEs ? "Aún no hay datos para exportar" : "No data to export yet");
+      return;
+    }
+    const monthLabel = MONTHS.find(m => m.value === selectedMonth)?.label || selectedMonth;
+    const periodLabel = `${monthLabel} ${selectedYear}`;
+    const lines = [];
+    const fmt = (v) => {
+      if (v === null || v === undefined || v === "") return "";
+      // Quote strings that contain commas / quotes / newlines
+      const s = String(v);
+      return /[,"\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    const row = (...cells) => lines.push(cells.map(fmt).join(","));
+
+    // -- HEADER
+    row(isEs ? "Cierre de Mes — Resumen" : "Month-End Closing — Summary");
+    row(isEs ? "Periodo" : "Period", periodLabel);
+    row(isEs ? "Estado" : "Status", periodData.is_closed ? (isEs ? "Cerrado" : "Closed") : (isEs ? "Abierto" : "Open"));
+    if (periodData.closed_at) row(isEs ? "Fecha cierre" : "Closed at", periodData.closed_at);
+    if (periodData.closed_by_name) row(isEs ? "Cerrado por" : "Closed by", periodData.closed_by_name);
+    row();
+
+    // -- KPIs
+    row(isEs ? "Métricas" : "Metrics", isEs ? "Valor" : "Value");
+    const kpiKeys = [
+      ["revenue", isEs ? "Ingresos" : "Revenue"],
+      ["cogs", "COGS"],
+      ["gross_profit", isEs ? "Utilidad Bruta" : "Gross Profit"],
+      ["gross_margin_pct", isEs ? "Margen Bruto %" : "Gross Margin %"],
+      ["expenses", isEs ? "Gastos Operativos" : "Operating Expenses"],
+      ["operating_profit", isEs ? "Utilidad Operativa" : "Operating Profit"],
+      ["operating_margin_pct", isEs ? "Margen Operativo %" : "Operating Margin %"],
+      ["opening_inventory", isEs ? "Inventario Inicial" : "Opening Inventory"],
+      ["closing_inventory", isEs ? "Inventario Final" : "Closing Inventory"],
+      ["theoretical_food_cost", isEs ? "Food Cost Teórico" : "Theoretical Food Cost"],
+      ["actual_food_cost", isEs ? "Food Cost Real" : "Actual Food Cost"],
+      ["variance", isEs ? "Varianza" : "Variance"],
+    ];
+    for (const [k, label] of kpiKeys) {
+      const v = periodData[k];
+      if (v !== undefined && v !== null) row(label, typeof v === "number" ? v.toFixed(2) : v);
+    }
+    row();
+
+    // -- EXCEPTIONS
+    row(isEs ? "Excepciones" : "Exceptions");
+    row(
+      isEs ? "Tipo" : "Type",
+      isEs ? "Item" : "Item",
+      isEs ? "Cantidad" : "Qty",
+      isEs ? "Costo Estimado" : "Estimated Cost",
+      isEs ? "Estado" : "Status",
+      isEs ? "Notas" : "Notes"
+    );
+    (exceptions || []).forEach(exc => row(
+      exc.type || "",
+      exc.item_name || exc.description || "",
+      exc.qty ?? "",
+      exc.estimated_cost ?? "",
+      exc.resolved ? (isEs ? "Resuelta" : "Resolved") : (isEs ? "Pendiente" : "Pending"),
+      exc.resolution_notes || ""
+    ));
+    row();
+
+    // -- EVENT ALLOCATION
+    if (eventAllocation && Array.isArray(eventAllocation.events)) {
+      row(isEs ? "Asignación a Eventos" : "Event Allocation");
+      row(
+        isEs ? "Evento" : "Event",
+        isEs ? "Fecha" : "Date",
+        isEs ? "Costo Asignado" : "Allocated Cost",
+        isEs ? "Ingresos" : "Revenue",
+        isEs ? "Margen %" : "Margin %"
+      );
+      eventAllocation.events.forEach(e => row(
+        e.name || e.event_name || "",
+        e.event_date || "",
+        (e.allocated_cost ?? 0).toFixed?.(2) || e.allocated_cost,
+        (e.revenue ?? 0).toFixed?.(2) || e.revenue,
+        e.margin_pct != null ? e.margin_pct.toFixed?.(2) : ""
+      ));
+      row();
+    }
+
+    // -- PHYSICAL COUNT
+    if (physicalCount && Array.isArray(physicalCount.items) && physicalCount.items.length) {
+      row(isEs ? "Conteo Físico" : "Physical Count");
+      row(
+        isEs ? "Item" : "Item",
+        isEs ? "Stock Sistema" : "System Stock",
+        isEs ? "Conteo" : "Counted",
+        isEs ? "Diferencia" : "Variance",
+        isEs ? "Costo" : "Cost"
+      );
+      physicalCount.items.forEach(it => row(
+        it.name || "",
+        it.system_qty ?? "",
+        it.counted_qty ?? "",
+        it.variance ?? "",
+        (it.variance_cost ?? 0).toFixed?.(2) || it.variance_cost
+      ));
+    }
+
+    // Trigger download (BOM = Excel-friendly Spanish accents)
+    const csv = "\ufeff" + lines.join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const link = window.document.createElement("a");
+    link.href = window.URL.createObjectURL(blob);
+    link.setAttribute("download", `cierre_${selectedYear}_${String(selectedMonth).padStart(2, "0")}.csv`);
+    window.document.body.appendChild(link);
+    link.click();
+    window.document.body.removeChild(link);
+    window.URL.revokeObjectURL(link.href);
+    toast.success(isEs ? "Cierre exportado" : "Closing exported");
+  };
+
   // Open Fix Modal for an exception
   const openFixModal = (exc) => {
     setSelectedExc(exc);
@@ -485,7 +605,7 @@ export function CloseReconciliationSection() {
             <RefreshCw className="w-4 h-4 mr-2" />
             {isEs ? "Actualizar" : "Refresh"}
           </Button>
-          <Button variant="outline" size="sm">
+          <Button variant="outline" size="sm" onClick={handleExportCsv} data-testid="export-closing-btn">
             <Download className="w-4 h-4 mr-2" />
             {isEs ? "Exportar" : "Export"}
           </Button>

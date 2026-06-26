@@ -5023,6 +5023,22 @@ async def get_sales_general_report(
             {"issue_date": {"$exists": False}, "created_at": {"$gte": start_date, "$lte": end_date + "T23:59:59"}}
         ]
     }, {"_id": 0}).to_list(5000)
+
+    # Build a lookup map for clients so denormalized client_name can be
+    # back-filled when the invoice itself doesn't carry it. Old invoices
+    # were saved with only client_id, which made the Sales report show
+    # "Sin Cliente" everywhere — that's the user's "data looks incorrect"
+    # complaint.
+    client_ids = {inv.get("client_id") for inv in invoices if inv.get("client_id")}
+    client_name_map = {}
+    if client_ids:
+        async for c in db.clients.find(
+            {"company_id": company_id, "client_id": {"$in": list(client_ids)}},
+            {"_id": 0, "client_id": 1, "name": 1, "display_name": 1, "company_name": 1}
+        ):
+            client_name_map[c["client_id"]] = (
+                c.get("display_name") or c.get("name") or c.get("company_name") or ""
+            )
     
     # Calculate totals
     total_invoiced = sum(inv.get("total", 0) for inv in invoices if inv.get("status") != "cancelled")
@@ -5045,7 +5061,11 @@ async def get_sales_general_report(
         "invoices": [{
             "invoice_id": inv.get("invoice_id"),
             "invoice_number": inv.get("invoice_number"),
-            "client_name": inv.get("client_name"),
+            "client_name": (
+                inv.get("client_name")
+                or client_name_map.get(inv.get("client_id"))
+                or ""
+            ),
             "date": (inv.get("issue_date") or inv.get("created_at", ""))[:10],
             "total": inv.get("total", 0),
             "balance_due": inv.get("balance_due", 0),
@@ -5079,12 +5099,28 @@ async def get_sales_by_client_report(
         ],
         "status": {"$ne": "cancelled"}
     }, {"_id": 0}).to_list(5000)
+
+    # Back-fill missing denormalized client_name from the clients collection
+    client_ids = {inv.get("client_id") for inv in invoices if inv.get("client_id")}
+    client_name_map = {}
+    if client_ids:
+        async for c in db.clients.find(
+            {"company_id": company_id, "client_id": {"$in": list(client_ids)}},
+            {"_id": 0, "client_id": 1, "name": 1, "display_name": 1, "company_name": 1}
+        ):
+            client_name_map[c["client_id"]] = (
+                c.get("display_name") or c.get("name") or c.get("company_name") or ""
+            )
     
     # Group by client
     client_sales = {}
     for inv in invoices:
         client_id = inv.get("client_id") or "unknown"
-        client_name = inv.get("client_name") or "Sin Cliente"
+        client_name = (
+            inv.get("client_name")
+            or client_name_map.get(inv.get("client_id"))
+            or "Sin Cliente"
+        )
         
         if client_id not in client_sales:
             client_sales[client_id] = {
@@ -5255,9 +5291,15 @@ async def get_item_profitability_report(
     if not end_date:
         end_date = now.strftime("%Y-%m-%d")
     
-    # Get item types with cost info
+    # Get item types with cost info. Some old item_types docs lack
+    # `item_type_id` (use `_id`/`id` instead) — be defensive so the endpoint
+    # never 500s when legacy data is present.
     item_types = await db.item_types.find({"company_id": company_id}, {"_id": 0}).to_list(500)
-    item_cost_map = {it["item_type_id"]: it.get("unit_cost", 0) for it in item_types}
+    item_cost_map = {}
+    for it in item_types:
+        key = it.get("item_type_id") or it.get("id")
+        if key:
+            item_cost_map[key] = it.get("unit_cost", 0)
     
     # Get events for revenue
     events = await db.events.find({
