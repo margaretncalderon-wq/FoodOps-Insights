@@ -4257,13 +4257,32 @@ async def get_kitchen_beo(event_id: str, user: User = Depends(get_current_user))
     # served at the same time end up on the SAME kitchen sheet, regardless
     # of category (Bocadillos, Bebidas, Desechables, etc.). The kitchen
     # cares about "what do I plate at 08:15", not menu structure.
+    #
+    # Items with NO section_time (Desechables, Alquileres, Logística, etc.)
+    # are MERGED into the earliest tanda of their day so the kitchen sees
+    # them on the same sheet — otherwise they get printed on a separate
+    # "no-time" sheet that the user often doesn't realize exists.
     bucket: dict = defaultdict(list)
+    floating_by_date: dict = defaultdict(list)
     for it in items:
         d = _norm_date(it.get("event_date")) or (calendar_dates[0] if calendar_dates else None)
         t = (it.get("section_time") or "").strip()
         te = (it.get("section_end_time") or "").strip()
-        key = (d, t, te)
-        bucket[key].append(it)
+        if t:
+            key = (d, t, te)
+            bucket[key].append(it)
+        else:
+            floating_by_date[d].append(it)
+
+    # Attach floating items: if the date has any timed tandas, merge into the
+    # earliest. Otherwise create a single no-time tanda for the date.
+    for d, floats in floating_by_date.items():
+        timed_keys = sorted([k for k in bucket.keys() if k[0] == d and k[1]],
+                            key=lambda k: k[1])
+        if timed_keys:
+            bucket[timed_keys[0]].extend(floats)
+        else:
+            bucket[(d, "", "")].extend(floats)
 
     # Fetch the company's configured item-type order so items sort the same
     # way they do in the editor (Bebidas first, then Bocadillos, etc.).
