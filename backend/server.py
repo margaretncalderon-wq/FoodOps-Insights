@@ -15959,34 +15959,69 @@ async def get_events_calendar(
         )
         # event_id ← proposal_id reverse lookup
         proposal_to_event = {pid: eid for eid, pid in proposals_by_event.items()}
-        # Bucket items by (event_id, date, section_title, section_time)
-        bucket: dict = defaultdict(lambda: {"item_count": 0, "item_types": set(), "total": 0.0, "end_time": None})
+        # Bucket items by (event_id, date, time-band). We INTENTIONALLY drop
+        # section_title from the bucket key — users often type a unique title
+        # per individual item (e.g. "Bocadillos", "Transporte", "Desechables"),
+        # which previously turned every item into its own calendar chip and
+        # overwhelmed the day-cell. We also collapse nearby times into a
+        # 1-hour block so 08:00, 08:05 and 08:15 all merge into a single
+        # "08:00" chip ("Desayuno tanda"). Items at the same time band now
+        # collapse into one chip per event-day-hour, with the most-
+        # representative section_title surfaced as the chip label.
+        def _time_band(raw: str) -> str:
+            raw = (raw or "").strip()
+            if not raw or ":" not in raw:
+                return raw
+            try:
+                hh = raw.split(":", 1)[0].zfill(2)
+                return f"{hh}:00"
+            except Exception:
+                return raw
+
+        bucket: dict = defaultdict(lambda: {
+            "item_count": 0, "item_types": set(), "total": 0.0,
+            "end_time": None, "earliest_time": None, "title_counts": {},
+        })
         async for it in items_cursor:
             eid = proposal_to_event.get(it.get("proposal_id"))
             if not eid:
                 continue
             d = _norm_date(it.get("event_date"))
-            t = (it.get("section_time") or "").strip()
+            t_raw = (it.get("section_time") or "").strip()
+            t_band = _time_band(t_raw)
             title = (it.get("section_title") or "").strip()
             # Skip rows that carry zero scheduling info AND no section title — those
             # are floating items the user hasn't anchored to a slot yet.
-            if not d and not t and not title:
+            if not d and not t_band and not title:
                 continue
-            key = (eid, d or "", title, t)
+            key = (eid, d or "", t_band)
             b = bucket[key]
             b["item_count"] += 1
+            if title:
+                b["title_counts"][title] = b["title_counts"].get(title, 0) + 1
             if it.get("item_type"):
                 b["item_types"].add(it["item_type"])
             b["total"] += float(it.get("line_total") or (it.get("unit_price", 0) * it.get("quantity", 0)) or 0)
             if it.get("section_end_time") and not b["end_time"]:
                 b["end_time"] = it["section_end_time"]
+            # Preserve the EARLIEST real time so chip can display "08:05" even
+            # when the bucket key was rounded to "08:00".
+            if t_raw and (b["earliest_time"] is None or t_raw < b["earliest_time"]):
+                b["earliest_time"] = t_raw
 
-        for (eid, d, title, t), agg in bucket.items():
+        for (eid, d, t_band), agg in bucket.items():
+            # Pick the most frequent section_title in this bucket as the chip
+            # label. If multiple distinct titles share the slot, the most
+            # common one wins (with the rest visible on click → detail view).
+            if agg["title_counts"]:
+                best_title = max(agg["title_counts"].items(), key=lambda kv: (kv[1], kv[0]))[0]
+            else:
+                best_title = None
             services_by_event[eid].append({
                 "date": d or None,
-                "time": t or None,
+                "time": agg["earliest_time"] or t_band or None,
                 "end_time": agg["end_time"],
-                "title": title or None,
+                "title": best_title,
                 "item_count": agg["item_count"],
                 "item_types": sorted(agg["item_types"]),
                 "total": round(agg["total"], 2),

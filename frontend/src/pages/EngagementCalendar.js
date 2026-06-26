@@ -579,9 +579,13 @@ export default function EngagementCalendar({ embedded = false }) {
                           // Compose the label: when we have a per-meal service,
                           // surface the meal title + time prominently so users
                           // can see at-a-glance how many pedidos exist that day.
-                          const label = service
+                          // Include the (Nx) suffix when the bucket collapses
+                          // multiple line items into one chip.
+                          const count = service?.item_count || 0;
+                          const baseLabel = service
                             ? `${service.time ? formatTime(service.time) + " " : ""}${service.title || event.name}`
                             : event.name;
+                          const label = service && count > 1 ? `${baseLabel} (${count}x)` : baseLabel;
                           const tooltip = service
                             ? `${event.name} · ${service.title || ""}${service.time ? " @ " + formatTime(service.time) : ""}`
                             : `${event.name} - ${stageDisplay(normalizeStage(event.stage), isEs)}${event.start_time ? ` @ ${formatTime(event.start_time)}` : ""}`;
