@@ -576,16 +576,14 @@ export default function EngagementCalendar({ embedded = false }) {
                           const colors = getStatusColor(event.stage);
                           const multiDayPos = getMultiDayPosition(event, dayInfo.date);
                           const isMultiDay = isMultiDayEvent(event);
-                          // Compose the label: when we have a per-meal service,
-                          // surface the meal title + time prominently so users
-                          // can see at-a-glance how many pedidos exist that day.
-                          // Include the (Nx) suffix when the bucket collapses
-                          // multiple line items into one chip.
-                          const count = service?.item_count || 0;
-                          const baseLabel = service
-                            ? `${service.time ? formatTime(service.time) + " " : ""}${service.title || event.name}`
+                          // Per-meal service chip shows "08:00 Desayuno · Nombre del Evento"
+                          // so the user sees the service type AND which event it belongs to.
+                          const timePrefix = service?.time ? formatTime(service.time) + " " : "";
+                          const mealLabel = service?.title || event.name;
+                          const showEventName = service && service.title && mealLabel !== event.name;
+                          const label = service
+                            ? `${timePrefix}${mealLabel}${showEventName ? " · " + event.name : ""}`
                             : event.name;
-                          const label = service && count > 1 ? `${baseLabel} (${count}x)` : baseLabel;
                           const tooltip = service
                             ? `${event.name} · ${service.title || ""}${service.time ? " @ " + formatTime(service.time) : ""}`
                             : `${event.name} - ${stageDisplay(normalizeStage(event.stage), isEs)}${event.start_time ? ` @ ${formatTime(event.start_time)}` : ""}`;

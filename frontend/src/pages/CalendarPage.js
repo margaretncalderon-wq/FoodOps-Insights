@@ -223,16 +223,14 @@ export default function CalendarPage({ embedded = false }) {
               </div>
               <div className="space-y-1">
                 {dayEntries.map(({ event, service }, idx) => {
-                  // When the event has per-meal services, lead the chip with
-                  // the time + meal title so users see "08:00 Desayuno" and
-                  // "12:00 Almuerzo" as separate entries. Multi-item buckets
-                  // show a "(Nx)" count so the user knows the chip rolls up
-                  // several line items.
-                  const count = service?.item_count || 0;
-                  const baseLabel = service
-                    ? `${service.time ? service.time + " " : ""}${service.title || event.name}`
+                  // Per-meal service chip shows "08:00 Desayuno · Nombre del Evento"
+                  // so the user sees the service type AND which event it belongs to.
+                  const timePrefix = service?.time ? service.time + " " : "";
+                  const mealLabel = service?.title || event.name;
+                  const showEventName = service && service.title && mealLabel !== event.name;
+                  const label = service
+                    ? `${timePrefix}${mealLabel}${showEventName ? " · " + event.name : ""}`
                     : event.name;
-                  const label = service && count > 1 ? `${baseLabel} (${count}x)` : baseLabel;
                   return (
                     <Link
                       key={`${event.event_id}-${idx}`}

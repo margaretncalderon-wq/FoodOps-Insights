@@ -9181,6 +9181,7 @@ class DayLogistic(BaseModel):
     address: Optional[str] = None
     instructions: Optional[str] = None
     guest_count: Optional[int] = None
+    service_type: Optional[str] = None  # Desayuno | Almuerzo | Merienda | Cena | Coctel | Entrega | Otro / empty=auto
 
 
 @proposals_router.put("/{proposal_id}/day-logistics")
@@ -15942,90 +15943,59 @@ async def get_events_calendar(
 
     services_by_event: dict = defaultdict(list)
     if proposals_by_event:
-        items_cursor = db.order_items.find(
-            {"proposal_id": {"$in": list(proposals_by_event.values())}},
-            {
-                "_id": 0,
-                "proposal_id": 1,
-                "section_title": 1,
-                "section_time": 1,
-                "section_end_time": 1,
-                "event_date": 1,
-                "item_type": 1,
-                "line_total": 1,
-                "unit_price": 1,
-                "quantity": 1,
-            },
-        )
-        # event_id ← proposal_id reverse lookup
-        proposal_to_event = {pid: eid for eid, pid in proposals_by_event.items()}
-        # Bucket items by (event_id, date, time-band). We INTENTIONALLY drop
-        # section_title from the bucket key — users often type a unique title
-        # per individual item (e.g. "Bocadillos", "Transporte", "Desechables"),
-        # which previously turned every item into its own calendar chip and
-        # overwhelmed the day-cell. We also collapse nearby times into a
-        # 1-hour block so 08:00, 08:05 and 08:15 all merge into a single
-        # "08:00" chip ("Desayuno tanda"). Items at the same time band now
-        # collapse into one chip per event-day-hour, with the most-
-        # representative section_title surfaced as the chip label.
-        def _time_band(raw: str) -> str:
-            raw = (raw or "").strip()
-            if not raw or ":" not in raw:
-                return raw
+        # Source services from `proposals.day_logistics` rows. Each row is
+        # already 1 logical service (a delivery / meal / event slot) with its
+        # own date + start time + end time + address + notes. This is the
+        # user-curated source of truth — far cleaner than bucketing every
+        # order_item by section_title/section_time, which previously turned
+        # every line item ("Bocadillos", "Transporte", ...) into its own chip.
+        # `service_type` is an optional dropdown set by the user; when missing
+        # we auto-detect a meal label from the start time.
+        def _auto_meal_label(time_str: str, lang: str = "es") -> str:
             try:
-                hh = raw.split(":", 1)[0].zfill(2)
-                return f"{hh}:00"
+                hh = int((time_str or "").split(":", 1)[0])
             except Exception:
-                return raw
+                return ""
+            es = lang.lower().startswith("es")
+            if 4 <= hh < 11:
+                return "Desayuno" if es else "Breakfast"
+            if 11 <= hh < 14:
+                return "Almuerzo" if es else "Lunch"
+            if 14 <= hh < 17:
+                return "Merienda" if es else "Afternoon"
+            if 17 <= hh < 23:
+                return "Cena" if es else "Dinner"
+            return "Coctel" if es else "Night"
 
-        bucket: dict = defaultdict(lambda: {
-            "item_count": 0, "item_types": set(), "total": 0.0,
-            "end_time": None, "earliest_time": None, "title_counts": {},
-        })
-        async for it in items_cursor:
-            eid = proposal_to_event.get(it.get("proposal_id"))
+        prop_cursor = db.proposals.find(
+            {"proposal_id": {"$in": list(proposals_by_event.values())}},
+            {"_id": 0, "proposal_id": 1, "day_logistics": 1},
+        )
+        proposal_to_event = {pid: eid for eid, pid in proposals_by_event.items()}
+        async for p in prop_cursor:
+            eid = proposal_to_event.get(p.get("proposal_id"))
             if not eid:
                 continue
-            d = _norm_date(it.get("event_date"))
-            t_raw = (it.get("section_time") or "").strip()
-            t_band = _time_band(t_raw)
-            title = (it.get("section_title") or "").strip()
-            # Skip rows that carry zero scheduling info AND no section title — those
-            # are floating items the user hasn't anchored to a slot yet.
-            if not d and not t_band and not title:
-                continue
-            key = (eid, d or "", t_band)
-            b = bucket[key]
-            b["item_count"] += 1
-            if title:
-                b["title_counts"][title] = b["title_counts"].get(title, 0) + 1
-            if it.get("item_type"):
-                b["item_types"].add(it["item_type"])
-            b["total"] += float(it.get("line_total") or (it.get("unit_price", 0) * it.get("quantity", 0)) or 0)
-            if it.get("section_end_time") and not b["end_time"]:
-                b["end_time"] = it["section_end_time"]
-            # Preserve the EARLIEST real time so chip can display "08:05" even
-            # when the bucket key was rounded to "08:00".
-            if t_raw and (b["earliest_time"] is None or t_raw < b["earliest_time"]):
-                b["earliest_time"] = t_raw
-
-        for (eid, d, t_band), agg in bucket.items():
-            # Pick the most frequent section_title in this bucket as the chip
-            # label. If multiple distinct titles share the slot, the most
-            # common one wins (with the rest visible on click → detail view).
-            if agg["title_counts"]:
-                best_title = max(agg["title_counts"].items(), key=lambda kv: (kv[1], kv[0]))[0]
-            else:
-                best_title = None
-            services_by_event[eid].append({
-                "date": d or None,
-                "time": agg["earliest_time"] or t_band or None,
-                "end_time": agg["end_time"],
-                "title": best_title,
-                "item_count": agg["item_count"],
-                "item_types": sorted(agg["item_types"]),
-                "total": round(agg["total"], 2),
-            })
+            for row in (p.get("day_logistics") or []):
+                d = _norm_date(row.get("event_date"))
+                if not d:
+                    continue
+                t = (row.get("delivery_time") or "").strip()
+                end_t = (row.get("delivery_end_time") or "").strip() or None
+                # service_type wins; otherwise auto-detect from delivery_time
+                stype = (row.get("service_type") or "").strip()
+                title = stype or _auto_meal_label(t)
+                services_by_event[eid].append({
+                    "date": d,
+                    "time": t or None,
+                    "end_time": end_t,
+                    "title": title or None,
+                    "service_type": stype or None,
+                    "address": row.get("address") or None,
+                    "instructions": row.get("instructions") or None,
+                    "guest_count": row.get("guest_count"),
+                    "item_count": 1,
+                })
         # Sort each event's services by date then time
         for eid, svcs in services_by_event.items():
             svcs.sort(key=lambda s: ((s.get("date") or "9999"), (s.get("time") or "99:99"), (s.get("title") or "")))

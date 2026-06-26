@@ -2048,6 +2048,7 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
                       <thead className="bg-muted/40">
                         <tr>
                           <th className="text-left px-2 py-1.5 font-medium text-xs">{language === "es" ? "Fecha" : "Date"}</th>
+                          <th className="text-left px-2 py-1.5 font-medium text-xs">{language === "es" ? "Tipo" : "Type"}</th>
                           <th className="text-left px-2 py-1.5 font-medium text-xs">{language === "es" ? "Hora inicio" : "Start"}</th>
                           <th className="text-left px-2 py-1.5 font-medium text-xs">{language === "es" ? "Hora fin" : "End"}</th>
                           <th className="text-left px-2 py-1.5 font-medium text-xs">{language === "es" ? "Invitados" : "Guests"}</th>
@@ -2062,6 +2063,25 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
                             <td className="px-1 py-1"><Input type="date" value={d.event_date || ""} disabled={isLocked}
                               onChange={(e) => updateLogisticsDay(idx, { event_date: e.target.value })}
                               onBlur={commitLogisticsDay} className="h-8 text-xs" /></td>
+                            <td className="px-1 py-1">
+                              <select
+                                value={d.service_type || ""}
+                                disabled={isLocked}
+                                onChange={(e) => updateLogisticsDay(idx, { service_type: e.target.value })}
+                                onBlur={commitLogisticsDay}
+                                data-testid={`logistics-service-type-${idx}`}
+                                className="h-8 text-xs border rounded-md px-2 bg-background w-[110px]"
+                              >
+                                <option value="">{language === "es" ? "Auto (por hora)" : "Auto (by time)"}</option>
+                                <option value={language === "es" ? "Desayuno" : "Breakfast"}>{language === "es" ? "Desayuno" : "Breakfast"}</option>
+                                <option value={language === "es" ? "Almuerzo" : "Lunch"}>{language === "es" ? "Almuerzo" : "Lunch"}</option>
+                                <option value={language === "es" ? "Merienda" : "Afternoon"}>{language === "es" ? "Merienda" : "Afternoon"}</option>
+                                <option value={language === "es" ? "Cena" : "Dinner"}>{language === "es" ? "Cena" : "Dinner"}</option>
+                                <option value={language === "es" ? "Coctel" : "Cocktail"}>{language === "es" ? "Coctel" : "Cocktail"}</option>
+                                <option value={language === "es" ? "Entrega" : "Delivery"}>{language === "es" ? "Entrega" : "Delivery"}</option>
+                                <option value={language === "es" ? "Otro" : "Other"}>{language === "es" ? "Otro" : "Other"}</option>
+                              </select>
+                            </td>
                             <td className="px-1 py-1"><Input type="time" value={d.delivery_time || ""} disabled={isLocked}
                               onChange={(e) => updateLogisticsDay(idx, { delivery_time: e.target.value })}
                               onBlur={commitLogisticsDay} className="h-8 text-xs w-[90px]" /></td>

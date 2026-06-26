@@ -61,32 +61,37 @@ def multimeal_event(auth_session, client_id):
     ev = r.json()
     event_id = ev["event_id"]
 
-    # Get/create the proposal for this event (auto-creates on first GET)
+    # Get/create the proposal for this event
     r = s.get(f"{API}/proposals/event/{event_id}", timeout=15)
     assert r.status_code == 200, r.text
     proposal_id = r.json()["proposal_id"]
 
-    # Add 2 order_items: one for breakfast (section_time=08:00),
-    # one for lunch (section_time=12:00). Each is a distinct section with
-    # a distinct title and time.
-    for section_title, section_time, desc in [
-        ("Desayuno", "08:00", "Tostadas francesas"),
-        ("Almuerzo", "12:00", "Bandeja paisa"),
-    ]:
-        r = s.post(
-            f"{API}/proposals/{proposal_id}/items",
-            json={
-                "section_title": section_title,
-                "section_time": section_time,
-                "event_date": "2026-04-15",
-                "description": desc,
-                "quantity": 30,
-                "unit_price": 100.0,
-                "item_type": "Food",
-            },
-            timeout=15,
-        )
-        assert r.status_code in (200, 201), f"Failed creating {section_title}: {r.text}"
+    # Set day_logistics with two service rows: Desayuno @ 08:00 and Almuerzo @ 12:00
+    r = s.put(
+        f"{API}/proposals/{proposal_id}/day-logistics",
+        json={
+            "day_logistics": [
+                {
+                    "event_date": "2026-04-15",
+                    "delivery_time": "08:00",
+                    "delivery_end_time": "10:00",
+                    "address": "Hotel Sample",
+                    "service_type": "Desayuno",
+                    "guest_count": 30,
+                },
+                {
+                    "event_date": "2026-04-15",
+                    "delivery_time": "12:00",
+                    "delivery_end_time": "14:00",
+                    "address": "Hotel Sample",
+                    "service_type": "Almuerzo",
+                    "guest_count": 30,
+                },
+            ],
+        },
+        timeout=15,
+    )
+    assert r.status_code in (200, 201), r.text
 
     yield {"event_id": event_id, "proposal_id": proposal_id}
 
@@ -138,4 +143,5 @@ def test_each_service_has_item_count_and_total(auth_session, multimeal_event):
         if svc.get("date") != "2026-04-15":
             continue
         assert svc.get("item_count", 0) >= 1, svc
-        assert svc.get("total", 0) > 0, svc
+        # Each logistics row IS one service — totals aren't required here
+        # since meal/service rows aren't tied to a line-item total.
