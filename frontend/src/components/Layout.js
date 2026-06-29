@@ -120,7 +120,7 @@ export const Layout = ({ children }) => {
         <div className="p-6 border-b border-white/10">
           <Link to="/dashboard" className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl overflow-hidden bg-white/10 flex items-center justify-center">
-              <img src="/favicon.png" alt="Kora" className="w-8 h-8" />
+              <img src="/favicon-v2.png" alt="Kora" className="w-8 h-8" />
             </div>
             <div>
               <h1 className="font-heading text-lg font-semibold text-white">Kora OS</h1>
@@ -224,7 +224,7 @@ export const Layout = ({ children }) => {
         <div className="flex items-center justify-between h-full px-4">
           <Link to="/dashboard" className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-lg overflow-hidden bg-[#2A2F3A] flex items-center justify-center">
-              <img src="/favicon.png" alt="Kora" className="w-6 h-6" />
+              <img src="/favicon-v2.png" alt="Kora" className="w-6 h-6" />
             </div>
             <span className="font-heading font-semibold text-[#1F2937]">Kora OS</span>
           </Link>
