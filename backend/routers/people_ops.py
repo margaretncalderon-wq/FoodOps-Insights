@@ -1412,7 +1412,10 @@ async def update_employee(
     """Update an employee"""
     company_id, access_level = await check_people_ops_access(user, "edit")
     
-    update_data = {k: v for k, v in data.dict().items() if v is not None}
+    # Use exclude_unset to honor explicit nulls (e.g. clearing afp_override)
+    raw = data.dict(exclude_unset=True)
+    clearable_fields = {"afp_override", "ars_override", "isr_override"}
+    update_data = {k: v for k, v in raw.items() if v is not None or k in clearable_fields}
     if not update_data:
         raise HTTPException(status_code=400, detail="No data to update")
     

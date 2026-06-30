@@ -1,6 +1,45 @@
 # Kora OS — Product Requirements Document
 
 
+## People Ops — Bug Bash Round (Feb 28, 2026)
+
+**Status:** ✅ Complete. Backend 100% / Frontend 100% (testing_agent_v3_fork iteration_202).
+
+### 4 problemas reportados → resueltos:
+
+#### 1) Horas Extras — listado filtrado por período
+- `OvertimeSection.js`: el listado de OT al pie ahora se filtra por el período activo del reporte (Quincenal/Semanal/Mensual). Banner informativo: "Filtered by: <label> (start → end) • N records". Si el período seleccionado está vacío pero hay OT en otros, se sugiere cambiar el filtro.
+
+#### 2) Recibo de Pago — impresión + overrides en empleado
+- **Impresión**: `PayrollPeriodView.js` → botón "Imprimir" abre una nueva ventana con el contenido del recibo aislado + estilos in-line, así el nombre del empleado, EMP code, ingresos, deducciones y NETO salen completos.
+- **Overrides manuales**: 3 nuevos campos en `Employee`: `afp_override`, `ars_override`, `isr_override` (monto MENSUAL). Cuando están seteados (>0), `create_payroll_period` ignora el cálculo legal AFP/ARS/ISR y usa el override (dividido por 2 si el período es quincenal). `EmployeeProfile.js` Compensation tab incluye nueva card amarilla "Overrides Manuales de Deducciones" con inputs en modo edición. PUT con `null` ahora limpia el override correctamente (usa `exclude_unset=True` + lista de `clearable_fields`).
+
+#### 3) Organigrama — empleados por departamento
+- `GET /api/people-ops/org-chart`: cada departamento ahora retorna `employees` (array), `employee_count`, `position_count`. Un empleado pertenece al departamento via `department_id` directo o via `position.department_id`.
+- `OrgChartSection.js`: cada card de departamento muestra panel "Empleados directos" con los empleados que pertenecen al departamento sin posición asignada. Click → navega al perfil del empleado.
+
+#### 4) Descuentos Pendientes para Próxima Nómina
+- Nueva colección `pending_deductions` con CRUD:
+  - `GET /api/people-ops/pending-deductions[?employee_id&status]`
+  - `POST /api/people-ops/pending-deductions` `{employee_id, amount, reason, notes}`
+  - `DELETE /api/people-ops/pending-deductions/{id}` (solo cuando status='pending')
+- `create_payroll_period` (kind != overtime_only) consume todos los pendientes del empleado, los empuja a `entry.extra_deductions` con `source='pending_deduction'`, y los marca `status='applied', applied_to_period_id=X`. `total_deductions` y `net_salary` reflejan el descuento.
+- `delete_payroll_period` revierte los `applied` a `pending` para reutilizar.
+- `EmployeeProfile.js` Compensation tab: nueva card "Descuentos Pendientes para Próxima Nómina" con badges de estado (Pendiente/Aplicado/Cancelado), botón Eliminar para los pendientes, y dialog "Agregar Descuento Pendiente" (amount/reason/notes).
+- **PENDIENTE (P2)**: módulo centralizado admin de "Descuentos Pendientes" (todos los empleados en una vista). El usuario eligió "C" (both); por ahora sólo la vista por empleado está lista.
+
+### Files
+- `/app/backend/routers/people_ops.py` (update_employee con clearable nulls, create_payroll_period con overrides+pending consumption, delete_payroll_period revierte pending, get_org_chart enrichment, pending_deductions CRUD)
+- `/app/backend/models/people_ops.py` (Employee + EmployeeUpdate + override fields)
+- `/app/frontend/src/components/people-ops/EmployeeProfile.js` (overrides card, pending deductions card+dialog)
+- `/app/frontend/src/components/people-ops/OrgChartSection.js` (empleados directos por dept)
+- `/app/frontend/src/components/people-ops/PayrollPeriodView.js` (print aislado)
+- `/app/frontend/src/components/people-ops/OvertimeSection.js` (filteredRequests)
+- `/app/backend/tests/test_people_ops_overrides_pending_deductions.py` (regresión, 8 tests PASS)
+
+---
+
+
 ## People Ops — Salary Change History per Employee (Feb 28, 2026)
 
 **Status:** ✅ Complete (Backend curl-tested + Frontend visual smoke-test OK).
