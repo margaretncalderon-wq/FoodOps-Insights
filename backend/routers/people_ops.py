@@ -2332,6 +2332,202 @@ async def delete_pending_deduction(
     return {"success": True, "deduction_id": deduction_id}
 
 
+# ==================== PAYROLL PROJECTION (Next Run Dashboard) ====================
+
+@people_ops_router.get("/payroll/projection")
+async def payroll_projection(
+    period_type: str = "biweekly",
+    user: User = Depends(get_current_user)
+):
+    """Estimate the cost of the NEXT payroll run given:
+    - all currently active employees
+    - all pending_deductions (status=pending) for those employees
+    - all approved overtime not yet linked to a paid period (status=approved, payroll_period_id is null/missing)
+    - active loan installments
+    - AFP/ARS/ISR computed from base_salary (honoring overrides)
+    
+    For biweekly type, monthly base_salary is divided by 2 (and ISR/overrides too).
+    """
+    company_id, _ = await check_people_ops_access(user, "view")
+    
+    if period_type not in ("biweekly", "monthly", "weekly"):
+        period_type = "biweekly"
+    
+    # Load active employees + payroll config in parallel
+    employees = await db.employees.find(
+        {"company_id": company_id, "status": "active"},
+        {"_id": 0}
+    ).to_list(2000)
+    
+    config = await db.payroll_config.find_one({"company_id": company_id}, {"_id": 0}) or {}
+    afp_rate = config.get("afp_employee_rate", 2.87) / 100
+    ars_rate = config.get("ars_employee_rate", 3.04) / 100
+    isr_enabled = config.get("isr_enabled", True)
+    
+    is_biweekly = period_type == "biweekly"
+    divisor = 2 if is_biweekly else 1
+    
+    # Aggregate metrics
+    total_gross = 0.0
+    total_afp = 0.0
+    total_ars = 0.0
+    total_isr = 0.0
+    total_loan = 0.0
+    total_pending_ded = 0.0
+    overrides_in_use = 0
+    
+    employee_breakdown = []
+    
+    for emp in employees:
+        emp_id = emp.get("employee_id")
+        base_salary = float(emp.get("base_salary") or 0)
+        freq = emp.get("payment_frequency", "monthly")
+        
+        # Period salary (auto halve when monthly-employee paid biweekly)
+        if freq == "monthly" and is_biweekly:
+            period_salary = base_salary / 2
+        elif freq == "biweekly" and period_type == "monthly":
+            period_salary = base_salary * 2
+        else:
+            period_salary = base_salary
+        
+        # AFP
+        afp_override = emp.get("afp_override")
+        if afp_override and afp_override > 0:
+            afp = float(afp_override) / divisor
+            overrides_in_use += 1
+        else:
+            afp = period_salary * afp_rate
+        
+        # ARS
+        ars_override = emp.get("ars_override")
+        if ars_override and ars_override > 0:
+            ars = float(ars_override) / divisor
+        else:
+            ars = period_salary * ars_rate
+        
+        # ISR
+        isr_override = emp.get("isr_override")
+        if isr_override and isr_override > 0:
+            isr = float(isr_override) / divisor
+        elif isr_enabled:
+            monthly_for_isr = period_salary * 2 if is_biweekly else period_salary
+            monthly_isr = calculate_monthly_isr(monthly_for_isr)
+            isr = monthly_isr / 2 if is_biweekly else monthly_isr
+        else:
+            isr = 0.0
+        
+        # Loans
+        loan_amt = 0.0
+        if emp.get("active_loan_balance", 0) > 0:
+            active_loan = await db.loans.find_one(
+                {"company_id": company_id, "employee_id": emp_id, "status": "active"},
+                {"_id": 0, "installment_amount": 1, "remaining_balance": 1}
+            )
+            if active_loan:
+                loan_amt = min(active_loan.get("installment_amount", 0), active_loan.get("remaining_balance", 0))
+        
+        total_gross += period_salary
+        total_afp += afp
+        total_ars += ars
+        total_isr += isr
+        total_loan += loan_amt
+        
+        employee_breakdown.append({
+            "employee_id": emp_id,
+            "employee_name": emp.get("full_name"),
+            "period_salary": round(period_salary, 2),
+            "afp": round(afp, 2),
+            "ars": round(ars, 2),
+            "isr": round(isr, 2),
+            "loan": round(loan_amt, 2),
+            "has_override": bool((afp_override and afp_override > 0) or (ars_override and ars_override > 0) or (isr_override and isr_override > 0))
+        })
+    
+    # Pending deductions across all active employees
+    active_ids = [e.get("employee_id") for e in employees]
+    pending_ded_docs = await db.pending_deductions.find(
+        {"company_id": company_id, "employee_id": {"$in": active_ids}, "status": "pending"},
+        {"_id": 0, "employee_id": 1, "employee_name": 1, "amount": 1, "reason": 1, "notes": 1, "deduction_id": 1, "created_at": 1}
+    ).sort("created_at", -1).to_list(200)
+    
+    pending_ded_by_emp: dict = {}
+    for pd in pending_ded_docs:
+        amt = float(pd.get("amount") or 0)
+        total_pending_ded += amt
+        pending_ded_by_emp.setdefault(pd["employee_id"], 0)
+        pending_ded_by_emp[pd["employee_id"]] += amt
+    
+    # Attach pending_ded total per-employee in breakdown
+    for row in employee_breakdown:
+        row["pending_deductions"] = round(pending_ded_by_emp.get(row["employee_id"], 0), 2)
+    
+    # Approved (unpaid) overtime - amount estimate
+    ot_query = {
+        "company_id": company_id,
+        "employee_id": {"$in": active_ids},
+        "status": "approved",
+        "$or": [{"payroll_period_id": None}, {"payroll_period_id": {"$exists": False}}]
+    }
+    pending_ot = await db.overtime_requests.find(ot_query, {"_id": 0}).to_list(500)
+    
+    ot_hours = 0.0
+    ot_amount = 0.0
+    for ot in pending_ot:
+        ot_hours += float(ot.get("hours") or 0)
+        ot_amount += float(ot.get("amount") or 0)
+    
+    # Active loans summary
+    active_loans = await db.loans.find(
+        {"company_id": company_id, "employee_id": {"$in": active_ids}, "status": "active"},
+        {"_id": 0, "installment_amount": 1, "remaining_balance": 1, "employee_id": 1}
+    ).to_list(200)
+    loans_summary = {
+        "count": len(active_loans),
+        "next_installment_total": round(sum(min(l.get("installment_amount", 0), l.get("remaining_balance", 0)) for l in active_loans), 2),
+        "outstanding_balance": round(sum(l.get("remaining_balance", 0) for l in active_loans), 2)
+    }
+    
+    estimated_legal_ded = total_afp + total_ars + total_isr
+    estimated_total_ded = estimated_legal_ded + total_loan + total_pending_ded
+    estimated_gross_with_ot = total_gross + ot_amount
+    estimated_net = estimated_gross_with_ot - estimated_total_ded
+    
+    return {
+        "period_type": period_type,
+        "active_employees": len(employees),
+        "totals": {
+            "base_salary_period": round(total_gross, 2),
+            "pending_overtime_amount": round(ot_amount, 2),
+            "estimated_gross": round(estimated_gross_with_ot, 2),
+            "afp": round(total_afp, 2),
+            "ars": round(total_ars, 2),
+            "isr": round(total_isr, 2),
+            "legal_deductions": round(estimated_legal_ded, 2),
+            "loan_deductions": round(total_loan, 2),
+            "pending_deductions": round(total_pending_ded, 2),
+            "total_deductions": round(estimated_total_ded, 2),
+            "estimated_net": round(estimated_net, 2)
+        },
+        "pending_deductions": {
+            "count": len(pending_ded_docs),
+            "total_amount": round(total_pending_ded, 2),
+            "by_employee_count": len(pending_ded_by_emp),
+            "top_5": pending_ded_docs[:5]
+        },
+        "pending_overtime": {
+            "count": len(pending_ot),
+            "total_hours": round(ot_hours, 2),
+            "total_amount": round(ot_amount, 2)
+        },
+        "loans": loans_summary,
+        "overrides_in_use": overrides_in_use,
+        "employee_breakdown": employee_breakdown
+    }
+
+
+
+
 
 
 

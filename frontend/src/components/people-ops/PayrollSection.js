@@ -37,6 +37,7 @@ import {
 
 import { API_BASE as API } from "../../utils/api";
 import { VariablePayWidget } from "./VariablePayWidget";
+import { NextPayrollProjection } from "./NextPayrollProjection";
 import { Switch } from "../ui/switch";
 import { useCurrencyFormatter } from "../../hooks/useCurrencyFormatter";
 import { formatDateOnly } from "../../utils/dates";
@@ -265,6 +266,9 @@ export function PayrollSection() {
 
   return (
     <div className="space-y-6" data-testid="payroll-section">
+      {/* Next Payroll Projection Dashboard */}
+      <NextPayrollProjection defaultPeriodType={config?.payment_frequency || "biweekly"} />
+
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card className="border-violet-200 bg-violet-50/30">

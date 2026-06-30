@@ -1,0 +1,28 @@
+{
+  "summary": "Validated the new 'Next Payroll Projection' widget. Backend: 5/5 pytest tests PASS for GET /api/people-ops/payroll/projection (shape for biweekly + monthly, biweekly halving of monthly-paid employees, AFP override halved for biweekly = 1200 and full 2400 for monthly, pending_deductions reflected in totals and top_5 with employee_name/reason/amount). Frontend: widget renders at the TOP of /people-ops/payroll above existing Summary Cards with data-testid='next-payroll-projection'; 4 KPI cards, 5-item deduction breakdown row, 3 sub-cards all visible; period dropdown switches Biweekly→Monthly and gross doubles (138,500 → 277,000); 'View detail' navigates to /people-ops/overtime. Override cleanup confirmed (afp_override=0).",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_payroll_projection.py",
+    "/app/test_reports/pytest/iter203_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "people_ops.py payroll_projection (line ~2337): correctly divides AFP/ARS/ISR overrides by 2 when period_type=biweekly, divides monthly base_salary by 2 for monthly-paid employees, multiplies by 2 the other way for biweekly-paid employees on monthly type, computes ISR from monthly base then halves. Loan amount capped at min(installment, remaining_balance). All math verified end-to-end via the test file.",
+    "NextPayrollProjection.js: clean separation of presentation; period state lifted into the component, data-testid is present on the card and the select; pending-deduction rows route to /people-ops/employee/{id}; overtime link routes to /people-ops/overtime. Loading state and empty states handled. No issues found."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_payroll_projection.py"
+  ],
+  "success_rate": { "backend": "100%", "frontend": "100%" },
+  "test_credentials": "demo.agency@kora.com / Evoque2024!",
+  "seed_data_creation": "A pending deduction (amount=555, reason='TEST_PROJ_DED') was created and DELETED inside test_pending_deductions_in_totals_and_top5. afp_override on emp_91f4dfa58d68 was set to 2400 inside test_afp_override_halves_for_biweekly and reverted to 0 (the code treats 0 as 'no override'). Verified post-test: afp_override=0, base_salary=75000, freq=monthly, name='María González'.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Regression test for the projection endpoint lives at /app/backend/tests/test_payroll_projection.py. The override-cleanup-to-null limitation (PUT with null is silently ignored — workaround: send 0) is unchanged from iteration_202 and documented there. No pending deductions remain in the demo org, so the Pending deductions card shows 0; if a future test wants to validate the in-widget employee link navigation, create one via POST /api/people-ops/pending-deductions first.",
+  "rca of the issue": "N/A — feature works as specified."
+}
