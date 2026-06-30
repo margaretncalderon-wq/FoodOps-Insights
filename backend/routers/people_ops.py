@@ -1952,13 +1952,23 @@ async def create_payroll_period(
         if payment_kind == "overtime_only":
             period_salary = 0.0
         else:
-            # Regular or salary_only: derive from employee's payment_frequency vs period_type
-            if freq == "monthly" and data.period_type.value == "biweekly":
-                period_salary = base_salary / 2
-            elif freq == "biweekly" and data.period_type.value == "monthly":
-                period_salary = base_salary * 2
-            else:
-                period_salary = base_salary
+            # Resolve the basis the user used to express base_salary.
+            # Priority: explicit base_salary_basis → legacy fallback to payment_frequency.
+            basis = (emp.get("base_salary_basis") or freq or "monthly").lower()
+            # Normalize base_salary → MONTHLY first
+            if basis == "biweekly":
+                monthly_equivalent = base_salary * 2
+            elif basis == "weekly":
+                monthly_equivalent = base_salary * 4.33
+            else:  # monthly (default)
+                monthly_equivalent = base_salary
+            # Then derive the salary for the requested period_type
+            if data.period_type.value == "biweekly":
+                period_salary = monthly_equivalent / 2
+            elif data.period_type.value == "weekly":
+                period_salary = monthly_equivalent / 4.33
+            else:  # monthly
+                period_salary = monthly_equivalent
         
         # Hourly rate derived from MONTHLY salary equivalent
         monthly_salary_eq = base_salary if freq == "monthly" else (base_salary * 2 if freq == "biweekly" else base_salary * 4)
@@ -2001,8 +2011,8 @@ async def create_payroll_period(
             if isr_override is not None and isr_override > 0:
                 period_isr = float(isr_override) / divisor
             else:
-                monthly_salary = period_salary * 2 if is_biweekly_period else period_salary
-                monthly_isr = calculate_monthly_isr(monthly_salary) if config.get("isr_enabled", True) else 0
+                # ISR is monthly progressive; compute from monthly_equivalent (already in monthly basis)
+                monthly_isr = calculate_monthly_isr(monthly_equivalent) if config.get("isr_enabled", True) else 0
                 period_isr = monthly_isr / 2 if is_biweekly_period else monthly_isr
             
             loan_deduction = 0.0
@@ -2383,13 +2393,22 @@ async def payroll_projection(
         base_salary = float(emp.get("base_salary") or 0)
         freq = emp.get("payment_frequency", "monthly")
         
-        # Period salary (auto halve when monthly-employee paid biweekly)
-        if freq == "monthly" and is_biweekly:
-            period_salary = base_salary / 2
-        elif freq == "biweekly" and period_type == "monthly":
-            period_salary = base_salary * 2
+        # Resolve basis the user used to express base_salary
+        basis = (emp.get("base_salary_basis") or freq or "monthly").lower()
+        if basis == "biweekly":
+            monthly_equiv = base_salary * 2
+        elif basis == "weekly":
+            monthly_equiv = base_salary * 4.33
         else:
-            period_salary = base_salary
+            monthly_equiv = base_salary
+        
+        # Period salary for the requested run type
+        if is_biweekly:
+            period_salary = monthly_equiv / 2
+        elif period_type == "weekly":
+            period_salary = monthly_equiv / 4.33
+        else:
+            period_salary = monthly_equiv
         
         # AFP
         afp_override = emp.get("afp_override")
@@ -2411,8 +2430,7 @@ async def payroll_projection(
         if isr_override and isr_override > 0:
             isr = float(isr_override) / divisor
         elif isr_enabled:
-            monthly_for_isr = period_salary * 2 if is_biweekly else period_salary
-            monthly_isr = calculate_monthly_isr(monthly_for_isr)
+            monthly_isr = calculate_monthly_isr(monthly_equiv)
             isr = monthly_isr / 2 if is_biweekly else monthly_isr
         else:
             isr = 0.0

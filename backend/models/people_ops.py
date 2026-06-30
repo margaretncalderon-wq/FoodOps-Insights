@@ -177,6 +177,7 @@ class EmployeeCreate(BaseModel):
     
     # Compensation
     base_salary: float
+    base_salary_basis: Optional[str] = "monthly"  # "monthly"|"biweekly"|"weekly" — how the base_salary is expressed
     payment_frequency: PaymentFrequency = PaymentFrequency.BIWEEKLY
     currency: Optional[str] = None  # Falls back to company.currency if not set
     weekly_hours_regular: float = 44.0  # Regular working hours per week (RD legal max: 44)
@@ -329,6 +330,7 @@ class EmployeeUpdate(BaseModel):
     afp_override: Optional[float] = None
     ars_override: Optional[float] = None
     isr_override: Optional[float] = None
+    base_salary_basis: Optional[str] = None  # how base_salary is expressed: "monthly", "biweekly", "weekly"
     currency: Optional[str] = None
     weekly_hours_regular: Optional[float] = None  # Field staged for future use (Time Clock module)
     

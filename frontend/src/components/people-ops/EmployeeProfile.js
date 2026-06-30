@@ -760,6 +760,27 @@ export function EmployeeProfile() {
                     </p>
                   </div>
                   <div>
+                    <label className="text-sm text-muted-foreground">{isEs ? "Salario está expresado en" : "Salary is expressed as"}</label>
+                    <Select
+                      value={editData.base_salary_basis || "monthly"}
+                      onValueChange={(v) => setEditData({ ...editData, base_salary_basis: v })}
+                    >
+                      <SelectTrigger data-testid="edit-salary-basis">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="monthly">{isEs ? "Monto Mensual" : "Monthly amount"}</SelectItem>
+                        <SelectItem value="biweekly">{isEs ? "Monto Quincenal" : "Biweekly amount"}</SelectItem>
+                        <SelectItem value="weekly">{isEs ? "Monto Semanal" : "Weekly amount"}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {isEs
+                        ? "Cómo está expresado el monto arriba (la nómina lo convierte automáticamente)."
+                        : "How the amount above is expressed (payroll converts it automatically)."}
+                    </p>
+                  </div>
+                  <div>
                     <label className="text-sm text-muted-foreground">{isEs ? "Moneda" : "Currency"}</label>
                     <Select
                       value={editData.currency || companyCurrency || "USD"}
@@ -851,9 +872,18 @@ export function EmployeeProfile() {
                   );
                 })()}
                 <p className="text-sm text-muted-foreground mt-1">
-                  {employee.payment_frequency === "biweekly" ? (isEs ? "Quincenal" : "Biweekly") :
-                   employee.payment_frequency === "monthly" ? (isEs ? "Mensual" : "Monthly") : 
-                   (isEs ? "Semanal" : "Weekly")}
+                  {(() => {
+                    const basis = employee.base_salary_basis || "monthly";
+                    const basisLabel = basis === "biweekly" ? (isEs ? "Quincenal" : "Biweekly") :
+                                       basis === "weekly" ? (isEs ? "Semanal" : "Weekly") :
+                                       (isEs ? "Mensual" : "Monthly");
+                    const freqLabel = employee.payment_frequency === "biweekly" ? (isEs ? "Quincenal" : "Biweekly") :
+                                      employee.payment_frequency === "monthly" ? (isEs ? "Mensual" : "Monthly") :
+                                      (isEs ? "Semanal" : "Weekly");
+                    return isEs
+                      ? `Monto ${basisLabel.toLowerCase()} · Pagos ${freqLabel.toLowerCase()}`
+                      : `${basisLabel} amount · ${freqLabel} payments`;
+                  })()}
                 </p>
               </CardContent>
             </Card>

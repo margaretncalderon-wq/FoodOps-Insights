@@ -533,17 +533,31 @@ export function OrgChartSection() {
             </CardContent></Card>
           ) : (
             <div className="space-y-2">
-              {departments.map(dept => {
-                const deptPositions = positions.filter(p => p.department_id === dept.department_id);
-                if (deptPositions.length === 0) return null;
-                return (
-                  <div key={dept.department_id}>
+              {/* Group positions by department, including an "Sin departamento" bucket */}
+              {(() => {
+                const deptIds = new Set(departments.map(d => d.department_id));
+                const grouped = [
+                  ...departments.map(dept => ({
+                    key: dept.department_id,
+                    label: dept.name,
+                    positions: positions.filter(p => p.department_id === dept.department_id)
+                  })),
+                  {
+                    key: "__orphans__",
+                    label: isEs ? "Sin departamento" : "Without department",
+                    positions: positions.filter(p => !p.department_id || !deptIds.has(p.department_id))
+                  }
+                ].filter(g => g.positions.length > 0);
+                
+                return grouped.map(group => (
+                  <div key={group.key}>
                     <h4 className="text-sm font-medium text-muted-foreground mb-2 flex items-center gap-1.5">
-                      <Building2 className="w-3.5 h-3.5" /> {dept.name}
+                      <Building2 className="w-3.5 h-3.5" /> {group.label}
+                      <Badge variant="outline" className="text-[10px] ml-1">{group.positions.length}</Badge>
                     </h4>
                     <div className="space-y-1.5 ml-4 mb-4">
-                      {deptPositions.map(pos => (
-                        <Card key={pos.position_id} className={`${pos.is_vacant ? 'border-dashed border-amber-300' : ''}`}>
+                      {group.positions.map(pos => (
+                        <Card key={pos.position_id} className={`${pos.is_vacant ? 'border-dashed border-amber-300' : ''}`} data-testid={`position-row-${pos.position_id}`}>
                           <CardContent className="flex items-center gap-3 p-3">
                             <Briefcase className={`w-4 h-4 ${pos.is_vacant ? 'text-amber-500' : 'text-indigo-500'}`} />
                             <div className="flex-1">
@@ -572,8 +586,8 @@ export function OrgChartSection() {
                       ))}
                     </div>
                   </div>
-                );
-              })}
+                ));
+              })()}
             </div>
           )}
         </TabsContent>

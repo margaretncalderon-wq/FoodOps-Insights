@@ -1,0 +1,33 @@
+{
+  "summary": "Validated 3 production bug fixes end-to-end. BACKEND: 7/7 pytest tests PASS — base_salary_basis + afp_override + ars_override persist on PUT /api/people-ops/employees/{id}; biweekly period for monthly-basis employee yields period_salary=22000 (half of 44000), afp_employee=1000 (override 2000/2), ars_employee=900 (override 1800/2); monthly period yields full 44000/2000/1800; basis='biweekly' is NOT halved (backward compat) → period_salary stays 22000; projection endpoint also uses basis (period_salary=22000 for biweekly + monthly basis); org-chart endpoint unchanged. FRONTEND: Logged in as demo.agency@kora.com, navigated to People Ops → Org Chart → Positions. Verified 3 existing positions correctly group as 'Marketing 2' + 'Operations 1'. Created an orphan position via API (department_id='dept_does_not_exist_test') → reloaded Positions tab → 'Without department' (EN locale) heading appears with count badge '1' and the orphan card 'TEST_ORPHAN_POS' renders inside. Deleted orphan post-test. Employee profile → Compensation: non-edit Base Salary card shows 'Monthly amount · Monthly payments'. Edit mode reveals the new 'Salary is expressed as' dropdown with data-testid='edit-salary-basis' and 3 options [Monthly amount, Biweekly amount, Weekly amount]. María González restored to base_salary=75000, payment_frequency=monthly, basis=monthly, afp/ars overrides=0.",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_salary_basis_org_chart.py",
+    "/app/test_reports/pytest/iter204_results.xml"
+  ],
+  "action_items": [
+    "Deploy these changes to PRODUCTION (https://ourkora.com). User reported the bugs against production which has not been redeployed yet; preview has the full fix verified."
+  ],
+  "critical_code_review_comments": [
+    "people_ops.py create_payroll_period (line ~1955-1971): correctly normalizes base_salary → monthly_equivalent using base_salary_basis ('biweekly'→×2, 'weekly'→×4.33, default monthly), then derives period_salary by dividing by 2 (biweekly) / 4.33 (weekly) / 1 (monthly). afp/ars/isr overrides treated as monthly amounts and divided by 2 for biweekly periods (line ~1995). ISR uses monthly_equivalent for progressive computation. End-to-end math verified.",
+    "payroll_projection (line ~2337): mirrors the same basis logic. Verified projection endpoint returns period_salary=22000 for monthly-basis employee under biweekly projection.",
+    "OrgChartSection.js (line 536-590): clean IIFE grouping that always includes a 'Sin departamento' / 'Without department' bucket but filters it out when empty. Bucket appears only when orphan positions exist. data-testid='position-row-{id}' present on all cards.",
+    "EmployeeProfile.js (line 763-770, 876): Select with data-testid='edit-salary-basis' present in edit mode, with Monthly/Biweekly/Weekly options. Non-edit display combines basis + payment_frequency in the format '<basis amount> · <freq> payments'.",
+    "EmployeeUpdate model (line 333) and EmployeeCreate model (line 180) both have base_salary_basis: Optional[str] = None/'monthly'. Persistence verified via PUT→GET roundtrip."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_salary_basis_org_chart.py"
+  ],
+  "success_rate": { "backend": "100%", "frontend": "100%" },
+  "test_credentials": "demo.agency@kora.com / Evoque2024!",
+  "seed_data_creation": "Created orphan position 'TEST_ORPHAN_POS' (pos_18fd0dc8e70b) with department_id='dept_does_not_exist_test' to validate the 'Sin departamento' bucket; deleted (deactivated) it after the test. María González restored to original state (75000 monthly, basis=monthly, overrides=0).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Regression tests for these fixes live at /app/backend/tests/test_salary_basis_org_chart.py and require start_date/end_date/payment_date in payroll period payload (NOT period_start/period_end). For UI testing, the People Ops sub-tabs (Org Chart, Departments, Positions) inside the Org Chart section are role='tab' elements — use page.locator('[role=\"tab\"]:has-text(\"Positions\")') rather than plain text=Positions to avoid matching the stats card. Demo org locale is English so the orphan-bucket heading is 'Without department' (Spanish locale would show 'Sin departamento').",
+  "rca of the issue": "All 3 reported production bugs are resolved in preview: (1) Positions tab grouping logic was previously iterating only over existing departments, dropping positions with mismatched/null department_id — fixed by adding an 'orphans' bucket computed via Set membership check. (2) Payroll period_salary was driven by payment_frequency rather than the declared basis of base_salary, causing 44000 monthly amount to be paid per biweekly period — fixed by introducing base_salary_basis which is normalized to monthly first then divided by the requested period_type. (3) afp/ars overrides were correctly implemented in iteration_202 and re-validated here (1000 AFP / 900 ARS for biweekly; 2000/1800 for monthly). Production needs a redeploy to receive these fixes."
+}
