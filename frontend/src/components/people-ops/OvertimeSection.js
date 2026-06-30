@@ -95,6 +95,15 @@ export function OvertimeSection() {
     weeklyHours: Array(7).fill({ hours_35: 0, hours_night: 0, hours_holiday: 0, hours_100: 0 })
   });
 
+  // Filter requests list by the selected report period (using start/end from backend)
+  const filteredRequests = (() => {
+    if (!report?.start_date || !report?.end_date) return requests;
+    return requests.filter(r => {
+      const d = r.date;
+      return d >= report.start_date && d <= report.end_date;
+    });
+  })();
+  
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
@@ -475,10 +484,22 @@ export function OvertimeSection() {
       {/* Requests Table */}
       <Card>
         <CardContent className="p-0">
-          {requests.length === 0 ? (
+          {/* Period filter badge */}
+          {report?.label && (
+            <div className="px-4 py-2 border-b bg-muted/30 text-xs text-muted-foreground flex items-center justify-between">
+              <span>
+                {isEs ? "Filtrado por:" : "Filtered by:"} <strong>{report.label}</strong> ({report.start_date} → {report.end_date})
+              </span>
+              <span>{filteredRequests.length} {isEs ? "registros" : "records"}</span>
+            </div>
+          )}
+          {filteredRequests.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
               <Clock className="w-12 h-12 mx-auto mb-3 opacity-50" />
-              <p>{isEs ? "No hay registros de horas extras" : "No overtime records"}</p>
+              <p>{isEs ? "No hay registros de horas extras en el período seleccionado" : "No overtime records in selected period"}</p>
+              {requests.length > 0 && (
+                <p className="text-xs mt-1">{isEs ? `Hay ${requests.length} registros en otros períodos. Cambia el filtro arriba.` : `${requests.length} records exist in other periods. Change the filter above.`}</p>
+              )}
             </div>
           ) : (
             <Table>
@@ -518,7 +539,7 @@ export function OvertimeSection() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {requests.map((req) => (
+                {filteredRequests.map((req) => (
                   <TableRow key={req.overtime_id} data-testid={`overtime-${req.overtime_id}`}>
                     <TableCell className="font-medium">{req.employee_name}</TableCell>
                     <TableCell>{req.date}</TableCell>

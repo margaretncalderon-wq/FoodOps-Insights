@@ -23,7 +23,7 @@ import {
   ArrowLeft, User, Briefcase, Wallet, Calendar, Building2,
   Mail, Phone, MapPin, RefreshCw, Edit2, Save, X,
   FileText, Clock, TrendingUp, AlertCircle, DollarSign, Sun, Moon,
-  Percent, Zap, CreditCard, History, Plus, ArrowRight
+  Percent, Zap, CreditCard, History, Plus, ArrowRight, Trash2, AlertOctagon
 } from "lucide-react";
 import {
   Select,
@@ -53,6 +53,7 @@ export function EmployeeProfile() {
   const [saving, setSaving] = useState(false);
   const [editData, setEditData] = useState({});
   const [salaryHistory, setSalaryHistory] = useState([]);
+  const [pendingDeductions, setPendingDeductions] = useState([]);
   const [activeTab, setActiveTab] = useState("info");
   
   // Reference data for dropdowns
@@ -63,17 +64,19 @@ export function EmployeeProfile() {
 
   const fetchEmployee = useCallback(async () => {
     try {
-      const [empRes, salaryRes, jobsRes, deptRes, ccRes, empListRes] = await Promise.all([
+      const [empRes, salaryRes, jobsRes, deptRes, ccRes, empListRes, pdRes] = await Promise.all([
         axios.get(`${API}/api/people-ops/employees/${employeeId}`, { withCredentials: true }),
         axios.get(`${API}/api/people-ops/employees/${employeeId}/salary-history`, { withCredentials: true }).catch(() => ({ data: [] })),
         axios.get(`${API}/api/people-ops/recruitment/jobs`, { withCredentials: true }).catch(() => ({ data: [] })),
         axios.get(`${API}/api/people-ops/departments`, { withCredentials: true }).catch(() => ({ data: [] })),
         axios.get(`${API}/api/people-ops/cost-centers`, { withCredentials: true }).catch(() => ({ data: [] })),
-        axios.get(`${API}/api/people-ops/employees?status=active`, { withCredentials: true }).catch(() => ({ data: [] }))
+        axios.get(`${API}/api/people-ops/employees?status=active`, { withCredentials: true }).catch(() => ({ data: [] })),
+        axios.get(`${API}/api/people-ops/pending-deductions?employee_id=${employeeId}`, { withCredentials: true }).catch(() => ({ data: [] }))
       ]);
       setEmployee(empRes.data);
       setEditData(empRes.data);
       setSalaryHistory(salaryRes.data);
+      setPendingDeductions(pdRes.data || []);
       setJobPostings(jobsRes.data || []);
       setDepartments(deptRes.data || []);
       setCostCenters(ccRes.data || []);
@@ -155,6 +158,60 @@ export function EmployeeProfile() {
       alert(err.response?.data?.detail || (isEs ? "Error al registrar el cambio" : "Error recording change"));
     }
     setSalarySaving(false);
+  };
+
+  // ---- Pending deduction dialog state
+  const [pdDialogOpen, setPdDialogOpen] = useState(false);
+  const [pdSaving, setPdSaving] = useState(false);
+  const [pdForm, setPdForm] = useState({ amount: "", reason: "", notes: "" });
+
+  const openPdDialog = () => {
+    setPdForm({ amount: "", reason: "", notes: "" });
+    setPdDialogOpen(true);
+  };
+
+  const submitPendingDeduction = async () => {
+    const amt = parseFloat(pdForm.amount);
+    if (!amt || amt <= 0) {
+      alert(isEs ? "Ingresa un monto válido" : "Enter a valid amount");
+      return;
+    }
+    if (!pdForm.reason || !pdForm.reason.trim()) {
+      alert(isEs ? "Ingresa una razón / etiqueta" : "Enter a reason / label");
+      return;
+    }
+    setPdSaving(true);
+    try {
+      await axios.post(
+        `${API}/api/people-ops/pending-deductions`,
+        {
+          employee_id: employeeId,
+          amount: amt,
+          reason: pdForm.reason.trim(),
+          notes: pdForm.notes || null
+        },
+        { withCredentials: true }
+      );
+      setPdDialogOpen(false);
+      await fetchEmployee();
+    } catch (err) {
+      console.error("Error creating pending deduction:", err);
+      alert(err.response?.data?.detail || (isEs ? "Error al crear descuento" : "Error creating deduction"));
+    }
+    setPdSaving(false);
+  };
+
+  const deletePendingDeduction = async (deductionId) => {
+    if (!window.confirm(isEs ? "¿Eliminar este descuento pendiente?" : "Delete this pending deduction?")) return;
+    try {
+      await axios.delete(
+        `${API}/api/people-ops/pending-deductions/${deductionId}`,
+        { withCredentials: true }
+      );
+      await fetchEmployee();
+    } catch (err) {
+      alert(err.response?.data?.detail || (isEs ? "Error" : "Error"));
+    }
   };
 
   if (loading) {
@@ -852,6 +909,139 @@ export function EmployeeProfile() {
             </CardContent>
           </Card>
 
+          {/* Manual Deduction Overrides */}
+          <Card className="border-amber-200 bg-amber-50/30">
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <AlertOctagon className="w-4 h-4 text-amber-600" />
+                {isEs ? "Overrides Manuales de Deducciones (Mensual)" : "Manual Deduction Overrides (Monthly)"}
+              </CardTitle>
+              <CardDescription>
+                {isEs
+                  ? "Si fijas un monto aquí, la nómina ignorará el cálculo automático (AFP/ARS/ISR). Para períodos quincenales se divide ÷2 automáticamente. Deja en blanco para usar el cálculo legal."
+                  : "If you set an amount here, payroll will ignore the auto-calculation (AFP/ARS/ISR). For biweekly periods it's auto-divided by 2. Leave blank to use legal formula."}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {editing ? (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="text-sm font-medium">AFP Override (mensual)</label>
+                    <Input
+                      type="number" min="0" step="0.01"
+                      placeholder={isEs ? "Vacío = calculado" : "Empty = calculated"}
+                      value={editData.afp_override ?? ""}
+                      onChange={(e) => setEditData({ ...editData, afp_override: e.target.value === "" ? null : parseFloat(e.target.value) })}
+                      data-testid="edit-afp-override"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium">ARS Override (mensual)</label>
+                    <Input
+                      type="number" min="0" step="0.01"
+                      placeholder={isEs ? "Vacío = calculado" : "Empty = calculated"}
+                      value={editData.ars_override ?? ""}
+                      onChange={(e) => setEditData({ ...editData, ars_override: e.target.value === "" ? null : parseFloat(e.target.value) })}
+                      data-testid="edit-ars-override"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium">ISR Override (mensual)</label>
+                    <Input
+                      type="number" min="0" step="0.01"
+                      placeholder={isEs ? "Vacío = calculado" : "Empty = calculated"}
+                      value={editData.isr_override ?? ""}
+                      onChange={(e) => setEditData({ ...editData, isr_override: e.target.value === "" ? null : parseFloat(e.target.value) })}
+                      data-testid="edit-isr-override"
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                  <div className="p-3 border rounded-lg bg-background">
+                    <p className="text-muted-foreground">AFP Override</p>
+                    <p className="font-semibold">{employee.afp_override ? formatCurrency(employee.afp_override) : <span className="text-muted-foreground italic">{isEs ? "Calculado automáticamente" : "Auto-calculated"}</span>}</p>
+                  </div>
+                  <div className="p-3 border rounded-lg bg-background">
+                    <p className="text-muted-foreground">ARS Override</p>
+                    <p className="font-semibold">{employee.ars_override ? formatCurrency(employee.ars_override) : <span className="text-muted-foreground italic">{isEs ? "Calculado automáticamente" : "Auto-calculated"}</span>}</p>
+                  </div>
+                  <div className="p-3 border rounded-lg bg-background">
+                    <p className="text-muted-foreground">ISR Override</p>
+                    <p className="font-semibold">{employee.isr_override ? formatCurrency(employee.isr_override) : <span className="text-muted-foreground italic">{isEs ? "Calculado automáticamente" : "Auto-calculated"}</span>}</p>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Pending Deductions (queued for next payroll) */}
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0">
+              <div>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <CreditCard className="w-4 h-4" />
+                  {isEs ? "Descuentos Pendientes para Próxima Nómina" : "Pending Deductions for Next Payroll"}
+                </CardTitle>
+                <CardDescription>
+                  {isEs
+                    ? "Estos descuentos se consumirán automáticamente al generar el próximo período de nómina regular."
+                    : "These deductions will be auto-applied when the next regular payroll period is created."}
+                </CardDescription>
+              </div>
+              <Button size="sm" onClick={openPdDialog} data-testid="add-pending-deduction-btn">
+                <Plus className="w-4 h-4 mr-2" />
+                {isEs ? "Agregar" : "Add"}
+              </Button>
+            </CardHeader>
+            <CardContent>
+              {pendingDeductions.length === 0 ? (
+                <div className="text-center py-6 text-muted-foreground border-2 border-dashed rounded-lg">
+                  <p className="text-sm">{isEs ? "Sin descuentos pendientes." : "No pending deductions."}</p>
+                </div>
+              ) : (
+                <div className="space-y-2" data-testid="pending-deductions-list">
+                  {pendingDeductions.map((pd) => (
+                    <div
+                      key={pd.deduction_id}
+                      className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/30"
+                      data-testid={`pending-deduction-${pd.deduction_id}`}
+                    >
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                        <Badge
+                          variant={pd.status === "pending" ? "default" : pd.status === "applied" ? "outline" : "secondary"}
+                          className={pd.status === "pending" ? "bg-amber-500" : ""}
+                        >
+                          {pd.status === "pending" ? (isEs ? "Pendiente" : "Pending") :
+                            pd.status === "applied" ? (isEs ? "Aplicado" : "Applied") :
+                            (isEs ? "Cancelado" : "Cancelled")}
+                        </Badge>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium truncate">{pd.reason}</p>
+                          {pd.notes && <p className="text-xs text-muted-foreground truncate">{pd.notes}</p>}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <p className="font-bold text-red-600">-{formatCurrency(pd.amount)}</p>
+                        {pd.status === "pending" && (
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => deletePendingDeduction(pd.deduction_id)}
+                            className="text-red-600 hover:text-red-700"
+                            data-testid={`delete-pd-${pd.deduction_id}`}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
           {/* Salary History */}
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0">
@@ -1423,6 +1613,59 @@ export function EmployeeProfile() {
             <Button onClick={submitSalaryChange} disabled={salarySaving} data-testid="submit-salary-change-btn">
               {salarySaving ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
               {isEs ? "Registrar" : "Record"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Pending Deduction Dialog */}
+      <Dialog open={pdDialogOpen} onOpenChange={setPdDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {isEs ? "Agregar Descuento Pendiente" : "Add Pending Deduction"}
+            </DialogTitle>
+            <DialogDescription>
+              {isEs
+                ? "Se aplicará automáticamente al generar el próximo período de nómina regular."
+                : "Will be auto-applied when the next regular payroll period is created."}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div>
+              <label className="text-sm font-medium">{isEs ? "Monto *" : "Amount *"}</label>
+              <Input
+                type="number" min="0" step="0.01" placeholder="0.00"
+                value={pdForm.amount}
+                onChange={(e) => setPdForm({ ...pdForm, amount: e.target.value })}
+                data-testid="pd-amount-input"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">{isEs ? "Razón / Etiqueta *" : "Reason / Label *"}</label>
+              <Input
+                placeholder={isEs ? "Ej. Reembolso uniforme" : "e.g. Uniform reimbursement"}
+                value={pdForm.reason}
+                onChange={(e) => setPdForm({ ...pdForm, reason: e.target.value })}
+                data-testid="pd-reason-input"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">{isEs ? "Notas (opcional)" : "Notes (optional)"}</label>
+              <Input
+                placeholder={isEs ? "Detalles adicionales..." : "Additional details..."}
+                value={pdForm.notes}
+                onChange={(e) => setPdForm({ ...pdForm, notes: e.target.value })}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPdDialogOpen(false)} disabled={pdSaving}>
+              {isEs ? "Cancelar" : "Cancel"}
+            </Button>
+            <Button onClick={submitPendingDeduction} disabled={pdSaving} data-testid="submit-pd-btn">
+              {pdSaving ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+              {isEs ? "Agregar" : "Add"}
             </Button>
           </DialogFooter>
         </DialogContent>

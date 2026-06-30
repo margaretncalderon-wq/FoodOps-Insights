@@ -461,6 +461,24 @@ async def get_org_chart(user: User = Depends(get_current_user)):
         pos["is_vacant"] = len(pos["employees"]) == 0
         pos["has_open_vacancy"] = len(pos["vacancies"]) > 0
 
+    # Enrich departments with their employees (independent of position)
+    pos_dept = {p["position_id"]: p.get("department_id") for p in positions}
+    dept_employees: dict = {}
+    for emp in employees:
+        dept_id = emp.get("department_id") or pos_dept.get(emp.get("position_id"))
+        if dept_id:
+            dept_employees.setdefault(dept_id, []).append(emp)
+    dept_positions: dict = {}
+    for p in positions:
+        did = p.get("department_id")
+        if did:
+            dept_positions.setdefault(did, []).append(p)
+    for dept in departments:
+        did = dept["department_id"]
+        dept["employees"] = dept_employees.get(did, [])
+        dept["employee_count"] = len(dept["employees"])
+        dept["position_count"] = len(dept_positions.get(did, []))
+
     # Employees not assigned to any position
     assigned_emp_ids = set()
     for emps in pos_employees.values():
@@ -1921,6 +1939,7 @@ async def create_payroll_period(
     total_deductions = 0.0
     total_net = 0.0
     total_employer_cost = 0.0
+    consumed_pending_ids: list = []  # pending_deductions to mark as 'applied'
     
     for emp in employees:
         base_salary = float(emp.get("base_salary") or 0)
@@ -1959,11 +1978,29 @@ async def create_payroll_period(
             loan_id = None
             afp_employer = ars_employer = srl_employer = infotep_employer = 0.0
         else:
-            afp_emp = period_salary * (config.get("afp_employee_rate", 2.87) / 100)
-            ars_emp = period_salary * (config.get("ars_employee_rate", 3.04) / 100)
-            monthly_salary = period_salary * 2 if data.period_type.value == "biweekly" else period_salary
-            monthly_isr = calculate_monthly_isr(monthly_salary) if config.get("isr_enabled", True) else 0
-            period_isr = monthly_isr / 2 if data.period_type.value == "biweekly" else monthly_isr
+            # Check for per-employee manual OVERRIDES (monthly amounts; auto-divide for biweekly)
+            is_biweekly_period = data.period_type.value == "biweekly"
+            divisor = 2 if is_biweekly_period else 1
+            
+            afp_override = emp.get("afp_override")
+            if afp_override is not None and afp_override > 0:
+                afp_emp = float(afp_override) / divisor
+            else:
+                afp_emp = period_salary * (config.get("afp_employee_rate", 2.87) / 100)
+            
+            ars_override = emp.get("ars_override")
+            if ars_override is not None and ars_override > 0:
+                ars_emp = float(ars_override) / divisor
+            else:
+                ars_emp = period_salary * (config.get("ars_employee_rate", 3.04) / 100)
+            
+            isr_override = emp.get("isr_override")
+            if isr_override is not None and isr_override > 0:
+                period_isr = float(isr_override) / divisor
+            else:
+                monthly_salary = period_salary * 2 if is_biweekly_period else period_salary
+                monthly_isr = calculate_monthly_isr(monthly_salary) if config.get("isr_enabled", True) else 0
+                period_isr = monthly_isr / 2 if is_biweekly_period else monthly_isr
             
             loan_deduction = 0.0
             loan_id = None
@@ -1984,7 +2021,29 @@ async def create_payroll_period(
             srl_employer = period_salary * (config.get("srl_rate", 1.20) / 100)
             infotep_employer = period_salary * (config.get("infotep_rate", 1.0) / 100)
         
-        total_emp_deductions = afp_emp + ars_emp + period_isr + loan_deduction
+        # Consume pending one-off deductions queued for this employee (skip for overtime_only)
+        consumed_pending = []
+        pending_total = 0.0
+        if payment_kind != "overtime_only":
+            pending_list = await db.pending_deductions.find({
+                "company_id": company_id,
+                "employee_id": emp.get("employee_id"),
+                "status": "pending"
+            }, {"_id": 0}).sort("created_at", 1).to_list(50)
+            for pd in pending_list:
+                amt = float(pd.get("amount") or 0)
+                if amt <= 0:
+                    continue
+                consumed_pending.append({
+                    "id": pd.get("deduction_id"),
+                    "reason": pd.get("reason") or "Descuento programado",
+                    "amount": round(amt, 2),
+                    "source": "pending_deduction"
+                })
+                pending_total += amt
+                consumed_pending_ids.append(pd.get("deduction_id"))
+        
+        total_emp_deductions = afp_emp + ars_emp + period_isr + loan_deduction + pending_total
         net_salary = gross_salary - total_emp_deductions
         employer_cost = period_salary + ot_total + afp_employer + ars_employer + srl_employer + infotep_employer
         
@@ -2022,7 +2081,7 @@ async def create_payroll_period(
             "loan_id": loan_id,
             "other_deductions": 0,
             "other_deductions_description": None,
-            "extra_deductions": [],
+            "extra_deductions": consumed_pending,
             "total_deductions": round(total_emp_deductions, 2),
             
             "net_salary": round(net_salary, 2),
@@ -2055,6 +2114,17 @@ async def create_payroll_period(
         await db.overtime_requests.update_many(
             {"company_id": company_id, "overtime_id": {"$in": consumed_ot_ids}},
             {"$set": {"payroll_period_id": period_id, "status": "processed", "updated_at": now.isoformat()}}
+        )
+    
+    # Mark consumed pending deductions as applied
+    if consumed_pending_ids:
+        await db.pending_deductions.update_many(
+            {"company_id": company_id, "deduction_id": {"$in": consumed_pending_ids}},
+            {"$set": {
+                "status": "applied",
+                "applied_to_period_id": period_id,
+                "applied_at": now.isoformat()
+            }}
         )
     
     # Update period totals
@@ -2139,6 +2209,12 @@ async def delete_payroll_period(
         {"$set": {"payroll_period_id": None, "status": "approved", "updated_at": datetime.now(timezone.utc).isoformat()}}
     )
     
+    # Revert any pending_deductions that were consumed by this period back to 'pending'
+    await db.pending_deductions.update_many(
+        {"company_id": company_id, "applied_to_period_id": period_id},
+        {"$set": {"status": "pending", "applied_to_period_id": None, "applied_at": None}}
+    )
+    
     # Delete all entries
     entries_result = await db.payroll_entries.delete_many(
         {"period_id": period_id, "company_id": company_id}
@@ -2154,6 +2230,105 @@ async def delete_payroll_period(
         "period_id": period_id,
         "entries_deleted": entries_result.deleted_count
     }
+
+
+# ==================== PENDING DEDUCTIONS ====================
+# One-off discounts queued to be consumed by the next regular payroll period
+# (e.g. "Reembolso uniforme RD$500" — applies once, then status=applied)
+
+from pydantic import BaseModel as _BaseModelPD
+
+
+class PendingDeductionCreate(_BaseModelPD):
+    employee_id: str
+    amount: float
+    reason: str  # short label e.g. "Reembolso uniforme"
+    notes: Optional[str] = None
+
+
+@people_ops_router.get("/pending-deductions")
+async def list_pending_deductions(
+    employee_id: Optional[str] = None,
+    status: Optional[str] = None,
+    user: User = Depends(get_current_user)
+):
+    """List pending deductions. Optional filters by employee_id and status (pending|applied|cancelled)."""
+    company_id, _ = await check_people_ops_access(user, "view")
+    query: dict = {"company_id": company_id}
+    if employee_id:
+        query["employee_id"] = employee_id
+    if status:
+        query["status"] = status
+    items = await db.pending_deductions.find(query, {"_id": 0}).sort("created_at", -1).to_list(500)
+    return items
+
+
+@people_ops_router.post("/pending-deductions")
+async def create_pending_deduction(
+    data: PendingDeductionCreate,
+    user: User = Depends(get_current_user)
+):
+    """Create a one-off deduction that will be auto-consumed by the next payroll period."""
+    company_id, _ = await check_people_ops_access(user, "edit")
+    
+    if data.amount <= 0:
+        raise HTTPException(status_code=400, detail="amount must be greater than 0")
+    
+    emp = await db.employees.find_one(
+        {"employee_id": data.employee_id, "company_id": company_id},
+        {"_id": 0, "full_name": 1, "employee_number": 1}
+    )
+    if not emp:
+        raise HTTPException(status_code=404, detail="Employee not found")
+    
+    now = datetime.now(timezone.utc)
+    deduction_id = f"pd_{uuid.uuid4().hex[:12]}"
+    doc = {
+        "deduction_id": deduction_id,
+        "company_id": company_id,
+        "employee_id": data.employee_id,
+        "employee_name": emp.get("full_name"),
+        "employee_number": emp.get("employee_number"),
+        "amount": round(float(data.amount), 2),
+        "reason": data.reason,
+        "notes": data.notes,
+        "status": "pending",
+        "applied_to_period_id": None,
+        "applied_at": None,
+        "created_by": user.user_id,
+        "created_at": now.isoformat()
+    }
+    await db.pending_deductions.insert_one(doc)
+    doc.pop("_id", None)
+    return doc
+
+
+@people_ops_router.delete("/pending-deductions/{deduction_id}")
+async def delete_pending_deduction(
+    deduction_id: str,
+    user: User = Depends(get_current_user)
+):
+    """Cancel/delete a pending deduction. Only allowed if status='pending'."""
+    company_id, _ = await check_people_ops_access(user, "edit")
+    
+    pd = await db.pending_deductions.find_one(
+        {"deduction_id": deduction_id, "company_id": company_id},
+        {"_id": 0, "status": 1}
+    )
+    if not pd:
+        raise HTTPException(status_code=404, detail="Pending deduction not found")
+    if pd.get("status") != "pending":
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot delete deduction in status '{pd.get('status')}'. Only pending deductions can be deleted."
+        )
+    
+    await db.pending_deductions.delete_one(
+        {"deduction_id": deduction_id, "company_id": company_id}
+    )
+    return {"success": True, "deduction_id": deduction_id}
+
+
 
 
 

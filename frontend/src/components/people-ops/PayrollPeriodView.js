@@ -635,11 +635,34 @@ export function PayrollPeriodView() {
             </div>
           )}
 
-          <DialogFooter>
+          <DialogFooter className="print:hidden">
             <Button variant="outline" onClick={() => setPayslipDialogOpen(false)}>
               {isEs ? "Cerrar" : "Close"}
             </Button>
-            <Button onClick={() => window.print()}>
+            <Button onClick={() => {
+              // Print only payslip content using a hidden iframe to preserve dialog state
+              const node = document.getElementById("payslip-content");
+              if (!node) return;
+              const w = window.open("", "_blank", "width=900,height=900");
+              if (!w) return;
+              const headHtml = Array.from(document.querySelectorAll('link[rel="stylesheet"], style'))
+                .map(n => n.outerHTML).join("\n");
+              w.document.write(`<!DOCTYPE html><html><head><title>Recibo de Pago</title>${headHtml}<style>
+                body { padding: 24px; font-family: ui-sans-serif, system-ui, sans-serif; color: #111; }
+                .border { border: 1px solid #e5e7eb; }
+                .border-b { border-bottom: 1px solid #e5e7eb; }
+                .rounded-lg { border-radius: 0.5rem; }
+                .text-emerald-600 { color: #059669; }
+                .text-emerald-700 { color: #047857; }
+                .text-red-600 { color: #dc2626; }
+                .bg-emerald-50 { background: #ecfdf5; }
+                .border-emerald-200 { border-color: #a7f3d0; }
+                @media print { body { padding: 0; } button { display: none; } }
+              </style></head><body>${node.outerHTML}</body></html>`);
+              w.document.close();
+              w.focus();
+              setTimeout(() => { w.print(); w.close(); }, 350);
+            }} data-testid="print-payslip-btn">
               <Printer className="w-4 h-4 mr-2" />
               {isEs ? "Imprimir" : "Print"}
             </Button>

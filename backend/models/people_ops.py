@@ -190,6 +190,11 @@ class EmployeeCreate(BaseModel):
     has_pension: bool = True  # AFP
     afp_provider: Optional[str] = None
     ars_provider: Optional[str] = None
+    # Manual deduction overrides (if set, these MONTHLY amounts replace the auto-calc;
+    # for biweekly periods they are auto-divided by 2)
+    afp_override: Optional[float] = None
+    ars_override: Optional[float] = None
+    isr_override: Optional[float] = None
     
     # Access
     user_id: Optional[str] = None  # Link to system user account
@@ -320,6 +325,10 @@ class EmployeeUpdate(BaseModel):
     has_pension: Optional[bool] = None
     afp_provider: Optional[str] = None
     ars_provider: Optional[str] = None
+    # Manual deduction overrides (set to null/0 to clear)
+    afp_override: Optional[float] = None
+    ars_override: Optional[float] = None
+    isr_override: Optional[float] = None
     currency: Optional[str] = None
     weekly_hours_regular: Optional[float] = None  # Field staged for future use (Time Clock module)
     

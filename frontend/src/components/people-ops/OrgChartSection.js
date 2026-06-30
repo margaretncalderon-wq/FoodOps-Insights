@@ -261,7 +261,12 @@ export function OrgChartSection() {
             <div className="space-y-4">
               {departments.map(dept => {
                 const deptPositions = positions.filter(p => p.department_id === dept.department_id);
-                const deptEmployeeCount = deptPositions.reduce((sum, p) => sum + (p.employees?.length || 0), 0);
+                // Use backend-enriched employee list (employees with department_id OR via position)
+                const deptAllEmployees = dept.employees || [];
+                const deptEmployeeCount = deptAllEmployees.length;
+                // Employees in this dept that AREN'T attached to a position (so we can show them as "directos")
+                const positionedIds = new Set(deptPositions.flatMap(p => (p.employees || []).map(e => e.employee_id)));
+                const unassignedInDept = deptAllEmployees.filter(e => !positionedIds.has(e.employee_id));
                 const deptVacantCount = deptPositions.filter(p => p.is_vacant).length;
                 const isExpanded = expandedDepts[dept.department_id] !== false;
 
@@ -304,15 +309,47 @@ export function OrgChartSection() {
 
                     {/* Positions Grid */}
                     {isExpanded && (
-                      <CardContent className="p-4">
-                        {deptPositions.length === 0 ? (
-                          <div className="text-center py-6 text-muted-foreground text-sm">
-                            <Briefcase className="w-8 h-8 mx-auto mb-2 opacity-30" />
-                            <p>{isEs ? "Sin posiciones definidas" : "No positions defined"}</p>
-                            <Button variant="link" size="sm" className="mt-1" onClick={() => openPosDialog(null, dept.department_id)}>
-                              <Plus className="w-3 h-3 mr-1" /> {isEs ? "Agregar" : "Add"}
-                            </Button>
+                      <CardContent className="p-4 space-y-4">
+                        {/* Direct employees (no position assigned but belong to this dept) */}
+                        {unassignedInDept.length > 0 && (
+                          <div className="border rounded-lg p-3 bg-slate-50/60">
+                            <p className="text-xs font-semibold text-muted-foreground mb-2 flex items-center gap-1.5">
+                              <Users className="w-3.5 h-3.5" />
+                              {isEs ? `Empleados directos (${unassignedInDept.length})` : `Direct employees (${unassignedInDept.length})`}
+                            </p>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+                              {unassignedInDept.map(emp => (
+                                <div
+                                  key={emp.employee_id}
+                                  className="flex items-center gap-2 p-2 rounded-md bg-white border cursor-pointer hover:border-violet-300 transition-colors"
+                                  onClick={() => navigate(`/people-ops/employee/${emp.employee_id}`)}
+                                  data-testid={`emp-direct-${emp.employee_id}`}
+                                >
+                                  <div className="w-7 h-7 rounded-full bg-violet-100 flex items-center justify-center flex-shrink-0">
+                                    <span className="text-[10px] font-medium text-violet-700">
+                                      {emp.first_name?.[0]}{emp.last_name?.[0]}
+                                    </span>
+                                  </div>
+                                  <div className="min-w-0 flex-1">
+                                    <p className="text-xs font-medium truncate">{emp.full_name}</p>
+                                    <p className="text-[10px] text-muted-foreground truncate">{emp.job_title || emp.email}</p>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
                           </div>
+                        )}
+                        
+                        {deptPositions.length === 0 ? (
+                          unassignedInDept.length === 0 && (
+                            <div className="text-center py-6 text-muted-foreground text-sm">
+                              <Briefcase className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                              <p>{isEs ? "Sin posiciones definidas" : "No positions defined"}</p>
+                              <Button variant="link" size="sm" className="mt-1" onClick={() => openPosDialog(null, dept.department_id)}>
+                                <Plus className="w-3 h-3 mr-1" /> {isEs ? "Agregar" : "Add"}
+                              </Button>
+                            </div>
+                          )
                         ) : (
                           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                             {deptPositions.map(pos => {
