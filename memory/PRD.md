@@ -1,6 +1,40 @@
 # Kora OS — Product Requirements Document
 
 
+## People Ops — 3 Production Bugs (Feb 28, 2026)
+
+**Status:** ✅ Fixed in PREVIEW. **Pendiente: redeploy a producción.** testing_agent_v3_fork iteration_204: Backend 100% / Frontend 100%.
+
+### Bugs reportados → resueltos:
+
+#### 1) "Posiciones que están en el organigrama no salen en Posiciones"
+- `OrgChartSection.js` tab "Posiciones": antes iteraba `departments.map` y dejaba fuera cualquier posición con `department_id` nulo o huérfano.
+- Fix: lógica con IIFE que añade un bucket "Sin departamento" cuando hay posiciones sin asignar a un dept válido. Cada grupo muestra su nombre + badge de cantidad.
+
+#### 4) "Salario mensual + frecuencia quincenal no se divide en quincena"
+- Nuevo campo `base_salary_basis` ("monthly"|"biweekly"|"weekly") en `Employee`, default "monthly".
+- Backend `create_payroll_period` y `payroll_projection`: ahora normalizan `base_salary → monthly_equivalent` usando el basis, luego derivan `period_salary` desde el `period_type` solicitado (sin acoplarse a `payment_frequency`).
+- Resultado: empleado con `base_salary=44000, basis='monthly', freq='biweekly'` → quincena correcta 22000 (era 44000 antes).
+- Frontend `EmployeeProfile.js`: nuevo dropdown "Salario está expresado en" (Mensual/Quincenal/Semanal). Display en vista no-edit: "Monto mensual · Pagos quincenales".
+- **Backward compat**: empleado con `basis='biweekly', base_salary=22000` mantiene quincena=22000.
+
+#### 5) "Override AFP/ARS aún calcula automático"
+- El fix YA estaba implementado en iteration_202; el problema era que producción no se había redeployado.
+- Re-validado en iteration_204: override AFP=2000/ARS=1800 (mensuales) → quincena aplica AFP=1000/ARS=900 ÷2.
+
+### Files
+- `/app/backend/routers/people_ops.py` (basis logic en create_payroll_period + payroll_projection)
+- `/app/backend/models/people_ops.py` (EmployeeCreate + EmployeeUpdate: base_salary_basis)
+- `/app/frontend/src/components/people-ops/OrgChartSection.js` (Posiciones con bucket "Sin departamento")
+- `/app/frontend/src/components/people-ops/EmployeeProfile.js` (dropdown basis + display)
+- `/app/backend/tests/test_salary_basis_org_chart.py` (7 tests regresión PASS)
+
+### Action Item al usuario
+- **REDEPLOY a producción** para ver los 3 fixes en https://ourkora.com.
+
+---
+
+
 ## People Ops — Next Payroll Projection Dashboard (Feb 28, 2026)
 
 **Status:** ✅ Complete. Backend 100% / Frontend 100% (testing_agent_v3_fork iteration_203).
