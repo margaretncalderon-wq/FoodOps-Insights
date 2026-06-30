@@ -1,6 +1,35 @@
 # Kora OS — Product Requirements Document
 
 
+## People Ops — Salary Change History per Employee (Feb 28, 2026)
+
+**Status:** ✅ Complete (Backend curl-tested + Frontend visual smoke-test OK).
+
+### Implemented
+- **Backend auto-record audit trail**:
+  - `PUT /api/people-ops/employees/{id}` ahora detecta cambios en `base_salary` y crea automáticamente un registro en `salary_changes` (reason="adjustment", notes="Auto-recorded via employee profile update").
+  - `POST /api/people-ops/employees/{id}/salary-change` ahora deriva `previous_salary` desde la BD si no se envía (evita manipulación cliente).
+  - `GET /api/people-ops/employees/{id}/salary-history` retorna histórico ordenado por `effective_date` desc.
+- **Frontend** (`EmployeeProfile.js` → tab Compensation):
+  - Card "Historial de Salario" siempre visible (con empty state cuando no hay registros).
+  - Botón "Registrar Cambio" abre diálogo dedicado con: nuevo salario, fecha efectiva, razón (Promoción / Revisión Anual / Cambio de Rol / Ajuste de Mercado / Costo de Vida / Ajuste / Otro), notas.
+  - Live preview del % de cambio dentro del diálogo (compara con salario actual).
+  - Cada fila del histórico muestra: badge de razón + fecha + salario anterior (tachado) → nuevo salario + % de cambio + delta en moneda.
+
+### Files
+- `/app/backend/routers/people_ops.py` (update_employee + record_salary_change)
+- `/app/backend/models/people_ops.py` (SalaryChangeCreate: previous_salary opcional)
+- `/app/frontend/src/components/people-ops/EmployeeProfile.js`
+
+### Smoke test
+- POST `/salary-change` promotion +10% → recorded con previous_salary auto-derivado. ✅
+- PUT employee con nuevo base_salary → auto-record con reason="adjustment". ✅
+- GET history → 2 entries en orden desc, datos correctos. ✅
+- UI Compensation tab muestra card "Historial de Salario" con botón verde "Record Change" y diálogo funcional. ✅
+
+---
+
+
 ## People Ops — Payroll Flexibility (Feb 28, 2026)
 
 **Status:** ✅ Complete (Backend curl-tested end-to-end, Frontend visual smoke-test OK).

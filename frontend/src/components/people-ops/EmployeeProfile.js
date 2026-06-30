@@ -12,10 +12,18 @@ import { Input } from "../ui/input";
 import { Badge } from "../ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogDescription,
+} from "../ui/dialog";
+import {
   ArrowLeft, User, Briefcase, Wallet, Calendar, Building2,
   Mail, Phone, MapPin, RefreshCw, Edit2, Save, X,
   FileText, Clock, TrendingUp, AlertCircle, DollarSign, Sun, Moon,
-  Percent, Zap, CreditCard, History
+  Percent, Zap, CreditCard, History, Plus, ArrowRight
 } from "lucide-react";
 import {
   Select,
@@ -88,13 +96,65 @@ export function EmployeeProfile() {
         editData,
         { withCredentials: true }
       );
-      setEmployee({ ...employee, ...editData });
+      // Re-fetch to pull fresh salary history if base_salary changed
+      await fetchEmployee();
       setEditing(false);
     } catch (err) {
       console.error("Error updating employee:", err);
       alert(err.response?.data?.detail || "Error updating employee");
     }
     setSaving(false);
+  };
+
+  // ---- Salary change dialog state
+  const [salaryDialogOpen, setSalaryDialogOpen] = useState(false);
+  const [salarySaving, setSalarySaving] = useState(false);
+  const [salaryForm, setSalaryForm] = useState({
+    new_salary: "",
+    effective_date: new Date().toISOString().slice(0, 10),
+    reason: "annual_review",
+    notes: ""
+  });
+
+  const openSalaryDialog = () => {
+    setSalaryForm({
+      new_salary: "",
+      effective_date: new Date().toISOString().slice(0, 10),
+      reason: "annual_review",
+      notes: ""
+    });
+    setSalaryDialogOpen(true);
+  };
+
+  const submitSalaryChange = async () => {
+    const amount = parseFloat(salaryForm.new_salary);
+    if (!amount || amount <= 0) {
+      alert(isEs ? "Ingresa un salario válido" : "Enter a valid salary");
+      return;
+    }
+    if (!salaryForm.effective_date) {
+      alert(isEs ? "Ingresa la fecha efectiva" : "Enter the effective date");
+      return;
+    }
+    setSalarySaving(true);
+    try {
+      await axios.post(
+        `${API}/api/people-ops/employees/${employeeId}/salary-change`,
+        {
+          new_salary: amount,
+          effective_date: salaryForm.effective_date,
+          reason: salaryForm.reason,
+          notes: salaryForm.notes || null
+        },
+        { withCredentials: true }
+      );
+      setSalaryDialogOpen(false);
+      await fetchEmployee();
+    } catch (err) {
+      console.error("Error recording salary change:", err);
+      alert(err.response?.data?.detail || (isEs ? "Error al registrar el cambio" : "Error recording change"));
+    }
+    setSalarySaving(false);
   };
 
   if (loading) {
@@ -793,36 +853,93 @@ export function EmployeeProfile() {
           </Card>
 
           {/* Salary History */}
-          {salaryHistory.length > 0 && (
-            <Card>
-              <CardHeader>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0">
+              <div>
                 <CardTitle className="text-base flex items-center gap-2">
                   <TrendingUp className="w-4 h-4" />
                   {isEs ? "Historial de Salario" : "Salary History"}
                 </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {salaryHistory.map((change, idx) => (
-                    <div key={change.change_id || idx} className="flex items-center justify-between p-3 border rounded-lg">
-                      <div>
-                        <p className="font-medium">{change.reason}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {formatDateOnly(change.effective_date, language)}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-medium">{formatCurrency(change.new_salary)}</p>
-                        <p className={`text-sm ${change.change_percentage >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                          {change.change_percentage >= 0 ? '+' : ''}{change.change_percentage?.toFixed(1)}%
-                        </p>
-                      </div>
-                    </div>
-                  ))}
+                <CardDescription>
+                  {isEs
+                    ? "Registro de todos los cambios de salario base de este empleado."
+                    : "Audit trail of all base salary changes for this employee."}
+                </CardDescription>
+              </div>
+              <Button size="sm" onClick={openSalaryDialog} data-testid="open-salary-change-btn">
+                <Plus className="w-4 h-4 mr-2" />
+                {isEs ? "Registrar Cambio" : "Record Change"}
+              </Button>
+            </CardHeader>
+            <CardContent>
+              {salaryHistory.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground border-2 border-dashed rounded-lg">
+                  <History className="w-10 h-10 mx-auto mb-2 opacity-40" />
+                  <p className="text-sm">
+                    {isEs ? "Aún no hay cambios de salario registrados." : "No salary changes recorded yet."}
+                  </p>
+                  <p className="text-xs mt-1">
+                    {isEs
+                      ? "Los cambios se registran automáticamente al editar el salario base."
+                      : "Changes are auto-recorded when the base salary is edited."}
+                  </p>
                 </div>
-              </CardContent>
-            </Card>
-          )}
+              ) : (
+                <div className="space-y-3" data-testid="salary-history-list">
+                  {salaryHistory.map((change, idx) => {
+                    const reasonLabels = {
+                      promotion: isEs ? "Promoción" : "Promotion",
+                      annual_review: isEs ? "Revisión Anual" : "Annual Review",
+                      adjustment: isEs ? "Ajuste" : "Adjustment",
+                      market_alignment: isEs ? "Ajuste de Mercado" : "Market Alignment",
+                      cost_of_living: isEs ? "Costo de Vida" : "Cost of Living",
+                      role_change: isEs ? "Cambio de Rol" : "Role Change",
+                      other: isEs ? "Otro" : "Other"
+                    };
+                    const reasonLabel = reasonLabels[change.reason] || change.reason;
+                    const pct = change.change_percentage || 0;
+                    const isIncrease = pct >= 0;
+                    return (
+                      <div
+                        key={change.change_id || idx}
+                        className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/30 transition-colors"
+                        data-testid={`salary-history-row-${idx}`}
+                      >
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline" className="text-xs">{reasonLabel}</Badge>
+                            <p className="text-sm text-muted-foreground">
+                              {formatDateOnly(change.effective_date, language)}
+                            </p>
+                          </div>
+                          {change.notes && (
+                            <p className="text-xs text-muted-foreground mt-1 truncate">{change.notes}</p>
+                          )}
+                          <div className="flex items-center gap-2 mt-1 text-sm">
+                            <span className="text-muted-foreground line-through">
+                              {formatCurrency(change.previous_salary)}
+                            </span>
+                            <ArrowRight className="w-3 h-3 text-muted-foreground" />
+                            <span className="font-semibold">{formatCurrency(change.new_salary)}</span>
+                          </div>
+                        </div>
+                        <div className="text-right ml-4">
+                          <p className={`text-lg font-bold ${isIncrease ? 'text-emerald-600' : 'text-red-600'}`}>
+                            {isIncrease ? '+' : ''}{pct.toFixed(1)}%
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {isIncrease
+                              ? `+${formatCurrency(change.new_salary - change.previous_salary)}`
+                              : formatCurrency(change.new_salary - change.previous_salary)}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
           {/* Variable Pay Configuration - Per Employee */}
           <Card>
@@ -1215,6 +1332,101 @@ export function EmployeeProfile() {
           <PaymentHistoryTab employeeId={employeeId} />
         </TabsContent>
       </Tabs>
+
+      {/* Salary Change Dialog */}
+      <Dialog open={salaryDialogOpen} onOpenChange={setSalaryDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {isEs ? "Registrar Cambio de Salario" : "Record Salary Change"}
+            </DialogTitle>
+            <DialogDescription>
+              {isEs
+                ? `Salario actual: ${formatCurrency(employee?.base_salary || 0)}`
+                : `Current salary: ${formatCurrency(employee?.base_salary || 0)}`}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div>
+              <label className="text-sm font-medium">
+                {isEs ? "Nuevo Salario *" : "New Salary *"}
+              </label>
+              <Input
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder="0.00"
+                value={salaryForm.new_salary}
+                onChange={(e) => setSalaryForm({ ...salaryForm, new_salary: e.target.value })}
+                data-testid="salary-change-amount"
+              />
+              {salaryForm.new_salary && employee?.base_salary > 0 && (
+                <p className={`text-xs mt-1 ${parseFloat(salaryForm.new_salary) >= employee.base_salary ? 'text-emerald-600' : 'text-red-600'}`}>
+                  {(() => {
+                    const pct = ((parseFloat(salaryForm.new_salary) - employee.base_salary) / employee.base_salary) * 100;
+                    return `${pct >= 0 ? '+' : ''}${pct.toFixed(1)}% ${isEs ? 'vs salario actual' : 'vs current salary'}`;
+                  })()}
+                </p>
+              )}
+            </div>
+
+            <div>
+              <label className="text-sm font-medium">
+                {isEs ? "Fecha Efectiva *" : "Effective Date *"}
+              </label>
+              <Input
+                type="date"
+                value={salaryForm.effective_date}
+                onChange={(e) => setSalaryForm({ ...salaryForm, effective_date: e.target.value })}
+                data-testid="salary-change-date"
+              />
+            </div>
+
+            <div>
+              <label className="text-sm font-medium">
+                {isEs ? "Razón *" : "Reason *"}
+              </label>
+              <Select
+                value={salaryForm.reason}
+                onValueChange={(v) => setSalaryForm({ ...salaryForm, reason: v })}
+              >
+                <SelectTrigger data-testid="salary-change-reason">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="annual_review">{isEs ? "Revisión Anual" : "Annual Review"}</SelectItem>
+                  <SelectItem value="promotion">{isEs ? "Promoción" : "Promotion"}</SelectItem>
+                  <SelectItem value="role_change">{isEs ? "Cambio de Rol" : "Role Change"}</SelectItem>
+                  <SelectItem value="market_alignment">{isEs ? "Ajuste de Mercado" : "Market Alignment"}</SelectItem>
+                  <SelectItem value="cost_of_living">{isEs ? "Costo de Vida" : "Cost of Living"}</SelectItem>
+                  <SelectItem value="adjustment">{isEs ? "Ajuste" : "Adjustment"}</SelectItem>
+                  <SelectItem value="other">{isEs ? "Otro" : "Other"}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium">
+                {isEs ? "Notas (opcional)" : "Notes (optional)"}
+              </label>
+              <Input
+                placeholder={isEs ? "Detalles adicionales..." : "Additional details..."}
+                value={salaryForm.notes}
+                onChange={(e) => setSalaryForm({ ...salaryForm, notes: e.target.value })}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSalaryDialogOpen(false)} disabled={salarySaving}>
+              {isEs ? "Cancelar" : "Cancel"}
+            </Button>
+            <Button onClick={submitSalaryChange} disabled={salarySaving} data-testid="submit-salary-change-btn">
+              {salarySaving ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+              {isEs ? "Registrar" : "Record"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

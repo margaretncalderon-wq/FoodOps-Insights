@@ -342,8 +342,8 @@ class EmployeeUpdate(BaseModel):
 # ==================== SALARY CHANGES ====================
 
 class SalaryChangeCreate(BaseModel):
-    employee_id: str
-    previous_salary: float
+    employee_id: Optional[str] = None  # ignored; path param wins
+    previous_salary: Optional[float] = None  # if omitted, derived from current employee.base_salary
     new_salary: float
     effective_date: str
     reason: str  # promotion, annual_review, adjustment, etc.

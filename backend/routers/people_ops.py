@@ -1425,6 +1425,35 @@ async def update_employee(
         )
         update_data["cost_center_name"] = cc.get("name") if cc else None
     
+    # Detect salary change to auto-record history (audit trail)
+    salary_history_entry = None
+    if "base_salary" in update_data:
+        current_emp = await db.employees.find_one(
+            {"employee_id": employee_id, "company_id": company_id},
+            {"_id": 0, "full_name": 1, "base_salary": 1}
+        )
+        if current_emp:
+            prev_salary = float(current_emp.get("base_salary") or 0)
+            new_salary = float(update_data.get("base_salary") or 0)
+            if abs(prev_salary - new_salary) > 0.01:
+                now = datetime.now(timezone.utc)
+                change_pct = ((new_salary - prev_salary) / prev_salary * 100) if prev_salary > 0 else 0
+                salary_history_entry = {
+                    "change_id": f"sc_{uuid.uuid4().hex[:12]}",
+                    "company_id": company_id,
+                    "employee_id": employee_id,
+                    "employee_name": current_emp.get("full_name"),
+                    "previous_salary": prev_salary,
+                    "new_salary": new_salary,
+                    "change_percentage": round(change_pct, 2),
+                    "effective_date": now.date().isoformat(),
+                    "reason": "adjustment",
+                    "notes": "Auto-recorded via employee profile update",
+                    "approved_by": user.user_id if access_level == "admin" else None,
+                    "approved_at": now.isoformat() if access_level == "admin" else None,
+                    "created_at": now.isoformat()
+                }
+    
     update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
     
     result = await db.employees.update_one(
@@ -1434,6 +1463,10 @@ async def update_employee(
     
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Employee not found")
+    
+    # Insert salary change record after successful employee update
+    if salary_history_entry:
+        await db.salary_changes.insert_one(salary_history_entry)
     
     return {"message": "Employee updated"}
 
@@ -1544,14 +1577,19 @@ async def record_salary_change(
     now = datetime.now(timezone.utc)
     change_id = f"sc_{uuid.uuid4().hex[:12]}"
     
-    change_percentage = ((data.new_salary - data.previous_salary) / data.previous_salary * 100) if data.previous_salary > 0 else 0
+    # Derive previous_salary from DB if client did not send one (avoids tampering)
+    prev_salary = data.previous_salary
+    if prev_salary is None:
+        prev_salary = float(employee.get("base_salary") or 0)
+    
+    change_percentage = ((data.new_salary - prev_salary) / prev_salary * 100) if prev_salary > 0 else 0
     
     change_doc = {
         "change_id": change_id,
         "company_id": company_id,
         "employee_id": employee_id,
         "employee_name": employee.get("full_name"),
-        "previous_salary": data.previous_salary,
+        "previous_salary": prev_salary,
         "new_salary": data.new_salary,
         "change_percentage": round(change_percentage, 2),
         "effective_date": data.effective_date,
@@ -1573,7 +1611,7 @@ async def record_salary_change(
         }}
     )
     
-    del change_doc["_id"]
+    change_doc.pop("_id", None)
     return change_doc
 
 
