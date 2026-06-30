@@ -1,6 +1,34 @@
 # Kora OS — Product Requirements Document
 
 
+## People Ops — Next Payroll Projection Dashboard (Feb 28, 2026)
+
+**Status:** ✅ Complete. Backend 100% / Frontend 100% (testing_agent_v3_fork iteration_203).
+
+### Implementado
+- **Backend** `GET /api/people-ops/payroll/projection?period_type=biweekly|monthly|weekly`:
+  - Calcula en tiempo real el costo proyectado de la próxima nómina con base en empleados activos, OT aprobadas no pagadas, descuentos pendientes y préstamos activos.
+  - Honra `afp/ars/isr_override` por empleado y los divide ÷2 cuando es quincenal.
+  - Devuelve: `totals` (base, OT, AFP, ARS, ISR, préstamos, pendientes, total deducciones, neto), `pending_deductions` (count + total + top_5), `pending_overtime` (count + horas + monto), `loans` (count + cuota + saldo), `employee_breakdown` (desglose por empleado).
+- **Frontend** nuevo componente `NextPayrollProjection.js` montado al tope de `PayrollSection`:
+  - 4 KPIs principales: Empleados activos, Bruto estimado, Deducciones totales (con %), Neto estimado.
+  - Desglose de deducciones AFP/ARS/ISR/Préstamos/Pendientes en fila.
+  - 3 sub-cards: Descuentos pendientes (click empleado → perfil), Horas extras pendientes (link a /overtime), Préstamos activos.
+  - Banner amarillo cuando hay empleados con overrides manuales activos.
+  - Switch Quincena/Mensual/Semanal en vivo.
+
+### Files
+- `/app/backend/routers/people_ops.py` (endpoint payroll_projection ~ línea 2337)
+- `/app/frontend/src/components/people-ops/NextPayrollProjection.js` (nuevo, 260 líneas)
+- `/app/frontend/src/components/people-ops/PayrollSection.js` (mount del widget)
+- `/app/backend/tests/test_payroll_projection.py` (5 tests de regresión PASS)
+
+### Smoke test (demo.agency@kora.com)
+- 4 empleados activos, RD$138,500 bruto, RD$44,184.65 deducciones (31.9%), RD$94,315.35 neto, RD$37,500 cuota préstamos. Switch a Monthly → bruto doblado a RD$277,000. ✅
+
+---
+
+
 ## People Ops — Bug Bash Round (Feb 28, 2026)
 
 **Status:** ✅ Complete. Backend 100% / Frontend 100% (testing_agent_v3_fork iteration_202).
