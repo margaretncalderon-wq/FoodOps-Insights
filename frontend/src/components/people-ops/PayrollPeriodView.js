@@ -25,7 +25,7 @@ import {
 import {
   ArrowLeft, Wallet, Users, DollarSign, RefreshCw,
   CheckCircle, Clock, FileText, Download, Send,
-  Edit2, Save, X, Printer, Ban, RotateCcw
+  Edit2, Save, X, Printer, Ban, RotateCcw, Trash2
 } from "lucide-react";
 
 import { API_BASE as API } from "../../utils/api";
@@ -193,6 +193,25 @@ export function PayrollPeriodView() {
     }
   };
 
+  const handleDeletePeriod = async () => {
+    const confirmMsg = isEs
+      ? `¿Eliminar el período "${period?.period_name}"?\n\nEsto borrará todas las entradas y liberará las horas extras vinculadas. Esta acción no se puede deshacer.`
+      : `Delete period "${period?.period_name}"?\n\nThis will remove all entries and release linked overtime. This action cannot be undone.`;
+    if (!window.confirm(confirmMsg)) return;
+    setActionLoading(true);
+    try {
+      await axios.delete(
+        `${API}/api/people-ops/payroll/periods/${periodId}`,
+        { withCredentials: true }
+      );
+      navigate("/people-ops/payroll");
+    } catch (err) {
+      console.error("Error deleting period:", err);
+      alert(err.response?.data?.detail || (isEs ? "Error al eliminar el período" : "Error deleting period"));
+      setActionLoading(false);
+    }
+  };
+
   const handleDownloadBankFile = async () => {
     try {
       const res = await axios.get(
@@ -263,18 +282,40 @@ export function PayrollPeriodView() {
           </Button>
           
           {period.status === "draft" && (
-            <Button 
-              onClick={() => handleAction("submit")} 
-              disabled={actionLoading}
-              data-testid="submit-payroll-btn"
-            >
-              <Send className="w-4 h-4 mr-2" />
-              {isEs ? "Enviar a Aprobación" : "Submit for Approval"}
-            </Button>
+            <>
+              <Button 
+                variant="outline" 
+                onClick={handleDeletePeriod} 
+                disabled={actionLoading}
+                className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
+                data-testid="delete-payroll-btn"
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                {isEs ? "Eliminar" : "Delete"}
+              </Button>
+              <Button 
+                onClick={() => handleAction("submit")} 
+                disabled={actionLoading}
+                data-testid="submit-payroll-btn"
+              >
+                <Send className="w-4 h-4 mr-2" />
+                {isEs ? "Enviar a Aprobación" : "Submit for Approval"}
+              </Button>
+            </>
           )}
           
           {period.status === "pending_approval" && (
             <>
+              <Button 
+                variant="outline" 
+                onClick={handleDeletePeriod} 
+                disabled={actionLoading}
+                className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
+                data-testid="delete-payroll-btn"
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                {isEs ? "Eliminar" : "Delete"}
+              </Button>
               <Button 
                 variant="outline" 
                 onClick={() => handleAction("revert")} 

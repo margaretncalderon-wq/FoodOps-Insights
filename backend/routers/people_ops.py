@@ -1750,14 +1750,15 @@ async def create_payroll_period(
     payment_kind:
       - "regular": full payroll (salario + OT + bonos - deducciones)
       - "overtime_only": only pays approved overtime in the range (no salary, no AFP/ARS/ISR)
+      - "salary_only": pays only base salary + legal deductions (no OT, no bonus, no incentives)
     """
     company_id, access_level = await check_people_ops_access(user, "edit")
     
     now = datetime.now(timezone.utc)
     period_id = f"period_{uuid.uuid4().hex[:12]}"
     payment_kind = (data.payment_kind or "regular").lower()
-    if payment_kind not in ("regular", "overtime_only"):
-        raise HTTPException(status_code=400, detail="payment_kind must be 'regular' or 'overtime_only'")
+    if payment_kind not in ("regular", "overtime_only", "salary_only"):
+        raise HTTPException(status_code=400, detail="payment_kind must be 'regular', 'overtime_only' or 'salary_only'")
     
     # Get payroll config (with country-aware OT rates already backfilled)
     config = await db.payroll_config.find_one({"company_id": company_id}, {"_id": 0})
@@ -1792,10 +1793,20 @@ async def create_payroll_period(
             year = start_dt.year
             if data.period_type == PaymentFrequency.BIWEEKLY:
                 half = "1" if start_dt.day <= 15 else "2"
-                prefix = "Horas Extras" if payment_kind == "overtime_only" else "Quincena"
+                if payment_kind == "overtime_only":
+                    prefix = "Horas Extras"
+                elif payment_kind == "salary_only":
+                    prefix = "Solo Salario"
+                else:
+                    prefix = "Quincena"
                 period_name = f"{prefix} {half} - {month_name} {year}"
             elif data.period_type == PaymentFrequency.MONTHLY:
-                prefix = "Horas Extras" if payment_kind == "overtime_only" else "Nómina"
+                if payment_kind == "overtime_only":
+                    prefix = "Horas Extras"
+                elif payment_kind == "salary_only":
+                    prefix = "Solo Salario"
+                else:
+                    prefix = "Nómina"
                 period_name = f"{prefix} {month_name} {year}"
             else:
                 period_name = f"{month_name} {year}"
@@ -1840,7 +1851,7 @@ async def create_payroll_period(
     if data.include_overtime_ids:
         ot_query = {"company_id": company_id, "overtime_id": {"$in": data.include_overtime_ids}}
     
-    include_ot = data.auto_include_overtime
+    include_ot = data.auto_include_overtime and payment_kind != "salary_only"
     ot_by_employee: dict = {}
     if include_ot:
         ot_list = await db.overtime_requests.find(ot_query, {"_id": 0}).to_list(2000)
@@ -1881,6 +1892,7 @@ async def create_payroll_period(
         if payment_kind == "overtime_only":
             period_salary = 0.0
         else:
+            # Regular or salary_only: derive from employee's payment_frequency vs period_type
             if freq == "monthly" and data.period_type.value == "biweekly":
                 period_salary = base_salary / 2
             elif freq == "biweekly" and data.period_type.value == "monthly":
@@ -2055,6 +2067,57 @@ async def get_payroll_period(
         "period": period,
         "entries": entries
     }
+
+
+@people_ops_router.delete("/payroll/periods/{period_id}")
+async def delete_payroll_period(
+    period_id: str,
+    user: User = Depends(get_current_user)
+):
+    """Delete a payroll period (only allowed for draft/pending_approval/cancelled).
+    
+    Releases any linked overtime requests back to 'approved' so they can be re-included
+    in another period.
+    """
+    company_id, access_level = await check_people_ops_access(user, "edit")
+    
+    period = await db.payroll_periods.find_one(
+        {"period_id": period_id, "company_id": company_id},
+        {"_id": 0, "status": 1}
+    )
+    if not period:
+        raise HTTPException(status_code=404, detail="Payroll period not found")
+    
+    status_value = (period.get("status") or "").lower()
+    if status_value not in ("draft", "pending_approval", "cancelled"):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot delete payroll in status '{status_value}'. Only draft, pending_approval or cancelled periods can be deleted."
+        )
+    
+    # Release linked OTs back to 'approved' and remove the payroll_period_id link
+    await db.overtime_requests.update_many(
+        {"company_id": company_id, "payroll_period_id": period_id},
+        {"$set": {"payroll_period_id": None, "status": "approved", "updated_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    
+    # Delete all entries
+    entries_result = await db.payroll_entries.delete_many(
+        {"period_id": period_id, "company_id": company_id}
+    )
+    
+    # Delete the period itself
+    await db.payroll_periods.delete_one(
+        {"period_id": period_id, "company_id": company_id}
+    )
+    
+    return {
+        "success": True,
+        "period_id": period_id,
+        "entries_deleted": entries_result.deleted_count
+    }
+
+
 
 
 @people_ops_router.put("/payroll/entries/{entry_id}")

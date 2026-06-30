@@ -605,6 +605,7 @@ class PayrollPeriodCreate(BaseModel):
     # NEW: payroll classification
     # "regular" = salario base + OT incluidas (default behavior)
     # "overtime_only" = solo paga horas extras aprobadas (sin salario base, sin AFP/ARS/ISR)
+    # "salary_only" = solo paga salario base + deducciones legales (sin OT, sin bonos, sin incentivos)
     payment_kind: str = "regular"
     # NEW: When creating, the IDs of approved overtime requests to include in this period.
     # Defaults to ALL approved/unpaid OTs in date range when omitted.
@@ -618,7 +619,7 @@ class PayrollPeriod(BaseModel):
     company_id: str
     period_name: str
     period_type: PaymentFrequency
-    payment_kind: str = "regular"  # "regular" or "overtime_only"
+    payment_kind: str = "regular"  # "regular", "overtime_only" or "salary_only"
     start_date: str
     end_date: str
     payment_date: str

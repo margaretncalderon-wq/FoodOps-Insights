@@ -1,5 +1,32 @@
 # Kora OS — Product Requirements Document
 
+
+## People Ops — Payroll Flexibility (Feb 28, 2026)
+
+**Status:** ✅ Complete (Backend curl-tested end-to-end, Frontend visual smoke-test OK).
+
+### Implemented
+- **`salary_only` payment kind** (`POST /api/people-ops/payroll/periods`):
+  - Genera nómina solo con salario base + deducciones legales (AFP/ARS/ISR/préstamos), sin horas extras, sin bonos, sin incentivos.
+  - `auto_include_overtime` se ignora automáticamente para este tipo (no consume OT pendientes).
+  - Auto-nombre del período: "Solo Salario {1|2} - {Mes} {Año}" (quincenal) o "Solo Salario {Mes} {Año}" (mensual).
+- **División quincenal automática**: para empleados con `payment_frequency=monthly` cuyo período es `biweekly`, `base_salary` se divide entre 2 (lógica ya existente, ahora también aplica a `salary_only`). ISR mensual se calcula y se divide entre 2 para la quincena.
+- **DELETE `/api/people-ops/payroll/periods/{period_id}`**: elimina período + todas sus `payroll_entries` y libera las OT vinculadas devolviéndolas a `status=approved`. Solo permitido para `draft`, `pending_approval` o `cancelled` (bloquea procesados/completados).
+- **Frontend**:
+  - `PayrollSection.js`: nueva opción "Solo salario (sin horas extras ni bonos)" en el dropdown Payment Kind. Descripción contextual del diálogo. Auto-nombre actualizado.
+  - `PayrollPeriodView.js`: botón "Eliminar" (rojo, con confirmación) visible para `draft` y `pending_approval`.
+
+### Files
+- `/app/backend/routers/people_ops.py` (create_payroll_period + nuevo delete_payroll_period)
+- `/app/backend/models/people_ops.py` (PayrollPeriodCreate, PayrollPeriod docstrings)
+- `/app/frontend/src/components/people-ops/PayrollSection.js`
+- `/app/frontend/src/components/people-ops/PayrollPeriodView.js`
+
+### Smoke test
+- Create salary_only biweekly Jan 1-15 → name "Solo Salario 1 - January 2026", 4 employees, base_salary halved correctly (e.g. 75000 monthly → 37500 quincena), ot=0/bonus=0, AFP/ARS aplicadas. DELETE → 200 success, GET → 404. ✅
+
+---
+
 ## People Ops — Time Clock / Attendance Module (Feb 18, 2026)
 
 **Status:** ✅ Complete (Backend 13/13 pytest + 25/25 regression, Frontend 100%).

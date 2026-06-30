@@ -129,12 +129,13 @@ export function PayrollSection() {
     // Match backend strftime("%B") → English month name (capitalized)
     const month = date.toLocaleString("en", { month: "long" });
     const isOT = paymentKind === "overtime_only";
+    const isSalaryOnly = paymentKind === "salary_only";
     if (periodType === "biweekly") {
       const half = d <= 15 ? "1" : "2";
-      const prefix = isOT ? "Horas Extras" : "Quincena";
+      const prefix = isOT ? "Horas Extras" : isSalaryOnly ? "Solo Salario" : "Quincena";
       return `${prefix} ${half} - ${month} ${y}`;
     } else if (periodType === "monthly") {
-      const prefix = isOT ? "Horas Extras" : "Nómina";
+      const prefix = isOT ? "Horas Extras" : isSalaryOnly ? "Solo Salario" : "Nómina";
       return `${prefix} ${month} ${y}`;
     }
     return `${month} ${y}`;
@@ -424,6 +425,8 @@ export function PayrollSection() {
             <DialogDescription>
               {newPeriod.payment_kind === "overtime_only"
                 ? (isEs ? "Período exclusivo para pagar horas extras aprobadas." : "OT-only period: pays approved overtime, no base salary.")
+                : newPeriod.payment_kind === "salary_only"
+                ? (isEs ? "Período solo de salario base + deducciones legales (sin horas extras, sin bonos)." : "Salary-only period: base salary + legal deductions (no OT, no bonuses).")
                 : (isEs ? "Se generarán automáticamente las entradas para todos los empleados activos." : "Entries will be auto-generated for all active employees.")}
             </DialogDescription>
           </DialogHeader>
@@ -442,6 +445,9 @@ export function PayrollSection() {
                 <SelectContent>
                   <SelectItem value="regular">
                     {isEs ? "Nómina regular (salario + extras)" : "Regular payroll (salary + OT)"}
+                  </SelectItem>
+                  <SelectItem value="salary_only">
+                    {isEs ? "Solo salario (sin horas extras ni bonos)" : "Salary only (no OT, no bonuses)"}
                   </SelectItem>
                   <SelectItem value="overtime_only">
                     {isEs ? "Solo horas extras (período separado)" : "Overtime only (separate period)"}
