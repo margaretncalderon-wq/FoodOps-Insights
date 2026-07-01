@@ -1,0 +1,23 @@
+{
+  "summary": "Follow-up retest of iteration_207 residual issue: CalendarPage.js TBD bucket hardcoded 'Eventos sin fecha' string. Fix verified — CalendarPage.js:381-387 now uses ${entityPlural} for both TBD heading and descriptive paragraph. Live browser verification on /calendar for demo.agency@kora.com (professional_services industry → entity_plural=Proyectos/Projects) confirms all 4 targets render correctly in BOTH Spanish and English.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "CalendarPage.js:381-387 properly parameterized via useTerminology hook (entityPlural). Matches EngagementCalendar.js pattern. No further work needed on this page.",
+    "ClientPortalMain.js:21 still contains hardcoded `const isEs = true;` (flagged in iter_207) — non-blocking, but should ideally use useLanguage(). Not part of this iteration's scope."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A (skipped per request)", "frontend": "100% (4/4 verified targets)"},
+  "test_credentials": "demo.agency@kora.com / Evoque2024!",
+  "seed_data_creation": "None. No data mutated.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "iteration_207 residual bug fully resolved. Live verification on /calendar for demo.agency org (7 TBD projects rendered):\n\n[Spanish] h1='Calendario de Proyectos', subheading='Vista mensual de todos tus proyectos', TBD card heading='Proyectos sin fecha (7)', TBD descriptive='Estos proyectos no aparecen en la grilla. Asígnales una fecha para visualizarlos.'\n\n[English] h1='Projects Calendar', subheading='Monthly view of all your projects', TBD card heading='Projects without date (7)', TBD descriptive='These projects don't appear in the grid. Assign them a date to see them.'\n\nAll 4 previously validated pages (EngagementCalendar, EventsPage toasts, ClientPortalMain 'Total Proyectos'/'Mis Proyectos') remain green (no regression observed via source diff — no changes to those files this iteration). Backend endpoints /api/addons/enabled-modules and /api/org-config already 100% PASS in iter_207 — not re-tested per E1 instructions.",
+  "rca of the issue": "iter_207 identified missed hardcoded Spanish/English strings at CalendarPage.js:381-382 (TBD bucket heading). Main agent applied fix at lines 380-387 to use ${entityPlural} template interpolation for both the card heading and the descriptive paragraph beneath it. Verified live: TBD card renders 'Proyectos sin fecha (7)' in ES and 'Projects without date (7)' in EN for demo.agency (professional_services industry alias)."
+}

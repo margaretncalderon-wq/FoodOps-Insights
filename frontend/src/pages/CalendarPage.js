@@ -378,13 +378,13 @@ export default function CalendarPage({ embedded = false }) {
               <CardTitle className="font-heading text-lg flex items-center gap-2">
                 <CalendarClock className="w-5 h-5 text-amber-600" />
                 {language === "es"
-                  ? `Eventos sin fecha (${tbdEvents.length})`
-                  : `Events without date (${tbdEvents.length})`}
+                  ? `${entityPlural} sin fecha (${tbdEvents.length})`
+                  : `${entityPlural} without date (${tbdEvents.length})`}
               </CardTitle>
               <p className="text-xs text-muted-foreground">
                 {language === "es"
-                  ? "Estos eventos no aparecen en la grilla. Asígnales una fecha para visualizarlos."
-                  : "These events don't appear in the grid. Assign them a date to see them."}
+                  ? `Estos ${entityPlural.toLowerCase()} no aparecen en la grilla. Asígnales una fecha para visualizarlos.`
+                  : `These ${entityPlural.toLowerCase()} don't appear in the grid. Assign them a date to see them.`}
               </p>
             </CardHeader>
             <CardContent>
