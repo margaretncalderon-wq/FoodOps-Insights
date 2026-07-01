@@ -187,8 +187,9 @@ class EmployeeCreate(BaseModel):
     routing_number: Optional[str] = None  # SWIFT, BIC, or routing number
     
     # Benefits & Deductions
-    has_health_insurance: bool = True  # ARS
-    has_pension: bool = True  # AFP
+    has_health_insurance: bool = True  # ARS (health insurance deduction)
+    has_pension: bool = True  # AFP (pension deduction)
+    has_isr: bool = True  # ISR (income tax withholding)
     afp_provider: Optional[str] = None
     ars_provider: Optional[str] = None
     # Manual deduction overrides (if set, these MONTHLY amounts replace the auto-calc;
@@ -324,6 +325,7 @@ class EmployeeUpdate(BaseModel):
     # Benefits
     has_health_insurance: Optional[bool] = None
     has_pension: Optional[bool] = None
+    has_isr: Optional[bool] = None
     afp_provider: Optional[str] = None
     ars_provider: Optional[str] = None
     # Manual deduction overrides (set to null/0 to clear)

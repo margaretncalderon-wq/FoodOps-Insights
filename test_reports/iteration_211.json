@@ -1,0 +1,35 @@
+{
+  "summary": "Verified per-employee AFP/ARS/ISR deduction toggles (iter 211). Backend: created /app/backend/tests/test_employee_deduction_toggles.py with 5 pytest tests, ALL 5 PASS. Verified (1) PUT /api/people-ops/employees/emp_91f4dfa58d68 persists has_pension/has_health_insurance/has_isr booleans; biweekly payroll entry correctly shows afp_employee=0 when has_pension=false, ars_employee~1140 (biweekly 37500*3.04%) when has_health_insurance=true, isr=0 when has_isr=false. (2) GET /api/people-ops/payroll/projection?period_type=biweekly honors toggles (afp=0/isr=0 when off; all non-zero when on). (3) Restoring toggles to all true → all deductions non-zero. (4) Toggle takes precedence over override: has_pension=false + afp_override=2000 → afp=0; has_pension=true + afp_override=2000 → afp=1000 biweekly. (5) Backward compat: employee doc with has_isr/has_pension/has_health_insurance completely absent (via $unset) is treated as True — projection returns non-zero afp/ars/isr. Frontend: logged into /people-ops/employee/emp_91f4dfa58d68, Compensation tab renders 'Benefits & Deductions' card with three toggles (data-testid=toggle-afp/toggle-ars/toggle-isr). In display mode shows On/Off badges (app locale=EN so Activo/Exento text is 'On'/'Off'). Edit mode reveals Switch components; toggling AFP off → Save → reload → GET /employees confirms has_pension=false persisted. Restored employee to has_pension=has_isr=has_health_insurance=true, afp_override=null, ars_override=null after test — verified via curl.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "EmployeeProfile > Compensation > Benefits & Deductions", "issues": ["Locale mismatch: demo.agency user's active language is English so the badge text renders as 'On'/'Off' (not 'Activo'/'Exento' as spec described). Code correctly falls back via ternary — this is not a bug, just noting that the Spanish text 'Exento' only appears when isEs=true. Frontend test verified functional behavior via data-state and API round-trip; badge red-text class was not asserted post-reload because the reloaded page retained edit mode (page.reload preserved query state and re-opened editing) — the toggle Switch itself showed unchecked state confirming persistence."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_employee_deduction_toggles.py",
+    "/app/test_reports/pytest/iter211_toggles.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Backend correctly uses `is not False` pattern (routers/people_ops.py lines 1992-1994 and 2410-2412) so any employee with the field absent OR set to True gets deductions calculated. Explicit False disables. Backward compatible.",
+    "Toggle takes precedence over override in both create_payroll_period and payroll_projection (checked before override branch). Confirmed via test_toggle_overrides_manual_override.",
+    "update_employee uses exclude_unset=True and filters None (keeps clearable override fields nullable). Boolean False values pass through correctly since `False is not None`. No changes needed.",
+    "Frontend Switch components use `checked={editData.has_pension !== false}` — correctly treats undefined/true as checked. Badge className uses `employee.has_pension === false` (strict False) for red styling — this matches backend convention."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_employee_deduction_toggles.py (new — 5 pytest tests covering toggle persistence, biweekly payroll calc, projection endpoint, toggle-over-override precedence, and backward compat via mongo $unset)"
+  ],
+  "success_rate": {"backend": "100% (5/5 tests pass)", "frontend": "100% (functional — API round-trip verified has_pension=false persisted after Save; toggles present with data-testids)"},
+  "test_credentials": "demo.agency@kora.com / Evoque2024! (from /app/memory/test_credentials.md)",
+  "seed_data_creation": "Test creates and deletes 1 biweekly payroll period per run (period notes='TEST_iter211_toggles'). All test payroll periods are cleaned in try/finally. Employee emp_91f4dfa58d68 fields are restored to has_pension=True, has_isr=True, has_health_insurance=True, afp_override=null, ars_override=null via fixture teardown AND verified post-run via curl (has_pension=True, has_ars=True, has_isr=True, afp_ovr=None, ars_ovr=None, salary=75000).",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Per-employee AFP/ARS/ISR toggles verified end-to-end. Regression suite at /app/backend/tests/test_employee_deduction_toggles.py. Note that this env's demo.agency user has locale=EN so UI shows 'On'/'Off' instead of 'Activo'/'Exento' — spec text only appears in ES locale. Test fixture unsets has_isr/has_pension/has_health_insurance directly in mongo for backcompat test and restores in finally. emp_91f4dfa58d68 = María González / EMP-0001, base_salary=75000 monthly. Regression: NotificationBell / cross-workspace open not re-tested (no backend or frontend changes in that area per iter209/210 diffs).",
+  "rca_of_the_issue": "Feature addition (not a bug). Main agent added has_isr field to Employee model and made create_payroll_period + payroll_projection honor all three flags (has_pension/has_health_insurance/has_isr) via `is not False` check for backward-compat. Fix verified: routers/people_ops.py:1992-2020 (create_payroll_period) and :2410-2443 (projection) both check the toggle BEFORE the override branch, so setting toggle off zeroes the deduction even when override is set. EmployeeUpdate model accepts Optional[bool] for the 3 fields; update endpoint uses exclude_unset+None-filter which correctly permits False values through."
+}

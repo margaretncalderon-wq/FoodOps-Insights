@@ -1375,6 +1375,7 @@ async def create_employee(
         # Benefits
         "has_health_insurance": data.has_health_insurance,
         "has_pension": data.has_pension,
+        "has_isr": data.has_isr if hasattr(data, 'has_isr') and data.has_isr is not None else True,
         "afp_provider": data.afp_provider,
         "ars_provider": data.ars_provider,
         
@@ -1987,20 +1988,31 @@ async def create_payroll_period(
             is_biweekly_period = data.period_type.value == "biweekly"
             divisor = 2 if is_biweekly_period else 1
             
+            # Per-employee toggles (default True for backward compatibility)
+            emp_has_afp = emp.get("has_pension", True) is not False
+            emp_has_ars = emp.get("has_health_insurance", True) is not False
+            emp_has_isr = emp.get("has_isr", True) is not False
+            
             afp_override = emp.get("afp_override")
-            if afp_override is not None and afp_override > 0:
+            if not emp_has_afp:
+                afp_emp = 0.0
+            elif afp_override is not None and afp_override > 0:
                 afp_emp = float(afp_override) / divisor
             else:
                 afp_emp = period_salary * (config.get("afp_employee_rate", 2.87) / 100)
             
             ars_override = emp.get("ars_override")
-            if ars_override is not None and ars_override > 0:
+            if not emp_has_ars:
+                ars_emp = 0.0
+            elif ars_override is not None and ars_override > 0:
                 ars_emp = float(ars_override) / divisor
             else:
                 ars_emp = period_salary * (config.get("ars_employee_rate", 3.04) / 100)
             
             isr_override = emp.get("isr_override")
-            if isr_override is not None and isr_override > 0:
+            if not emp_has_isr:
+                period_isr = 0.0
+            elif isr_override is not None and isr_override > 0:
                 period_isr = float(isr_override) / divisor
             else:
                 # ISR is monthly progressive; compute from monthly_equivalent (already in monthly basis)
@@ -2394,9 +2406,16 @@ async def payroll_projection(
         else:
             period_salary = monthly_equiv
         
+        # Per-employee benefit toggles
+        emp_has_afp = emp.get("has_pension", True) is not False
+        emp_has_ars = emp.get("has_health_insurance", True) is not False
+        emp_has_isr = emp.get("has_isr", True) is not False
+        
         # AFP
         afp_override = emp.get("afp_override")
-        if afp_override and afp_override > 0:
+        if not emp_has_afp:
+            afp = 0.0
+        elif afp_override and afp_override > 0:
             afp = float(afp_override) / divisor
             overrides_in_use += 1
         else:
@@ -2404,14 +2423,18 @@ async def payroll_projection(
         
         # ARS
         ars_override = emp.get("ars_override")
-        if ars_override and ars_override > 0:
+        if not emp_has_ars:
+            ars = 0.0
+        elif ars_override and ars_override > 0:
             ars = float(ars_override) / divisor
         else:
             ars = period_salary * ars_rate
         
         # ISR
         isr_override = emp.get("isr_override")
-        if isr_override and isr_override > 0:
+        if not emp_has_isr:
+            isr = 0.0
+        elif isr_override and isr_override > 0:
             isr = float(isr_override) / divisor
         elif isr_enabled:
             monthly_isr = calculate_monthly_isr(monthly_equiv)

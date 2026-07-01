@@ -888,30 +888,77 @@ export function EmployeeProfile() {
           <Card>
             <CardHeader>
               <CardTitle className="text-base">{isEs ? "Beneficios y Deducciones" : "Benefits & Deductions"}</CardTitle>
+              <CardDescription>
+                {isEs
+                  ? "Activa/desactiva las deducciones legales por empleado. Los empleados nuevos o temporales pueden estar exentos."
+                  : "Toggle legal deductions per employee. New or temporary employees may be exempt."}
+              </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="p-3 border rounded-lg">
-                  <p className="text-sm text-muted-foreground">AFP</p>
-                  <p className="font-medium">{employee.afp_provider || "No asignado"}</p>
-                  <Badge variant={employee.has_pension ? "default" : "outline"} className="mt-1 text-xs">
-                    {employee.has_pension ? (isEs ? "Activo" : "Active") : (isEs ? "Inactivo" : "Inactive")}
-                  </Badge>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                <div className="p-3 border rounded-lg bg-background flex items-center justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs text-muted-foreground uppercase tracking-wide">AFP · {isEs ? "Pensión" : "Pension"}</p>
+                    <p className="text-sm font-medium truncate">{employee.afp_provider || (isEs ? "Sin proveedor" : "No provider")}</p>
+                  </div>
+                  {editing ? (
+                    <Switch
+                      checked={editData.has_pension !== false}
+                      onCheckedChange={(v) => setEditData({ ...editData, has_pension: v })}
+                      data-testid="toggle-afp"
+                    />
+                  ) : (
+                    <Badge variant={employee.has_pension !== false ? "default" : "outline"} className={employee.has_pension === false ? "text-red-600 border-red-300" : ""}>
+                      {employee.has_pension !== false ? (isEs ? "Activo" : "On") : (isEs ? "Exento" : "Off")}
+                    </Badge>
+                  )}
                 </div>
-                <div className="p-3 border rounded-lg">
-                  <p className="text-sm text-muted-foreground">ARS</p>
-                  <p className="font-medium">{employee.ars_provider || "No asignado"}</p>
-                  <Badge variant={employee.has_health_insurance ? "default" : "outline"} className="mt-1 text-xs">
-                    {employee.has_health_insurance ? (isEs ? "Activo" : "Active") : (isEs ? "Inactivo" : "Inactive")}
-                  </Badge>
+                
+                <div className="p-3 border rounded-lg bg-background flex items-center justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs text-muted-foreground uppercase tracking-wide">ARS · {isEs ? "Salud" : "Health"}</p>
+                    <p className="text-sm font-medium truncate">{employee.ars_provider || (isEs ? "Sin proveedor" : "No provider")}</p>
+                  </div>
+                  {editing ? (
+                    <Switch
+                      checked={editData.has_health_insurance !== false}
+                      onCheckedChange={(v) => setEditData({ ...editData, has_health_insurance: v })}
+                      data-testid="toggle-ars"
+                    />
+                  ) : (
+                    <Badge variant={employee.has_health_insurance !== false ? "default" : "outline"} className={employee.has_health_insurance === false ? "text-red-600 border-red-300" : ""}>
+                      {employee.has_health_insurance !== false ? (isEs ? "Activo" : "On") : (isEs ? "Exento" : "Off")}
+                    </Badge>
+                  )}
                 </div>
-                <div className="p-3 border rounded-lg">
-                  <p className="text-sm text-muted-foreground">{isEs ? "Banco" : "Bank"}</p>
-                  <p className="font-medium">{employee.bank_name || "-"}</p>
+                
+                <div className="p-3 border rounded-lg bg-background flex items-center justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs text-muted-foreground uppercase tracking-wide">ISR · {isEs ? "Impuesto" : "Income Tax"}</p>
+                    <p className="text-sm font-medium truncate">{isEs ? "Retención mensual" : "Monthly withholding"}</p>
+                  </div>
+                  {editing ? (
+                    <Switch
+                      checked={editData.has_isr !== false}
+                      onCheckedChange={(v) => setEditData({ ...editData, has_isr: v })}
+                      data-testid="toggle-isr"
+                    />
+                  ) : (
+                    <Badge variant={employee.has_isr !== false ? "default" : "outline"} className={employee.has_isr === false ? "text-red-600 border-red-300" : ""}>
+                      {employee.has_isr !== false ? (isEs ? "Activo" : "On") : (isEs ? "Exento" : "Off")}
+                    </Badge>
+                  )}
                 </div>
-                <div className="p-3 border rounded-lg">
-                  <p className="text-sm text-muted-foreground">{isEs ? "Cuenta" : "Account"}</p>
-                  <p className="font-medium">{employee.bank_account ? `****${employee.bank_account.slice(-4)}` : "-"}</p>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4 pt-3 border-t">
+                <div>
+                  <p className="text-xs text-muted-foreground">{isEs ? "Banco" : "Bank"}</p>
+                  <p className="text-sm font-medium">{employee.bank_name || "-"}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">{isEs ? "Cuenta" : "Account"}</p>
+                  <p className="text-sm font-medium">{employee.bank_account ? `****${employee.bank_account.slice(-4)}` : "-"}</p>
                 </div>
               </div>
             </CardContent>
