@@ -1,6 +1,43 @@
 # Kora OS — Product Requirements Document
 
 
+## Industry Terminology — Verbiage per Industry (Feb 28, 2026)
+
+**Status:** ✅ Complete. **Pendiente: redeploy a producción.** testing_agent_v3_fork iteration_207 + retest 208: 100% PASS backend + frontend.
+
+### Bug reportado
+"remember we have the verbiage per industry I got flagged that its not working everything remains events" — todo aparecía como "Events/Eventos" en vez de "Projects/Proyectos" para industry_template=professional_services.
+
+### Root cause
+El backend (`/api/addons/enabled-modules`, `/api/org-config`) devuelve la terminología correcta por industria, pero 4 páginas visibles del frontend tenían strings hardcoded en lugar de usar el hook `useTerminology`.
+
+### Fix
+Se agregó `useTerminology` + reemplazó strings hardcoded en:
+- **`CalendarPage.js`**: h1 "Calendario de Eventos" → "Calendario de Proyectos", subheading, y TBD bucket "Eventos sin fecha" → "Proyectos sin fecha" con su paragraph.
+- **`EngagementCalendar.js`**: banner "Eventos sin fecha (N)" → "Proyectos sin fecha (N)".
+- **`EventsPage.js`**: toasts (creado/actualizado/eliminado/duplicado) ahora usan `entitySingular` en vez de "Evento".
+- **`ClientPortalMain.js`**: card "Total Eventos" → "Total Proyectos", sección "Mis Eventos" → "Mis Proyectos", empty state.
+
+### Verificación (demo.agency@kora.com, professional_services)
+- ES: h1="Calendario de Proyectos", TBD="Proyectos sin fecha (7)" ✅
+- EN: h1="Projects Calendar", TBD="Projects without date (7)" ✅
+- events_hospitality fallback: sigue mostrando "Events/Eventos" (no regresión).
+
+### Files
+- `/app/frontend/src/pages/CalendarPage.js`
+- `/app/frontend/src/pages/EngagementCalendar.js`
+- `/app/frontend/src/pages/EventsPage.js`
+- `/app/frontend/src/pages/ClientPortalMain.js`
+
+### Backlog menor (no bloqueante)
+- `ClientPortalMain.js:21` tiene `const isEs = true;` hardcoded (funciona porque el `term()` respeta el idioma real, pero conceptualmente debería usar `useLanguage()`).
+
+### 🚨 Action Item
+- **Redeploy a producción** para que Ciano Gourmet y otras orgs con industry ≠ events_hospitality vean su terminología correcta.
+
+---
+
+
 ## People Ops — Regla Simplificada de Salario (Feb 28, 2026)
 
 **Status:** ✅ Complete. **Pendiente: redeploy a producción.** testing_agent_v3_fork iteration_206: Backend 12/12 PASS, Frontend 5/5 UI checks PASS.
