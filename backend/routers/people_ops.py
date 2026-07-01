@@ -1371,6 +1371,7 @@ async def create_employee(
         
         # Compensation
         "base_salary": data.base_salary,
+        "base_salary_basis": data.base_salary_basis or "monthly",
         "payment_frequency": data.payment_frequency.value,
         "currency": resolved_currency,
         "bank_name": data.bank_name,

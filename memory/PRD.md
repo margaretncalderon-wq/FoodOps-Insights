@@ -1,6 +1,43 @@
 # Kora OS — Product Requirements Document
 
 
+## People Ops — Monthly Payroll Normalization Fix (Feb 28, 2026)
+
+**Status:** ✅ Complete. **Pendiente: redeploy a producción.** testing_agent_v3_fork iteration_205: Backend 100% (8/9 pytest PASS, 1 skipped for external data reason).
+
+### Bug reportado
+User Ciano Gourmet: la proyección quincenal muestra RD$235,000 pero el header "Nómina Mensual" muestra RD$265,000 (no reconcilia — 235k×2=470k ≠ 265k). Causa raíz: 5 agregaciones MongoDB sumaban `base_salary` crudo sin normalizar según `base_salary_basis`.
+
+### Fix
+Todas las agregaciones de payroll ahora aplican `$switch` en `base_salary_basis` para multiplicar por 2 (biweekly), 4.33 (weekly) o 1 (monthly) antes de sumar:
+- `/app/backend/routers/people_ops.py:613` — cost-center salary aggregation
+- `/app/backend/routers/people_ops.py:1524-1548` — `stats/summary.total_monthly_payroll`
+- `/app/backend/routers/business_clarity.py:2397` — `reports/by-cost-center` fallback
+- `/app/backend/routers/business_clarity.py:2606` — `reports/by-department` fallback
+- `/app/backend/routers/business_clarity.py:2874` — `budget-alerts` payroll estimation
+
+Fix bonus: `POST /api/people-ops/employees` ahora persiste `base_salary_basis` cuando se envía en el create (antes se perdía silenciosamente).
+
+### Smoke Test (demo.agency@kora.com)
+- Baseline: 226,000 (todos basis=monthly).
+- María (75,000) → basis=biweekly → total sube a **301,000** (delta +75,000 = 75,000 duplicado). ✅
+- Restore basis=monthly → **226,000** ✅.
+- Marketing dept payroll_cost 87,300 (75,000×1.164) baseline → doubles when basis flipped. ✅
+
+### Backlog menor (no bloqueante)
+- `EmployeeUpdate` no tiene campo `cost_center` (string), solo `cost_center_id`. La agregación de people-ops CC hace match por `employee.cost_center` string. Data del demo tiene 0 empleados con ese campo poblado → CC aggregation reporta 0 en people-ops. **Recomendación futura**: migrar people-ops CC aggregation a usar `cost_center_id` (como business_clarity), o agregar `cost_center` a EmployeeUpdate.
+
+### Files
+- `/app/backend/routers/people_ops.py`
+- `/app/backend/routers/business_clarity.py`
+- `/app/backend/tests/test_monthly_payroll_normalization.py`
+
+### Action Item
+🚨 **Redeploy a producción** para que Ciano Gourmet vea el número reconciliado.
+
+---
+
+
 ## People Ops — 3 Production Bugs (Feb 28, 2026)
 
 **Status:** ✅ Fixed in PREVIEW. **Pendiente: redeploy a producción.** testing_agent_v3_fork iteration_204: Backend 100% / Frontend 100%.
