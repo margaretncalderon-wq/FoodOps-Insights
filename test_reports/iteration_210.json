@@ -1,0 +1,44 @@
+{
+  "summary": "RETEST of iter209 create_notification fix. Extended test_notifications_open_iter209.py from 5 → 7 tests. ALL 7 PASS. Verified: (1) create_notification signature now accepts company_id + company_name kwargs. (2) Direct invocation with explicit fields persists both correctly. (3) Auto-derivation from recipient user's company_id works and resolves company_name from db.companies. (4) ID-only invocation resolves name from companies collection. (5) notify_org_admins no longer crashes and correctly stamps company_id=org_id on all created notifications. (6) All prior iter209 tests (same-company open, cross-company no-membership, cross-company with-membership + workspace switch, GET /notifications backfill) still pass. Cleanup verified — demo.agency's company_id remains company_3ab116c0994d and no TEST_ synthetic docs left in DB.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {
+        "endpoint": "GET /api/notifications",
+        "issue": "1 pre-existing backfilled notification is missing company_name (has company_id but no company doc match). Non-blocking; warned in test output."
+      },
+      {
+        "endpoint": "routers/notifications.py::generate_follow_up_reminders",
+        "issue": "Dead code (unreachable duplicate return block) persists from iter209 — flagged but out of scope for this bug fix."
+      }
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_notifications_open_iter209.py",
+    "/app/test_reports/pytest/iter210_notifications.xml"
+  ],
+  "action_items": [
+    "Optional cleanup: remove dead code (unreachable duplicate return) in notifications.py generate_follow_up_reminders — flagged in iter209, still present.",
+    "Optional: backfill the 1 remaining notification missing company_name (org not present in db.companies)."
+  ],
+  "critical_code_review_comments": [
+    "create_notification signature now includes company_id + company_name (both Optional); auto-derives from recipient user.company_id/active_org_id when not passed; resolves company_name from db.companies when only id is known. Cleanly implemented.",
+    "notify_org_admins now passes company_id=org_id and the helper correctly persists it on every admin notification. Cross-company routing loop closed.",
+    "POST /api/notifications/{id}/open remains correct: same-company → switched=false; cross-company + membership → user.company_id + active_org_id updated + workspace_switched_at stamped; cross-company + no membership → success:false, message:'no_membership' (no state change)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_notifications_open_iter209.py (added 2 new tests: test_create_notification_persists_company_fields, test_notify_org_admins_does_not_crash; converted the signature-bug test into a positive assertion)"
+  ],
+  "success_rate": {"backend": "100% (7/7 tests pass)", "frontend": "N/A (skipped per request — no FE changes)"},
+  "test_credentials": "demo.agency@kora.com / Evoque2024! (from /app/memory/test_credentials.md)",
+  "seed_data_creation": "Tests create synthetic notifications + companies + memberships in mongo scoped to each test; all cleaned in finally blocks. Post-run verification: user's company_id restored to company_3ab116c0994d; 1 leftover TEST_ notif + 1 TEST_ company from an earlier iteration were manually purged; DB is clean.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "The create_notification helper + notify_org_admins + POST /notifications/{id}/open + cross-company workspace switch flow is fully verified. Test file test_notifications_open_iter209.py is the regression suite for this area. If motor event-loop errors reappear in future test iterations that call config.db from multiple async tests, wrap subsequent tests in subprocess or use asyncio.run in a fresh process (see test_notify_org_admins_does_not_crash for the pattern).",
+  "rca_of_the_issue": "Prior iter209 exposed that create_notification did not accept/persist company_id even though notify_org_admins passed company_id=org_id (would have raised TypeError at runtime, and any direct call would have produced notifications with no company_id). Main agent fix: added company_id + company_name kwargs to create_notification signature, added auto-derivation from recipient user's company_id/active_org_id when not passed, added lookup of company_name from db.companies when only id known, and included both fields in the persisted mongo doc. Verified end-to-end: new notifications produced by both direct helper calls and notify_org_admins correctly carry company_id + company_name; cross-company routing via POST /open unchanged and still passes all scenarios."
+}

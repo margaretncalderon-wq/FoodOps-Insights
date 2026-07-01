@@ -58,11 +58,29 @@ async def create_notification(
     message: str,
     link: Optional[str] = None,
     metadata: Optional[dict] = None,
-    priority: str = "normal"
+    priority: str = "normal",
+    company_id: Optional[str] = None,
+    company_name: Optional[str] = None
 ) -> str:
-    """Helper to create a notification for a user"""
+    """Helper to create a notification for a user. Stores source company_id so
+    cross-workspace notifications can prompt the user to switch context."""
     notification_id = f"notif_{uuid.uuid4().hex[:12]}"
     now = datetime.now(timezone.utc)
+    
+    # If company_id not passed, infer from the recipient user (their active org)
+    if not company_id:
+        recipient = await db.users.find_one(
+            {"user_id": user_id},
+            {"_id": 0, "company_id": 1, "active_org_id": 1}
+        )
+        if recipient:
+            company_id = recipient.get("company_id") or recipient.get("active_org_id")
+    
+    # Resolve name if only id is known
+    if company_id and not company_name:
+        comp = await db.companies.find_one({"company_id": company_id}, {"_id": 0, "name": 1})
+        if comp:
+            company_name = comp.get("name")
     
     notification = {
         "notification_id": notification_id,
@@ -74,6 +92,8 @@ async def create_notification(
         "metadata": metadata or {},
         "priority": priority,
         "read": False,
+        "company_id": company_id,
+        "company_name": company_name,
         "created_at": now.isoformat(),
         "updated_at": now.isoformat()
     }

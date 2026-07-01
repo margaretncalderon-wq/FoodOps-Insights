@@ -242,23 +242,143 @@ async def test_cross_company_with_membership(auth, mongo):
 
 
 # =========================================================
-# TEST 5: Verify create_notification helper signature bug
-# The helper doesn't accept company_id param, but notify_org_admins passes it.
-# This test proves that if notify_org_admins is called, it will fail.
+# TEST 5: Verify create_notification helper signature accepts company_id/company_name
 # =========================================================
 def test_create_notification_signature_check():
-    """Static check: verify create_notification accepts company_id kwarg (bug detection)"""
+    """Static check: verify create_notification accepts company_id and company_name kwargs"""
     import inspect
     import sys
     sys.path.insert(0, "/app/backend")
     from routers.notifications import create_notification
     sig = inspect.signature(create_notification)
     params = list(sig.parameters.keys())
-    # This test documents the current state. If company_id is missing, this is a BUG.
-    # notify_org_admins calls create_notification(company_id=org_id) on line 124.
-    if "company_id" not in params:
-        pytest.fail(
-            f"BUG: create_notification signature params={params} — missing 'company_id'. "
-            "notify_org_admins passes company_id=... which will raise TypeError at runtime, "
-            "meaning new notifications will NOT have company_id persisted."
+    assert "company_id" in params, f"create_notification missing 'company_id' param: {params}"
+    assert "company_name" in params, f"create_notification missing 'company_name' param: {params}"
+
+
+# =========================================================
+# TEST 6: Directly invoke create_notification → verify persistence of company_id/company_name
+# =========================================================
+@pytest.mark.asyncio
+async def test_create_notification_persists_company_fields(auth, mongo):
+    """Invoke create_notification directly (a) with explicit company_id/name,
+    (b) auto-derived from recipient user. Verify both cases persist correctly."""
+    import sys
+    sys.path.insert(0, "/app/backend")
+    # Patch db reference used by create_notification to point to same DB
+    from routers import notifications as notif_mod
+
+    user_id = auth["user"]["user_id"]
+    user_company_id = auth["user"]["company_id"]
+
+    created_ids = []
+    created_synth_company = None
+    try:
+        # --- (A) EXPLICIT company_id + company_name
+        synth_company_id = f"company_test_{uuid.uuid4().hex[:8]}"
+        synth_company_name = "Explicit Test Co"
+        await mongo.companies.insert_one({
+            "company_id": synth_company_id,
+            "name": synth_company_name,
+            "created_at": datetime.now(timezone.utc).isoformat()
+        })
+        created_synth_company = synth_company_id
+
+        nid_a = await notif_mod.create_notification(
+            user_id=user_id,
+            notification_type="system",
+            title="TEST_explicit",
+            message="explicit company fields",
+            company_id=synth_company_id,
+            company_name=synth_company_name,
         )
+        created_ids.append(nid_a)
+        doc_a = await mongo.notifications.find_one({"notification_id": nid_a}, {"_id": 0})
+        assert doc_a is not None, "explicit-notif doc not persisted"
+        assert doc_a.get("company_id") == synth_company_id, f"explicit company_id mismatch: {doc_a.get('company_id')}"
+        assert doc_a.get("company_name") == synth_company_name, f"explicit company_name mismatch: {doc_a.get('company_name')}"
+
+        # --- (B) AUTO-DERIVE from recipient user (no company_id passed)
+        nid_b = await notif_mod.create_notification(
+            user_id=user_id,
+            notification_type="system",
+            title="TEST_autoderive",
+            message="derived from user",
+        )
+        created_ids.append(nid_b)
+        doc_b = await mongo.notifications.find_one({"notification_id": nid_b}, {"_id": 0})
+        assert doc_b is not None
+        assert doc_b.get("company_id") == user_company_id, \
+            f"auto-derive company_id mismatch: expected {user_company_id}, got {doc_b.get('company_id')}"
+        # company_name should be resolved from companies collection (Creative Agency Demo)
+        assert doc_b.get("company_name"), \
+            f"auto-derive company_name should be resolved, got: {doc_b.get('company_name')}"
+
+        # --- (C) ID-only → resolve name from companies collection
+        nid_c = await notif_mod.create_notification(
+            user_id=user_id,
+            notification_type="system",
+            title="TEST_idonly",
+            message="id only",
+            company_id=synth_company_id,
+        )
+        created_ids.append(nid_c)
+        doc_c = await mongo.notifications.find_one({"notification_id": nid_c}, {"_id": 0})
+        assert doc_c.get("company_id") == synth_company_id
+        assert doc_c.get("company_name") == synth_company_name, \
+            f"id-only should resolve name from companies: got {doc_c.get('company_name')}"
+
+    finally:
+        # Cleanup synthetic notifications + company
+        if created_ids:
+            await mongo.notifications.delete_many({"notification_id": {"$in": created_ids}})
+        if created_synth_company:
+            await mongo.companies.delete_one({"company_id": created_synth_company})
+        # Ensure user's company_id was NOT changed
+        user_doc = await mongo.users.find_one({"user_id": user_id}, {"_id": 0, "company_id": 1})
+        assert user_doc["company_id"] == user_company_id, \
+            f"User company_id changed! Expected {user_company_id}, got {user_doc['company_id']}"
+
+
+# =========================================================
+# TEST 7: notify_org_admins helper does not crash (accepts company_id via create_notification)
+# =========================================================
+def test_notify_org_admins_does_not_crash(auth):
+    """Runs notify_org_admins in a fresh subprocess to isolate from any prior
+    motor event-loop binding. Verifies the helper does NOT raise TypeError and
+    that resulting notifications carry company_id=org_id."""
+    import subprocess, json, sys
+
+    org_id = auth["user"]["company_id"]
+    script = f"""
+import asyncio, sys, json
+sys.path.insert(0, '/app/backend')
+from routers import notifications as notif_mod
+from config import db as _db
+
+async def _main():
+    n = await notif_mod.notify_org_admins(
+        org_id={org_id!r},
+        notification_type='system',
+        title='TEST_notify_admins',
+        message='notify_org_admins smoke test',
+    )
+    created = await _db.notifications.find(
+        {{'title': 'TEST_notify_admins'}}, {{'_id': 0}}
+    ).to_list(20)
+    # Cleanup
+    await _db.notifications.delete_many({{'title': 'TEST_notify_admins'}})
+    return {{'n': n, 'company_ids': [c.get('company_id') for c in created]}}
+
+print(json.dumps(asyncio.run(_main())))
+"""
+    proc = subprocess.run(
+        [sys.executable, "-c", script],
+        capture_output=True, text=True, timeout=30, cwd="/app/backend"
+    )
+    assert proc.returncode == 0, f"notify_org_admins subprocess failed:\nSTDOUT: {proc.stdout}\nSTDERR: {proc.stderr}"
+    result = json.loads(proc.stdout.strip().splitlines()[-1])
+    assert isinstance(result["n"], int), f"n_created not int: {result}"
+    # Every produced notification must have the correct company_id
+    for cid in result["company_ids"]:
+        assert cid == org_id, f"notify_org_admins wrote wrong company_id: {cid} vs {org_id}"
