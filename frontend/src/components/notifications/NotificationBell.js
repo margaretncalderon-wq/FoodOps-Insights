@@ -108,27 +108,65 @@ export default function NotificationBell() {
     }
   };
 
-  const handleNotificationClick = (notification) => {
-    if (!notification.read) {
-      markAsRead(notification.notification_id);
-    }
+  const handleNotificationClick = async (notification) => {
     setIsOpen(false);
     
-    const link = notification.link;
-    if (!link || typeof link !== 'string') return;
-    
-    // Small delay to let dropdown close and auth state stabilize
-    setTimeout(() => {
-      try {
-        if (link.startsWith("/")) {
-          navigate(link);
-        } else if (link.startsWith("http")) {
-          window.open(link, "_blank");
-        }
-      } catch (e) {
-        console.error("Navigation error:", e);
+    // Use the smart /open endpoint that handles cross-workspace switching safely.
+    // Falls back to legacy behavior (read + navigate) on error.
+    try {
+      const res = await axios.post(
+        `${API}/api/notifications/${notification.notification_id}/open`,
+        {},
+        { withCredentials: true }
+      );
+      const data = res.data || {};
+      
+      // Update UI state locally
+      setNotifications(prev =>
+        prev.map(n => n.notification_id === notification.notification_id ? { ...n, read: true } : n)
+      );
+      setUnreadCount(prev => Math.max(0, prev - (notification.read ? 0 : 1)));
+      
+      // If workspace was switched, show a heads-up and force a full reload so
+      // the whole app re-scopes to the new company_id.
+      if (data.switched) {
+        const targetName = data.target_company_name || "otra empresa";
+        alert(isEs
+          ? `Cambiando a la empresa "${targetName}". La app se recargará.`
+          : `Switching to company "${targetName}". App will reload.`);
+        // Force reload with the target link so React state resets
+        window.location.href = data.link || "/";
+        return;
       }
-    }, 150);
+      
+      // No switch needed. If backend said "no_membership", warn the user.
+      if (data.success === false && data.message === "no_membership") {
+        alert(isEs
+          ? `Esta notificación es de "${data.target_company_name || 'otra empresa'}" y no tienes acceso a ese workspace.`
+          : `This notification is from "${data.target_company_name || 'another company'}" but you don't have access to that workspace.`);
+        return;
+      }
+      
+      // Normal (same-company) navigation
+      const link = data.link || notification.link;
+      if (link && typeof link === "string") {
+        setTimeout(() => {
+          if (link.startsWith("/")) navigate(link);
+          else if (link.startsWith("http")) window.open(link, "_blank");
+        }, 150);
+      }
+    } catch (e) {
+      // Fallback: just do the old behavior
+      console.error("open notification failed, fallback:", e);
+      if (!notification.read) markAsRead(notification.notification_id);
+      const link = notification.link;
+      if (link && typeof link === "string") {
+        setTimeout(() => {
+          if (link.startsWith("/")) navigate(link);
+          else if (link.startsWith("http")) window.open(link, "_blank");
+        }, 150);
+      }
+    }
   };
 
   const formatTime = (dateStr) => {
@@ -233,6 +271,11 @@ export default function NotificationBell() {
                       <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5 line-clamp-2">
                         {notification.message}
                       </p>
+                      {notification.company_name && (
+                        <p className="text-[10px] text-violet-700 mt-1 truncate">
+                          🏢 {notification.company_name}
+                        </p>
+                      )}
                       <div className="flex items-center gap-2 mt-1">
                         <span className="text-xs text-muted-foreground">
                           {formatTime(notification.created_at)}

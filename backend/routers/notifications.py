@@ -120,7 +120,8 @@ async def notify_org_admins(
             message=message,
             link=link,
             metadata=metadata,
-            priority=priority
+            priority=priority,
+            company_id=org_id
         )
     
     return len(user_ids)
@@ -183,6 +184,95 @@ async def mark_all_as_read(user: User = Depends(get_current_user)):
     )
     
     return {"marked_read": result.modified_count}
+
+
+@notifications_router.post("/{notification_id}/open")
+async def open_notification(
+    notification_id: str,
+    user: User = Depends(get_current_user)
+):
+    """Prepare context to open a notification. If the notification is bound to a
+    different company than the user's active org, verify the user has an active
+    membership in that company and switch the active workspace safely.
+    Returns:
+      - success: bool
+      - link: str (URL to navigate to)
+      - switched: bool (True if workspace was switched)
+      - target_company_id / target_company_name (if switched)
+      - message (for user display when switch is required but forbidden)
+    """
+    notif = await db.notifications.find_one(
+        {"notification_id": notification_id, "user_id": user.user_id},
+        {"_id": 0}
+    )
+    if not notif:
+        raise HTTPException(status_code=404, detail="Notification not found")
+    
+    # Mark as read as a side effect
+    await db.notifications.update_one(
+        {"notification_id": notification_id, "user_id": user.user_id},
+        {"$set": {"read": True, "read_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    
+    link = notif.get("link")
+    notif_company_id = notif.get("company_id")
+    current_company_id = user.company_id or user.active_org_id
+    
+    # No cross-company situation → return link directly
+    if not notif_company_id or notif_company_id == current_company_id:
+        return {
+            "success": True,
+            "link": link,
+            "switched": False
+        }
+    
+    # Cross-company: validate that the user has an active membership in the target org
+    membership = await db.memberships.find_one({
+        "user_id": user.user_id,
+        "$or": [
+            {"company_id": notif_company_id},
+            {"organization_id": notif_company_id}
+        ],
+        "$and": [{"$or": [{"status": "active"}, {"status": {"$exists": False}}]}]
+    })
+    
+    if not membership:
+        # User doesn't have access → refuse the switch politely
+        target_comp = await db.companies.find_one({"company_id": notif_company_id}, {"_id": 0, "name": 1})
+        return {
+            "success": False,
+            "link": link,
+            "switched": False,
+            "target_company_id": notif_company_id,
+            "target_company_name": (target_comp or {}).get("name"),
+            "message": "no_membership"
+        }
+    
+    # Safe switch: update BOTH company_id and active_org_id
+    await db.users.update_one(
+        {"user_id": user.user_id},
+        {"$set": {
+            "company_id": notif_company_id,
+            "active_org_id": notif_company_id,
+            "workspace_switched_at": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+    
+    target_comp = await db.companies.find_one({"company_id": notif_company_id}, {"_id": 0, "name": 1})
+    from_comp = await db.companies.find_one({"company_id": current_company_id}, {"_id": 0, "name": 1}) if current_company_id else None
+    
+    return {
+        "success": True,
+        "link": link,
+        "switched": True,
+        "target_company_id": notif_company_id,
+        "target_company_name": (target_comp or {}).get("name"),
+        "from_company_id": current_company_id,
+        "from_company_name": (from_comp or {}).get("name"),
+        "message": "workspace_switched"
+    }
+
+
 
 
 @notifications_router.delete("/{notification_id}")
@@ -356,6 +446,11 @@ async def generate_follow_up_reminders(
             priority=priority
         )
         notifications_created += 1
+    
+    return {
+        "notifications_created": notifications_created,
+        "total_follow_ups_checked": len(all_follow_ups)
+    }
     
     return {
         "notifications_created": notifications_created,
