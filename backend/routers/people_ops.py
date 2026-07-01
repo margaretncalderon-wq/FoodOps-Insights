@@ -608,7 +608,13 @@ async def get_cost_centers(user: User = Depends(get_current_user)):
                 "cost_center": cc.get("code") or cc.get("name"),
                 "status": "active"
             }},
-            {"$group": {"_id": None, "total_salary": {"$sum": "$base_salary"}}}
+            {"$group": {"_id": None, "total_salary": {"$sum": {"$multiply": [
+                {"$ifNull": ["$base_salary", 0]},
+                {"$switch": {"branches": [
+                    {"case": {"$eq": ["$base_salary_basis", "biweekly"]}, "then": 2},
+                    {"case": {"$eq": ["$base_salary_basis", "weekly"]}, "then": 4.33}
+                ], "default": 1}}
+            ]}}}}
         ]
         emp_result = await db.employees.aggregate(employees_pipeline).to_list(1)
         if emp_result:
@@ -1515,14 +1521,31 @@ async def get_employee_stats(user: User = Depends(get_current_user)):
         {"$group": {"_id": "$contract_type", "count": {"$sum": 1}}}
     ]).to_list(10)
     
-    # Total payroll (if admin/hr)
+    # Total monthly payroll (if admin/hr) — respect base_salary_basis to normalize each
+    # employee's amount to a true monthly equivalent (biweekly ×2, weekly ×4.33)
     total_payroll = 0
     if access_level in ["admin", "hr"]:
         payroll_agg = await db.employees.aggregate([
             {"$match": {"company_id": company_id, "status": "active"}},
-            {"$group": {"_id": None, "total": {"$sum": "$base_salary"}}}
+            {"$group": {
+                "_id": None,
+                "total": {
+                    "$sum": {
+                        "$multiply": [
+                            {"$ifNull": ["$base_salary", 0]},
+                            {"$switch": {
+                                "branches": [
+                                    {"case": {"$eq": ["$base_salary_basis", "biweekly"]}, "then": 2},
+                                    {"case": {"$eq": ["$base_salary_basis", "weekly"]}, "then": 4.33}
+                                ],
+                                "default": 1
+                            }}
+                        ]
+                    }
+                }
+            }}
         ]).to_list(1)
-        total_payroll = payroll_agg[0]["total"] if payroll_agg else 0
+        total_payroll = round(payroll_agg[0]["total"], 2) if payroll_agg else 0
     
     return {
         "total_employees": active + on_leave + terminated,
