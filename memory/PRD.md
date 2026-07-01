@@ -1,6 +1,42 @@
 # Kora OS — Product Requirements Document
 
 
+## People Ops — Regla Simplificada de Salario (Feb 28, 2026)
+
+**Status:** ✅ Complete. **Pendiente: redeploy a producción.** testing_agent_v3_fork iteration_206: Backend 12/12 PASS, Frontend 5/5 UI checks PASS.
+
+### Regla del usuario
+"salario mensual 22,000 pago quincenal 11,000 así debe ser la lógica"
+
+### Cambios aplicados
+- **`base_salary` es SIEMPRE el monto MENSUAL**. El período se deriva únicamente del `period_type`:
+  - biweekly → base_salary ÷ 2
+  - weekly → base_salary ÷ 4.33
+  - monthly → base_salary (full)
+- `base_salary_basis` queda DEPRECATED (no lo lee ningún cálculo). Se dejó el campo en DB para no romper docs existentes.
+- 5 agregaciones MongoDB revertidas a `$sum: "$base_salary"` (sin `$switch`): `people-ops/employees/stats/summary`, `people-ops` cost-center, `business-clarity` by-department / by-cost-center / budget-alerts.
+- Frontend `EmployeeProfile.js`: dropdown "Salario está expresado en" ELIMINADO. Label = "Salario Base Mensual" con helper text que muestra en vivo el equivalente quincenal (÷2) mientras editas.
+- Vista no-edit: subtítulo "Mensual · Pagos quincenales · Quincena: RD$X".
+- **Migración de datos** ejecutada en preview: empleados con `base_salary_basis="biweekly"` → `base_salary × 2`; `weekly` → `× 4.33`. Solo 2 empleados TEST_ afectados.
+
+### Verificación curl
+- María 22,000 mensual + freq biweekly → quincena RD$11,000 ✅
+- total_monthly_payroll = 173,000 (raw sum) ✅
+- Projection biweekly gross = 86,500 = 173,000 / 2 ✅
+
+### Files
+- `/app/backend/routers/people_ops.py`
+- `/app/backend/routers/business_clarity.py`
+- `/app/frontend/src/components/people-ops/EmployeeProfile.js`
+- `/app/backend/tests/test_salary_simplified_monthly.py` (12 tests PASS)
+
+### 🚨 Action Item Usuario
+- **Redeploy a producción**.
+- **Migración de datos en Producción**: correr manualmente en la base de Ciano Gourmet un script que multiplique × 2 los `base_salary` de empleados cuyo `base_salary_basis` sea "biweekly" (para que queden todos como monthly-basis). Si Ciano Gourmet nunca usó basis="biweekly", el campo no existe y no hay que migrar nada; los salarios de 22,000 que representaban montos quincenales ahora serán interpretados como mensuales → quincena = 11,000. Si algunos empleados en Ciano NO eran realmente 22k mensuales sino 22k quincenales, el usuario debe editarlos manualmente para poner el monto mensual real (44,000 en ese caso).
+
+---
+
+
 ## People Ops — Monthly Payroll Normalization Fix (Feb 28, 2026)
 
 **Status:** ✅ Complete. **Pendiente: redeploy a producción.** testing_agent_v3_fork iteration_205: Backend 100% (8/9 pytest PASS, 1 skipped for external data reason).
