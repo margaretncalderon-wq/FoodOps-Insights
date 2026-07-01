@@ -608,13 +608,7 @@ async def get_cost_centers(user: User = Depends(get_current_user)):
                 "cost_center": cc.get("code") or cc.get("name"),
                 "status": "active"
             }},
-            {"$group": {"_id": None, "total_salary": {"$sum": {"$multiply": [
-                {"$ifNull": ["$base_salary", 0]},
-                {"$switch": {"branches": [
-                    {"case": {"$eq": ["$base_salary_basis", "biweekly"]}, "then": 2},
-                    {"case": {"$eq": ["$base_salary_basis", "weekly"]}, "then": 4.33}
-                ], "default": 1}}
-            ]}}}}
+            {"$group": {"_id": None, "total_salary": {"$sum": "$base_salary"}}}
         ]
         emp_result = await db.employees.aggregate(employees_pipeline).to_list(1)
         if emp_result:
@@ -1522,31 +1516,14 @@ async def get_employee_stats(user: User = Depends(get_current_user)):
         {"$group": {"_id": "$contract_type", "count": {"$sum": 1}}}
     ]).to_list(10)
     
-    # Total monthly payroll (if admin/hr) — respect base_salary_basis to normalize each
-    # employee's amount to a true monthly equivalent (biweekly ×2, weekly ×4.33)
+    # Total monthly payroll (if admin/hr) — base_salary is stored as monthly amount
     total_payroll = 0
     if access_level in ["admin", "hr"]:
         payroll_agg = await db.employees.aggregate([
             {"$match": {"company_id": company_id, "status": "active"}},
-            {"$group": {
-                "_id": None,
-                "total": {
-                    "$sum": {
-                        "$multiply": [
-                            {"$ifNull": ["$base_salary", 0]},
-                            {"$switch": {
-                                "branches": [
-                                    {"case": {"$eq": ["$base_salary_basis", "biweekly"]}, "then": 2},
-                                    {"case": {"$eq": ["$base_salary_basis", "weekly"]}, "then": 4.33}
-                                ],
-                                "default": 1
-                            }}
-                        ]
-                    }
-                }
-            }}
+            {"$group": {"_id": None, "total": {"$sum": "$base_salary"}}}
         ]).to_list(1)
-        total_payroll = round(payroll_agg[0]["total"], 2) if payroll_agg else 0
+        total_payroll = payroll_agg[0]["total"] if payroll_agg else 0
     
     return {
         "total_employees": active + on_leave + terminated,
@@ -1976,17 +1953,8 @@ async def create_payroll_period(
         if payment_kind == "overtime_only":
             period_salary = 0.0
         else:
-            # Resolve the basis the user used to express base_salary.
-            # Priority: explicit base_salary_basis → legacy fallback to payment_frequency.
-            basis = (emp.get("base_salary_basis") or freq or "monthly").lower()
-            # Normalize base_salary → MONTHLY first
-            if basis == "biweekly":
-                monthly_equivalent = base_salary * 2
-            elif basis == "weekly":
-                monthly_equivalent = base_salary * 4.33
-            else:  # monthly (default)
-                monthly_equivalent = base_salary
-            # Then derive the salary for the requested period_type
+            # base_salary is ALWAYS the MONTHLY amount. Derive period_salary from period_type.
+            monthly_equivalent = base_salary
             if data.period_type.value == "biweekly":
                 period_salary = monthly_equivalent / 2
             elif data.period_type.value == "weekly":
@@ -2417,16 +2385,8 @@ async def payroll_projection(
         base_salary = float(emp.get("base_salary") or 0)
         freq = emp.get("payment_frequency", "monthly")
         
-        # Resolve basis the user used to express base_salary
-        basis = (emp.get("base_salary_basis") or freq or "monthly").lower()
-        if basis == "biweekly":
-            monthly_equiv = base_salary * 2
-        elif basis == "weekly":
-            monthly_equiv = base_salary * 4.33
-        else:
-            monthly_equiv = base_salary
-        
-        # Period salary for the requested run type
+        # base_salary is ALWAYS the MONTHLY amount. Derive period_salary from period_type.
+        monthly_equiv = base_salary
         if is_biweekly:
             period_salary = monthly_equiv / 2
         elif period_type == "weekly":

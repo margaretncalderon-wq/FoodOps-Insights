@@ -1,0 +1,42 @@
+{
+  "summary": "Iter206 validates the SIMPLIFIED salary rule end-to-end: base_salary is ALWAYS monthly; period_type derives period amount (biweekly = /2, weekly = /4.33, monthly = full). base_salary_basis has no calculation effect anymore. Backend: 12/12 pytest tests PASS. Frontend: UI verified — 'edit-salary-basis' dropdown REMOVED, label = 'Salario Base Mensual'/'Base Monthly Salary', live helper preview shows biweekly = base_salary÷2 (e.g. typed 22000 → 'biweekly: RD$11,000.00'). Display-mode subtitle format = 'Monthly · Monthly payments · Biweekly: RD$37,500.00' (75000/2). Employee restored to base_salary=75000, payment_frequency=monthly per main-agent instructions.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_salary_simplified_monthly.py",
+    "/app/test_reports/pytest/iter206_results.xml"
+  ],
+  "action_items": [
+    "None. Simplification is behaving as specified. Ready to promote to production."
+  ],
+  "critical_code_review_comments": [
+    "people_ops.py:1956-1963 (create_payroll_period) correctly derives period_salary from period_type only, ignoring base_salary_basis. Verified: 22000 monthly → biweekly=11000, monthly=22000, weekly=5081.",
+    "people_ops.py:2388-2395 (payroll_projection) mirrors the same simplified logic. Verified: totals.base_salary_period matches total_monthly_payroll/2 for biweekly, full for monthly, /4.33 for weekly.",
+    "people_ops.py:1524 stats/summary uses raw $sum on base_salary. Verified: total_monthly_payroll matches raw sum of active employees (226k with default demo data).",
+    "people_ops.py:611 cost-centers aggregation uses raw $sum on base_salary. Verified 200.",
+    "business_clarity.py:2397, 2606, 2874 all use raw $sum on base_salary (no $switch). All three endpoints (by-department, by-cost-center, budget-alerts) return 200.",
+    "AFP override still auto-halves for biweekly (afp_override=2000 monthly → biweekly entry.afp_employee=1000). Verified.",
+    "EmployeeProfile.js:748 label = 'Salario Base Mensual'/'Base Monthly Salary'. Helper text at :758-762 shows LIVE preview of biweekly = editData.base_salary/2. edit-salary-basis dropdown REMOVED — code no longer contains the SelectItem group for basis. Display subtitle at :856-864 renders 'Mensual · Pagos {freq} · Quincena: {biweekly}' (or English equivalent).",
+    "base_salary_basis is still persisted in DB (deprecated) but has NO effect on any calculation — confirmed by grep: no occurrences in aggregation pipelines or period-salary logic."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_salary_simplified_monthly.py (new)"
+  ],
+  "success_rate": {
+    "backend": "100% (12/12 pass)",
+    "frontend": "100% (all 5 UI checks pass)"
+  },
+  "test_credentials": "demo.agency@kora.com / Evoque2024!",
+  "seed_data_creation": "Autouse module fixture sets emp_91f4dfa58d68 to base_salary=22000 & payment_frequency='biweekly' at start; teardown restores to base_salary=75000 & payment_frequency='monthly' per main-agent instructions. Post-suite state confirmed via GET: base_salary=75000, payment_frequency=monthly, base_salary_basis=monthly. AFP override test also resets afp_override→0.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Test file: /app/backend/tests/test_salary_simplified_monthly.py. To rerun: pytest backend/tests/test_salary_simplified_monthly.py -v --junitxml=/app/test_reports/pytest/iter206_results.xml. Key endpoints: POST /api/people-ops/payroll/periods uses field names start_date/end_date/payment_date (NOT period_start/period_end/pay_date). The response of POST periods does NOT include entries inline — must fetch via GET /api/people-ops/payroll/periods/{period_id} which returns {..., entries: [...]}. Payroll projection GET /api/people-ops/payroll/projection?period_type=... returns {totals: {base_salary_period, ...}}. business_clarity reports return {records, summary, period}. Simplified salary rule: base_salary is monthly always; period math done in Python (÷2, ÷4.33, ×1). base_salary_basis field is deprecated — DB may still contain values but nothing reads it for calculations.",
+  "rca of the issue": "Not a bug fix — this iteration validates a business-rule simplification. Previously (iter205) the aggregations and period math applied a $switch multiplier on base_salary_basis (biweekly ×2, weekly ×4.33). User requested to drop that entirely: 'salario mensual 22000, pago quincenal 11000 así debe ser la lógica.' Now base_salary is ALWAYS stored as the monthly amount, and period_type alone determines the period division. Migration ×2 (biweekly) and ×4.33 (weekly) was applied to legacy rows during main-agent step. Frontend basis dropdown removed, label updated to 'Salario Base Mensual', helper text explains the biweekly=÷2 rule with live preview. All 5 aggregations (people_ops stats/summary + cost-centers, business_clarity by-department + by-cost-center + budget-alerts) confirmed reverted to raw $sum. All 12 test cases green."
+}

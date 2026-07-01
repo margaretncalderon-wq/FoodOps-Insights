@@ -745,7 +745,7 @@ export function EmployeeProfile() {
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
-                    <label className="text-sm text-muted-foreground">{isEs ? "Salario Base" : "Base Salary"} *</label>
+                    <label className="text-sm text-muted-foreground">{isEs ? "Salario Base Mensual" : "Base Monthly Salary"} *</label>
                     <Input
                       data-testid="edit-base-salary"
                       type="number"
@@ -756,28 +756,9 @@ export function EmployeeProfile() {
                       onChange={(e) => setEditData({ ...editData, base_salary: e.target.value === "" ? 0 : parseFloat(e.target.value) })}
                     />
                     <p className="text-xs text-muted-foreground mt-1">
-                      {isEs ? "Monto en la moneda seleccionada" : "Amount in the selected currency"}
-                    </p>
-                  </div>
-                  <div>
-                    <label className="text-sm text-muted-foreground">{isEs ? "Salario está expresado en" : "Salary is expressed as"}</label>
-                    <Select
-                      value={editData.base_salary_basis || "monthly"}
-                      onValueChange={(v) => setEditData({ ...editData, base_salary_basis: v })}
-                    >
-                      <SelectTrigger data-testid="edit-salary-basis">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="monthly">{isEs ? "Monto Mensual" : "Monthly amount"}</SelectItem>
-                        <SelectItem value="biweekly">{isEs ? "Monto Quincenal" : "Biweekly amount"}</SelectItem>
-                        <SelectItem value="weekly">{isEs ? "Monto Semanal" : "Weekly amount"}</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <p className="text-xs text-muted-foreground mt-1">
                       {isEs
-                        ? "Cómo está expresado el monto arriba (la nómina lo convierte automáticamente)."
-                        : "How the amount above is expressed (payroll converts it automatically)."}
+                        ? `Ingresa siempre el monto MENSUAL. En quincenal se divide ÷2 automáticamente${editData.base_salary ? ` (quincena: ${formatCurrency(editData.base_salary / 2)})` : ""}.`
+                        : `Always enter the MONTHLY amount. Biweekly pay is auto-halved${editData.base_salary ? ` (biweekly: ${formatCurrency(editData.base_salary / 2)})` : ""}.`}
                     </p>
                   </div>
                   <div>
@@ -873,16 +854,13 @@ export function EmployeeProfile() {
                 })()}
                 <p className="text-sm text-muted-foreground mt-1">
                   {(() => {
-                    const basis = employee.base_salary_basis || "monthly";
-                    const basisLabel = basis === "biweekly" ? (isEs ? "Quincenal" : "Biweekly") :
-                                       basis === "weekly" ? (isEs ? "Semanal" : "Weekly") :
-                                       (isEs ? "Mensual" : "Monthly");
                     const freqLabel = employee.payment_frequency === "biweekly" ? (isEs ? "Quincenal" : "Biweekly") :
                                       employee.payment_frequency === "monthly" ? (isEs ? "Mensual" : "Monthly") :
                                       (isEs ? "Semanal" : "Weekly");
+                    const biweekly = (employee.base_salary || 0) / 2;
                     return isEs
-                      ? `Monto ${basisLabel.toLowerCase()} · Pagos ${freqLabel.toLowerCase()}`
-                      : `${basisLabel} amount · ${freqLabel} payments`;
+                      ? `Mensual · Pagos ${freqLabel.toLowerCase()} · Quincena: ${formatCurrency(biweekly)}`
+                      : `Monthly · ${freqLabel} payments · Biweekly: ${formatCurrency(biweekly)}`;
                   })()}
                 </p>
               </CardContent>

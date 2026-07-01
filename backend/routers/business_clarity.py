@@ -2394,13 +2394,7 @@ async def get_cost_center_report(
                     "cost_center_id": cc_id,
                     "status": "active"
                 }},
-                {"$group": {"_id": None, "total": {"$sum": {"$multiply": [
-                    {"$ifNull": ["$base_salary", 0]},
-                    {"$switch": {"branches": [
-                        {"case": {"$eq": ["$base_salary_basis", "biweekly"]}, "then": 2},
-                        {"case": {"$eq": ["$base_salary_basis", "weekly"]}, "then": 4.33}
-                    ], "default": 1}}
-                ]}}}}
+                {"$group": {"_id": None, "total": {"$sum": "$base_salary"}}}
             ]
             emp_result = await db.employees.aggregate(emp_pipeline).to_list(1)
             if emp_result:
@@ -2609,13 +2603,7 @@ async def get_department_report(
                     "department_id": dept_id,
                     "status": "active"
                 }},
-                {"$group": {"_id": None, "total": {"$sum": {"$multiply": [
-                    {"$ifNull": ["$base_salary", 0]},
-                    {"$switch": {"branches": [
-                        {"case": {"$eq": ["$base_salary_basis", "biweekly"]}, "then": 2},
-                        {"case": {"$eq": ["$base_salary_basis", "weekly"]}, "then": 4.33}
-                    ], "default": 1}}
-                ]}}}}
+                {"$group": {"_id": None, "total": {"$sum": "$base_salary"}}}
             ]
             emp_result = await db.employees.aggregate(emp_pipeline).to_list(1)
             if emp_result:
@@ -2883,13 +2871,7 @@ async def get_budget_alerts(
         # 1. Payroll
         payroll_pipeline = [
             {"$match": {"company_id": user.company_id, "cost_center": cc_code, "status": "active"}},
-            {"$group": {"_id": None, "total": {"$sum": {"$multiply": [
-                {"$ifNull": ["$base_salary", 0]},
-                {"$switch": {"branches": [
-                    {"case": {"$eq": ["$base_salary_basis", "biweekly"]}, "then": 2},
-                    {"case": {"$eq": ["$base_salary_basis", "weekly"]}, "then": 4.33}
-                ], "default": 1}}
-            ]}}}}
+            {"$group": {"_id": None, "total": {"$sum": "$base_salary"}}}
         ]
         payroll_result = await db.employees.aggregate(payroll_pipeline).to_list(1)
         total_spend += payroll_result[0]["total"] if payroll_result else 0
