@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import axios from "axios";
 import { Layout } from "../components/Layout";
 import { useLanguage } from "../contexts/LanguageContext";
+import { useTerminology } from "../hooks/useTerminology";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
@@ -22,6 +23,10 @@ import { es, enUS } from "date-fns/locale";
 
 export default function CalendarPage({ embedded = false }) {
   const { t, language } = useLanguage();
+  const { term } = useTerminology();
+  // Dynamic labels per industry (Events / Projects / Sessions / etc.)
+  const entityPlural = term("events", "entity_plural");
+  const entitySingular = term("events", "entity_singular");
   const [events, setEvents] = useState([]);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(null);
@@ -260,12 +265,12 @@ export default function CalendarPage({ embedded = false }) {
           <h1 className="font-heading text-3xl font-bold text-foreground">
             {embedded 
               ? (language === "es" ? "Calendario de Engagement" : "Engagement Calendar")
-              : (language === "es" ? "Calendario de Eventos" : "Events Calendar")}
+              : (language === "es" ? `Calendario de ${entityPlural}` : `${entityPlural} Calendar`)}
           </h1>
           <p className="text-muted-foreground mt-1">
             {embedded
               ? (language === "es" ? "Compromisos y fechas clave con clientes" : "Client commitments and key dates")
-              : (language === "es" ? "Vista mensual de todos tus eventos" : "Monthly view of all your events")}
+              : (language === "es" ? `Vista mensual de todos tus ${entityPlural.toLowerCase()}` : `Monthly view of all your ${entityPlural.toLowerCase()}`)}
           </p>
         </div>
         <div className="flex items-center gap-3">

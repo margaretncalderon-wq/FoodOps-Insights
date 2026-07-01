@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { useLanguage } from "../contexts/LanguageContext";
+import { useTerminology } from "../hooks/useTerminology";
 import { Card, CardContent } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
@@ -61,8 +62,11 @@ const stageDisplay = (stage, isEs) => {
 
 export default function EngagementCalendar({ embedded = false }) {
   const { language } = useLanguage();
+  const { term } = useTerminology();
   const navigate = useNavigate();
   const isEs = language === "es";
+  const entityPlural = term("events", "entity_plural");
+  const entitySingular = term("events", "entity_singular");
   
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -805,7 +809,7 @@ export default function EngagementCalendar({ embedded = false }) {
               <div className="flex items-center gap-2 mb-2">
                 <CalendarClock className="w-4 h-4 text-amber-600" />
                 <h3 className="text-sm font-semibold">
-                  {isEs ? `Eventos sin fecha (${tbdEvents.length})` : `Events without date (${tbdEvents.length})`}
+                  {isEs ? `${entityPlural} sin fecha (${tbdEvents.length})` : `${entityPlural} without date (${tbdEvents.length})`}
                 </h3>
                 <span className="text-xs text-muted-foreground">
                   · {isEs ? "no aparecen en la grilla" : "not shown in grid"}

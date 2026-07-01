@@ -237,10 +237,10 @@ export default function EventsPage({ embedded = false }) {
       
       if (editingEvent) {
         await axios.put(`${API}/events/${editingEvent.event_id}`, payload, { withCredentials: true });
-        toast.success(language === "es" ? "Evento actualizado" : "Event updated");
+        toast.success(language === "es" ? `${entitySingular} actualizado` : `${entitySingular} updated`);
       } else {
         await axios.post(`${API}/events`, payload, { withCredentials: true });
-        toast.success(language === "es" ? "Evento creado" : "Event created");
+        toast.success(language === "es" ? `${entitySingular} creado` : `${entitySingular} created`);
       }
       fetchEvents();
       setDialogOpen(false);
@@ -250,29 +250,29 @@ export default function EventsPage({ embedded = false }) {
       // global axios interceptor (see utils/errorFormatter.js).
       toast.error(
         error.response?.data?.detail ||
-        (language === "es" ? "Error al guardar evento" : "Failed to save event")
+        (language === "es" ? `Error al guardar ${entitySingular.toLowerCase()}` : `Failed to save ${entitySingular.toLowerCase()}`)
       );
     }
   };
 
   const handleDelete = async (eventId) => {
-    if (!confirm(language === "es" ? "¿Eliminar evento?" : "Delete event?")) return;
+    if (!confirm(language === "es" ? `¿Eliminar ${entitySingular.toLowerCase()}?` : `Delete ${entitySingular.toLowerCase()}?`)) return;
     try {
       await axios.delete(`${API}/events/${eventId}`, { withCredentials: true });
-      toast.success(language === "es" ? "Evento eliminado" : "Event deleted");
+      toast.success(language === "es" ? `${entitySingular} eliminado` : `${entitySingular} deleted`);
       fetchEvents();
     } catch (error) {
-      toast.error("Failed to delete event");
+      toast.error(`Failed to delete ${entitySingular.toLowerCase()}`);
     }
   };
 
   const handleDuplicate = async (eventId) => {
     try {
       await axios.post(`${API}/events/${eventId}/duplicate`, {}, { withCredentials: true });
-      toast.success(language === "es" ? "Evento duplicado" : "Event duplicated");
+      toast.success(language === "es" ? `${entitySingular} duplicado` : `${entitySingular} duplicated`);
       fetchEvents();
     } catch (error) {
-      toast.error("Failed to duplicate event");
+      toast.error(`Failed to duplicate ${entitySingular.toLowerCase()}`);
     }
   };
 

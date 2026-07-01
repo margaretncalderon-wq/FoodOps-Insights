@@ -11,6 +11,7 @@ import {
   CheckCircle, AlertCircle, CreditCard, DollarSign
 } from "lucide-react";
 import { formatDateOnly } from "../utils/dates";
+import { useTerminology } from "../hooks/useTerminology";
 
 export default function ClientPortalMain() {
   const { clientId } = useParams();
@@ -18,6 +19,9 @@ export default function ClientPortalMain() {
   const [loading, setLoading] = useState(true);
 
   const isEs = true; // Default to Spanish
+  const { term } = useTerminology();
+  const entityPlural = term("events", "entity_plural");
+  const entitySingular = term("events", "entity_singular");
 
   useEffect(() => {
     fetchClientData();
@@ -134,7 +138,7 @@ export default function ClientPortalMain() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <Card>
               <CardContent className="p-4">
-                <div className="text-sm text-muted-foreground">{isEs ? "Total Eventos" : "Total Events"}</div>
+                <div className="text-sm text-muted-foreground">{isEs ? `Total ${entityPlural}` : `Total ${entityPlural}`}</div>
                 <div className="text-2xl font-bold">{financial_summary.total_events || 0}</div>
               </CardContent>
             </Card>
@@ -165,14 +169,14 @@ export default function ClientPortalMain() {
         <div>
           <h3 className="font-heading text-lg font-semibold mb-4 flex items-center gap-2">
             <Calendar className="w-5 h-5" />
-            {isEs ? "Mis Eventos" : "My Events"}
+            {isEs ? `Mis ${entityPlural}` : `My ${entityPlural}`}
           </h3>
           
           {(!events || events.length === 0) ? (
             <Card>
               <CardContent className="py-8 text-center text-muted-foreground">
                 <Calendar className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                <p>{isEs ? "No hay eventos registrados" : "No events registered"}</p>
+                <p>{isEs ? `No hay ${entityPlural.toLowerCase()} registrados` : `No ${entityPlural.toLowerCase()} registered`}</p>
               </CardContent>
             </Card>
           ) : (

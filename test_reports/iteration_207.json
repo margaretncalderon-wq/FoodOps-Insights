@@ -1,0 +1,40 @@
+{
+  "summary": "Verified industry terminology fix for demo.agency@kora.com (industry_template=professional_services → Projects/Proyectos). Backend regression PASS on both /api/addons/enabled-modules (industry_config.program_orchestration.entity_plural_en='Projects', entity_plural_es='Proyectos') and /api/org-config (terminology.event={en:Project, es:Proyecto}). Frontend: all 4 updated pages render Spanish 'Proyectos' terminology correctly for this org — CalendarPage h1='Calendario de Proyectos', EngagementCalendar TBD='Proyectos sin fecha (7)', EventsPage button='Agregar Proyecto', ClientPortalMain='Total Proyectos'/'Mis Proyectos'. Confirmed via industryTerminology.js that events_hospitality fallback still resolves to 'Events'/'Eventos'. One remaining minor miss identified: CalendarPage.js still contains hardcoded 'Eventos sin fecha (N)' / 'Events without date (N)' string in the TBD bucket section (lines 381-382) that was NOT updated — it still says 'Eventos sin fecha (7)' on /calendar for this Projects org.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "CalendarPage.js (line 381-382)",
+        "issue": "TBD-bucket section heading still hardcodes 'Eventos sin fecha (N)' / 'Events without date (N)' instead of using entityPlural. Visible on /calendar as 'Eventos sin fecha (7)' for demo.agency org where h1 correctly says 'Calendario de Proyectos'. Same wording pattern was already fixed in EngagementCalendar.js — apply the same fix here for consistency with user's complaint that 'everything remains events'.",
+        "selector": "text=Eventos sin fecha",
+        "priority": "MEDIUM"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [
+    "In /app/frontend/src/pages/CalendarPage.js around lines 380-384, replace the hardcoded strings with entityPlural: `language==='es' ? \\`${entityPlural} sin fecha (${tbdEvents.length})\\` : \\`${entityPlural} without date (${tbdEvents.length})\\`` (same pattern as EngagementCalendar.js line 812)."
+  ],
+  "critical_code_review_comments": [
+    "ClientPortalMain.js:21 hardcodes `const isEs = true;` — this always renders Spanish scaffolding regardless of user language. Works today because entityPlural from useTerminology respects the actual language and interpolates cleanly (both branches of the isEs ternary in this file happen to use the same template), but conceptually the isEs should be driven from useLanguage(). Non-blocking, but worth cleaning up.",
+    "CalendarPage.js:381-382 has residual hardcoded 'Eventos sin fecha'/'Events without date' — this is the exact class of bug the user reported ('flagged that its not working everything remains events'). The main agent fixed the h1+subheading but missed the TBD bucket heading on the same page.",
+    "industryTerminology.js correctly maps professional_services → entity_plural={en:Projects, es:Proyectos} and events_hospitality → entity_plural={en:Events, es:Eventos}. INDUSTRY_ALIASES['agency']='professional_services' — verified alias resolution.",
+    "useTerminology hook resolves language via useLanguage() (localStorage key: 'eep_language') — verified switching to 'es' propagates term() output to 'Proyectos'."
+  ],
+  "updated_files": [],
+  "success_rate": {
+    "backend": "100% (2/2 endpoints verified)",
+    "frontend": "80% (4/5 pages fully clean; CalendarPage TBD bucket still shows Eventos/Events)"
+  },
+  "test_credentials": "demo.agency@kora.com / Evoque2024!",
+  "seed_data_creation": "None. No data mutated.",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "To reproduce: login as demo.agency@kora.com/Evoque2024!, set localStorage.eep_language='es', reload, visit /calendar. The h1 correctly says 'Calendario de Proyectos' but scroll down to the 'not shown in grid' banner and you will still see 'Eventos sin fecha (N)' — this is the missed hardcoded string in CalendarPage.js:381-382. All other 3 pages (EngagementCalendar, EventsPage, ClientPortalMain) render 'Proyectos' correctly. Backend endpoints already return the right industry_config; no backend changes needed.",
+  "rca of the issue": "User reported 'everything remains events' after previous terminology fixes. Main agent audited and updated 4 pages: CalendarPage (h1+subheading only), EngagementCalendar (TBD heading), EventsPage (toasts), ClientPortalMain (financial+section labels). Testing confirms all 4 targeted changes work. However CalendarPage.js also has a TBD 'events without date' section (lines 381-382) that the main agent missed — still hardcodes 'Eventos sin fecha'/'Events without date'. Fix: mirror EngagementCalendar.js:812 pattern using `${entityPlural}` for both Spanish and English branches."
+}
