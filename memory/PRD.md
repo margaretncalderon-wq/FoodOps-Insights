@@ -1,6 +1,41 @@
 # Kora OS — Product Requirements Document
 
 
+## People Ops — Toggles AFP/ARS/ISR por Empleado (Feb 28, 2026)
+
+**Status:** ✅ Complete. **Pendiente: redeploy a producción.** testing_agent_v3_fork iter_211: Backend 5/5 PASS + Frontend UI OK.
+
+### Feature request
+"me gustaria poder quitar beneficios y deducciones por empleado. algunos empleados no se le descuenta nada porque son nuevos… afp, ars, irs poder marcarlo o no marcarlo"
+
+### Cambios
+- **Modelo Employee**: nuevo campo `has_isr: bool = True` (los campos `has_pension`/`has_health_insurance` ya existían pero NO se respetaban).
+- **`create_payroll_period`** y **`payroll_projection`**: chequean por empleado (`is not False`):
+  - `has_pension=False` → AFP=0
+  - `has_health_insurance=False` → ARS=0
+  - `has_isr=False` → ISR=0
+  - **Toggle > Override**: si el toggle está OFF, el override se ignora (fuerza deducción a 0).
+- **Backward-compat**: empleados sin el campo (documento no lo tiene) → default True (deducción se calcula).
+- **Frontend** `EmployeeProfile.js` Compensation tab: card "Beneficios y Deducciones" con 3 `Switch` (AFP/ARS/ISR). En modo lectura muestra badge "Activo" (default) / "Exento" (rojo). En modo edición son toggles interactivos.
+
+### Verificación
+- María con has_pension=false, has_isr=false → biweekly entry: `afp=0`, `ars=1140` (activo), `isr=0`, net calculado correctamente ✅
+- Projection también honra toggles ✅
+- Empleado sin el campo → tratado como True ✅
+- Toggle precede a override: `has_pension=false + afp_override=2000` → `afp=0` ✅
+
+### Files
+- `/app/backend/routers/people_ops.py`
+- `/app/backend/models/people_ops.py`
+- `/app/frontend/src/components/people-ops/EmployeeProfile.js`
+- `/app/backend/tests/test_employee_deduction_toggles.py` (5 tests PASS)
+
+### 🚨 Action Item
+- **Redeploy a producción** para que puedas exceptuar empleados nuevos de AFP/ARS/ISR desde el perfil.
+
+---
+
+
 ## Notifications — Cross-Workspace Deep Linking (Feb 28, 2026)
 
 **Status:** ✅ Complete. **Pendiente: redeploy a producción.** testing_agent_v3_fork iter_209 + retest_210: Backend 7/7 PASS, Frontend UI checks PASS.
