@@ -1,6 +1,55 @@
 # Kora OS — Product Requirements Document
 
 
+## Notifications — Cross-Workspace Deep Linking (Feb 28, 2026)
+
+**Status:** ✅ Complete. **Pendiente: redeploy a producción.** testing_agent_v3_fork iter_209 + retest_210: Backend 7/7 PASS, Frontend UI checks PASS.
+
+### Bug reportado
+"cuando doy click en las notificaciones no me lleva donde es cuando es de una empresa a otra" — usuario agencia con acceso a múltiples empresas hacía clic en notificaciones cross-workspace y no era redirigido correctamente.
+
+### Root cause
+1. Las notificaciones no persistían `company_id` (era `None` en TODAS).
+2. El clic navegaba directamente al `link` sin verificar si el link pertenecía a otra empresa.
+3. La app renderizaba con `user.company_id` actual → mostraba data de la empresa incorrecta o página vacía.
+
+### Fix implementado
+**Backend**:
+- `create_notification` helper ahora acepta `company_id` + `company_name` (auto-deriva del `user.company_id` o `active_org_id` del recipiente cuando no se pasan; resuelve `company_name` desde `db.companies`).
+- `notify_org_admins` ahora pasa `company_id=org_id`.
+- Nuevo endpoint `POST /api/notifications/{id}/open`:
+  - Same-company → `{success:true, switched:false, link}`.
+  - Cross-company + membresía activa → actualiza `user.company_id` + `user.active_org_id` + `workspace_switched_at`, retorna `{switched:true, target_company_name, from_company_name}`.
+  - Cross-company + sin membresía → `{success:false, message:'no_membership'}` (state no cambia).
+- **Backfill**: 253 notificaciones históricas actualizadas con `company_id` inferido.
+
+**Frontend** (`NotificationBell.js`):
+- `handleNotificationClick` async: llama `/open` antes de navegar.
+- Si `switched:true` → `alert("Switching to X")` + `window.location.href = link` (full reload para resetear estado).
+- Si `no_membership` → alert "No tienes acceso a ese workspace".
+- Cada card ahora muestra badge violeta "🏢 Company Name" bajo el mensaje.
+
+### Verificación (iter_210)
+- Direct create → doc persiste `company_id=company_3ab116c0994d` + `company_name="Creative Agency Demo"` ✅
+- notify_org_admins → notificaciones con org_id correcto ✅
+- Cross-company + membresía → switch + reload ✅
+- Cross-company sin membresía → refuse safely ✅
+
+### Files
+- `/app/backend/routers/notifications.py` (helper + notify_org_admins + POST /open)
+- `/app/frontend/src/components/notifications/NotificationBell.js`
+- `/app/backend/tests/test_notifications_open_iter209.py` (7 tests)
+
+### Backlog menor
+- 1 notif histórica no tiene company_name (empresa no existe en `companies` collection).
+- `generate_follow_up_reminders` tiene dead code residual (unreachable return).
+
+### 🚨 Action Item Usuario
+- **Redeploy a producción**.
+
+---
+
+
 ## Industry Terminology — Verbiage per Industry (Feb 28, 2026)
 
 **Status:** ✅ Complete. **Pendiente: redeploy a producción.** testing_agent_v3_fork iteration_207 + retest 208: 100% PASS backend + frontend.
