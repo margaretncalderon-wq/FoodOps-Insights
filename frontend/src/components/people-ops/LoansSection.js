@@ -53,6 +53,45 @@ export function LoansSection() {
   const [selectedLoan, setSelectedLoan] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   
+  // Manual payment dialog
+  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+  const [paymentForm, setPaymentForm] = useState({ amount: "", payment_type: "cash", payment_date: new Date().toISOString().slice(0,10), notes: "" });
+  const [payingLoan, setPayingLoan] = useState(null);
+  
+  const openManualPayment = (loan) => {
+    setPayingLoan(loan);
+    setPaymentForm({
+      amount: String(loan.installment_amount || ""),
+      payment_type: "cash",
+      payment_date: new Date().toISOString().slice(0,10),
+      notes: ""
+    });
+    setPaymentDialogOpen(true);
+  };
+  
+  const submitManualPayment = async () => {
+    const amt = parseFloat(paymentForm.amount);
+    if (!amt || amt <= 0) { alert(isEs ? "Ingresa un monto válido" : "Enter a valid amount"); return; }
+    setSubmitting(true);
+    try {
+      await axios.post(
+        `${API}/api/people-ops/loans/${payingLoan.loan_id}/payment`,
+        {
+          amount: amt,
+          payment_type: paymentForm.payment_type,
+          payment_date: paymentForm.payment_date,
+          notes: paymentForm.notes || null
+        },
+        { withCredentials: true }
+      );
+      setPaymentDialogOpen(false);
+      fetchData();
+    } catch (err) {
+      alert(err.response?.data?.detail || (isEs ? "Error al registrar el pago" : "Error recording payment"));
+    }
+    setSubmitting(false);
+  };
+  
   const [newLoan, setNewLoan] = useState({
     employee_id: "",
     loan_type: "personal_loan",
@@ -293,6 +332,18 @@ export function LoansSection() {
                             </Button>
                           </div>
                         )}
+                        {loan.status === "active" && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => openManualPayment(loan)}
+                            className="text-emerald-700 border-emerald-300 hover:bg-emerald-50"
+                            data-testid={`manual-payment-${loan.loan_id}`}
+                          >
+                            <DollarSign className="w-3.5 h-3.5 mr-1" />
+                            {isEs ? "Pago Manual" : "Manual Payment"}
+                          </Button>
+                        )}
                       </TableCell>
                     </TableRow>
                   );
@@ -464,6 +515,85 @@ export function LoansSection() {
             <Button onClick={handleApprove} disabled={submitting} className="bg-emerald-600 hover:bg-emerald-700">
               {submitting ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <CheckCircle className="w-4 h-4 mr-2" />}
               {isEs ? "Aprobar" : "Approve"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Manual Payment Dialog */}
+      <Dialog open={paymentDialogOpen} onOpenChange={setPaymentDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{isEs ? "Registrar Pago Manual" : "Record Manual Payment"}</DialogTitle>
+          </DialogHeader>
+          {payingLoan && (
+            <div className="space-y-4 py-2">
+              <div className="p-3 rounded-lg bg-muted/40 border">
+                <p className="text-xs text-muted-foreground">{isEs ? "Empleado" : "Employee"}</p>
+                <p className="font-medium">{payingLoan.employee_name}</p>
+                <div className="grid grid-cols-2 gap-2 mt-2 text-sm">
+                  <div>
+                    <p className="text-xs text-muted-foreground">{isEs ? "Cuota" : "Installment"}</p>
+                    <p className="font-semibold">{formatCurrency(payingLoan.installment_amount)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">{isEs ? "Saldo actual" : "Current balance"}</p>
+                    <p className="font-semibold text-blue-600">{formatCurrency(payingLoan.remaining_balance)}</p>
+                  </div>
+                </div>
+              </div>
+              
+              <div>
+                <label className="text-sm font-medium">{isEs ? "Monto del Pago *" : "Payment Amount *"}</label>
+                <Input
+                  type="number" min="0" step="0.01"
+                  value={paymentForm.amount}
+                  onChange={(e) => setPaymentForm({...paymentForm, amount: e.target.value})}
+                  data-testid="manual-payment-amount"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  {isEs ? "Se ajustará al saldo si excede." : "Will be capped to remaining balance."}
+                </p>
+              </div>
+              
+              <div>
+                <label className="text-sm font-medium">{isEs ? "Fecha del Pago" : "Payment Date"}</label>
+                <Input
+                  type="date"
+                  value={paymentForm.payment_date}
+                  onChange={(e) => setPaymentForm({...paymentForm, payment_date: e.target.value})}
+                />
+              </div>
+              
+              <div>
+                <label className="text-sm font-medium">{isEs ? "Método de Pago" : "Payment Method"}</label>
+                <Select value={paymentForm.payment_type} onValueChange={(v) => setPaymentForm({...paymentForm, payment_type: v})}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="cash">{isEs ? "Efectivo" : "Cash"}</SelectItem>
+                    <SelectItem value="transfer">{isEs ? "Transferencia" : "Bank Transfer"}</SelectItem>
+                    <SelectItem value="check">{isEs ? "Cheque" : "Check"}</SelectItem>
+                    <SelectItem value="other">{isEs ? "Otro" : "Other"}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div>
+                <label className="text-sm font-medium">{isEs ? "Notas" : "Notes"}</label>
+                <Textarea
+                  value={paymentForm.notes}
+                  onChange={(e) => setPaymentForm({...paymentForm, notes: e.target.value})}
+                  placeholder={isEs ? "Referencia, comentarios..." : "Reference, comments..."}
+                  rows={2}
+                />
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPaymentDialogOpen(false)}>{isEs ? "Cancelar" : "Cancel"}</Button>
+            <Button onClick={submitManualPayment} disabled={submitting} className="bg-emerald-600 hover:bg-emerald-700" data-testid="submit-manual-payment">
+              {submitting ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <DollarSign className="w-4 h-4 mr-2" />}
+              {isEs ? "Registrar Pago" : "Record Payment"}
             </Button>
           </DialogFooter>
         </DialogContent>

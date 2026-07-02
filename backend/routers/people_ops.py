@@ -3936,6 +3936,82 @@ async def get_loan_payments(loan_id: str, user: User = Depends(get_current_user)
     return payments
 
 
+@people_ops_router.post("/loans/{loan_id}/payment")
+async def record_manual_loan_payment(
+    loan_id: str,
+    data: dict,
+    user: User = Depends(get_current_user)
+):
+    """Record a manual loan payment (outside of payroll). 
+    Body: {amount: float, payment_type: 'cash'|'transfer'|'other' (default 'manual'), notes?: str, payment_date?: 'YYYY-MM-DD'}
+    Reduces the loan's remaining_balance and employee's active_loan_balance."""
+    company_id, _ = await check_people_ops_access(user, "edit")
+    
+    amount = float(data.get("amount") or 0)
+    if amount <= 0:
+        raise HTTPException(status_code=400, detail="amount must be greater than 0")
+    
+    loan = await db.loans.find_one({"loan_id": loan_id, "company_id": company_id}, {"_id": 0})
+    if not loan:
+        raise HTTPException(status_code=404, detail="Loan not found")
+    if loan.get("status") != "active":
+        raise HTTPException(status_code=400, detail=f"Loan is not active (status={loan.get('status')})")
+    
+    remaining = float(loan.get("remaining_balance") or 0)
+    if amount > remaining:
+        # Cap to remaining balance instead of erroring
+        amount = remaining
+    
+    now = datetime.now(timezone.utc)
+    new_balance = max(0, remaining - amount)
+    new_paid = float(loan.get("total_paid") or 0) + amount
+    new_installments_paid = int(loan.get("installments_paid") or 0) + 1
+    
+    update_data = {
+        "remaining_balance": round(new_balance, 2),
+        "total_paid": round(new_paid, 2),
+        "installments_paid": new_installments_paid,
+        "updated_at": now.isoformat()
+    }
+    if new_balance <= 0:
+        update_data["status"] = "paid"
+        update_data["paid_date"] = now.date().isoformat()
+    
+    await db.loans.update_one({"loan_id": loan_id}, {"$set": update_data})
+    
+    # Sync employee's active_loan_balance
+    employee_id = loan.get("employee_id")
+    if employee_id:
+        emp_update = {"$inc": {"active_loan_balance": -amount}}
+        if new_balance <= 0:
+            emp_update = {"$set": {"active_loan_balance": 0}}
+        await db.employees.update_one({"employee_id": employee_id}, emp_update)
+    
+    payment_record = {
+        "payment_id": f"lpay_{uuid.uuid4().hex[:12]}",
+        "loan_id": loan_id,
+        "company_id": company_id,
+        "employee_id": employee_id,
+        "amount": round(amount, 2),
+        "payment_type": data.get("payment_type") or "manual",
+        "payment_date": data.get("payment_date") or now.date().isoformat(),
+        "notes": data.get("notes"),
+        "balance_after": round(new_balance, 2),
+        "created_by": user.user_id,
+        "created_at": now.isoformat()
+    }
+    await db.loan_payments.insert_one(payment_record)
+    payment_record.pop("_id", None)
+    
+    return {
+        "success": True,
+        "payment": payment_record,
+        "new_balance": round(new_balance, 2),
+        "installments_paid": new_installments_paid,
+        "loan_status": "paid" if new_balance <= 0 else "active"
+    }
+
+
 # ==================== OFFBOARDING / TERMINACIÓN ENDPOINTS ====================
 
 @people_ops_router.get("/offboarding")

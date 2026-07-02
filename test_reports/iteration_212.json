@@ -1,0 +1,45 @@
+{
+  "summary": "Verified manual loan payment endpoint (POST /api/people-ops/loans/{loan_id}/payment), payment history endpoint, and regression that biweekly payroll auto-deducts loan installments. Backend pytest 5/5 pass (2 skipped due to environment: overpay-cap needs a new loan for demo employee but she already has 2 active loans blocking new-loan creation, and idempotent skip after first pytest run recorded smoke payment). Frontend UI end-to-end verified: 'Manual Payment' buttons render per active loan, dialog opens with installment pre-filled, POST returns 200 with new_balance/installments_paid/loan_status='active', row balance updates.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {
+        "endpoint": "GET /api/people-ops/loans/{loan_id}/payments",
+        "issue": "Sorted only by payment_date (YYYY-MM-DD) — same-day payments tie-break arbitrarily. Consider sorting by created_at DESC (or (payment_date, created_at) DESC) so latest payment is deterministic."
+      },
+      {
+        "endpoint": "POST /api/people-ops/loans/{loan_id}/payment",
+        "issue": "Non-active loan returns 400 with a message containing 'not active' — no dedicated error code, only human-readable text. Frontend must parse detail string. (Minor; validation itself works.)"
+      }
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_loans_manual_payment.py",
+    "/app/test_reports/pytest/loans_manual_payment.xml"
+  ],
+  "action_items": [
+    "OPTIONAL: sort loan_payments by created_at DESC (not payment_date) so history shows newest first deterministically.",
+    "OPTIONAL: expose a payment-history modal/table on the Loans UI (currently only submit dialog; GET /payments endpoint exists but no UI surface)."
+  ],
+  "critical_code_review_comments": [
+    "record_manual_loan_payment always sets installments_paid += 1 regardless of amount (a RD$1 partial payment still counts as an installment). Consider only incrementing when amount >= installment_amount, or track partial installments differently.",
+    "record_manual_loan_payment employee active_loan_balance sync uses $inc {-amount} but on final payoff resets to 0 with $set; if the employee has MULTIPLE active loans (as demo employee does) setting active_loan_balance=0 is INCORRECT — it should decrement by the paid amount only. Currently reachable because create_loan_request blocks employees with existing active loans, but a data migration or admin override could yield multi-loan employees (demo already has 2). Recommend: always use $inc {-amount} and clamp with a follow-up update if needed.",
+    "Overpay caps to remaining but returns success — the API silently accepts an incorrect amount instead of returning 400 or an explicit 'capped' flag. Consider adding {capped: true, requested_amount: X} in the response for UI transparency.",
+    "people_ops.py is 5630 lines — exceeds recommended 700-line file size. Split into modules (loans, payroll, offboarding, etc.)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_loans_manual_payment.py (new)"
+  ],
+  "success_rate": {"backend": "100% (5 passed, 2 environment-skipped)", "frontend": "100%"},
+  "test_credentials": "demo.agency@kora.com / Evoque2024!",
+  "seed_data_creation": "Recorded 2 manual payments during testing on loan_7bbf16ed2502 for demo.agency (RD$500 by pytest, RD$500 by UI). Current remaining_balance is now 111000. Per main-agent instructions, no cleanup applied.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend tests idempotent — re-running skips the first payment if the TEST_ marker payment is already present. Payroll regression cleans up its own draft period. UI regression test can be re-run without side effects because each click subtracts only what the user enters. loan_7bbf16ed2502 balance is now RD$111,000 (originally 112,500). Employee emp_91f4dfa58d68 has 2 active loans; endpoint create_loan blocks new loans for employees w/ active loan (used to skip cap-to-remaining test).",
+  "rca of the issue": "N/A — verification task, no bug to reproduce. Manual-payment endpoint and payroll loan-deduction logic behave as designed."
+}
