@@ -171,6 +171,45 @@ function InventorySection() {
   const [wizardOpen, setWizardOpen] = useState(false);
   const [wizardInitial, setWizardInitial] = useState(null);
   const [reviewDrawerOpen, setReviewDrawerOpen] = useState(false);
+  const [aiRepairOpen, setAiRepairOpen] = useState(false);
+  const [aiRepairLoading, setAiRepairLoading] = useState(false);
+  const [aiRepairProposals, setAiRepairProposals] = useState([]);
+  const [aiRepairApplying, setAiRepairApplying] = useState(false);
+  const [aiRepairLimit, setAiRepairLimit] = useState(15);
+
+  const fetchAiRepairProposals = async () => {
+    setAiRepairLoading(true);
+    setAiRepairProposals([]);
+    try {
+      const res = await axios.post(
+        `${API}/api/inventory/ingredients/ai-repair`,
+        { dry_run: true, limit: aiRepairLimit },
+        { withCredentials: true }
+      );
+      setAiRepairProposals(res.data.proposals || []);
+    } catch (err) {
+      alert(err.response?.data?.detail || "Error");
+    }
+    setAiRepairLoading(false);
+  };
+
+  const applyAiRepair = async (selectedIds) => {
+    setAiRepairApplying(true);
+    try {
+      const res = await axios.post(
+        `${API}/api/inventory/ingredients/ai-repair`,
+        { dry_run: false, ingredient_ids: selectedIds, limit: selectedIds.length },
+        { withCredentials: true }
+      );
+      alert((language === "es" ? "Aplicados: " : "Applied: ") + res.data.applied);
+      setAiRepairOpen(false);
+      setAiRepairProposals([]);
+      fetchData();
+    } catch (err) {
+      alert(err.response?.data?.detail || "Error");
+    }
+    setAiRepairApplying(false);
+  };
   
   // Forms
   const [itemForm, setItemForm] = useState({
@@ -597,14 +636,25 @@ function InventorySection() {
                 </p>
               </div>
             </div>
-            <Button
-              size="sm" variant="outline" className="border-amber-300 hover:bg-amber-100"
-              onClick={() => setReviewDrawerOpen(true)}
-              data-testid="open-review-drawer-btn"
-            >
-              <Wand2 className="w-4 h-4 mr-1" />
-              {language === "es" ? "Revisar y reparar" : "Review & fix"}
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                size="sm" variant="outline" className="border-amber-300 hover:bg-amber-100"
+                onClick={() => setReviewDrawerOpen(true)}
+                data-testid="open-review-drawer-btn"
+              >
+                <Wand2 className="w-4 h-4 mr-1" />
+                {language === "es" ? "Revisar y reparar" : "Review & fix"}
+              </Button>
+              <Button
+                size="sm"
+                className="bg-purple-600 hover:bg-purple-700 text-white"
+                onClick={() => setAiRepairOpen(true)}
+                data-testid="open-ai-repair-btn"
+              >
+                <Sparkles className="w-4 h-4 mr-1" />
+                {language === "es" ? "Auto-reparar con IA" : "AI Auto-Repair"}
+              </Button>
+            </div>
           </CardContent>
         </Card>
       )}
@@ -1550,6 +1600,145 @@ function InventorySection() {
             <Button variant="outline" onClick={() => setReviewDrawerOpen(false)}>
               {language === "es" ? "Cerrar" : "Close"}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* AI Repair Dialog */}
+      <Dialog open={aiRepairOpen} onOpenChange={(o) => { if (!o) { setAiRepairOpen(false); setAiRepairProposals([]); } }}>
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto" data-testid="ai-repair-dialog">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-purple-600" />
+              {language === "es" ? "Auto-reparar Ingredientes con IA" : "AI Auto-Repair Ingredients"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {aiRepairProposals.length === 0 && !aiRepairLoading && (
+              <div className="p-4 rounded-lg border border-purple-200 bg-purple-50/40 space-y-3">
+                <p className="text-sm">
+                  {language === "es"
+                    ? "La IA analizará ingredientes sin formato de compra correcto y propondrá: base_unit, purchase_unit, cantidad por unidad de compra, merma típica y densidad si aplica."
+                    : "AI will analyze ingredients missing proper purchase format and propose: base_unit, purchase_unit, quantity per purchase, typical waste %, and density if relevant."}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {language === "es"
+                    ? "🔒 NO toca precios ni proveedores. Puedes revertir cada cambio individualmente."
+                    : "🔒 Prices and suppliers are NOT touched. Each change can be reverted individually."}
+                </p>
+                <div className="flex items-center gap-3">
+                  <label className="text-xs">
+                    {language === "es" ? "Lote:" : "Batch size:"}
+                    <Input
+                      type="number" min="1" max="100"
+                      value={aiRepairLimit}
+                      onChange={(e) => setAiRepairLimit(parseInt(e.target.value) || 15)}
+                      className="w-24 h-8 inline-block ml-2"
+                    />
+                  </label>
+                  <Button
+                    onClick={fetchAiRepairProposals}
+                    className="bg-purple-600 hover:bg-purple-700 text-white"
+                    data-testid="run-ai-repair-btn"
+                  >
+                    <Sparkles className="w-4 h-4 mr-1" />
+                    {language === "es" ? "Analizar con IA" : "Analyze with AI"}
+                  </Button>
+                </div>
+              </div>
+            )}
+            {aiRepairLoading && (
+              <div className="p-8 text-center">
+                <Loader2 className="w-8 h-8 animate-spin text-purple-600 mx-auto mb-2" />
+                <p className="text-sm text-muted-foreground">
+                  {language === "es" ? "IA analizando… puede tardar 10-30s" : "AI analyzing… may take 10-30s"}
+                </p>
+              </div>
+            )}
+            {aiRepairProposals.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-sm font-medium">
+                  {language === "es"
+                    ? `${aiRepairProposals.length} propuestas — revisa y aplica lo que quieras:`
+                    : `${aiRepairProposals.length} proposals — review and apply what you want:`}
+                </p>
+                <div className="max-h-[55vh] overflow-y-auto border rounded-lg divide-y">
+                  {aiRepairProposals.map((p) => (
+                    <div key={p.ingredient_id} className="p-3 hover:bg-muted/30" data-testid={`ai-proposal-${p.ingredient_id}`}>
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex-1">
+                          <p className="font-medium">{p.current_name}</p>
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-2 text-xs">
+                            <div>
+                              <p className="text-muted-foreground">Base</p>
+                              <p className="font-mono">
+                                <span className="line-through text-muted-foreground">{p.current_base_unit || "—"}</span>
+                                {" → "}
+                                <span className="font-bold text-purple-700">{p.base_unit}</span>
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-muted-foreground">Compra</p>
+                              <p className="font-mono">
+                                <span className="line-through text-muted-foreground">{p.current_purchase_unit || "—"}</span>
+                                {" → "}
+                                <span className="font-bold text-purple-700">{p.purchase_unit}</span>
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-muted-foreground">Cant/Compra</p>
+                              <p className="font-mono">
+                                <span className="line-through text-muted-foreground">{p.current_purchase_qty ?? "—"}</span>
+                                {" → "}
+                                <span className="font-bold text-purple-700">{p.purchase_quantity_per_unit}</span>
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-muted-foreground">Merma %</p>
+                              <p className="font-mono">
+                                <span className="line-through text-muted-foreground">{p.current_yield_waste_percent ?? "—"}</span>
+                                {" → "}
+                                <span className="font-bold text-purple-700">{p.yield_waste_percent}%</span>
+                              </p>
+                            </div>
+                          </div>
+                          {p.reasoning && (
+                            <p className="text-[11px] text-muted-foreground mt-2 italic">💡 {p.reasoning}</p>
+                          )}
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => applyAiRepair([p.ingredient_id])}
+                          disabled={aiRepairApplying}
+                          className="border-emerald-300 text-emerald-700 hover:bg-emerald-50 shrink-0"
+                          data-testid={`apply-single-${p.ingredient_id}`}
+                        >
+                          <CheckCircle className="w-3.5 h-3.5 mr-1" />
+                          {language === "es" ? "Aplicar" : "Apply"}
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => { setAiRepairOpen(false); setAiRepairProposals([]); }}>
+              {language === "es" ? "Cerrar" : "Close"}
+            </Button>
+            {aiRepairProposals.length > 0 && (
+              <Button
+                onClick={() => applyAiRepair(aiRepairProposals.map(p => p.ingredient_id))}
+                disabled={aiRepairApplying}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                data-testid="apply-all-ai-repair-btn"
+              >
+                {aiRepairApplying ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <CheckCircle className="w-4 h-4 mr-1" />}
+                {language === "es" ? `Aplicar Todos (${aiRepairProposals.length})` : `Apply All (${aiRepairProposals.length})`}
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -3350,6 +3350,213 @@ async def get_recipe_cost_history(recipe_id: str, user: User = Depends(get_curre
         "ingredient_cost_history": cost_history
     }
 
+@inventory_router.post("/ingredients/ai-repair")
+async def ai_repair_ingredients(data: dict, user: User = Depends(get_current_user)):
+    """AI-assisted repair for ingredient structural fields.
+    
+    Analyzes each target ingredient and proposes correct:
+      - base_unit (g, ml, unit)
+      - purchase_unit (kg, lb, saco, botella, galón, unit, etc.)
+      - purchase_quantity_per_unit (base-units per purchase-unit)
+      - yield_waste_percent (typical trim/loss for that ingredient)
+      - density_g_per_ml (if liquid AND cross-family conversions needed)
+    
+    Does NOT modify prices or supplier info.
+    
+    Body: {
+      ingredient_ids?: [str],   # Explicit list. If missing, picks needs_review or misconfigured.
+      dry_run?: bool = true,    # If true, returns proposals only
+      limit?: int = 25          # Cap batch size
+    }
+    """
+    from emergentintegrations.llm.chat import LlmChat, UserMessage
+    import json as _json
+    
+    api_key = os.environ.get("EMERGENT_LLM_KEY")
+    if not api_key:
+        raise HTTPException(status_code=500, detail="AI service not configured")
+    
+    dry_run = data.get("dry_run", True)
+    limit = min(int(data.get("limit") or 25), 100)  # hard cap
+    ingredient_ids = data.get("ingredient_ids") or []
+    
+    # Fetch candidates
+    query = {"company_id": user.company_id}
+    if ingredient_ids:
+        query["ingredient_id"] = {"$in": ingredient_ids}
+    else:
+        # Auto-pick: missing purchase_unit OR purchase_qty_per_unit=1 (default suspicious) OR needs_review
+        query["$or"] = [
+            {"purchase_unit": {"$in": [None, ""]}},
+            {"purchase_quantity_per_unit": {"$in": [None, 0, 1]}},
+            {"needs_review": True},
+        ]
+    
+    candidates = await db.ingredients.find(query, {"_id": 0}).limit(limit).to_list(limit)
+    if not candidates:
+        return {"total": 0, "proposals": [], "applied": 0, "dry_run": dry_run}
+    
+    # Batch prompt: send all ingredient names at once for efficiency
+    batch_data = [
+        {
+            "ingredient_id": c["ingredient_id"],
+            "name": c.get("name") or "",
+            "brand": c.get("brand") or "",
+            "category": c.get("category") or "",
+            "current_base_unit": c.get("base_unit") or c.get("unit") or "",
+            "current_purchase_unit": c.get("purchase_unit") or "",
+            "current_purchase_qty": c.get("purchase_quantity_per_unit"),
+        }
+        for c in candidates
+    ]
+    
+    chat = LlmChat(
+        api_key=api_key,
+        session_id=f"ingr_repair_{uuid.uuid4().hex[:8]}",
+        system_message=(
+            "You are a professional chef and culinary inventory expert. "
+            "Given a list of raw kitchen ingredients, suggest the CORRECT base_unit, "
+            "purchase_unit, purchase_quantity_per_unit (how many base-units per purchase-unit), "
+            "and yield_waste_percent (typical trim/loss %). "
+            "Rules: "
+            "1) Solid foods → base_unit 'g'. Liquids → 'ml'. Count items (eggs, fruits, sold per piece) → 'unit'. "
+            "2) purchase_unit is how it's SOLD: kg, lb, saco (25 lb/50 lb), botella, galón, litro, funda, caja, unidad, etc. "
+            "3) purchase_quantity_per_unit = base units contained in ONE purchase unit. "
+            "   Examples: 1 kg = 1000 g. 1 lb = 453.592 g. 1 saco 25 lb = 11340 g. 1 L = 1000 ml. 1 gal = 3785 ml. 1 doz = 12 unit. "
+            "4) yield_waste_percent: onions/carrots ~15%, tomatoes ~5%, whole chicken ~30%, whole fish ~40%, boneless meat 0-5%, dry goods 0%. "
+            "5) density_g_per_ml only if liquid AND needs cross-family conversion (oil ~0.92, water 1.0, honey 1.42). "
+            "Respond ONLY with valid JSON as an array."
+        )
+    ).with_model("openai", "gpt-5.2")
+    
+    prompt = (
+        "Analyze each ingredient and return an array of proposals in this JSON format:\n"
+        '[{"ingredient_id": "...", "base_unit": "g|ml|unit", "purchase_unit": "...", '
+        '"purchase_quantity_per_unit": number, "yield_waste_percent": number, '
+        '"density_g_per_ml": number|null, "reasoning": "short explanation"}, ...]\n\n'
+        f"Ingredients:\n{_json.dumps(batch_data, ensure_ascii=False)}"
+    )
+    
+    try:
+        response = await chat.send_message(UserMessage(text=prompt))
+        txt = response.strip()
+        if txt.startswith("```json"):
+            txt = txt[7:]
+        if txt.startswith("```"):
+            txt = txt[3:]
+        if txt.endswith("```"):
+            txt = txt[:-3]
+        proposals = _json.loads(txt.strip())
+        if not isinstance(proposals, list):
+            proposals = proposals.get("ingredients", []) if isinstance(proposals, dict) else []
+    except Exception as e:
+        logger.error(f"AI repair parse error: {e}")
+        raise HTTPException(status_code=500, detail=f"AI parse failed: {str(e)[:150]}")
+    
+    # Merge current ingredient info into each proposal for the UI
+    by_id = {c["ingredient_id"]: c for c in candidates}
+    enriched = []
+    for p in proposals:
+        iid = p.get("ingredient_id")
+        current = by_id.get(iid, {})
+        if not iid or not current:
+            continue
+        enriched.append({
+            **p,
+            "current_name": current.get("name"),
+            "current_base_unit": current.get("base_unit") or current.get("unit"),
+            "current_purchase_unit": current.get("purchase_unit"),
+            "current_purchase_qty": current.get("purchase_quantity_per_unit"),
+            "current_yield_waste_percent": current.get("yield_waste_percent"),
+            # Rebase cost_per_base_unit if base_unit changes, keeping purchase_cost intact.
+            "new_cost_per_base_unit_estimate": (
+                round(float(current.get("purchase_cost") or 0) / max(1, float(p.get("purchase_quantity_per_unit") or 1)), 4)
+                if p.get("purchase_quantity_per_unit") else None
+            ),
+        })
+    
+    applied_count = 0
+    now = datetime.now(timezone.utc)
+    if not dry_run:
+        for p in enriched:
+            iid = p["ingredient_id"]
+            current = by_id.get(iid, {})
+            new_base = p.get("base_unit") or current.get("base_unit")
+            new_purch = p.get("purchase_unit") or current.get("purchase_unit")
+            new_qty = float(p.get("purchase_quantity_per_unit") or current.get("purchase_quantity_per_unit") or 1)
+            new_waste = p.get("yield_waste_percent")
+            new_density = p.get("density_g_per_ml")
+            new_cpb = (
+                round(float(current.get("purchase_cost") or 0) / new_qty, 4)
+                if current.get("purchase_cost") and new_qty > 0
+                else current.get("cost_per_base_unit") or current.get("cost_per_unit")
+            )
+            update = {
+                "base_unit": new_base,
+                "unit": new_base,  # keep in sync
+                "purchase_unit": new_purch,
+                "purchase_quantity_per_unit": new_qty,
+                "cost_per_base_unit": new_cpb,
+                "cost_per_unit": new_cpb,
+                "updated_at": now.isoformat(),
+                "needs_review": False,
+                "ai_repaired_at": now.isoformat(),
+                "ai_repair_reasoning": p.get("reasoning"),
+            }
+            if new_waste is not None:
+                update["yield_waste_percent"] = float(new_waste)
+            if new_density is not None:
+                update["density_g_per_ml"] = float(new_density)
+            
+            await db.ingredients.update_one(
+                {"ingredient_id": iid, "company_id": user.company_id},
+                {"$set": update}
+            )
+            # Audit
+            await db.ai_repair_history.insert_one({
+                "history_id": f"repair_{uuid.uuid4().hex[:10]}",
+                "company_id": user.company_id,
+                "ingredient_id": iid,
+                "ingredient_name": current.get("name"),
+                "before": {
+                    "base_unit": current.get("base_unit"),
+                    "purchase_unit": current.get("purchase_unit"),
+                    "purchase_quantity_per_unit": current.get("purchase_quantity_per_unit"),
+                    "yield_waste_percent": current.get("yield_waste_percent"),
+                    "cost_per_base_unit": current.get("cost_per_base_unit"),
+                },
+                "after": {k: v for k, v in update.items() if k not in ("updated_at", "ai_repaired_at")},
+                "reasoning": p.get("reasoning"),
+                "user_id": user.user_id,
+                "created_at": now.isoformat(),
+            })
+            applied_count += 1
+    
+    return {
+        "total": len(candidates),
+        "proposals": enriched,
+        "applied": applied_count,
+        "dry_run": dry_run,
+    }
+
+
+@inventory_router.post("/ingredients/ai-repair/undo/{history_id}")
+async def undo_ai_repair(history_id: str, user: User = Depends(get_current_user)):
+    """Roll back a single AI-repair change using its history entry."""
+    record = await db.ai_repair_history.find_one(
+        {"history_id": history_id, "company_id": user.company_id},
+        {"_id": 0}
+    )
+    if not record:
+        raise HTTPException(status_code=404, detail="Repair record not found")
+    before = record.get("before", {})
+    await db.ingredients.update_one(
+        {"ingredient_id": record["ingredient_id"], "company_id": user.company_id},
+        {"$set": {**before, "ai_reverted_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    return {"success": True, "restored": before}
+
+
 @recipes_router.post("/ai-analyze")
 async def ai_analyze_recipe(data: dict, user: User = Depends(get_current_user)):
     """Use AI to analyze recipe and suggest quantities"""
@@ -4765,7 +4972,10 @@ async def analyze_menu_engineering(
     for r in recipes:
         rid = r["recipe_id"]
         sell = float(r.get("default_portion_price") or r.get("sell_price") or 0)
-        cost = float(r.get("cost_per_portion") or 0)
+        # Use TOTAL cost (food + labor + overhead) not just food cost — the CaterTrax/Gastrokaisen way.
+        # Fall back to legacy cost_per_portion (food only) if new field not populated yet.
+        cost = float(r.get("total_cost_per_portion") or r.get("cost_per_portion") or 0)
+        food_only_cost = float(r.get("cost_per_portion") or 0)
         profit = sell - cost
         popularity = pop_proposals.get(rid, 0) + pop_production.get(rid, 0)
         rows.append({
@@ -4774,7 +4984,10 @@ async def analyze_menu_engineering(
             "category": r.get("category"),
             "recipe_type": r.get("recipe_type", "Final"),
             "sell_price": round(sell, 4),
-            "cost_per_portion": round(cost, 4),
+            "cost_per_portion": round(cost, 4),  # total cost per portion (food+labor+overhead)
+            "food_cost_only": round(food_only_cost, 4),  # kept for reference
+            "labor_cost": round(float(r.get("labor_cost") or 0), 4),
+            "overhead_cost": round(float(r.get("overhead_cost") or 0), 4),
             "profit_per_portion": round(profit, 4),
             "profit_margin_percent": round(((profit / sell) * 100) if sell > 0 else 0, 2),
             "popularity_score": round(popularity, 2),
