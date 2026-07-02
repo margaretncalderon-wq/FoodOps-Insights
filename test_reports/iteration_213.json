@@ -1,0 +1,69 @@
+{
+  "summary": "Audited Sprint P0 recipe-costing bug fixes for Kora OS Culinary Intelligence. All 3 target fixes VERIFIED via pytest against demo.agency@kora.com (company_3ab116c0994d, chef_hourly_rate=$25/hr). Bug 1 (prep_time/cook_time legacy fallback) — CONFIRMED: recipe with only prep_time=15, cook_time=20 now yields labor_cost=$14.58 (35 min * $25/hr, previously $0). Bug 2 (_recalc_recipes_using_ingredient persists P0 fields) — CONFIRMED: after updating an ingredient's purchase_cost, the downstream recipe now has labor_cost, overhead_cost, total_cost_full, total_cost_per_portion, contribution_dollar, contribution_percent, suggested_sell_price all populated with correct numeric relationships. Bug 3 (sub-recipe unit conversion) — VERIFIED on the legacy inline path (ingredients[] with item_type='recipe' at server.py:2846): 500 ml consumed of a sub-recipe yielding 1 L @ $10 → correct $5.00 line cost (was $5000). Bug 3 on the NEW sub_recipes block CANNOT be verified because create_recipe crashes with 500 (unrelated pre-existing regression — see backend_issues.critical below). Regression suite (recalculate-all dry_run + apply, menu-engineering/analyze, ai-repair dry_run) all pass. 8 passed + 1 xfailed (documented bug).",
+  "backend_issues": {
+    "critical": [
+      {
+        "endpoint": "POST /api/recipes and PUT /api/recipes/{id}",
+        "issue": "500 AttributeError('dict' object has no attribute 'child_recipe_id') whenever the payload contains a non-empty `sub_recipes` array. Model defines `sub_recipes: List[Dict[str, Any]]` (server.py:728) but create_recipe/update_recipe iterate with attribute access `sub.child_recipe_id` and `sub.child_recipe_name` (server.py:3006-3007 and 3061-3062) plus `s.model_dump()` (line 3010, 3065). This means the NEW sub_recipes block is unusable end-to-end, which also blocks verification of Bug 3 fix #4 (new sub_recipes block conversion at server.py:2867). FIX: convert model_dump() to dict passthrough and use `sub.get('child_recipe_id')`; OR change the model to List[SubRecipeItem] Pydantic type.",
+        "priority": "CRITICAL"
+      },
+      {
+        "endpoint": "GET /api/menu-engineering/analyze",
+        "issue": "MongoDB projection at server.py:4944 explicitly lists {recipe_id, name, category, cost_per_portion, default_portion_price, sell_price, recipe_type} — this EXCLUDES `total_cost_per_portion`. Downstream code at line 4996 uses `r.get('total_cost_per_portion') or r.get('cost_per_portion')` which will ALWAYS fall through to the legacy food-only cost, silently defeating the Sprint P0.5 bug fix. FIX: add `total_cost_per_portion: 1, labor_cost: 1, overhead_cost: 1, food_cost: 1` to the projection.",
+        "priority": "HIGH"
+      },
+      {
+        "endpoint": "PUT /api/inventory/ingredients/{ingredient_id}",
+        "issue": "Endpoint declares `data: IngredientCreate` (server.py:1950). IngredientCreate requires name/category/unit as mandatory fields. Even though the handler uses `data.model_dump(exclude_unset=True)` at line 1961 for the partial-update logic (Fase A fix), Pydantic 422s the request BEFORE it reaches the handler when any of name/category/unit is missing. Reproduced: `PUT /ingredients/{id}` with body `{purchase_cost: 20}` → 422 Field Required for name+category+unit. The Fase A partial-update fix is effectively defeated. FIX: introduce IngredientUpdate model with all fields Optional, or set defaults to None in a dedicated partial DTO.",
+        "priority": "HIGH"
+      }
+    ],
+    "minor": [
+      {
+        "endpoint": "POST /api/recipes",
+        "issue": "labor_cost is computed as prep+cook+labor_minutes with no upper bound / sanity check. A misclick that enters 999 min prep would silently produce a huge labor cost. Consider warning or capping on the FE."
+      },
+      {
+        "endpoint": "compute_full_recipe_costing()",
+        "issue": "portion divisor uses `yield_qty * portions if yield_qty * portions else 1` — logically fine, but when both are 0 explicitly, expressions like `food_cost / 1` are returned as if 1 unit yielded 1 portion. Might mislead. Consider validating > 0 on model."
+      },
+      {
+        "endpoint": "GET /api/menu-engineering/analyze",
+        "issue": "Uses `default_portion_price or sell_price` for sell price but the projection could be reduced/inconsistent when only one field is populated. Same fields are read again from `r.get(...)` after filter — safe but noisy."
+      }
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_recipe_costing_audit_p0.py",
+    "/app/test_reports/pytest/recipe_costing_audit_p0.xml"
+  ],
+  "action_items": [
+    "CRITICAL: Fix create_recipe/update_recipe to handle sub_recipes as dicts (server.py:3006, 3010, 3061, 3065) — currently 500s any time the new sub_recipes block is submitted, blocking end-to-end verification of Bug 3 fix on the new block.",
+    "HIGH: Add labor_cost, overhead_cost, total_cost_full, total_cost_per_portion, food_cost to the projection in menu-engineering/analyze (server.py:4944) so the Sprint P0.5 fallback logic actually reads the new field.",
+    "HIGH: Introduce an IngredientUpdate Pydantic model (all fields Optional) so PUT /inventory/ingredients/{id} truly accepts partial payloads — currently Pydantic 422s before exclude_unset can help.",
+    "OPTIONAL: Add server-side validation on prep/cook/labor minutes (positive, < 24h)."
+  ],
+  "critical_code_review_comments": [
+    "server.py is 24347 lines — well past the 700-line guideline. Split into feature routers (recipes, inventory, menu_engineering, ai_repair) to unblock incremental testing.",
+    "compute_full_recipe_costing() reads company config on every single recipe write. In /recipes/recalculate-all across N recipes this is O(N) db.companies.find_one calls — cache the company doc per request.",
+    "calculate_recipe_cost() has TWO code paths for sub-recipes (legacy inline `item_type='recipe'` at line 2834 AND new `sub_recipes` block at line 2864) that duplicate the same conversion logic. Extract a helper `_price_sub_recipe_line(child, qty, unit)`.",
+    "RecipeCreate.sub_recipes is `List[Dict[str, Any]]` while everywhere else it's treated like a typed model — declare a `class SubRecipeRef(BaseModel)` with child_recipe_id/name/quantity_used/unit; fixes the AttributeError root-cause.",
+    "menu-engineering/analyze uses `default_portion_price or sell_price` for sell — inconsistent with recipe create/update which prefers sell_price then default_portion_price. Pick one.",
+    "_recalc_recipes_using_ingredient stamps `last_cost_recalc_trigger` = 'ingredient:{id}' but on subsequent price changes this overwrites without history — consider appending to a `cost_recalc_log` array capped at N entries for audit."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_recipe_costing_audit_p0.py (new)"
+  ],
+  "success_rate": {"backend": "89% (8 passed, 1 xfailed due to pre-existing sub_recipes-block 500 bug — Bug 3 verified on legacy path only)", "frontend": "skipped (backend-only per request)"},
+  "test_credentials": "demo.agency@kora.com / Evoque2024! — company_3ab116c0994d — chef_hourly_rate=$25/hr, overhead=15%, target_food_cost=30%",
+  "seed_data_creation": "All test recipes and ingredients prefixed TEST_P0_* and cleaned up in test teardown (session.delete calls). No residual data expected. If PUT-partial-update bug caused a mid-run failure, the leftover ingredient/recipe carries a TEST_P0_ prefix and can be pruned by name.",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "The 3 target Sprint-P0 fixes are verified. However, there are 3 orthogonal bugs uncovered by this audit that need main-agent fixes and then retest: (1) new sub_recipes block 500s on recipe create/update — retest Bug 3 new-block path once fixed; (2) menu-engineering projection excludes total_cost_per_portion — write a test that seeds a recipe with total_cost_per_portion != cost_per_portion and asserts analyze uses the total; (3) PUT /ingredients partial-update returns 422 without name/category/unit — Fase A fix is not observable to clients. Re-run /app/backend/tests/test_recipe_costing_audit_p0.py after fixes; the xfailed test should convert to pass automatically once bug #1 is fixed.",
+  "rca of the issue": "Bug 1 RCA: compute_full_recipe_costing at server.py:2918 previously read only `prep_time_minutes/cook_time_minutes`; new code uses `or recipe_data.get('prep_time')` fallback. Confirmed working — verified labor_cost = (prep_time + cook_time) * chef_rate / 60 when only legacy fields are supplied. Bug 2 RCA: _recalc_recipes_using_ingredient at server.py:2049 now calls compute_full_recipe_costing() and spreads its result into $set. Verified all P0 fields update after ingredient price change (labor_cost, overhead_cost, total_cost_full, contribution_$, contribution_%, suggested_sell_price). Bug 3 RCA (legacy inline path): calculate_recipe_cost at server.py:2846-2850 now calls convert_units(quantity, parent_unit, child_yield_unit) before multiplying by cost_per_yield. Verified 500ml→0.5L, cost = 0.5 * $10 = $5.00 (was $5000). Bug 3 RCA (new sub_recipes block, lines 2874-2886): logic looks correct but cannot be exercised because create_recipe/update_recipe throw AttributeError before reaching calculate_recipe_cost — separate bug to fix first."
+}

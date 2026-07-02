@@ -2045,15 +2045,15 @@ async def _recalc_recipes_using_ingredient(ingredient_id: str, company_id: str) 
         new_per_yield = new_total / yield_qty if yield_qty > 0 else 0
         new_per_portion = new_per_yield / portion_size if portion_size > 0 else new_per_yield
         new_food_cost_pct = (new_per_portion / sell_price * 100) if sell_price > 0 else 0
+        # Compute full costing (labor + overhead + suggested price + contribution) — Sprint P0
+        full_costing = await compute_full_recipe_costing(recipe, new_total, company_id)
         await db.recipes.update_one(
             {"recipe_id": rid, "company_id": company_id},
             {"$set": {
                 "ingredients": updated_ings,
                 "sub_recipes": updated_subs,
                 "total_cost": new_total,
-                "cost_per_yield": new_per_yield,
-                "cost_per_portion": new_per_portion,
-                "food_cost_percent": new_food_cost_pct,
+                **full_costing,
                 "last_cost_recalc_at": datetime.now(timezone.utc).isoformat(),
                 "last_cost_recalc_trigger": f"ingredient:{ingredient_id}",
             }},
@@ -2839,7 +2839,16 @@ async def calculate_recipe_cost(ingredients: List[RecipeIngredient], sub_recipes
         if sub_recipe:
             cost_per_yield = sub_recipe.get("cost_per_yield", 0) or 0
             quantity = float(ing_dict.get("quantity", 0) or 0)
-            line_cost = quantity * cost_per_yield
+            # Convert parent line-unit to sub-recipe yield_unit when they differ
+            parent_unit = ing_dict.get("unit")
+            child_yield_unit = sub_recipe.get("yield_unit")
+            converted_qty = quantity
+            if parent_unit and child_yield_unit and parent_unit != child_yield_unit:
+                try:
+                    converted_qty = convert_units(quantity, parent_unit, child_yield_unit)
+                except Exception:
+                    converted_qty = quantity  # fallback to raw
+            line_cost = converted_qty * cost_per_yield
             updated_ingredients.append({
                 **ing_dict,
                 "item_type": "recipe",
@@ -2864,7 +2873,17 @@ async def calculate_recipe_cost(ingredients: List[RecipeIngredient], sub_recipes
             )
             if child_recipe:
                 cost_per_yield = child_recipe.get("cost_per_yield", 0) or 0
-                line_cost = float(sub_dict.get("quantity_used", 0) or 0) * cost_per_yield
+                # Convert sub-recipe consumption unit → child yield_unit
+                q_used = float(sub_dict.get("quantity_used", 0) or 0)
+                parent_unit = sub_dict.get("unit")
+                child_yield_unit = child_recipe.get("yield_unit")
+                converted_used = q_used
+                if parent_unit and child_yield_unit and parent_unit != child_yield_unit:
+                    try:
+                        converted_used = convert_units(q_used, parent_unit, child_yield_unit)
+                    except Exception:
+                        converted_used = q_used
+                line_cost = converted_used * cost_per_yield
                 updated_sub_recipes.append({
                     **sub_dict,
                     "cost_per_unit": cost_per_yield,
@@ -2896,8 +2915,8 @@ async def compute_full_recipe_costing(
     overhead_pct = float((company or {}).get("recipe_overhead_percent") or 15.0)
     target_food_pct = float((company or {}).get("recipe_target_food_cost_percent") or 30.0)
     
-    prep_min = float(recipe_data.get("prep_time_minutes") or 0)
-    cook_min = float(recipe_data.get("cook_time_minutes") or 0)
+    prep_min = float(recipe_data.get("prep_time_minutes") or recipe_data.get("prep_time") or 0)
+    cook_min = float(recipe_data.get("cook_time_minutes") or recipe_data.get("cook_time") or 0)
     labor_min = float(recipe_data.get("labor_minutes") or 0)
     total_labor_min = prep_min + cook_min + labor_min
     labor_cost = round((total_labor_min / 60.0) * chef_hourly, 4)
