@@ -55,6 +55,81 @@ const INVENTORY_TYPES = [
 
 // Note: Equipment, Disposables, and Event Supplies have been moved to Operations Supplies module
 
+// ==================== UNIT PRICE EQUIVALENCE BREAKDOWN ====================
+// Shows how the cost per base-unit translates into common measures (kg, g, lb, oz, L, ml).
+// e.g. buying 1 L for $16 => shows $/L, $/ml, $/fl oz side by side.
+const UNIT_CONVERSION_MATRIX = {
+  // weight family: base is grams
+  g:  { g: 1, kg: 1000, oz: 28.3495, lb: 453.592 },
+  kg: { g: 1, kg: 1000, oz: 28.3495, lb: 453.592 },
+  oz: { g: 1, kg: 1000, oz: 28.3495, lb: 453.592 },
+  lb: { g: 1, kg: 1000, oz: 28.3495, lb: 453.592 },
+  // volume family: base is milliliters
+  ml: { ml: 1, L: 1000, "fl oz": 29.5735 },
+  L:  { ml: 1, L: 1000, "fl oz": 29.5735 },
+};
+
+function PriceEquivalenceBreakdown({ baseUnit, costPerBase, language }) {
+  const isEs = language === "es";
+  if (!baseUnit || !costPerBase || costPerBase <= 0) return null;
+  const bu = String(baseUnit).toLowerCase();
+  const weightUnits = ["g", "kg", "oz", "lb"];
+  const volumeUnits = ["ml", "l"];
+  let family = null;
+  if (weightUnits.includes(bu)) family = "weight";
+  else if (volumeUnits.includes(bu)) family = "volume";
+  else return null; // discrete (unit) — skip
+
+  // Convert costPerBase (given in baseUnit) into cost in "grams" or "milliliters" first,
+  // then multiply by units-per-target.
+  // baseFactorToSmallest: how many smallest units (g or ml) are in 1 baseUnit
+  const factors = {
+    g: 1, kg: 1000, oz: 28.3495, lb: 453.592,
+    ml: 1, l: 1000,
+  };
+  const baseFactor = factors[bu];
+  if (!baseFactor) return null;
+  const costPerSmallest = costPerBase / baseFactor;
+
+  const targets = family === "weight"
+    ? [
+        { key: "kg", labelEs: "Kilogramo", labelEn: "Kilogram", factor: 1000 },
+        { key: "g", labelEs: "Gramo", labelEn: "Gram", factor: 1 },
+        { key: "lb", labelEs: "Libra", labelEn: "Pound", factor: 453.592 },
+        { key: "oz", labelEs: "Onza (peso)", labelEn: "Ounce (weight)", factor: 28.3495 },
+      ]
+    : [
+        { key: "L", labelEs: "Litro", labelEn: "Liter", factor: 1000 },
+        { key: "ml", labelEs: "Mililitro", labelEn: "Milliliter", factor: 1 },
+        { key: "fl oz", labelEs: "Onza líquida", labelEn: "Fluid Ounce", factor: 29.5735 },
+        { key: "cup", labelEs: "Taza (240 ml)", labelEn: "Cup (240 ml)", factor: 240 },
+      ];
+
+  return (
+    <div className="col-span-2 p-3 rounded-md border border-blue-200 bg-blue-50/40" data-testid="price-equivalence-panel">
+      <p className="text-xs font-medium text-blue-700 mb-2">
+        {isEs ? "Precio equivalente por medida" : "Equivalent price per measure"}
+      </p>
+      <div className="grid grid-cols-4 gap-2">
+        {targets.map((t) => {
+          const price = costPerSmallest * t.factor;
+          return (
+            <div key={t.key} className="p-2 rounded bg-white border text-center">
+              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                {isEs ? t.labelEs : t.labelEn}
+              </p>
+              <p className="text-sm font-bold font-mono text-blue-900">
+                ${price.toFixed(price >= 1 ? 2 : 4)}
+                <span className="text-[10px] font-normal text-muted-foreground"> /{t.key}</span>
+              </p>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // ==================== INVENTORY SECTION ====================
 function InventorySection() {
   const { language } = useLanguage();
@@ -950,6 +1025,15 @@ function InventorySection() {
                   </p>
                 </div>
               </div>
+
+              {/* Equivalence breakdown across common measures */}
+              {itemForm.purchase_cost > 0 && itemForm.purchase_quantity_per_unit > 0 && (
+                <PriceEquivalenceBreakdown
+                  baseUnit={itemForm.base_unit || itemForm.unit}
+                  costPerBase={itemForm.purchase_cost / itemForm.purchase_quantity_per_unit}
+                  language={language}
+                />
+              )}
               <p className="text-xs text-muted-foreground mt-2">
                 {language === "es"
                   ? "💡 Ej: 1 saco contiene 54.43 kg y cuesta $3,450.00 → $63.38/kg automático."
@@ -1707,9 +1791,15 @@ function RecipesSection() {
                 { value: "updated_desc", label: language === "es" ? "Editadas recientemente" : "Recently updated" },
               ]}
             />
-            <Button variant="outline" onClick={handleRecalculateAll} disabled={recalculating}>
+            <Button
+              variant="outline"
+              onClick={handleRecalculateAll}
+              disabled={recalculating}
+              data-testid="recalc-all-recipes-btn"
+              title={language === "es" ? "Actualiza los costos de TODAS las recetas usando los precios actuales de los ingredientes" : "Update costs of ALL recipes using current ingredient prices"}
+            >
               <RefreshCw className={`w-4 h-4 mr-2 ${recalculating ? "animate-spin" : ""}`} />
-              {language === "es" ? "Recalcular" : "Recalculate"}
+              {language === "es" ? "Recalcular Costos" : "Recalculate Costs"}
             </Button>
             <Button variant="outline" onClick={() => setRecipeImportOpen(true)} data-testid="recipes-import-btn">
               <FileUp className="w-4 h-4 mr-2" />
