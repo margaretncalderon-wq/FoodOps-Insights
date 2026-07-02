@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 
 import { API_BASE as API } from "../../utils/api";
+import { LoanPaymentsDialog } from "./LoanPaymentsDialog";
 
 const formatCurrency = (amount) => 
   `$${(amount || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -57,6 +58,14 @@ export function LoansSection() {
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [paymentForm, setPaymentForm] = useState({ amount: "", payment_type: "cash", payment_date: new Date().toISOString().slice(0,10), notes: "" });
   const [payingLoan, setPayingLoan] = useState(null);
+  
+  // Loan payments history dialog
+  const [historyDialogOpen, setHistoryDialogOpen] = useState(false);
+  const [historyLoanId, setHistoryLoanId] = useState(null);
+  const openHistory = (loanId) => {
+    setHistoryLoanId(loanId);
+    setHistoryDialogOpen(true);
+  };
   
   // Legacy (historical) loan dialog
   const today = new Date().toISOString().slice(0, 10);
@@ -420,38 +429,50 @@ export function LoansSection() {
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        {loan.status === "pending" && (
-                          <div className="flex gap-1">
-                            <Button 
-                              variant="ghost" 
-                              size="sm" 
-                              onClick={() => handleOpenApprove(loan)}
-                              className="text-emerald-600"
-                            >
-                              <CheckCircle className="w-4 h-4" />
-                            </Button>
-                            <Button 
-                              variant="ghost" 
-                              size="sm" 
-                              onClick={() => handleReject(loan.loan_id)}
-                              className="text-red-600"
-                            >
-                              <XCircle className="w-4 h-4" />
-                            </Button>
-                          </div>
-                        )}
-                        {loan.status === "active" && (
+                        <div className="flex items-center gap-1 flex-wrap">
                           <Button
-                            variant="outline"
+                            variant="ghost"
                             size="sm"
-                            onClick={() => openManualPayment(loan)}
-                            className="text-emerald-700 border-emerald-300 hover:bg-emerald-50"
-                            data-testid={`manual-payment-${loan.loan_id}`}
+                            onClick={() => openHistory(loan.loan_id)}
+                            className="text-blue-600 hover:bg-blue-50"
+                            data-testid={`view-history-${loan.loan_id}`}
+                            title={isEs ? "Ver Historial de Pagos" : "View Payment History"}
                           >
-                            <DollarSign className="w-3.5 h-3.5 mr-1" />
-                            {isEs ? "Pago Manual" : "Manual Payment"}
+                            <History className="w-4 h-4" />
                           </Button>
-                        )}
+                          {loan.status === "pending" && (
+                            <>
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                onClick={() => handleOpenApprove(loan)}
+                                className="text-emerald-600"
+                              >
+                                <CheckCircle className="w-4 h-4" />
+                              </Button>
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                onClick={() => handleReject(loan.loan_id)}
+                                className="text-red-600"
+                              >
+                                <XCircle className="w-4 h-4" />
+                              </Button>
+                            </>
+                          )}
+                          {loan.status === "active" && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => openManualPayment(loan)}
+                              className="text-emerald-700 border-emerald-300 hover:bg-emerald-50"
+                              data-testid={`manual-payment-${loan.loan_id}`}
+                            >
+                              <DollarSign className="w-3.5 h-3.5 mr-1" />
+                              {isEs ? "Pago Manual" : "Manual Payment"}
+                            </Button>
+                          )}
+                        </div>
                       </TableCell>
                     </TableRow>
                   );
@@ -939,6 +960,13 @@ export function LoansSection() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Loan Payment History Dialog */}
+      <LoanPaymentsDialog
+        open={historyDialogOpen}
+        onOpenChange={setHistoryDialogOpen}
+        loanId={historyLoanId}
+      />
     </div>
   );
 }

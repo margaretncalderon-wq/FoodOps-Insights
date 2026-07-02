@@ -36,6 +36,7 @@ import { Switch } from "../ui/switch";
 
 import { API_BASE as API } from "../../utils/api";
 import { PaymentHistoryTab } from "./EmployeeProfilePage/PaymentHistoryTab";
+import { LoansTab } from "./EmployeeProfilePage/LoansTab";
 
 // formatCurrency now derives from companyCurrency via the hook within the component body.
 
@@ -311,6 +312,10 @@ export function EmployeeProfile() {
           <TabsTrigger value="payment-history" className="flex items-center gap-2">
             <History className="w-4 h-4" />
             {isEs ? "Historial Pagos" : "Payment History"}
+          </TabsTrigger>
+          <TabsTrigger value="loans" className="flex items-center gap-2" data-testid="tab-loans">
+            <CreditCard className="w-4 h-4" />
+            {isEs ? "Préstamos" : "Loans"}
           </TabsTrigger>
         </TabsList>
 
@@ -1575,6 +1580,11 @@ export function EmployeeProfile() {
         {/* Payment History Tab */}
         <TabsContent value="payment-history">
           <PaymentHistoryTab employeeId={employeeId} />
+        </TabsContent>
+
+        {/* Loans Tab */}
+        <TabsContent value="loans">
+          <LoansTab employeeId={employeeId} />
         </TabsContent>
       </Tabs>
 
