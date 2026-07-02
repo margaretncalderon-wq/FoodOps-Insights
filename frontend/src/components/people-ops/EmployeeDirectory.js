@@ -93,7 +93,7 @@ export function EmployeeDirectory() {
     setLoading(true);
     try {
       const [empRes, deptRes, orgDeptRes, ccRes, statsRes, posRes] = await Promise.all([
-        axios.get(`${API}/api/people-ops/employees?status=${statusFilter}${departmentFilter ? `&department=${departmentFilter}` : ''}`, { withCredentials: true }),
+        axios.get(`${API}/api/people-ops/employees?${statusFilter !== "all" ? `status=${statusFilter}` : ""}${departmentFilter ? `&department=${departmentFilter}` : ''}`, { withCredentials: true }),
         axios.get(`${API}/api/people-ops/reference/departments`, { withCredentials: true }),
         axios.get(`${API}/api/people-ops/departments`, { withCredentials: true }),
         axios.get(`${API}/api/people-ops/cost-centers`, { withCredentials: true }),
@@ -234,7 +234,8 @@ export function EmployeeDirectory() {
             <SelectContent>
               <SelectItem value="active">{isEs ? "Activos" : "Active"}</SelectItem>
               <SelectItem value="on_leave">{isEs ? "En Licencia" : "On Leave"}</SelectItem>
-              <SelectItem value="terminated">{isEs ? "Terminados" : "Terminated"}</SelectItem>
+              <SelectItem value="terminated">{isEs ? "Ex-empleados" : "Past Employees"}</SelectItem>
+              <SelectItem value="all">{isEs ? "Todos" : "All"}</SelectItem>
             </SelectContent>
           </Select>
           {departments.length > 0 && (

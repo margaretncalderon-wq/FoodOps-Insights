@@ -16,6 +16,16 @@ logger = logging.getLogger(__name__)
 _scheduler = None
 
 
+async def _run_vacation_anniversary_reset():
+    """Daily job: reset vacation days for employees whose hire_date anniversary is today (with unlimited carryover)."""
+    try:
+        from routers.people_ops import run_daily_vacation_anniversary_reset  # late import
+        count = await run_daily_vacation_anniversary_reset()
+        logger.info(f"[scheduler] vacation anniversary reset done: {count} employees processed")
+    except Exception as e:
+        logger.exception(f"[scheduler] vacation anniversary reset failed: {e}")
+
+
 async def _send_daily_performance_alerts():
     """Run for every company that has comm logs / leads, notify admins of inactivity & below_goal."""
     from routers.crm import _period_bounds, SCORE_WEIGHTS  # late import to avoid circular
@@ -352,6 +362,14 @@ def start_scheduler():
         id="ot_digest_dispatcher",
         replace_existing=True,
         misfire_grace_time=3600,
+    )
+    # Daily 00:30 local — Vacation anniversary reset (People Ops)
+    _scheduler.add_job(
+        _run_vacation_anniversary_reset,
+        trigger=CronTrigger(hour=0, minute=30),
+        id="vacation_anniversary_reset",
+        replace_existing=True,
+        misfire_grace_time=6 * 3600,
     )
     _scheduler.start()
     logger.info(f"[scheduler] started in tz={tz} — jobs: {[j.id for j in _scheduler.get_jobs()]}")

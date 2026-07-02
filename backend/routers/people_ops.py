@@ -3267,6 +3267,90 @@ def calculate_vacation_entitled(hire_date, as_of_date=None):
         return 14.0
 
 
+def _parse_date(d):
+    """Parse a date string or return date object."""
+    if not d:
+        return None
+    if isinstance(d, str):
+        try:
+            return datetime.strptime(d[:10], "%Y-%m-%d").date()
+        except Exception:
+            return None
+    if hasattr(d, "date"):
+        return d.date()
+    return d
+
+
+def compute_tenure_and_anniversary(hire_date):
+    """Return (years_of_service, next_anniversary_date_iso, days_until_anniversary)."""
+    hd = _parse_date(hire_date)
+    if not hd:
+        return 0.0, None, None
+    today = datetime.now(timezone.utc).date()
+    years = round((today - hd).days / 365.25, 2)
+    # Next anniversary: same month/day, next occurrence >= today
+    try:
+        anniv = hd.replace(year=today.year)
+    except ValueError:
+        # Feb 29 on non-leap → Feb 28
+        anniv = hd.replace(year=today.year, day=28)
+    if anniv < today:
+        try:
+            anniv = hd.replace(year=today.year + 1)
+        except ValueError:
+            anniv = hd.replace(year=today.year + 1, day=28)
+    days_until = (anniv - today).days
+    return years, anniv.isoformat(), days_until
+
+
+async def reset_employee_vacation_anniversary(employee, as_of_date=None):
+    """Perform an anniversary reset for one employee:
+    - carryover_in = current vacation_days_available (unlimited by policy)
+    - new_entitled = calculate_vacation_entitled(hire_date)
+    - new_available = carryover_in + new_entitled
+    - vacation_days_used = 0
+    Writes an entry to vacation_history collection.
+    """
+    emp_id = employee.get("employee_id")
+    hire_date = employee.get("hire_date")
+    current_available = float(employee.get("vacation_days_available") or 0)
+    current_used = float(employee.get("vacation_days_used") or 0)
+    current_entitled = float(employee.get("vacation_days_entitled") or 0)
+
+    new_entitled = calculate_vacation_entitled(hire_date, as_of_date)
+    carryover_in = round(current_available, 2)
+    new_available = round(new_entitled + carryover_in, 2)
+    now = datetime.now(timezone.utc)
+
+    await db.employees.update_one(
+        {"employee_id": emp_id},
+        {"$set": {
+            "vacation_days_entitled": new_entitled,
+            "vacation_days_used": 0.0,
+            "vacation_days_available": new_available,
+            "vacation_manual_override": False,
+            "vacation_last_reset_at": now,
+            "updated_at": now
+        }}
+    )
+    await db.vacation_history.insert_one({
+        "history_id": f"vh_{uuid.uuid4().hex[:12]}",
+        "company_id": employee.get("company_id"),
+        "employee_id": emp_id,
+        "employee_name": employee.get("full_name"),
+        "reset_date": now.date().isoformat(),
+        "previous_entitled": current_entitled,
+        "previous_used": current_used,
+        "previous_available": current_available,
+        "carryover_in": carryover_in,
+        "new_entitled": new_entitled,
+        "new_available": new_available,
+        "reason": "anniversary_reset",
+        "created_at": now
+    })
+    return {"employee_id": emp_id, "carryover_in": carryover_in, "new_entitled": new_entitled, "new_available": new_available}
+
+
 @people_ops_router.put("/employees/{employee_id}/vacation")
 async def update_employee_vacation(
     employee_id: str,
@@ -3355,8 +3439,9 @@ async def get_time_off_balances(user: User = Depends(get_current_user)):
     
     employees = await db.employees.find(
         {"company_id": company_id, "status": "active"},
-        {"_id": 0, "employee_id": 1, "full_name": 1, 
-         "vacation_days_entitled": 1, "vacation_days_used": 1, "vacation_days_available": 1}
+        {"_id": 0, "employee_id": 1, "full_name": 1, "hire_date": 1,
+         "vacation_days_entitled": 1, "vacation_days_used": 1, "vacation_days_available": 1,
+         "vacation_manual_override": 1, "vacation_last_reset_at": 1}
     ).to_list(500)
     
     # Get pending requests
@@ -3372,17 +3457,129 @@ async def get_time_off_balances(user: User = Depends(get_current_user)):
     
     balances = []
     for emp in employees:
+        years, next_anniv, days_until = compute_tenure_and_anniversary(emp.get("hire_date"))
         balances.append({
             "employee_id": emp.get("employee_id"),
             "employee_name": emp.get("full_name"),
             "year": datetime.now().year,
+            "hire_date": emp.get("hire_date"),
+            "years_of_service": years,
+            "next_anniversary": next_anniv,
+            "days_until_anniversary": days_until,
             "vacation_entitled": emp.get("vacation_days_entitled", 14),
             "vacation_used": emp.get("vacation_days_used", 0),
             "vacation_pending": pending_by_emp.get(emp.get("employee_id"), 0),
-            "vacation_available": emp.get("vacation_days_available", 14)
+            "vacation_available": emp.get("vacation_days_available", 14),
+            "manual_override": bool(emp.get("vacation_manual_override")),
+            "last_reset_at": emp.get("vacation_last_reset_at")
         })
     
     return balances
+
+
+@people_ops_router.post("/time-off/recalculate-all")
+async def recalculate_all_vacations(user: User = Depends(get_current_user)):
+    """Bulk recalculate vacation entitlement by tenure for ALL active employees.
+    Skips employees with vacation_manual_override=True (to preserve manual overrides).
+    """
+    company_id = user.company_id or user.active_org_id
+    employees = await db.employees.find(
+        {"company_id": company_id, "status": "active"},
+        {"_id": 0, "employee_id": 1, "hire_date": 1, "vacation_days_used": 1, "vacation_manual_override": 1}
+    ).to_list(1000)
+    updated = 0
+    skipped = 0
+    for emp in employees:
+        if emp.get("vacation_manual_override"):
+            skipped += 1
+            continue
+        entitled = calculate_vacation_entitled(emp.get("hire_date"))
+        used = float(emp.get("vacation_days_used") or 0)
+        available = max(0.0, entitled - used)
+        await db.employees.update_one(
+            {"employee_id": emp["employee_id"]},
+            {"$set": {
+                "vacation_days_entitled": entitled,
+                "vacation_days_available": available,
+                "updated_at": datetime.now(timezone.utc)
+            }}
+        )
+        updated += 1
+    return {"success": True, "updated": updated, "skipped_manual_override": skipped}
+
+
+@people_ops_router.get("/time-off/vacation-history/{employee_id}")
+async def get_vacation_history(employee_id: str, user: User = Depends(get_current_user)):
+    """Get vacation reset history for an employee."""
+    company_id = user.company_id or user.active_org_id
+    records = await db.vacation_history.find(
+        {"company_id": company_id, "employee_id": employee_id},
+        {"_id": 0}
+    ).sort("reset_date", -1).to_list(50)
+    return records
+
+
+@people_ops_router.post("/time-off/reset-anniversary/{employee_id}")
+async def manual_anniversary_reset(employee_id: str, user: User = Depends(get_current_user)):
+    """Manually trigger the anniversary reset for one employee (with unlimited carry-over)."""
+    company_id = user.company_id or user.active_org_id
+    employee = await db.employees.find_one(
+        {"company_id": company_id, "employee_id": employee_id},
+        {"_id": 0}
+    )
+    if not employee:
+        raise HTTPException(status_code=404, detail="Employee not found")
+    result = await reset_employee_vacation_anniversary(employee)
+    return {"success": True, **result}
+
+
+async def run_daily_vacation_anniversary_reset():
+    """Scheduler entry-point: reset vacations for all employees whose hire_date anniversary is today.
+    Runs daily via APScheduler at 00:30 local time.
+    """
+    today = datetime.now(timezone.utc).date()
+    # Find employees whose hire_date month/day matches today
+    all_active = await db.employees.find(
+        {"status": "active", "hire_date": {"$ne": None}},
+        {"_id": 0}
+    ).to_list(5000)
+    resets = 0
+    for emp in all_active:
+        hd = _parse_date(emp.get("hire_date"))
+        if not hd:
+            continue
+        # Skip employees with <6 months of service (their anniversary hasn't triggered eligibility yet)
+        # Actually the first anniversary IS when 12 months completed; anniversary reset happens from year 1 onwards
+        if (today - hd).days < 365:
+            continue
+        # Match month/day (with Feb 29 → Feb 28 fallback)
+        target_month, target_day = hd.month, hd.day
+        if target_month == 2 and target_day == 29:
+            # Handle in non-leap year
+            if today.month == 2 and today.day == 28 and not _is_leap_year(today.year):
+                pass  # match
+            elif today.month == 2 and today.day == 29:
+                pass  # match
+            else:
+                continue
+        elif today.month != target_month or today.day != target_day:
+            continue
+        # Avoid double-reset if already reset today
+        last_reset = emp.get("vacation_last_reset_at")
+        if last_reset:
+            try:
+                last_date = last_reset.date() if hasattr(last_reset, "date") else _parse_date(last_reset)
+                if last_date == today:
+                    continue
+            except Exception:
+                pass
+        await reset_employee_vacation_anniversary(emp)
+        resets += 1
+    return resets
+
+
+def _is_leap_year(y):
+    return y % 4 == 0 and (y % 100 != 0 or y % 400 == 0)
 
 
 # ==================== OVERTIME / HORAS EXTRAS ENDPOINTS ====================

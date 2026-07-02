@@ -17,7 +17,7 @@ import {
 } from "../ui/table";
 import {
   Calendar, Clock, Plus, RefreshCw, CheckCircle, XCircle,
-  AlertCircle, User, CalendarDays, Palmtree, HeartPulse, Baby
+  AlertCircle, User, CalendarDays, Palmtree, HeartPulse, Baby, RotateCcw, AlertOctagon, History
 } from "lucide-react";
 
 import { API_BASE as API } from "../../utils/api";
@@ -50,6 +50,11 @@ export function TimeOffSection() {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [recalcingAll, setRecalcingAll] = useState(false);
+  
+  // Balances filters
+  const [balanceFilter, setBalanceFilter] = useState("all"); // all | override | low | anniversary_soon
+  const [balanceSearch, setBalanceSearch] = useState("");
   
   const [newRequest, setNewRequest] = useState({
     employee_id: "",
@@ -78,6 +83,46 @@ export function TimeOffSection() {
   }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+  
+  const handleRecalcAll = async () => {
+    if (!window.confirm(isEs
+      ? "¿Recalcular vacaciones por antigüedad para TODOS los empleados activos? (Los empleados con ajuste manual serán omitidos)"
+      : "Recalculate vacation days by tenure for ALL active employees? (Employees with manual override will be skipped)")) return;
+    setRecalcingAll(true);
+    try {
+      const res = await axios.post(`${API}/api/people-ops/time-off/recalculate-all`, {}, { withCredentials: true });
+      alert(isEs
+        ? `Actualizados: ${res.data.updated}. Omitidos (ajuste manual): ${res.data.skipped_manual_override}`
+        : `Updated: ${res.data.updated}. Skipped (manual override): ${res.data.skipped_manual_override}`);
+      fetchData();
+    } catch (err) {
+      alert(err.response?.data?.detail || (isEs ? "Error" : "Error"));
+    }
+    setRecalcingAll(false);
+  };
+  
+  const handleAnniversaryReset = async (employeeId, employeeName) => {
+    if (!window.confirm(isEs
+      ? `¿Ejecutar reinicio de aniversario para ${employeeName}? Los días disponibles actuales se acumularán (carry-over ilimitado) y se sumarán a los nuevos días del año.`
+      : `Trigger anniversary reset for ${employeeName}? Current available days will carry over (unlimited) and be added to the new year's entitlement.`)) return;
+    try {
+      const res = await axios.post(`${API}/api/people-ops/time-off/reset-anniversary/${employeeId}`, {}, { withCredentials: true });
+      alert(isEs
+        ? `Listo. Carry-over: ${res.data.carryover_in} · Nuevos días: ${res.data.new_entitled} · Total disponible: ${res.data.new_available}`
+        : `Done. Carry-over: ${res.data.carryover_in} · New days: ${res.data.new_entitled} · Total available: ${res.data.new_available}`);
+      fetchData();
+    } catch (err) {
+      alert(err.response?.data?.detail || (isEs ? "Error" : "Error"));
+    }
+  };
+  
+  const filteredBalances = balances.filter(b => {
+    if (balanceSearch && !b.employee_name?.toLowerCase().includes(balanceSearch.toLowerCase())) return false;
+    if (balanceFilter === "override" && !b.manual_override) return false;
+    if (balanceFilter === "low" && b.vacation_available > 5) return false;
+    if (balanceFilter === "anniversary_soon" && (b.days_until_anniversary === null || b.days_until_anniversary > 30)) return false;
+    return true;
+  });
 
   const calculateDays = (start, end) => {
     if (!start || !end) return 0;
@@ -287,26 +332,97 @@ export function TimeOffSection() {
         <TabsContent value="balances" className="mt-4">
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-base">{isEs ? "Balance de Vacaciones" : "Vacation Balances"}</CardTitle>
-              <CardDescription>
-                {isEs ? "Días disponibles por empleado" : "Available days per employee"}
-              </CardDescription>
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <div>
+                  <CardTitle className="text-base">{isEs ? "Balance de Vacaciones" : "Vacation Balances"}</CardTitle>
+                  <CardDescription>
+                    {isEs
+                      ? "Días por empleado · Reinicio automático en aniversario con carry-over ilimitado"
+                      : "Days per employee · Auto-reset on anniversary with unlimited carry-over"}
+                  </CardDescription>
+                </div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Input
+                    placeholder={isEs ? "Buscar empleado..." : "Search employee..."}
+                    value={balanceSearch}
+                    onChange={(e) => setBalanceSearch(e.target.value)}
+                    className="w-48 h-9"
+                    data-testid="balance-search"
+                  />
+                  <Select value={balanceFilter} onValueChange={setBalanceFilter}>
+                    <SelectTrigger className="w-56 h-9" data-testid="balance-filter">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">{isEs ? "Todos" : "All"}</SelectItem>
+                      <SelectItem value="override">{isEs ? "Con ajuste manual" : "Manual override"}</SelectItem>
+                      <SelectItem value="low">{isEs ? "Bajos disponibles (≤5)" : "Low available (≤5)"}</SelectItem>
+                      <SelectItem value="anniversary_soon">{isEs ? "Aniversario ≤30 días" : "Anniversary ≤30 days"}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleRecalcAll}
+                    disabled={recalcingAll}
+                    className="border-blue-300 text-blue-700 hover:bg-blue-50"
+                    data-testid="recalc-all-btn"
+                  >
+                    {recalcingAll ? <RefreshCw className="w-4 h-4 mr-1 animate-spin" /> : <RotateCcw className="w-4 h-4 mr-1" />}
+                    {isEs ? "Recalcular todos" : "Recalc all"}
+                  </Button>
+                </div>
+              </div>
             </CardHeader>
             <CardContent className="p-0">
               <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead>{isEs ? "Empleado" : "Employee"}</TableHead>
+                    <TableHead className="text-center">{isEs ? "Antigüedad" : "Tenure"}</TableHead>
+                    <TableHead>{isEs ? "Próx. Aniversario" : "Next Anniv."}</TableHead>
                     <TableHead className="text-center">{isEs ? "Asignados" : "Entitled"}</TableHead>
                     <TableHead className="text-center">{isEs ? "Usados" : "Used"}</TableHead>
                     <TableHead className="text-center">{isEs ? "Pendientes" : "Pending"}</TableHead>
                     <TableHead className="text-center">{isEs ? "Disponibles" : "Available"}</TableHead>
+                    <TableHead className="text-center">{isEs ? "Acciones" : "Actions"}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {balances.map((b) => (
-                    <TableRow key={b.employee_id}>
-                      <TableCell className="font-medium">{b.employee_name}</TableCell>
+                  {filteredBalances.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={8} className="text-center py-8 text-muted-foreground text-sm">
+                        {isEs ? "Sin resultados" : "No results"}
+                      </TableCell>
+                    </TableRow>
+                  ) : filteredBalances.map((b) => (
+                    <TableRow key={b.employee_id} data-testid={`balance-row-${b.employee_id}`}>
+                      <TableCell className="font-medium">
+                        <div className="flex items-center gap-2">
+                          <span>{b.employee_name}</span>
+                          {b.manual_override && (
+                            <Badge className="bg-purple-100 text-purple-700 text-[10px] px-1.5 py-0" title={isEs ? "Ajuste manual" : "Manual override"}>
+                              <AlertOctagon className="w-3 h-3 mr-1" />
+                              {isEs ? "Manual" : "Manual"}
+                            </Badge>
+                          )}
+                        </div>
+                        {b.hire_date && (
+                          <p className="text-[10px] text-muted-foreground mt-0.5">
+                            {isEs ? "Ingreso" : "Hired"}: {b.hire_date}
+                          </p>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-center text-sm">
+                        {b.years_of_service ? `${b.years_of_service.toFixed(1)}` : "-"}
+                        <span className="text-muted-foreground text-[10px]"> {isEs ? "años" : "yrs"}</span>
+                      </TableCell>
+                      <TableCell className="text-xs">
+                        {b.next_anniversary || "-"}
+                        {b.days_until_anniversary !== null && b.days_until_anniversary <= 30 && (
+                          <span className="ml-1 text-amber-600 font-medium">({b.days_until_anniversary}d)</span>
+                        )}
+                      </TableCell>
                       <TableCell className="text-center">{b.vacation_entitled}</TableCell>
                       <TableCell className="text-center text-red-600">{b.vacation_used}</TableCell>
                       <TableCell className="text-center text-amber-600">{b.vacation_pending}</TableCell>
@@ -314,6 +430,18 @@ export function TimeOffSection() {
                         <Badge variant={b.vacation_available > 5 ? "outline" : "destructive"}>
                           {b.vacation_available}
                         </Badge>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 px-2 text-blue-600 hover:bg-blue-50"
+                          onClick={() => handleAnniversaryReset(b.employee_id, b.employee_name)}
+                          title={isEs ? "Ejecutar reinicio de aniversario ahora (carry-over ilimitado)" : "Trigger anniversary reset now (unlimited carry-over)"}
+                          data-testid={`reset-anniv-${b.employee_id}`}
+                        >
+                          <History className="w-3.5 h-3.5" />
+                        </Button>
                       </TableCell>
                     </TableRow>
                   ))}
