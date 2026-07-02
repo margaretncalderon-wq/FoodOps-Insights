@@ -3969,6 +3969,7 @@ async def create_legacy_loan(data: dict, user: User = Depends(get_current_user))
         "approved_amount": round(original_amount, 2),
         "installments": installments,
         "installment_amount": round(installment_amount, 2),
+        "frequency": data.get("frequency") or "biweekly",
         "total_paid": round(total_paid, 2),
         "remaining_balance": remaining_balance,
         "installments_paid": installments_paid,

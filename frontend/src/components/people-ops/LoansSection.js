@@ -75,6 +75,7 @@ export function LoansSection() {
     original_amount: "",
     installments: 12,
     installment_amount: "",
+    frequency: "biweekly",   // weekly | biweekly | monthly
     start_date: "",
     end_date: "",
     reason: "",
@@ -83,6 +84,63 @@ export function LoansSection() {
   };
   const [legacyDialogOpen, setLegacyDialogOpen] = useState(false);
   const [legacyForm, setLegacyForm] = useState(emptyLegacy);
+  
+  // Helper: add days to a YYYY-MM-DD date string
+  const addDaysISO = (isoDate, days) => {
+    const d = new Date(isoDate + "T00:00:00");
+    d.setDate(d.getDate() + days);
+    return d.toISOString().slice(0, 10);
+  };
+  // Helper: add months to a YYYY-MM-DD date string
+  const addMonthsISO = (isoDate, months) => {
+    const d = new Date(isoDate + "T00:00:00");
+    const targetMonth = d.getMonth() + months;
+    d.setMonth(targetMonth);
+    return d.toISOString().slice(0, 10);
+  };
+  
+  // Compute expected end date from start + installments + frequency
+  const computeEndDate = (start_date, installments, frequency) => {
+    if (!start_date || !installments || installments <= 0) return "";
+    const n = parseInt(installments) || 0;
+    if (frequency === "weekly") return addDaysISO(start_date, n * 7);
+    if (frequency === "monthly") return addMonthsISO(start_date, n);
+    return addDaysISO(start_date, n * 14); // biweekly default
+  };
+  
+  // Update legacy form with smart auto-calculations
+  const updateLegacy = (patch) => {
+    setLegacyForm(prev => {
+      const next = { ...prev, ...patch };
+      
+      // If employee changes, default frequency from their payment_frequency
+      if (patch.employee_id && patch.employee_id !== prev.employee_id) {
+        const emp = employees.find(e => e.employee_id === patch.employee_id);
+        if (emp?.payment_frequency && ["weekly", "biweekly", "monthly"].includes(emp.payment_frequency)) {
+          next.frequency = emp.payment_frequency;
+        }
+      }
+      
+      // Auto-fill installment_amount if not user-overridden
+      const origChanged = patch.original_amount !== undefined;
+      const instChanged = patch.installments !== undefined;
+      if (origChanged || instChanged) {
+        const orig = parseFloat(next.original_amount) || 0;
+        const inst = parseInt(next.installments) || 0;
+        if (orig > 0 && inst > 0) {
+          next.installment_amount = (orig / inst).toFixed(2);
+        }
+      }
+      
+      // Auto-calculate end_date whenever start_date, installments, or frequency change
+      if (patch.start_date !== undefined || patch.installments !== undefined || patch.frequency !== undefined) {
+        const computed = computeEndDate(next.start_date, next.installments, next.frequency);
+        if (computed) next.end_date = computed;
+      }
+      
+      return next;
+    });
+  };
   
   const addLegacyPayment = () => {
     setLegacyForm(f => ({
@@ -132,6 +190,7 @@ export function LoansSection() {
         original_amount: legacyOriginal,
         installments: parseInt(legacyForm.installments) || 0,
         installment_amount: parseFloat(legacyForm.installment_amount) || 0,
+        frequency: legacyForm.frequency || "biweekly",
         start_date: legacyForm.start_date,
         end_date: legacyForm.end_date,
         reason: legacyForm.reason || (isEs ? "Préstamo histórico (previo al sistema)" : "Historical loan (pre-system)"),
@@ -749,7 +808,7 @@ export function LoansSection() {
                 <label className="text-sm font-medium">{isEs ? "Empleado *" : "Employee *"}</label>
                 <Select
                   value={legacyForm.employee_id}
-                  onValueChange={(v) => setLegacyForm({ ...legacyForm, employee_id: v })}
+                  onValueChange={(v) => updateLegacy({ employee_id: v })}
                 >
                   <SelectTrigger data-testid="legacy-employee-select"><SelectValue placeholder={isEs ? "Selecciona empleado" : "Select employee"} /></SelectTrigger>
                   <SelectContent>
@@ -765,7 +824,7 @@ export function LoansSection() {
                 <label className="text-sm font-medium">{isEs ? "Tipo de Préstamo" : "Loan Type"}</label>
                 <Select
                   value={legacyForm.loan_type}
-                  onValueChange={(v) => setLegacyForm({ ...legacyForm, loan_type: v })}
+                  onValueChange={(v) => updateLegacy({ loan_type: v })}
                 >
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -777,13 +836,13 @@ export function LoansSection() {
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-4 gap-4">
               <div>
                 <label className="text-sm font-medium">{isEs ? "Monto Original *" : "Original Amount *"}</label>
                 <Input
                   type="number" min="0" step="0.01"
                   value={legacyForm.original_amount}
-                  onChange={(e) => setLegacyForm({ ...legacyForm, original_amount: e.target.value })}
+                  onChange={(e) => updateLegacy({ original_amount: e.target.value })}
                   placeholder="60000"
                   data-testid="legacy-original-amount"
                 />
@@ -793,8 +852,23 @@ export function LoansSection() {
                 <Input
                   type="number" min="1"
                   value={legacyForm.installments}
-                  onChange={(e) => setLegacyForm({ ...legacyForm, installments: e.target.value })}
+                  onChange={(e) => updateLegacy({ installments: e.target.value })}
+                  data-testid="legacy-installments"
                 />
+              </div>
+              <div>
+                <label className="text-sm font-medium">{isEs ? "Frecuencia *" : "Frequency *"}</label>
+                <Select
+                  value={legacyForm.frequency}
+                  onValueChange={(v) => updateLegacy({ frequency: v })}
+                >
+                  <SelectTrigger data-testid="legacy-frequency"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="weekly">{isEs ? "Semanal" : "Weekly"}</SelectItem>
+                    <SelectItem value="biweekly">{isEs ? "Quincenal" : "Biweekly"}</SelectItem>
+                    <SelectItem value="monthly">{isEs ? "Mensual" : "Monthly"}</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div>
                 <label className="text-sm font-medium">{isEs ? "Cuota por Período *" : "Per-Period Installment *"}</label>
@@ -802,7 +876,8 @@ export function LoansSection() {
                   type="number" min="0" step="0.01"
                   value={legacyForm.installment_amount}
                   onChange={(e) => setLegacyForm({ ...legacyForm, installment_amount: e.target.value })}
-                  placeholder={legacyOriginal && legacyForm.installments ? String((legacyOriginal / (parseInt(legacyForm.installments) || 1)).toFixed(2)) : "5000"}
+                  placeholder="Auto"
+                  data-testid="legacy-installment-amount"
                 />
               </div>
             </div>
@@ -813,12 +888,17 @@ export function LoansSection() {
                 <Input
                   type="date"
                   value={legacyForm.start_date}
-                  onChange={(e) => setLegacyForm({ ...legacyForm, start_date: e.target.value })}
+                  onChange={(e) => updateLegacy({ start_date: e.target.value })}
                   data-testid="legacy-start-date"
                 />
               </div>
               <div>
-                <label className="text-sm font-medium">{isEs ? "Fecha de Fin Esperada *" : "Expected End Date *"}</label>
+                <label className="text-sm font-medium flex items-center justify-between">
+                  <span>{isEs ? "Fecha de Fin Esperada *" : "Expected End Date *"}</span>
+                  <span className="text-[10px] text-muted-foreground font-normal">
+                    {isEs ? "auto-calculada" : "auto-calculated"}
+                  </span>
+                </label>
                 <Input
                   type="date"
                   value={legacyForm.end_date}
