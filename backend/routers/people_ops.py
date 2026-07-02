@@ -1379,10 +1379,12 @@ async def create_employee(
         "afp_provider": data.afp_provider,
         "ars_provider": data.ars_provider,
         
-        # Vacation
-        "vacation_days_entitled": 14.0,
+        # Vacation (calculated by tenure - RD Labor Code Art. 177)
+        # <6 months = 0, 6mo-<5yr = 14 days, 5+ years = 18 days
+        "vacation_days_entitled": calculate_vacation_entitled(data.hire_date),
         "vacation_days_used": 0.0,
-        "vacation_days_available": 14.0,
+        "vacation_days_available": calculate_vacation_entitled(data.hire_date),
+        "vacation_manual_override": False,
         
         # Loans
         "active_loan_balance": 0.0,
@@ -3235,6 +3237,117 @@ async def reject_time_off_request(
     return {"message": "Request rejected"}
 
 
+def calculate_vacation_entitled(hire_date, as_of_date=None):
+    """Calculate vacation days per RD Labor Code Art. 177.
+    - <6 months of service -> 0 days
+    - 6 months to <5 years -> 14 days
+    - 5+ years -> 18 days
+    """
+    if not hire_date:
+        return 14.0
+    try:
+        if isinstance(hire_date, str):
+            hd = datetime.strptime(hire_date[:10], "%Y-%m-%d").date()
+        elif hasattr(hire_date, "date"):
+            hd = hire_date.date()
+        else:
+            hd = hire_date
+        ref = as_of_date or datetime.now(timezone.utc)
+        if hasattr(ref, "date"):
+            ref = ref.date()
+        days = (ref - hd).days
+        months = days / 30.4375
+        years = days / 365.25
+        if months < 6:
+            return 0.0
+        if years >= 5:
+            return 18.0
+        return 14.0
+    except Exception:
+        return 14.0
+
+
+@people_ops_router.put("/employees/{employee_id}/vacation")
+async def update_employee_vacation(
+    employee_id: str,
+    data: dict,
+    user: User = Depends(get_current_user)
+):
+    """Manually override vacation days for an employee.
+    Body: {vacation_days_entitled?, vacation_days_available?, vacation_days_used?}
+    Sets vacation_manual_override: true so future recalculations know it was manually adjusted.
+    """
+    company_id = user.company_id or user.active_org_id
+    employee = await db.employees.find_one(
+        {"company_id": company_id, "employee_id": employee_id},
+        {"_id": 0, "vacation_days_entitled": 1, "vacation_days_used": 1, "vacation_days_available": 1}
+    )
+    if not employee:
+        raise HTTPException(status_code=404, detail="Employee not found")
+
+    update = {"vacation_manual_override": True, "updated_at": datetime.now(timezone.utc)}
+    if "vacation_days_entitled" in data:
+        try:
+            update["vacation_days_entitled"] = max(0.0, float(data["vacation_days_entitled"]))
+        except Exception:
+            raise HTTPException(status_code=400, detail="vacation_days_entitled must be a number")
+    if "vacation_days_used" in data:
+        try:
+            update["vacation_days_used"] = max(0.0, float(data["vacation_days_used"]))
+        except Exception:
+            raise HTTPException(status_code=400, detail="vacation_days_used must be a number")
+    if "vacation_days_available" in data:
+        try:
+            update["vacation_days_available"] = max(0.0, float(data["vacation_days_available"]))
+        except Exception:
+            raise HTTPException(status_code=400, detail="vacation_days_available must be a number")
+
+    # If entitled and used are provided but available is not, recalc available
+    if "vacation_days_entitled" in update and "vacation_days_used" in update and "vacation_days_available" not in update:
+        update["vacation_days_available"] = max(0.0, update["vacation_days_entitled"] - update["vacation_days_used"])
+
+    await db.employees.update_one({"employee_id": employee_id}, {"$set": update})
+    return {"success": True, "updated": {k: v for k, v in update.items() if k != "updated_at"}}
+
+
+@people_ops_router.post("/employees/{employee_id}/vacation/recalculate")
+async def recalculate_employee_vacation(
+    employee_id: str,
+    user: User = Depends(get_current_user)
+):
+    """Recalculate vacation days based on tenure (hire_date). Clears manual_override flag.
+    Preserves vacation_days_used and adjusts available accordingly.
+    """
+    company_id = user.company_id or user.active_org_id
+    employee = await db.employees.find_one(
+        {"company_id": company_id, "employee_id": employee_id},
+        {"_id": 0, "hire_date": 1, "vacation_days_used": 1, "full_name": 1}
+    )
+    if not employee:
+        raise HTTPException(status_code=404, detail="Employee not found")
+
+    entitled = calculate_vacation_entitled(employee.get("hire_date"))
+    used = float(employee.get("vacation_days_used") or 0)
+    available = max(0.0, entitled - used)
+
+    await db.employees.update_one(
+        {"employee_id": employee_id},
+        {"$set": {
+            "vacation_days_entitled": entitled,
+            "vacation_days_available": available,
+            "vacation_manual_override": False,
+            "updated_at": datetime.now(timezone.utc)
+        }}
+    )
+    return {
+        "success": True,
+        "vacation_days_entitled": entitled,
+        "vacation_days_used": used,
+        "vacation_days_available": available
+    }
+
+
+
 @people_ops_router.get("/time-off/balances")
 async def get_time_off_balances(user: User = Depends(get_current_user)):
     """Get vacation/time off balances for all employees"""
@@ -4455,6 +4568,44 @@ async def approve_offboarding(offboarding_id: str, user: User = Depends(get_curr
     )
     
     return {"message": "Offboarding approved, employee terminated"}
+
+
+@people_ops_router.delete("/offboarding/{offboarding_id}")
+async def delete_offboarding(offboarding_id: str, user: User = Depends(get_current_user)):
+    """Delete an offboarding record.
+    - If status is 'processed' or 'approved' AND the employee is currently 'terminated' from this record,
+      re-activate the employee (restore access) and roll back the termination_date.
+    - Records in any status can be deleted; deleted records are removed from the database.
+    """
+    company_id = user.company_id or user.active_org_id
+    now = datetime.now(timezone.utc)
+
+    record = await db.offboarding.find_one(
+        {"company_id": company_id, "offboarding_id": offboarding_id},
+        {"_id": 0}
+    )
+    if not record:
+        raise HTTPException(status_code=404, detail="Record not found")
+
+    # If the record has already terminated the employee, reactivate them
+    if record.get("status") in ("approved", "processed"):
+        emp_id = record.get("employee_id")
+        emp = await db.employees.find_one(
+            {"company_id": company_id, "employee_id": emp_id},
+            {"_id": 0, "status": 1, "termination_date": 1}
+        )
+        if emp and emp.get("status") == "terminated" and emp.get("termination_date") == record.get("termination_date"):
+            await db.employees.update_one(
+                {"employee_id": emp_id},
+                {"$set": {
+                    "status": "active",
+                    "termination_date": None,
+                    "updated_at": now
+                }}
+            )
+
+    await db.offboarding.delete_one({"offboarding_id": offboarding_id})
+    return {"success": True, "message": "Offboarding record deleted"}
 
 
 @people_ops_router.post("/offboarding/{offboarding_id}/process")

@@ -17,7 +17,7 @@ import {
 } from "../ui/table";
 import {
   UserMinus, Plus, RefreshCw, CheckCircle, Send, FileText,
-  DollarSign, Calendar, AlertTriangle, Calculator, Clock
+  DollarSign, Calendar, AlertTriangle, Calculator, Clock, Trash2
 } from "lucide-react";
 
 import { API_BASE as API } from "../../utils/api";
@@ -153,6 +153,25 @@ export function OffboardingSection() {
     }
   };
 
+  const handleDelete = async (record) => {
+    const willReactivate = ["approved", "processed"].includes(record.status);
+    const msg = isEs
+      ? (willReactivate
+          ? `¿Eliminar esta terminación de ${record.employee_name}?\n\nEl empleado será REACTIVADO (status: active) y se removerá la fecha de terminación.`
+          : `¿Eliminar esta terminación de ${record.employee_name}? Esta acción no se puede deshacer.`)
+      : (willReactivate
+          ? `Delete this termination for ${record.employee_name}?\n\nThe employee will be REACTIVATED (status: active) and the termination date will be removed.`
+          : `Delete this termination for ${record.employee_name}? This cannot be undone.`);
+    if (!window.confirm(msg)) return;
+    try {
+      await axios.delete(`${API}/api/people-ops/offboarding/${record.offboarding_id}`, { withCredentials: true });
+      setDetailDialogOpen(false);
+      fetchData();
+    } catch (err) {
+      alert(err.response?.data?.detail || (isEs ? "Error al eliminar" : "Error deleting"));
+    }
+  };
+
   if (loading) {
     return <div className="flex items-center justify-center py-20"><RefreshCw className="w-8 h-8 animate-spin text-muted-foreground" /></div>;
   }
@@ -276,7 +295,7 @@ export function OffboardingSection() {
                       </TableCell>
                       <TableCell>
                         <div className="flex gap-1">
-                          <Button variant="ghost" size="sm" onClick={() => handleViewDetail(rec)}>
+                          <Button variant="ghost" size="sm" onClick={() => handleViewDetail(rec)} data-testid={`view-offboarding-${rec.offboarding_id}`}>
                             <FileText className="w-4 h-4" />
                           </Button>
                           {rec.status === "draft" && (
@@ -284,6 +303,16 @@ export function OffboardingSection() {
                               <Send className="w-4 h-4" />
                             </Button>
                           )}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDelete(rec)}
+                            className="text-red-600 hover:bg-red-50"
+                            title={isEs ? "Eliminar" : "Delete"}
+                            data-testid={`delete-offboarding-${rec.offboarding_id}`}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -512,6 +541,15 @@ export function OffboardingSection() {
               </div>
 
               <DialogFooter>
+                <Button
+                  variant="outline"
+                  onClick={() => handleDelete(selectedRecord)}
+                  className="text-red-600 border-red-300 hover:bg-red-50 mr-auto"
+                  data-testid="delete-offboarding-detail-btn"
+                >
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  {isEs ? "Eliminar" : "Delete"}
+                </Button>
                 <Button variant="outline" onClick={() => setDetailDialogOpen(false)}>{isEs ? "Cerrar" : "Close"}</Button>
                 
                 {selectedRecord.status === "pending_approval" && (

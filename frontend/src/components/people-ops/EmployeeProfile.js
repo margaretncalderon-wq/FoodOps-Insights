@@ -57,6 +57,64 @@ export function EmployeeProfile() {
   const [pendingDeductions, setPendingDeductions] = useState([]);
   const [activeTab, setActiveTab] = useState("info");
   
+  // Vacation edit dialog
+  const [vacationDialogOpen, setVacationDialogOpen] = useState(false);
+  const [vacationEdit, setVacationEdit] = useState({ entitled: 14, used: 0, available: 14 });
+  const [vacationSaving, setVacationSaving] = useState(false);
+  
+  useEffect(() => {
+    if (vacationDialogOpen && employee) {
+      setVacationEdit({
+        entitled: employee.vacation_days_entitled ?? 14,
+        used: employee.vacation_days_used ?? 0,
+        available: employee.vacation_days_available ?? 14
+      });
+    }
+  }, [vacationDialogOpen, employee]);
+  
+  const saveVacation = async () => {
+    setVacationSaving(true);
+    try {
+      await axios.put(
+        `${API}/api/people-ops/employees/${employeeId}/vacation`,
+        {
+          vacation_days_entitled: parseFloat(vacationEdit.entitled) || 0,
+          vacation_days_used: parseFloat(vacationEdit.used) || 0,
+          vacation_days_available: parseFloat(vacationEdit.available) || 0
+        },
+        { withCredentials: true }
+      );
+      setVacationDialogOpen(false);
+      fetchEmployee();
+    } catch (err) {
+      alert(err.response?.data?.detail || (isEs ? "Error al guardar" : "Error saving"));
+    }
+    setVacationSaving(false);
+  };
+  
+  const recalcVacation = async () => {
+    if (!window.confirm(isEs
+      ? "¿Recalcular días de vacaciones según la antigüedad? (Ley RD: 14 días si <5 años, 18 si ≥5 años)"
+      : "Recalculate vacation days by tenure? (RD Law: 14 days if <5 years, 18 if ≥5 years)")) return;
+    setVacationSaving(true);
+    try {
+      const res = await axios.post(
+        `${API}/api/people-ops/employees/${employeeId}/vacation/recalculate`,
+        {},
+        { withCredentials: true }
+      );
+      setVacationEdit({
+        entitled: res.data.vacation_days_entitled,
+        used: res.data.vacation_days_used,
+        available: res.data.vacation_days_available
+      });
+      fetchEmployee();
+    } catch (err) {
+      alert(err.response?.data?.detail || (isEs ? "Error al recalcular" : "Error recalculating"));
+    }
+    setVacationSaving(false);
+  };
+  
   // Reference data for dropdowns
   const [jobPostings, setJobPostings] = useState([]);
   const [departments, setDepartments] = useState([]);
@@ -873,11 +931,30 @@ export function EmployeeProfile() {
             
             <Card>
               <CardContent className="pt-6">
-                <p className="text-sm text-muted-foreground">{isEs ? "Vacaciones Disponibles" : "Vacation Days"}</p>
-                <p className="text-2xl font-bold">{employee.vacation_days_available || 0}</p>
-                <p className="text-xs text-muted-foreground">
-                  {isEs ? `de ${employee.vacation_days_entitled || 14} días` : `of ${employee.vacation_days_entitled || 14} days`}
-                </p>
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex-1">
+                    <p className="text-sm text-muted-foreground">{isEs ? "Vacaciones Disponibles" : "Vacation Days"}</p>
+                    <p className="text-2xl font-bold" data-testid="vacation-available">{employee.vacation_days_available || 0}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {isEs ? `de ${employee.vacation_days_entitled || 14} días` : `of ${employee.vacation_days_entitled || 14} days`}
+                    </p>
+                    {employee.vacation_manual_override && (
+                      <p className="text-[10px] text-purple-600 mt-1 flex items-center gap-1">
+                        <AlertOctagon className="w-3 h-3" />
+                        {isEs ? "Ajuste manual" : "Manual override"}
+                      </p>
+                    )}
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-blue-600 h-7 px-2"
+                    onClick={() => setVacationDialogOpen(true)}
+                    data-testid="edit-vacation-btn"
+                  >
+                    {isEs ? "Editar" : "Edit"}
+                  </Button>
+                </div>
               </CardContent>
             </Card>
             
@@ -1731,6 +1808,78 @@ export function EmployeeProfile() {
             <Button onClick={submitPendingDeduction} disabled={pdSaving} data-testid="submit-pd-btn">
               {pdSaving ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
               {isEs ? "Agregar" : "Add"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Vacation Edit Dialog */}
+      <Dialog open={vacationDialogOpen} onOpenChange={setVacationDialogOpen}>
+        <DialogContent className="max-w-md" data-testid="vacation-edit-dialog">
+          <DialogHeader>
+            <DialogTitle>{isEs ? "Editar Días de Vacaciones" : "Edit Vacation Days"}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="p-3 rounded-lg border border-blue-200 bg-blue-50 text-xs text-blue-800">
+              <p className="font-medium mb-1">{isEs ? "Ley Dominicana (Art. 177 CT)" : "RD Labor Code (Art. 177)"}</p>
+              <p>{isEs
+                ? "• 6 meses a <5 años: 14 días · 5+ años: 18 días · <6 meses: 0 días"
+                : "• 6 months to <5 years: 14 days · 5+ years: 18 days · <6 months: 0 days"}</p>
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <label className="text-xs font-medium">{isEs ? "Asignados" : "Entitled"}</label>
+                <Input
+                  type="number" min="0" step="0.5"
+                  value={vacationEdit.entitled}
+                  onChange={(e) => setVacationEdit({ ...vacationEdit, entitled: e.target.value })}
+                  data-testid="vacation-entitled-input"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium">{isEs ? "Usados" : "Used"}</label>
+                <Input
+                  type="number" min="0" step="0.5"
+                  value={vacationEdit.used}
+                  onChange={(e) => setVacationEdit({ ...vacationEdit, used: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium">{isEs ? "Disponibles" : "Available"}</label>
+                <Input
+                  type="number" min="0" step="0.5"
+                  value={vacationEdit.available}
+                  onChange={(e) => setVacationEdit({ ...vacationEdit, available: e.target.value })}
+                  data-testid="vacation-available-input"
+                />
+              </div>
+            </div>
+            <p className="text-[11px] text-muted-foreground">
+              {isEs
+                ? "Guardar marcará el empleado como 'ajuste manual'. Usa Recalcular para volver a la lógica automática."
+                : "Saving marks the employee as 'manual override'. Use Recalculate to revert to automatic logic."}
+            </p>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={recalcVacation}
+              disabled={vacationSaving}
+              data-testid="recalc-vacation-btn"
+              className="border-blue-300 text-blue-700 hover:bg-blue-50"
+            >
+              {vacationSaving ? "..." : (isEs ? "Recalcular por Antigüedad" : "Recalculate by Tenure")}
+            </Button>
+            <div className="flex-1" />
+            <Button variant="outline" onClick={() => setVacationDialogOpen(false)}>
+              {isEs ? "Cancelar" : "Cancel"}
+            </Button>
+            <Button
+              onClick={saveVacation}
+              disabled={vacationSaving}
+              data-testid="save-vacation-btn"
+            >
+              {vacationSaving ? "..." : (isEs ? "Guardar" : "Save")}
             </Button>
           </DialogFooter>
         </DialogContent>
