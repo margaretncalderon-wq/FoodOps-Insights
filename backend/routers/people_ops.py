@@ -3849,6 +3849,193 @@ async def create_loan_request(data: dict, user: User = Depends(get_current_user)
     return {"loan_id": loan_id, "installment_amount": round(installment_amount, 2)}
 
 
+@people_ops_router.post("/loans/legacy")
+async def create_legacy_loan(data: dict, user: User = Depends(get_current_user)):
+    """Register a HISTORICAL loan that originated BEFORE the system was in place.
+    Creates the loan directly in ACTIVE (or paid_off) status with a set of historical payments already applied.
+    
+    Body:
+    {
+      employee_id: str,
+      loan_type: 'personal_loan'|'salary_advance'|'emergency_loan'|'education_loan',
+      original_amount: float,              # total amount originally lent
+      installments: int,                   # total installments
+      installment_amount: float,           # amount per payroll period going forward
+      start_date: 'YYYY-MM-DD',            # historical start date (REQUIRED)
+      end_date: 'YYYY-MM-DD',              # expected end date (REQUIRED)
+      reason: str,
+      notes?: str,
+      historical_payments: [               # payments already made before the system (can be empty)
+        {payment_date: 'YYYY-MM-DD', amount: float, notes?: str}
+      ]
+    }
+    """
+    company_id = user.company_id or user.active_org_id
+
+    employee_id = data.get("employee_id")
+    employee = await db.employees.find_one(
+        {"company_id": company_id, "employee_id": employee_id},
+        {"_id": 0, "full_name": 1, "active_loan_balance": 1}
+    )
+    if not employee:
+        raise HTTPException(status_code=404, detail="Employee not found")
+
+    # Block if there is already an active loan for this employee
+    existing_active = await db.loans.find_one({
+        "company_id": company_id,
+        "employee_id": employee_id,
+        "status": "active"
+    })
+    if existing_active:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Employee already has an active loan with balance: ${existing_active.get('remaining_balance', 0):,.2f}"
+        )
+
+    original_amount = float(data.get("original_amount") or 0)
+    installments = int(data.get("installments") or 0)
+    installment_amount = float(data.get("installment_amount") or 0)
+    start_date = (data.get("start_date") or "").strip()
+    end_date = (data.get("end_date") or "").strip()
+    loan_type = data.get("loan_type") or "personal_loan"
+    historical_payments = data.get("historical_payments") or []
+
+    # Validations
+    if original_amount <= 0:
+        raise HTTPException(status_code=400, detail="original_amount must be greater than 0")
+    if installments <= 0:
+        raise HTTPException(status_code=400, detail="installments must be greater than 0")
+    if installment_amount <= 0:
+        raise HTTPException(status_code=400, detail="installment_amount must be greater than 0")
+    if not start_date or not end_date:
+        raise HTTPException(status_code=400, detail="start_date and end_date are required")
+    try:
+        sd = datetime.strptime(start_date, "%Y-%m-%d").date()
+        ed = datetime.strptime(end_date, "%Y-%m-%d").date()
+    except Exception:
+        raise HTTPException(status_code=400, detail="start_date/end_date must be YYYY-MM-DD")
+    if ed < sd:
+        raise HTTPException(status_code=400, detail="end_date must be on or after start_date")
+
+    # Validate historical payments
+    total_paid = 0.0
+    normalized_payments = []
+    for idx, p in enumerate(historical_payments):
+        try:
+            amt = float(p.get("amount") or 0)
+        except Exception:
+            raise HTTPException(status_code=400, detail=f"Payment #{idx+1}: invalid amount")
+        if amt <= 0:
+            raise HTTPException(status_code=400, detail=f"Payment #{idx+1}: amount must be > 0")
+        pdate = (p.get("payment_date") or "").strip()
+        if not pdate:
+            raise HTTPException(status_code=400, detail=f"Payment #{idx+1}: payment_date is required")
+        try:
+            datetime.strptime(pdate, "%Y-%m-%d")
+        except Exception:
+            raise HTTPException(status_code=400, detail=f"Payment #{idx+1}: payment_date must be YYYY-MM-DD")
+        total_paid += amt
+        normalized_payments.append({
+            "payment_date": pdate,
+            "amount": round(amt, 2),
+            "notes": p.get("notes") or None
+        })
+
+    if total_paid > original_amount + 0.01:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Sum of historical payments (${total_paid:,.2f}) exceeds original amount (${original_amount:,.2f})"
+        )
+
+    installments_paid = len(normalized_payments)
+    if installments_paid > installments:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Historical payments count ({installments_paid}) exceeds total installments ({installments})"
+        )
+
+    remaining_balance = round(original_amount - total_paid, 2)
+    now = datetime.now(timezone.utc)
+    loan_id = f"loan_{uuid.uuid4().hex[:12]}"
+    status = "paid_off" if remaining_balance <= 0.01 else "active"
+
+    loan = {
+        "loan_id": loan_id,
+        "company_id": company_id,
+        "employee_id": employee_id,
+        "employee_name": employee.get("full_name"),
+        "loan_type": loan_type,
+        "requested_amount": round(original_amount, 2),
+        "approved_amount": round(original_amount, 2),
+        "installments": installments,
+        "installment_amount": round(installment_amount, 2),
+        "total_paid": round(total_paid, 2),
+        "remaining_balance": remaining_balance,
+        "installments_paid": installments_paid,
+        "status": status,
+        "reason": data.get("reason") or "Legacy loan (pre-system)",
+        "notes": data.get("notes"),
+        "is_legacy": True,
+        "start_date": start_date,
+        "end_date": end_date,
+        "approved_by": user.user_id,
+        "approved_by_name": user.name,
+        "approved_at": now,
+        "created_at": now,
+        "updated_at": now
+    }
+    if status == "paid_off":
+        loan["paid_date"] = now.date().isoformat()
+
+    await db.loans.insert_one(loan)
+
+    # Insert each historical payment
+    for p in normalized_payments:
+        await db.loan_payments.insert_one({
+            "payment_id": f"lpay_{uuid.uuid4().hex[:12]}",
+            "loan_id": loan_id,
+            "company_id": company_id,
+            "employee_id": employee_id,
+            "amount": p["amount"],
+            "payment_type": "historical",
+            "payment_date": p["payment_date"],
+            "notes": p["notes"],
+            "balance_after": None,  # historical: exact running balance unknown
+            "is_historical": True,
+            "created_by": user.user_id,
+            "created_at": now.isoformat()
+        })
+
+    # Sync employee active_loan_balance
+    await db.employees.update_one(
+        {"employee_id": employee_id},
+        {"$set": {"active_loan_balance": remaining_balance if status == "active" else 0}}
+    )
+
+    return {
+        "success": True,
+        "loan_id": loan_id,
+        "status": status,
+        "total_paid": round(total_paid, 2),
+        "installments_paid": installments_paid,
+        "remaining_balance": remaining_balance
+    }
+
+
+@people_ops_router.get("/loans/{loan_id}/payments")
+async def list_loan_payments(loan_id: str, user: User = Depends(get_current_user)):
+    """List all payments (payroll deductions, manual, and historical) recorded for a loan."""
+    company_id = user.company_id or user.active_org_id
+    loan = await db.loans.find_one({"loan_id": loan_id, "company_id": company_id}, {"_id": 0})
+    if not loan:
+        raise HTTPException(status_code=404, detail="Loan not found")
+    payments = await db.loan_payments.find(
+        {"loan_id": loan_id, "company_id": company_id},
+        {"_id": 0}
+    ).sort("payment_date", 1).to_list(500)
+    return {"loan": loan, "payments": payments}
+
+
 @people_ops_router.post("/loans/{loan_id}/approve")
 async def approve_loan(
     loan_id: str,

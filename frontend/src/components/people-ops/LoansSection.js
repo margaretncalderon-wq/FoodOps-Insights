@@ -17,7 +17,7 @@ import {
 } from "../ui/table";
 import {
   Wallet, Plus, RefreshCw, CheckCircle, XCircle, Clock,
-  CreditCard, DollarSign, AlertCircle, History
+  CreditCard, DollarSign, AlertCircle, History, Archive, Trash2
 } from "lucide-react";
 
 import { API_BASE as API } from "../../utils/api";
@@ -57,6 +57,90 @@ export function LoansSection() {
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [paymentForm, setPaymentForm] = useState({ amount: "", payment_type: "cash", payment_date: new Date().toISOString().slice(0,10), notes: "" });
   const [payingLoan, setPayingLoan] = useState(null);
+  
+  // Legacy (historical) loan dialog
+  const today = new Date().toISOString().slice(0, 10);
+  const emptyLegacy = {
+    employee_id: "",
+    loan_type: "personal_loan",
+    original_amount: "",
+    installments: 12,
+    installment_amount: "",
+    start_date: "",
+    end_date: "",
+    reason: "",
+    notes: "",
+    historical_payments: []
+  };
+  const [legacyDialogOpen, setLegacyDialogOpen] = useState(false);
+  const [legacyForm, setLegacyForm] = useState(emptyLegacy);
+  
+  const addLegacyPayment = () => {
+    setLegacyForm(f => ({
+      ...f,
+      historical_payments: [...f.historical_payments, { payment_date: today, amount: "", notes: "" }]
+    }));
+  };
+  const updateLegacyPayment = (idx, patch) => {
+    setLegacyForm(f => ({
+      ...f,
+      historical_payments: f.historical_payments.map((p, i) => (i === idx ? { ...p, ...patch } : p))
+    }));
+  };
+  const removeLegacyPayment = (idx) => {
+    setLegacyForm(f => ({
+      ...f,
+      historical_payments: f.historical_payments.filter((_, i) => i !== idx)
+    }));
+  };
+  
+  const legacyOriginal = parseFloat(legacyForm.original_amount) || 0;
+  const legacyTotalPaid = legacyForm.historical_payments.reduce(
+    (sum, p) => sum + (parseFloat(p.amount) || 0),
+    0
+  );
+  const legacyRemaining = Math.max(0, legacyOriginal - legacyTotalPaid);
+  const legacyOver = legacyTotalPaid > legacyOriginal + 0.01;
+  
+  const submitLegacyLoan = async () => {
+    if (!legacyForm.employee_id) { alert(isEs ? "Selecciona un empleado" : "Select an employee"); return; }
+    if (legacyOriginal <= 0) { alert(isEs ? "Monto original inválido" : "Invalid original amount"); return; }
+    if ((parseFloat(legacyForm.installment_amount) || 0) <= 0) { alert(isEs ? "Cuota por período inválida" : "Invalid installment amount"); return; }
+    if (!legacyForm.start_date || !legacyForm.end_date) { alert(isEs ? "Fecha de inicio y fin son requeridas" : "Start and end dates are required"); return; }
+    if (legacyForm.end_date < legacyForm.start_date) { alert(isEs ? "La fecha de fin debe ser posterior al inicio" : "End date must be after start date"); return; }
+    if (legacyOver) { alert(isEs ? "Los pagos históricos exceden el monto original" : "Historical payments exceed original amount"); return; }
+    // Validate each payment
+    for (const p of legacyForm.historical_payments) {
+      if (!p.payment_date) { alert(isEs ? "Cada pago histórico requiere fecha" : "Every historical payment needs a date"); return; }
+      if (!(parseFloat(p.amount) > 0)) { alert(isEs ? "Cada pago histórico requiere monto > 0" : "Every historical payment needs amount > 0"); return; }
+    }
+    
+    setSubmitting(true);
+    try {
+      await axios.post(`${API}/api/people-ops/loans/legacy`, {
+        employee_id: legacyForm.employee_id,
+        loan_type: legacyForm.loan_type,
+        original_amount: legacyOriginal,
+        installments: parseInt(legacyForm.installments) || 0,
+        installment_amount: parseFloat(legacyForm.installment_amount) || 0,
+        start_date: legacyForm.start_date,
+        end_date: legacyForm.end_date,
+        reason: legacyForm.reason || (isEs ? "Préstamo histórico (previo al sistema)" : "Historical loan (pre-system)"),
+        notes: legacyForm.notes || null,
+        historical_payments: legacyForm.historical_payments.map(p => ({
+          payment_date: p.payment_date,
+          amount: parseFloat(p.amount),
+          notes: p.notes || null
+        }))
+      }, { withCredentials: true });
+      setLegacyDialogOpen(false);
+      setLegacyForm(emptyLegacy);
+      fetchData();
+    } catch (err) {
+      alert(err.response?.data?.detail || (isEs ? "Error al registrar préstamo histórico" : "Error registering legacy loan"));
+    }
+    setSubmitting(false);
+  };
   
   const openManualPayment = (loan) => {
     setPayingLoan(loan);
@@ -208,6 +292,15 @@ export function LoansSection() {
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={fetchData}><RefreshCw className="w-4 h-4" /></Button>
+          <Button
+            variant="outline"
+            onClick={() => { setLegacyForm(emptyLegacy); setLegacyDialogOpen(true); }}
+            data-testid="new-legacy-loan-btn"
+            className="border-purple-300 text-purple-700 hover:bg-purple-50"
+          >
+            <Archive className="w-4 h-4 mr-2" />
+            {isEs ? "Registrar Histórico" : "Register Legacy"}
+          </Button>
           <Button onClick={() => setDialogOpen(true)} data-testid="new-loan-btn">
             <Plus className="w-4 h-4 mr-2" />
             {isEs ? "Nueva Solicitud" : "New Request"}
@@ -284,7 +377,22 @@ export function LoansSection() {
                   const typeConfig = LOAN_TYPES[loan.loan_type] || LOAN_TYPES.personal_loan;
                   return (
                     <TableRow key={loan.loan_id} data-testid={`loan-${loan.loan_id}`}>
-                      <TableCell className="font-medium">{loan.employee_name}</TableCell>
+                      <TableCell className="font-medium">
+                        <div className="flex items-center gap-2">
+                          <span>{loan.employee_name}</span>
+                          {loan.is_legacy && (
+                            <Badge className="bg-purple-100 text-purple-700 text-[10px] px-1.5 py-0" title={`${loan.start_date || "?"} → ${loan.end_date || "?"}`}>
+                              <Archive className="w-3 h-3 mr-1" />
+                              {isEs ? "Histórico" : "Legacy"}
+                            </Badge>
+                          )}
+                        </div>
+                        {(loan.start_date || loan.end_date) && (
+                          <p className="text-[10px] text-muted-foreground mt-0.5">
+                            {loan.start_date || "?"} → {loan.end_date || "?"}
+                          </p>
+                        )}
+                      </TableCell>
                       <TableCell>
                         <Badge className={typeConfig.color}>
                           {isEs ? typeConfig.label : typeConfig.labelEn}
@@ -594,6 +702,239 @@ export function LoansSection() {
             <Button onClick={submitManualPayment} disabled={submitting} className="bg-emerald-600 hover:bg-emerald-700" data-testid="submit-manual-payment">
               {submitting ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <DollarSign className="w-4 h-4 mr-2" />}
               {isEs ? "Registrar Pago" : "Record Payment"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Legacy Loan Dialog */}
+      <Dialog open={legacyDialogOpen} onOpenChange={setLegacyDialogOpen}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Archive className="w-5 h-5 text-purple-600" />
+              {isEs ? "Registrar Préstamo Histórico" : "Register Legacy Loan"}
+            </DialogTitle>
+            <p className="text-sm text-muted-foreground">
+              {isEs
+                ? "Para préstamos que existían antes del sistema. Se creará en estado ACTIVO con los pagos previos ya aplicados."
+                : "For loans that existed before the system. Will be created in ACTIVE state with historical payments already applied."}
+            </p>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium">{isEs ? "Empleado *" : "Employee *"}</label>
+                <Select
+                  value={legacyForm.employee_id}
+                  onValueChange={(v) => setLegacyForm({ ...legacyForm, employee_id: v })}
+                >
+                  <SelectTrigger data-testid="legacy-employee-select"><SelectValue placeholder={isEs ? "Selecciona empleado" : "Select employee"} /></SelectTrigger>
+                  <SelectContent>
+                    {employees.map(emp => (
+                      <SelectItem key={emp.employee_id} value={emp.employee_id}>
+                        {emp.full_name} — {emp.position || "-"}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-sm font-medium">{isEs ? "Tipo de Préstamo" : "Loan Type"}</label>
+                <Select
+                  value={legacyForm.loan_type}
+                  onValueChange={(v) => setLegacyForm({ ...legacyForm, loan_type: v })}
+                >
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(LOAN_TYPES).map(([k, v]) => (
+                      <SelectItem key={k} value={k}>{isEs ? v.label : v.labelEn}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <label className="text-sm font-medium">{isEs ? "Monto Original *" : "Original Amount *"}</label>
+                <Input
+                  type="number" min="0" step="0.01"
+                  value={legacyForm.original_amount}
+                  onChange={(e) => setLegacyForm({ ...legacyForm, original_amount: e.target.value })}
+                  placeholder="60000"
+                  data-testid="legacy-original-amount"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium">{isEs ? "Cuotas Totales *" : "Total Installments *"}</label>
+                <Input
+                  type="number" min="1"
+                  value={legacyForm.installments}
+                  onChange={(e) => setLegacyForm({ ...legacyForm, installments: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium">{isEs ? "Cuota por Período *" : "Per-Period Installment *"}</label>
+                <Input
+                  type="number" min="0" step="0.01"
+                  value={legacyForm.installment_amount}
+                  onChange={(e) => setLegacyForm({ ...legacyForm, installment_amount: e.target.value })}
+                  placeholder={legacyOriginal && legacyForm.installments ? String((legacyOriginal / (parseInt(legacyForm.installments) || 1)).toFixed(2)) : "5000"}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium">{isEs ? "Fecha de Inicio (histórica) *" : "Start Date (historical) *"}</label>
+                <Input
+                  type="date"
+                  value={legacyForm.start_date}
+                  onChange={(e) => setLegacyForm({ ...legacyForm, start_date: e.target.value })}
+                  data-testid="legacy-start-date"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium">{isEs ? "Fecha de Fin Esperada *" : "Expected End Date *"}</label>
+                <Input
+                  type="date"
+                  value={legacyForm.end_date}
+                  onChange={(e) => setLegacyForm({ ...legacyForm, end_date: e.target.value })}
+                  data-testid="legacy-end-date"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium">{isEs ? "Motivo / Referencia" : "Reason / Reference"}</label>
+              <Input
+                value={legacyForm.reason}
+                onChange={(e) => setLegacyForm({ ...legacyForm, reason: e.target.value })}
+                placeholder={isEs ? "Ej: Préstamo aprobado en Feb 2025 antes del sistema" : "e.g., Loan approved Feb 2025 pre-system"}
+              />
+            </div>
+
+            {/* Historical Payments */}
+            <div className="border rounded-lg p-3 bg-purple-50/40">
+              <div className="flex items-center justify-between mb-3">
+                <h4 className="font-medium text-sm flex items-center gap-2">
+                  <History className="w-4 h-4 text-purple-600" />
+                  {isEs ? "Pagos Históricos (previos al sistema)" : "Historical Payments (pre-system)"}
+                </h4>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={addLegacyPayment}
+                  data-testid="add-legacy-payment"
+                >
+                  <Plus className="w-3.5 h-3.5 mr-1" />
+                  {isEs ? "Agregar Pago" : "Add Payment"}
+                </Button>
+              </div>
+
+              {legacyForm.historical_payments.length === 0 ? (
+                <p className="text-xs text-muted-foreground italic">
+                  {isEs ? "Sin pagos históricos. Agrega uno por cada cuota ya pagada antes del sistema." : "No historical payments. Add one per installment already paid before the system."}
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {legacyForm.historical_payments.map((p, idx) => (
+                    <div key={idx} className="grid grid-cols-12 gap-2 items-center bg-white p-2 rounded border" data-testid={`legacy-payment-row-${idx}`}>
+                      <div className="col-span-4">
+                        <Input
+                          type="date"
+                          value={p.payment_date}
+                          onChange={(e) => updateLegacyPayment(idx, { payment_date: e.target.value })}
+                          className="h-8"
+                        />
+                      </div>
+                      <div className="col-span-3">
+                        <Input
+                          type="number" min="0" step="0.01"
+                          value={p.amount}
+                          onChange={(e) => updateLegacyPayment(idx, { amount: e.target.value })}
+                          placeholder="Monto"
+                          className="h-8"
+                        />
+                      </div>
+                      <div className="col-span-4">
+                        <Input
+                          value={p.notes}
+                          onChange={(e) => updateLegacyPayment(idx, { notes: e.target.value })}
+                          placeholder={isEs ? "Notas (opcional)" : "Notes (optional)"}
+                          className="h-8"
+                        />
+                      </div>
+                      <div className="col-span-1 flex justify-end">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 w-7 p-0 text-red-600 hover:bg-red-50"
+                          onClick={() => removeLegacyPayment(idx)}
+                          data-testid={`remove-legacy-payment-${idx}`}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Live summary */}
+              <div className={`mt-3 grid grid-cols-3 gap-3 p-3 rounded-lg border ${legacyOver ? "border-red-300 bg-red-50" : "border-emerald-200 bg-emerald-50"}`}>
+                <div>
+                  <p className="text-xs text-muted-foreground">{isEs ? "Total Pagado" : "Total Paid"}</p>
+                  <p className={`font-bold ${legacyOver ? "text-red-700" : "text-emerald-700"}`} data-testid="legacy-total-paid">
+                    {formatCurrency(legacyTotalPaid)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">{isEs ? "Cuotas Pagadas" : "Installments Paid"}</p>
+                  <p className="font-bold">
+                    {legacyForm.historical_payments.length} / {legacyForm.installments || 0}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">{isEs ? "Saldo Restante" : "Remaining Balance"}</p>
+                  <p className="font-bold text-blue-700" data-testid="legacy-remaining-balance">
+                    {formatCurrency(legacyRemaining)}
+                  </p>
+                </div>
+              </div>
+              {legacyOver && (
+                <p className="text-xs text-red-600 mt-2 flex items-center gap-1">
+                  <AlertCircle className="w-3.5 h-3.5" />
+                  {isEs ? "La suma de pagos excede el monto original." : "Sum of payments exceeds original amount."}
+                </p>
+              )}
+            </div>
+
+            <div>
+              <label className="text-sm font-medium">{isEs ? "Notas Adicionales" : "Additional Notes"}</label>
+              <Textarea
+                value={legacyForm.notes}
+                onChange={(e) => setLegacyForm({ ...legacyForm, notes: e.target.value })}
+                rows={2}
+                placeholder={isEs ? "Cualquier información adicional..." : "Any additional information..."}
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setLegacyDialogOpen(false)}>{isEs ? "Cancelar" : "Cancel"}</Button>
+            <Button
+              onClick={submitLegacyLoan}
+              disabled={submitting || legacyOver}
+              className="bg-purple-600 hover:bg-purple-700"
+              data-testid="submit-legacy-loan"
+            >
+              {submitting ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <Archive className="w-4 h-4 mr-2" />}
+              {isEs ? "Registrar Préstamo Histórico" : "Register Legacy Loan"}
             </Button>
           </DialogFooter>
         </DialogContent>
