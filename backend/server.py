@@ -283,6 +283,10 @@ class Company(BaseModel):
     catalog_description: Optional[str] = None  # Longer description / bio
     catalog_hero_image_url: Optional[str] = None  # Optional cover image
     catalog_show_prices: bool = True  # If false, prices are hidden (request-only)
+    # Recipe Costing Configuration (Sprint P0)
+    chef_hourly_rate: float = 20.0  # $/hr for labor cost calculations
+    recipe_overhead_percent: float = 15.0  # Applied to food cost
+    recipe_target_food_cost_percent: float = 30.0  # For suggested sell price
 
 # ============== SAAS MULTI-TENANT MODELS ==============
 
@@ -2872,6 +2876,75 @@ async def calculate_recipe_cost(ingredients: List[RecipeIngredient], sub_recipes
 
     return round(total_cost, 4), updated_ingredients, updated_sub_recipes
 
+
+async def compute_full_recipe_costing(
+    recipe_data: dict,
+    food_cost: float,
+    company_id: str,
+) -> dict:
+    """Compute the full recipe costing (food + labor + overhead) plus selling price analytics.
+    
+    Returns dict with:
+      food_cost, labor_cost, overhead_cost, total_cost_full,
+      cost_per_yield, cost_per_portion (food only), total_cost_per_portion (food+labor+overhead),
+      food_cost_percent, total_cost_percent, contribution_dollar, contribution_percent,
+      suggested_sell_price, price_gap_pct
+    """
+    # Fetch config from company
+    company = await db.companies.find_one({"company_id": company_id}, {"_id": 0})
+    chef_hourly = float((company or {}).get("chef_hourly_rate") or 20.0)
+    overhead_pct = float((company or {}).get("recipe_overhead_percent") or 15.0)
+    target_food_pct = float((company or {}).get("recipe_target_food_cost_percent") or 30.0)
+    
+    prep_min = float(recipe_data.get("prep_time_minutes") or 0)
+    cook_min = float(recipe_data.get("cook_time_minutes") or 0)
+    labor_min = float(recipe_data.get("labor_minutes") or 0)
+    total_labor_min = prep_min + cook_min + labor_min
+    labor_cost = round((total_labor_min / 60.0) * chef_hourly, 4)
+    
+    overhead_cost = round(food_cost * (overhead_pct / 100.0), 4)
+    total_cost_full = round(food_cost + labor_cost + overhead_cost, 4)
+    
+    yield_qty = float(recipe_data.get("yield_quantity") or 1) or 1
+    portions = float(recipe_data.get("portions_per_yield") or 1) or 1
+    
+    cost_per_yield = round(food_cost / yield_qty, 4)
+    cost_per_portion_food = round(food_cost / (yield_qty * portions if yield_qty * portions else 1), 4)
+    total_cost_per_portion = round(total_cost_full / (yield_qty * portions if yield_qty * portions else 1), 4)
+    
+    sell_price = float(recipe_data.get("sell_price") or recipe_data.get("default_portion_price") or 0)
+    food_cost_percent = round((cost_per_portion_food / sell_price * 100), 2) if sell_price > 0 else 0
+    total_cost_percent = round((total_cost_per_portion / sell_price * 100), 2) if sell_price > 0 else 0
+    contribution_dollar = round(sell_price - total_cost_per_portion, 4) if sell_price > 0 else 0
+    contribution_percent = round((contribution_dollar / sell_price * 100), 2) if sell_price > 0 else 0
+    
+    # Suggested sell price to meet target food cost % (using TOTAL cost, more accurate)
+    suggested_sell_price = round(total_cost_per_portion / (target_food_pct / 100.0), 2) if target_food_pct > 0 else 0
+    price_gap_pct = round(((sell_price - suggested_sell_price) / suggested_sell_price * 100), 2) if suggested_sell_price > 0 else 0
+    
+    return {
+        "food_cost": round(food_cost, 4),
+        "labor_cost": labor_cost,
+        "overhead_cost": overhead_cost,
+        "total_cost_full": total_cost_full,
+        "cost_per_yield": cost_per_yield,
+        "cost_per_portion": cost_per_portion_food,       # legacy field: food-only per portion
+        "total_cost_per_portion": total_cost_per_portion,
+        "food_cost_percent": food_cost_percent,
+        "total_cost_percent": total_cost_percent,
+        "contribution_dollar": contribution_dollar,
+        "contribution_percent": contribution_percent,
+        "suggested_sell_price": suggested_sell_price,
+        "price_gap_pct": price_gap_pct,
+        # Snapshot config so history is auditable
+        "costing_config_snapshot": {
+            "chef_hourly_rate": chef_hourly,
+            "overhead_percent": overhead_pct,
+            "target_food_cost_percent": target_food_pct,
+            "computed_at": datetime.now(timezone.utc).isoformat(),
+        },
+    }
+
 async def check_circular_dependency(parent_id: str, child_id: str, company_id: str, visited: set = None) -> bool:
     """Check if adding child_id as sub-recipe of parent_id would create a circular dependency"""
     if visited is None:
@@ -2916,16 +2989,12 @@ async def create_recipe(data: RecipeCreate, user: User = Depends(get_current_use
     
     # Calculate costs including sub-recipes
     sub_recipes_data = [s.model_dump() for s in data.sub_recipes] if data.sub_recipes else []
-    total_cost, updated_ingredients, updated_sub_recipes = await calculate_recipe_cost(
+    food_cost, updated_ingredients, updated_sub_recipes = await calculate_recipe_cost(
         data.ingredients, sub_recipes_data, user.company_id
     )
     
-    # Calculate per-yield and per-portion costs
-    cost_per_yield = total_cost / data.yield_quantity if data.yield_quantity > 0 else 0
-    portions = getattr(data, 'portions_per_yield', 1) or 1
-    cost_per_portion = cost_per_yield / portions
-    sell_price = getattr(data, 'sell_price', 0) or data.default_portion_price or 0
-    food_cost_percent = (cost_per_portion / sell_price * 100) if sell_price > 0 else 0
+    # Full costing (labor + overhead + suggested price + contribution)
+    costing = await compute_full_recipe_costing(data.model_dump(), food_cost, user.company_id)
     
     recipe_doc = {
         "recipe_id": recipe_id,
@@ -2933,10 +3002,8 @@ async def create_recipe(data: RecipeCreate, user: User = Depends(get_current_use
         **data.model_dump(),
         "ingredients": updated_ingredients,
         "sub_recipes": updated_sub_recipes,
-        "total_cost": total_cost,
-        "cost_per_yield": round(cost_per_yield, 4),
-        "cost_per_portion": round(cost_per_portion, 4),
-        "food_cost_percent": round(food_cost_percent, 2),
+        "total_cost": food_cost,  # legacy: food cost only
+        **costing,  # spreads food_cost, labor_cost, overhead_cost, total_cost_full, cost_per_portion, etc.
         # Extended fields with defaults
         "allergens": [],
         "work_category": None,
@@ -2977,23 +3044,19 @@ async def update_recipe(recipe_id: str, data: RecipeCreate, user: User = Depends
     
     # Recalculate costs including sub-recipes
     sub_recipes_data = [s.model_dump() for s in data.sub_recipes] if data.sub_recipes else []
-    total_cost, updated_ingredients, updated_sub_recipes = await calculate_recipe_cost(
+    food_cost, updated_ingredients, updated_sub_recipes = await calculate_recipe_cost(
         data.ingredients, sub_recipes_data, user.company_id
     )
     
-    cost_per_yield = total_cost / data.yield_quantity if data.yield_quantity > 0 else 0
-    portions = data.portions_per_yield if data.portions_per_yield > 0 else 1
-    cost_per_portion = cost_per_yield / portions
-    food_cost_percent = (cost_per_portion / data.sell_price * 100) if data.sell_price > 0 else 0
+    # Full costing (labor + overhead + suggested price + contribution)
+    costing = await compute_full_recipe_costing(data.model_dump(), food_cost, user.company_id)
     
     update_data = {
         **data.model_dump(),
         "ingredients": updated_ingredients,
         "sub_recipes": updated_sub_recipes,
-        "total_cost": total_cost,
-        "cost_per_yield": round(cost_per_yield, 4),
-        "cost_per_portion": round(cost_per_portion, 4),
-        "food_cost_percent": round(food_cost_percent, 2),
+        "total_cost": food_cost,  # legacy
+        **costing,
         "updated_at": now.isoformat()
     }
 
@@ -3576,8 +3639,25 @@ async def recalculate_all_recipes(
         new_per_portion = new_per_yield / portion_size if portion_size > 0 else new_per_yield
         new_food_cost_pct = (new_per_portion / sell_price * 100) if sell_price > 0 else 0
 
+        # Compute full costing (labor + overhead + suggested price + contribution)
+        full_costing = await compute_full_recipe_costing(recipe, new_total, user.company_id)
+
         diff = new_total - old_total
         diff_pct = (diff / old_total * 100) if old_total > 0 else (100 if new_total > 0 else 0)
+
+        # Persist full costing even if food_cost didn't change — labor/overhead/target-food-%
+        # config may have changed and we want every recipe up-to-date.
+        if not dry_run:
+            await db.recipes.update_one(
+                {"recipe_id": recipe["recipe_id"], "company_id": user.company_id},
+                {"$set": {
+                    "ingredients": updated_ingredients,
+                    "sub_recipes": updated_sub_recipes,
+                    "total_cost": new_total,
+                    **full_costing,
+                    "last_cost_recalc_at": datetime.now(timezone.utc).isoformat(),
+                }}
+            )
 
         if abs(diff) < 0.005:  # < half a cent
             unchanged_count += 1
@@ -3599,22 +3679,15 @@ async def recalculate_all_recipes(
             "diff_pct": round(diff_pct, 2),
             "sell_price": sell_price,
             "new_food_cost_pct": round(new_food_cost_pct, 2),
+            # Sprint P0 fields
+            "labor_cost": full_costing["labor_cost"],
+            "overhead_cost": full_costing["overhead_cost"],
+            "total_cost_full": full_costing["total_cost_full"],
+            "total_cost_percent": full_costing["total_cost_percent"],
+            "contribution_dollar": full_costing["contribution_dollar"],
+            "contribution_percent": full_costing["contribution_percent"],
+            "suggested_sell_price": full_costing["suggested_sell_price"],
         })
-
-        # Persist when not dry-run
-        if not dry_run:
-            await db.recipes.update_one(
-                {"recipe_id": recipe["recipe_id"], "company_id": user.company_id},
-                {"$set": {
-                    "ingredients": updated_ingredients,
-                    "sub_recipes": updated_sub_recipes,
-                    "total_cost": new_total,
-                    "cost_per_yield": new_per_yield,
-                    "cost_per_portion": new_per_portion,
-                    "food_cost_percent": new_food_cost_pct,
-                    "last_cost_recalc_at": datetime.now(timezone.utc).isoformat(),
-                }}
-            )
 
     # Sort by absolute diff_pct desc
     changes.sort(key=lambda c: abs(c["diff_pct"]), reverse=True)
@@ -6859,6 +6932,8 @@ async def update_company_settings(data: dict, user: User = Depends(get_current_u
         # Document signature & stamp (appended to PDFs / preview of every doc)
         "signature_image_url", "stamp_image_url",
         "signatory_name", "signatory_title",
+        # Recipe Costing Configuration (Sprint P0)
+        "chef_hourly_rate", "recipe_overhead_percent", "recipe_target_food_cost_percent",
     ]
     update_data = {k: v for k, v in data.items() if k in allowed_fields}
 
