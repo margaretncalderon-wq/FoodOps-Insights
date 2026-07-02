@@ -24159,8 +24159,6 @@ async def get_exec_attachment_file(filename: str):
         raise HTTPException(status_code=404, detail="File not found")
     return FileResponse(filepath)
 
-app.include_router(api_router)
-
 @app.on_event("shutdown")
 async def shutdown_db_client():
     try:
@@ -24191,3 +24189,7 @@ async def debug_whoami(request: Request):
         }
     except Exception as e:
         return {"error": str(e)}
+
+# IMPORTANT: app.include_router MUST be the last statement that touches api_router.
+# FastAPI copies routes at call-time; anything added to api_router AFTER this line is silently orphaned (404).
+app.include_router(api_router)
