@@ -1311,6 +1311,32 @@ async def revert_variable_pay_run(run_id: str, user: User = Depends(get_current_
     return {"message": "Variable pay run reverted to draft"}
 
 
+@settings_router.delete("/variable-pay-entries/{entry_id}")
+async def delete_variable_pay_entry(entry_id: str, user: User = Depends(get_current_user)):
+    """Delete a single variable pay entry. Only allowed when run is not in 'processed' status."""
+    company_id = user.company_id or user.active_org_id
+    if not company_id:
+        raise HTTPException(status_code=400, detail="No organization context")
+
+    entry = await db.variable_pay_entries.find_one(
+        {"entry_id": entry_id, "company_id": company_id},
+        {"_id": 0, "run_id": 1}
+    )
+    if not entry:
+        raise HTTPException(status_code=404, detail="Entry not found")
+
+    run = await db.variable_pay_runs.find_one(
+        {"run_id": entry.get("run_id")},
+        {"_id": 0, "status": 1}
+    )
+    if run and run.get("status") == "processed":
+        raise HTTPException(status_code=400, detail="Cannot delete entries from a processed run. Revert first.")
+
+    await db.variable_pay_entries.delete_one({"entry_id": entry_id})
+    await recalculate_variable_pay_run_totals(entry.get("run_id"))
+    return {"success": True, "message": "Entry deleted"}
+
+
 @settings_router.delete("/variable-pay-runs/{run_id}")
 async def delete_variable_pay_run(run_id: str, user: User = Depends(get_current_user)):
     """Delete a draft variable pay run"""
@@ -1325,8 +1351,8 @@ async def delete_variable_pay_run(run_id: str, user: User = Depends(get_current_
     if not run:
         raise HTTPException(status_code=404, detail="Run not found")
     
-    if run.get("status") not in ["draft"]:
-        raise HTTPException(status_code=400, detail="Only draft runs can be deleted")
+    if run.get("status") == "processed":
+        raise HTTPException(status_code=400, detail="Cannot delete a processed run. Revert to draft first if needed.")
     
     # Delete entries first
     await db.variable_pay_entries.delete_many({"run_id": run_id})

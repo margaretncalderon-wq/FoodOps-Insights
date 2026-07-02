@@ -33,7 +33,7 @@ import {
 import {
   DollarSign, Plus, RefreshCw, Clock, Percent, Zap, 
   Calendar, Users, Eye, Send, CheckCircle, Play, ArrowLeft,
-  FileText, Download, Trash2, UserPlus
+  FileText, Download, Trash2, UserPlus, Edit, Undo2
 } from "lucide-react";
 
 import { API_BASE as API } from "../../utils/api";
@@ -166,8 +166,59 @@ export function VariablePaySection() {
     }
   };
 
-  const handleDownloadBankFile = async (runId) => {
+  const handleDeleteRun = async (run) => {
+    if (!window.confirm(isEs
+      ? `¿Eliminar el pago "${run.run_name}" y todas sus entradas? Esta acción no se puede deshacer.`
+      : `Delete pay run "${run.run_name}" and all its entries? This cannot be undone.`)) return;
     try {
+      await axios.delete(`${API}/api/settings/variable-pay-runs/${run.run_id}`, { withCredentials: true });
+      if (selectedRun?.run_id === run.run_id) setSelectedRun(null);
+      fetchRuns(activeTab);
+    } catch (err) {
+      alert(err.response?.data?.detail || (isEs ? "Error al eliminar" : "Error deleting"));
+    }
+  };
+
+  const [editingEntry, setEditingEntry] = useState(null);
+  const [editEntryData, setEditEntryData] = useState({});
+
+  const openEditEntry = (entry) => {
+    setEditingEntry(entry);
+    setEditEntryData({
+      commission_amount: entry.commission_amount || 0,
+      bonus_amount: entry.bonus_amount || 0,
+      incentive_amount: entry.incentive_amount || 0,
+      notes: entry.notes || ""
+    });
+  };
+
+  const saveEditEntry = async () => {
+    try {
+      await axios.put(
+        `${API}/api/settings/variable-pay-entries/${editingEntry.entry_id}`,
+        editEntryData,
+        { withCredentials: true }
+      );
+      setEditingEntry(null);
+      handleViewRun({ run_id: selectedRun.run_id });
+    } catch (err) {
+      alert(err.response?.data?.detail || (isEs ? "Error al guardar" : "Error saving"));
+    }
+  };
+
+  const handleDeleteEntry = async (entry) => {
+    if (!window.confirm(isEs
+      ? `¿Eliminar el pago de ${entry.employee_name} de este período?`
+      : `Delete entry for ${entry.employee_name} from this run?`)) return;
+    try {
+      await axios.delete(`${API}/api/settings/variable-pay-entries/${entry.entry_id}`, { withCredentials: true });
+      handleViewRun({ run_id: selectedRun.run_id });
+    } catch (err) {
+      alert(err.response?.data?.detail || (isEs ? "Error al eliminar" : "Error deleting"));
+    }
+  };
+
+  const handleDownloadBankFile = async (runId) => {    try {
       const res = await axios.get(
         `${API}/api/settings/variable-pay-runs/${runId}/bank-file`,
         { withCredentials: true, responseType: 'blob' }
@@ -292,6 +343,28 @@ export function VariablePaySection() {
                 {isEs ? "Procesar" : "Process"}
               </Button>
             )}
+            {["pending_approval", "approved", "processed"].includes(selectedRun.status) && (
+              <Button
+                variant="outline"
+                onClick={() => handleAction(selectedRun.run_id, "revert")}
+                className="border-amber-300 text-amber-700 hover:bg-amber-50"
+                data-testid="revert-run-btn"
+              >
+                <Undo2 className="w-4 h-4 mr-2" />
+                {isEs ? "Revertir a Borrador" : "Revert to Draft"}
+              </Button>
+            )}
+            {selectedRun.status !== "processed" && (
+              <Button
+                variant="outline"
+                onClick={() => handleDeleteRun(selectedRun)}
+                className="border-red-300 text-red-700 hover:bg-red-50"
+                data-testid="delete-run-detail-btn"
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                {isEs ? "Eliminar" : "Delete"}
+              </Button>
+            )}
           </div>
         </div>
 
@@ -358,11 +431,12 @@ export function VariablePaySection() {
                     <TableHead className="text-right">{isEs ? "Bruto" : "Gross"}</TableHead>
                     <TableHead className="text-right">{isEs ? "Deducciones" : "Deductions"}</TableHead>
                     <TableHead className="text-right">{isEs ? "Neto" : "Net"}</TableHead>
+                    <TableHead className="text-right">{isEs ? "Acciones" : "Actions"}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {runEntries.map((entry) => (
-                    <TableRow key={entry.entry_id}>
+                    <TableRow key={entry.entry_id} data-testid={`vp-entry-${entry.entry_id}`}>
                       <TableCell>
                         <div>
                           <p className="font-medium">{entry.employee_name}</p>
@@ -387,6 +461,34 @@ export function VariablePaySection() {
                       <TableCell className="text-right font-medium">{formatCurrency(entry.gross_amount)}</TableCell>
                       <TableCell className="text-right text-red-600">-{formatCurrency(entry.total_deductions)}</TableCell>
                       <TableCell className="text-right font-bold text-emerald-600">{formatCurrency(entry.net_amount)}</TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          {selectedRun.status !== "processed" && (
+                            <>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 w-7 p-0 text-blue-600 hover:bg-blue-50"
+                                onClick={() => openEditEntry(entry)}
+                                title={isEs ? "Editar" : "Edit"}
+                                data-testid={`edit-entry-${entry.entry_id}`}
+                              >
+                                <Edit className="w-3.5 h-3.5" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 w-7 p-0 text-red-600 hover:bg-red-50"
+                                onClick={() => handleDeleteEntry(entry)}
+                                title={isEs ? "Eliminar" : "Delete"}
+                                data-testid={`delete-entry-${entry.entry_id}`}
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </Button>
+                            </>
+                          )}
+                        </div>
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -504,13 +606,28 @@ export function VariablePaySection() {
                           <TableCell className="text-right font-medium">{formatCurrency(run.total_net)}</TableCell>
                           <TableCell>{getStatusBadge(run.status)}</TableCell>
                           <TableCell className="text-right">
-                            <Button 
-                              variant="ghost" 
-                              size="sm"
-                              onClick={() => handleViewRun(run)}
-                            >
-                              <Eye className="w-4 h-4" />
-                            </Button>
+                            <div className="flex items-center justify-end gap-1">
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                onClick={() => handleViewRun(run)}
+                                data-testid={`view-run-${run.run_id}`}
+                              >
+                                <Eye className="w-4 h-4" />
+                              </Button>
+                              {run.status !== "processed" && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="text-red-600 hover:bg-red-50"
+                                  onClick={() => handleDeleteRun(run)}
+                                  title={isEs ? "Eliminar" : "Delete"}
+                                  data-testid={`delete-run-${run.run_id}`}
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
+                              )}
+                            </div>
                           </TableCell>
                         </TableRow>
                       ))}
@@ -689,6 +806,69 @@ export function VariablePaySection() {
             >
               {creating && <RefreshCw className="w-4 h-4 mr-2 animate-spin" />}
               {isEs ? "Crear y Calcular" : "Create & Calculate"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Entry Dialog */}
+      <Dialog open={!!editingEntry} onOpenChange={(o) => !o && setEditingEntry(null)}>
+        <DialogContent className="max-w-md" data-testid="edit-entry-dialog">
+          <DialogHeader>
+            <DialogTitle>{isEs ? "Editar Pago Variable" : "Edit Variable Pay"}</DialogTitle>
+          </DialogHeader>
+          {editingEntry && (
+            <div className="space-y-3 py-2">
+              <div className="p-3 rounded-lg bg-muted/40 text-sm">
+                <p className="font-medium">{editingEntry.employee_name}</p>
+                <p className="text-xs text-muted-foreground">{editingEntry.department || "-"}</p>
+              </div>
+              <div>
+                <Label>{isEs ? "Comisión" : "Commission"}</Label>
+                <Input
+                  type="number" min="0" step="0.01"
+                  value={editEntryData.commission_amount}
+                  onChange={(e) => setEditEntryData({ ...editEntryData, commission_amount: parseFloat(e.target.value) || 0 })}
+                  data-testid="edit-commission"
+                />
+              </div>
+              <div>
+                <Label>{isEs ? "Bono" : "Bonus"}</Label>
+                <Input
+                  type="number" min="0" step="0.01"
+                  value={editEntryData.bonus_amount}
+                  onChange={(e) => setEditEntryData({ ...editEntryData, bonus_amount: parseFloat(e.target.value) || 0 })}
+                  data-testid="edit-bonus"
+                />
+              </div>
+              <div>
+                <Label>{isEs ? "Incentivo" : "Incentive"}</Label>
+                <Input
+                  type="number" min="0" step="0.01"
+                  value={editEntryData.incentive_amount}
+                  onChange={(e) => setEditEntryData({ ...editEntryData, incentive_amount: parseFloat(e.target.value) || 0 })}
+                  data-testid="edit-incentive"
+                />
+              </div>
+              <div>
+                <Label>{isEs ? "Notas" : "Notes"}</Label>
+                <Textarea
+                  value={editEntryData.notes}
+                  onChange={(e) => setEditEntryData({ ...editEntryData, notes: e.target.value })}
+                  rows={2}
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {isEs ? "Los totales de bruto/neto se recalcularán automáticamente." : "Gross/net totals will be recalculated automatically."}
+              </p>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditingEntry(null)}>
+              {isEs ? "Cancelar" : "Cancel"}
+            </Button>
+            <Button onClick={saveEditEntry} data-testid="save-edit-entry">
+              {isEs ? "Guardar" : "Save"}
             </Button>
           </DialogFooter>
         </DialogContent>

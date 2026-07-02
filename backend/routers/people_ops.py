@@ -4065,6 +4065,110 @@ async def reject_overtime_request(
     return {"message": "Overtime rejected"}
 
 
+@people_ops_router.put("/overtime/requests/{overtime_id}")
+async def update_overtime_request(
+    overtime_id: str,
+    data: dict,
+    user: User = Depends(get_current_user)
+):
+    """Edit an overtime request. Recalculates estimated_amount from hours + rates.
+    Allowed for any status. Blocked if already paid in a processed payroll period.
+    Body may include: date, hours_35, hours_night, hours_holiday, hours_100, reason, notes
+    """
+    company_id = user.company_id or user.active_org_id
+    ot = await db.overtime_requests.find_one(
+        {"company_id": company_id, "overtime_id": overtime_id},
+        {"_id": 0}
+    )
+    if not ot:
+        raise HTTPException(status_code=404, detail="Overtime request not found")
+
+    # Block edit if already paid in a processed payroll period
+    if ot.get("paid_in_period_id"):
+        period = await db.payroll_periods.find_one(
+            {"period_id": ot["paid_in_period_id"]},
+            {"_id": 0, "status": 1}
+        )
+        if period and period.get("status") == "processed":
+            raise HTTPException(status_code=400, detail="Cannot edit overtime already paid in a processed payroll period. Revert the payroll first.")
+
+    now = datetime.now(timezone.utc)
+    update: dict = {"updated_at": now}
+    for f in ["date", "reason", "notes"]:
+        if f in data:
+            update[f] = data[f]
+
+    # Handle hours + recalc estimated_amount
+    hours_changed = any(k in data for k in ("hours_35", "hours_night", "hours_holiday", "hours_100"))
+    if hours_changed:
+        h35 = float(data.get("hours_35", ot.get("hours_35", 0)) or 0)
+        hn = float(data.get("hours_night", ot.get("hours_night", 0)) or 0)
+        hh = float(data.get("hours_holiday", ot.get("hours_holiday", 0)) or 0)
+        h100 = float(data.get("hours_100", ot.get("hours_100", 0)) or 0)
+
+        # Fetch employee + config to recompute amount
+        emp = await db.employees.find_one(
+            {"employee_id": ot.get("employee_id")},
+            {"_id": 0, "base_salary": 1, "payment_frequency": 1}
+        ) or {}
+        config = await db.payroll_config.find_one({"company_id": company_id}, {"_id": 0}) or {}
+        rate_35 = config.get("overtime_rate_35", 1.35)
+        rate_night = config.get("overtime_rate_night", 1.15)
+        rate_holiday = config.get("overtime_rate_holiday", 2.0)
+        rate_100 = config.get("overtime_rate_100", 2.0)
+        hours_per_month = config.get("overtime_hours_per_month", 192.0) or 192.0
+
+        base_salary = float(emp.get("base_salary") or 0)
+        freq = emp.get("payment_frequency", "biweekly")
+        monthly = base_salary if freq == "monthly" else (base_salary * 2 if freq == "biweekly" else base_salary * 4)
+        hourly = (monthly / hours_per_month) if hours_per_month else 0
+
+        estimated = (
+            h35 * hourly * rate_35
+            + hn * hourly * rate_night
+            + hh * hourly * rate_holiday
+            + h100 * hourly * rate_100
+        )
+        update["hours_35"] = h35
+        update["hours_night"] = hn
+        update["hours_holiday"] = hh
+        update["hours_100"] = h100
+        update["total_hours"] = round(h35 + hn + hh + h100, 2)
+        update["estimated_amount"] = round(estimated, 2)
+
+    await db.overtime_requests.update_one(
+        {"overtime_id": overtime_id},
+        {"$set": update}
+    )
+    return {"success": True, "message": "Overtime updated", "estimated_amount": update.get("estimated_amount", ot.get("estimated_amount"))}
+
+
+@people_ops_router.delete("/overtime/requests/{overtime_id}")
+async def delete_overtime_request(
+    overtime_id: str,
+    user: User = Depends(get_current_user)
+):
+    """Delete an overtime request. Blocked if already paid in a processed payroll period."""
+    company_id = user.company_id or user.active_org_id
+    ot = await db.overtime_requests.find_one(
+        {"company_id": company_id, "overtime_id": overtime_id},
+        {"_id": 0}
+    )
+    if not ot:
+        raise HTTPException(status_code=404, detail="Overtime request not found")
+
+    if ot.get("paid_in_period_id"):
+        period = await db.payroll_periods.find_one(
+            {"period_id": ot["paid_in_period_id"]},
+            {"_id": 0, "status": 1}
+        )
+        if period and period.get("status") == "processed":
+            raise HTTPException(status_code=400, detail="Cannot delete overtime already paid in a processed payroll period. Revert the payroll first.")
+
+    await db.overtime_requests.delete_one({"overtime_id": overtime_id})
+    return {"success": True, "message": "Overtime deleted"}
+
+
 # ==================== LOANS / PRÉSTAMOS ENDPOINTS ====================
 
 @people_ops_router.get("/loans")

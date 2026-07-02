@@ -16,9 +16,8 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow
 } from "../ui/table";
 import {
-  Clock, Plus, RefreshCw, CheckCircle, XCircle,
-  AlertCircle, DollarSign, Calendar, Sun, Moon,
-  Download, Mail, BarChart3
+  Clock, Plus, RefreshCw, CheckCircle, XCircle,  AlertCircle, DollarSign, Calendar, Sun, Moon,
+  Download, Mail, BarChart3, Edit, Trash2
 } from "lucide-react";
 
 import { API_BASE as API } from "../../utils/api";
@@ -287,6 +286,49 @@ export function OvertimeSection() {
       fetchData();
     } catch (err) {
       alert(err.response?.data?.detail || "Error");
+    }
+  };
+
+  // Edit / Delete overtime request
+  const [editingOt, setEditingOt] = useState(null);
+  const [editOtData, setEditOtData] = useState({});
+
+  const openEditOt = (req) => {
+    setEditingOt(req);
+    setEditOtData({
+      date: req.date || "",
+      hours_35: req.hours_35 || 0,
+      hours_night: req.hours_night || 0,
+      hours_holiday: req.hours_holiday || 0,
+      hours_100: req.hours_100 || 0,
+      reason: req.reason || "",
+      notes: req.notes || ""
+    });
+  };
+
+  const saveEditOt = async () => {
+    try {
+      await axios.put(
+        `${API}/api/people-ops/overtime/requests/${editingOt.overtime_id}`,
+        editOtData,
+        { withCredentials: true }
+      );
+      setEditingOt(null);
+      fetchData();
+    } catch (err) {
+      alert(err.response?.data?.detail || (isEs ? "Error al guardar" : "Error saving"));
+    }
+  };
+
+  const handleDeleteOt = async (req) => {
+    if (!window.confirm(isEs
+      ? `¿Eliminar horas extras de ${req.employee_name} (${req.date})?`
+      : `Delete overtime for ${req.employee_name} (${req.date})?`)) return;
+    try {
+      await axios.delete(`${API}/api/people-ops/overtime/requests/${req.overtime_id}`, { withCredentials: true });
+      fetchData();
+    } catch (err) {
+      alert(err.response?.data?.detail || (isEs ? "Error al eliminar" : "Error deleting"));
     }
   };
 
@@ -576,32 +618,54 @@ export function OvertimeSection() {
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      {req.status === "pending" && (
-                        <div className="flex gap-1">
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            onClick={() => handleApprove(req.overtime_id)}
-                            className="text-emerald-600"
-                            data-testid={`approve-overtime-${req.overtime_id}`}
-                          >
-                            <CheckCircle className="w-4 h-4" />
-                          </Button>
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            onClick={() => handleReject(req.overtime_id)}
-                            className="text-red-600"
-                          >
-                            <XCircle className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      )}
-                      {req.status === "approved" && (
-                        <Badge variant="outline" className="text-xs">
-                          {isEs ? "Listo para nómina" : "Ready for payroll"}
-                        </Badge>
-                      )}
+                      <div className="flex gap-1 items-center">
+                        {req.status === "pending" && (
+                          <>
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              onClick={() => handleApprove(req.overtime_id)}
+                              className="text-emerald-600"
+                              data-testid={`approve-overtime-${req.overtime_id}`}
+                            >
+                              <CheckCircle className="w-4 h-4" />
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              onClick={() => handleReject(req.overtime_id)}
+                              className="text-red-600"
+                            >
+                              <XCircle className="w-4 h-4" />
+                            </Button>
+                          </>
+                        )}
+                        {req.status === "approved" && (
+                          <Badge variant="outline" className="text-xs">
+                            {isEs ? "Listo para nómina" : "Ready for payroll"}
+                          </Badge>
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => openEditOt(req)}
+                          className="text-blue-600 hover:bg-blue-50 h-7 w-7 p-0"
+                          title={isEs ? "Editar" : "Edit"}
+                          data-testid={`edit-overtime-${req.overtime_id}`}
+                        >
+                          <Edit className="w-3.5 h-3.5" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDeleteOt(req)}
+                          className="text-red-600 hover:bg-red-50 h-7 w-7 p-0"
+                          title={isEs ? "Eliminar" : "Delete"}
+                          data-testid={`delete-overtime-${req.overtime_id}`}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -930,6 +994,80 @@ export function OvertimeSection() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setEmailDialogOpen(false)}>{isEs ? "Cancelar" : "Cancel"}</Button>
             <Button onClick={saveEmailSchedule} data-testid="save-email-schedule">{isEs ? "Guardar" : "Save"}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Overtime Dialog */}
+      <Dialog open={!!editingOt} onOpenChange={(o) => !o && setEditingOt(null)}>
+        <DialogContent className="max-w-lg" data-testid="edit-overtime-dialog">
+          <DialogHeader>
+            <DialogTitle>{isEs ? "Editar Horas Extras" : "Edit Overtime"}</DialogTitle>
+          </DialogHeader>
+          {editingOt && (
+            <div className="space-y-3 py-2">
+              <div className="p-3 rounded-lg bg-muted/40 text-sm">
+                <p className="font-medium">{editingOt.employee_name}</p>
+                <p className="text-xs text-muted-foreground">{isEs ? "Estimado" : "Estimated"}: {formatCurrency(editingOt.estimated_amount)}</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium">{isEs ? "Fecha" : "Date"}</label>
+                <Input
+                  type="date"
+                  value={editOtData.date}
+                  onChange={(e) => setEditOtData({ ...editOtData, date: e.target.value })}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-sm font-medium">{isEs ? "Horas Normales (35%)" : "Normal (35%)"}</label>
+                  <Input
+                    type="number" min="0" step="0.5"
+                    value={editOtData.hours_35}
+                    onChange={(e) => setEditOtData({ ...editOtData, hours_35: parseFloat(e.target.value) || 0 })}
+                    data-testid="edit-ot-hours-35"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">{isEs ? "Nocturnas (15%)" : "Night (15%)"}</label>
+                  <Input
+                    type="number" min="0" step="0.5"
+                    value={editOtData.hours_night}
+                    onChange={(e) => setEditOtData({ ...editOtData, hours_night: parseFloat(e.target.value) || 0 })}
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">{isEs ? "Feriado (100%)" : "Holiday (100%)"}</label>
+                  <Input
+                    type="number" min="0" step="0.5"
+                    value={editOtData.hours_holiday}
+                    onChange={(e) => setEditOtData({ ...editOtData, hours_holiday: parseFloat(e.target.value) || 0 })}
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">{isEs ? "Día Libre (100%)" : "Day Off (100%)"}</label>
+                  <Input
+                    type="number" min="0" step="0.5"
+                    value={editOtData.hours_100}
+                    onChange={(e) => setEditOtData({ ...editOtData, hours_100: parseFloat(e.target.value) || 0 })}
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="text-sm font-medium">{isEs ? "Motivo" : "Reason"}</label>
+                <Input
+                  value={editOtData.reason}
+                  onChange={(e) => setEditOtData({ ...editOtData, reason: e.target.value })}
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {isEs ? "El monto estimado se recalculará automáticamente al guardar." : "Estimated amount will be recalculated automatically on save."}
+              </p>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditingOt(null)}>{isEs ? "Cancelar" : "Cancel"}</Button>
+            <Button onClick={saveEditOt} data-testid="save-edit-overtime">{isEs ? "Guardar" : "Save"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
