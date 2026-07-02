@@ -3621,6 +3621,30 @@ async def recalculate_all_recipes(
 
     avg_diff_pct = (total_diff / len(changes)) if changes else 0
 
+    # After applying (not dry-run), alert admins about big cost jumps (>10% increase)
+    if not dry_run and changes:
+        big_jumps = [c for c in changes if c.get("diff_pct", 0) >= 10.0][:5]
+        if big_jumps:
+            try:
+                from routers.notifications import notify_org_admins
+                lines = [f"• {c['name']}: +{c['diff_pct']:.1f}% (${c['old_total_cost']:.2f} → ${c['new_total_cost']:.2f})" for c in big_jumps]
+                await notify_org_admins(
+                    org_id=user.company_id,
+                    notification_type="recipe_cost_spike",
+                    title=f"⚠️ {len(big_jumps)} receta{'s' if len(big_jumps) != 1 else ''} con aumento de costo >10%",
+                    message="Se aplicó el recálculo de costos. Revisa estas recetas y considera ajustar precios de venta:\n" + "\n".join(lines),
+                    link="/food-ops/recipes",
+                    metadata={
+                        "recipe_ids": [c.get("recipe_id") for c in big_jumps if c.get("recipe_id")],
+                        "trigger": "recalculate_all_recipes",
+                        "total_changed": len(changes),
+                        "increase_count": diff_buckets["increase"],
+                    },
+                    priority="high",
+                )
+            except Exception as _e:
+                logger.warning(f"Recipe cost spike notification failed (non-fatal): {_e}")
+
     return {
         "dry_run": dry_run,
         "total_recipes": len(recipes),
