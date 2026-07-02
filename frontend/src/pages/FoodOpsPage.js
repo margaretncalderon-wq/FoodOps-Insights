@@ -783,7 +783,25 @@ function InventorySection() {
             </div>
             
             <div><Label>{t("unit")}</Label><Select value={itemForm.unit} onValueChange={(v) => setItemForm({ ...itemForm, unit: v })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{["kg", "g", "lb", "oz", "L", "ml", "unit", "box", "case", "galón", "botella"].map(u => (<SelectItem key={u} value={u}>{u}</SelectItem>))}</SelectContent></Select></div>
-            <div><Label>{t("cost")} / {itemForm.unit}</Label><Input type="number" min="0" step="0.01" value={itemForm.cost_per_unit} onChange={(e) => setItemForm({ ...itemForm, cost_per_unit: parseFloat(e.target.value) || 0 })} /></div>
+            <div>
+              <Label>{t("cost")} / {itemForm.unit}</Label>
+              <Input
+                type="number" min="0" step="0.01"
+                value={itemForm.cost_per_unit || ""}
+                onChange={(e) => {
+                  const cpu = parseFloat(e.target.value) || 0;
+                  const qty = parseFloat(itemForm.purchase_quantity_per_unit) || 0;
+                  // If we know qty, keep purchase_cost synchronized (2 decimals)
+                  const derivedPurchase = qty > 0 ? Math.round(cpu * qty * 100) / 100 : itemForm.purchase_cost;
+                  setItemForm({
+                    ...itemForm,
+                    cost_per_unit: Math.round(cpu * 100) / 100,
+                    purchase_cost: derivedPurchase
+                  });
+                }}
+                data-testid="item-cost-per-unit"
+              />
+            </div>
             <div><Label>{t("stock")}</Label><Input type="number" min="0" step="0.01" value={itemForm.stock_quantity} onChange={(e) => setItemForm({ ...itemForm, stock_quantity: parseFloat(e.target.value) || 0 })} /></div>
             <div><Label>{t("parLevel")}</Label><Input type="number" min="0" step="0.01" value={itemForm.par_level} onChange={(e) => setItemForm({ ...itemForm, par_level: parseFloat(e.target.value) || 0 })} /></div>
             
@@ -867,7 +885,16 @@ function InventorySection() {
                   <Input
                     type="number" min="0" step="0.01"
                     value={itemForm.purchase_quantity_per_unit || ""}
-                    onChange={(e) => setItemForm({ ...itemForm, purchase_quantity_per_unit: parseFloat(e.target.value) || 0 })}
+                    onChange={(e) => {
+                      const qty = parseFloat(e.target.value) || 0;
+                      const cost = itemForm.purchase_cost || 0;
+                      const perBase = qty > 0 && cost > 0 ? Math.round((cost / qty) * 100) / 100 : itemForm.cost_per_unit;
+                      setItemForm({
+                        ...itemForm,
+                        purchase_quantity_per_unit: qty,
+                        cost_per_unit: perBase || itemForm.cost_per_unit,
+                      });
+                    }}
                     placeholder="54.43"
                     data-testid="item-purchase-qty"
                   />
@@ -899,9 +926,9 @@ function InventorySection() {
                     type="number" min="0" step="0.01"
                     value={itemForm.purchase_cost || ""}
                     onChange={(e) => {
-                      const cost = parseFloat(e.target.value) || 0;
+                      const cost = Math.round((parseFloat(e.target.value) || 0) * 100) / 100;
                       const qty = itemForm.purchase_quantity_per_unit || 0;
-                      const perBase = qty > 0 ? cost / qty : 0;
+                      const perBase = qty > 0 ? Math.round((cost / qty) * 100) / 100 : itemForm.cost_per_unit;
                       setItemForm({
                         ...itemForm,
                         purchase_cost: cost,
@@ -918,15 +945,15 @@ function InventorySection() {
                   </p>
                   <p className="text-lg font-bold text-emerald-900 font-mono">
                     {itemForm.purchase_cost > 0 && itemForm.purchase_quantity_per_unit > 0
-                      ? `$${(itemForm.purchase_cost / itemForm.purchase_quantity_per_unit).toFixed(4)}`
+                      ? `$${(itemForm.purchase_cost / itemForm.purchase_quantity_per_unit).toFixed(2)}`
                       : "—"}
                   </p>
                 </div>
               </div>
               <p className="text-xs text-muted-foreground mt-2">
                 {language === "es"
-                  ? "💡 Ej: 1 saco contiene 54.43 kg y cuesta $3,450 → $63.38/kg automático."
-                  : "💡 Ex: 1 sack contains 54.43 kg and costs $3,450 → $63.38/kg automatic."}
+                  ? "💡 Ej: 1 saco contiene 54.43 kg y cuesta $3,450.00 → $63.38/kg automático."
+                  : "💡 Ex: 1 sack contains 54.43 kg and costs $3,450.00 → $63.38/kg automatic."}
               </p>
             </div>
 
@@ -1405,7 +1432,7 @@ function InventorySection() {
                       <TableCell className="font-medium">{item.name}</TableCell>
                       <TableCell className="text-muted-foreground">{item.base_unit || "—"}</TableCell>
                       <TableCell className="text-right font-mono">
-                        {item.cost_per_base_unit ? `$${item.cost_per_base_unit.toFixed(4)}` : "—"}
+                        {item.cost_per_base_unit ? `$${item.cost_per_base_unit.toFixed(2)}` : "—"}
                       </TableCell>
                       <TableCell>
                         <div className="flex flex-wrap gap-1">

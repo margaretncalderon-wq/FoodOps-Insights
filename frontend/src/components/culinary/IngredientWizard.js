@@ -88,12 +88,19 @@ export default function IngredientWizard({ open, onClose, onSaved, initial = nul
     name: initial?.name || "",
     brand: initial?.brand || "",
     category: initial?.category || "produce",
-    inventory_type: "food",
+    inventory_type: initial?.inventory_type || "food",
     sku: initial?.sku || "",
-    purchase_unit: initial?.purchase_unit || "kg",
-    purchase_quantity_per_unit: initial?.purchase_quantity_per_unit || 1,
-    purchase_cost: initial?.purchase_cost || initial?.cost_per_unit || 0,
-    base_unit: initial?.base_unit || suggestBaseUnit(initial?.category || "produce"),
+    // Don't force defaults: leave blank if the ingredient truly has no purchase info yet.
+    purchase_unit: initial?.purchase_unit || "",
+    purchase_quantity_per_unit: initial?.purchase_quantity_per_unit || "",
+    // Only fall back to cost_per_unit if there's no purchase_cost AND purchase_quantity is 1.
+    // Otherwise the two live in different scales and mixing them causes wrong derived costs.
+    purchase_cost: initial?.purchase_cost != null
+      ? initial.purchase_cost
+      : (initial?.cost_per_unit && (!initial?.purchase_quantity_per_unit || initial.purchase_quantity_per_unit === 1)
+          ? initial.cost_per_unit
+          : ""),
+    base_unit: initial?.base_unit || (initial ? "" : suggestBaseUnit(initial?.category || "produce")),
     density_g_per_ml: initial?.density_g_per_ml || null,
     yield_waste_percent: initial?.yield_waste_percent || 0,
     par_level: initial?.par_level || 0,
@@ -176,21 +183,40 @@ export default function IngredientWizard({ open, onClose, onSaved, initial = nul
         name: form.name.trim(),
         brand: form.brand || null,
         category: form.category,
-        inventory_type: "food",
+        inventory_type: form.inventory_type || "food",
         unit: form.base_unit,
-        cost_per_unit: costPerBase,
+        cost_per_unit: Math.round(costPerBase * 100) / 100,
         stock_quantity: parseFloat(form.stock_quantity) || 0,
         par_level: parseFloat(form.par_level) || 0,
-        min_stock_level: 0,
+        min_stock_level: initial?.min_stock_level ?? 0,
         sku: form.sku || null,
         // v2 unit system
         base_unit: form.base_unit,
-        cost_per_base_unit: costPerBase,
+        cost_per_base_unit: Math.round(costPerBase * 100) / 100,
         density_g_per_ml: form.density_g_per_ml || null,
         purchase_unit: form.purchase_unit,
         purchase_quantity_per_unit: parseFloat(form.purchase_quantity_per_unit) || 1,
-        purchase_cost: parseFloat(form.purchase_cost) || 0,
+        purchase_cost: Math.round((parseFloat(form.purchase_cost) || 0) * 100) / 100,
         yield_waste_percent: parseFloat(form.yield_waste_percent) || 0,
+        // Preserve fields the wizard doesn't edit so backend partial-update keeps them intact.
+        // (These are only sent when repairing an existing ingredient.)
+        ...(initial ? {
+          preferred_supplier_id: initial.preferred_supplier_id ?? null,
+          secondary_supplier_id: initial.secondary_supplier_id ?? null,
+          alternate_supplier_ids: initial.alternate_supplier_ids ?? [],
+          notes: initial.notes ?? null,
+          allergens: initial.allergens ?? [],
+          storage_location: initial.storage_location ?? "dry",
+          pack_size: initial.pack_size ?? 1.0,
+          pack_unit: initial.pack_unit ?? "unit",
+          barcode: initial.barcode ?? null,
+          description: initial.description ?? null,
+          image_url: initial.image_url ?? null,
+          reorder_threshold: initial.reorder_threshold ?? 0,
+          replacement_cost: initial.replacement_cost ?? 0,
+          non_yieldable: initial.non_yieldable ?? null,
+          is_discrete_unit: initial.is_discrete_unit ?? null,
+        } : {}),
       };
       if (initial?.ingredient_id) {
         await axios.put(`${API}/api/inventory/ingredients/${initial.ingredient_id}`, payload, { withCredentials: true });
@@ -318,7 +344,7 @@ export default function IngredientWizard({ open, onClose, onSaved, initial = nul
         <div>
           <p className="text-xs uppercase tracking-wide text-emerald-700">{t("Costo derivado", "Derived cost")}</p>
           <p className="text-lg font-bold text-emerald-900">
-            ${costPerBase.toFixed(4)} <span className="text-xs font-normal text-emerald-700">/ {form.base_unit}</span>
+            ${costPerBase.toFixed(2)} <span className="text-xs font-normal text-emerald-700">/ {form.base_unit || "?"}</span>
           </p>
         </div>
         <Sparkles className="w-5 h-5 text-emerald-500" />

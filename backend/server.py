@@ -1951,23 +1951,28 @@ async def update_ingredient(ingredient_id: str, data: IngredientCreate, user: Us
     if not current:
         raise HTTPException(status_code=404, detail="Ingredient not found")
     
-    update_data = {**data.model_dump(), "updated_at": now.isoformat()}
+    # PARTIAL UPDATE: only include fields the client explicitly sent.
+    # This preserves preferred_supplier_id, notes, alternate_supplier_ids, etc.
+    # when the caller (e.g., wizard) only sends a subset of fields.
+    update_data = data.model_dump(exclude_unset=True)
+    update_data["updated_at"] = now.isoformat()
     
     # Detect changes that affect recipe cost — price OR waste — to trigger downstream recalc
+    new_cpu = update_data.get("cost_per_unit", current.get("cost_per_unit", 0))
+    new_cpbu = update_data.get("cost_per_base_unit", current.get("cost_per_base_unit", 0))
+    new_pcost = update_data.get("purchase_cost", current.get("purchase_cost", 0))
     cost_changed = (
-        current.get("cost_per_unit", 0) != data.cost_per_unit
-        or current.get("cost_per_base_unit", 0) != getattr(data, "cost_per_base_unit", current.get("cost_per_base_unit", 0))
-        or current.get("purchase_cost", 0) != getattr(data, "purchase_cost", current.get("purchase_cost", 0))
+        current.get("cost_per_unit", 0) != new_cpu
+        or current.get("cost_per_base_unit", 0) != new_cpbu
+        or current.get("purchase_cost", 0) != new_pcost
     )
-    waste_changed = (
-        float(current.get("yield_waste_percent") or 0)
-        != float(getattr(data, "yield_waste_percent", current.get("yield_waste_percent")) or 0)
-    )
+    new_waste = update_data.get("yield_waste_percent", current.get("yield_waste_percent"))
+    waste_changed = float(current.get("yield_waste_percent") or 0) != float(new_waste or 0)
     
     # Log price change
-    if cost_changed:
+    if cost_changed and "cost_per_unit" in update_data:
         price_history = current.get("price_history", [])
-        price_history.append({"price": data.cost_per_unit, "date": now.isoformat(), "previous": current.get("cost_per_unit")})
+        price_history.append({"price": update_data["cost_per_unit"], "date": now.isoformat(), "previous": current.get("cost_per_unit")})
         update_data["price_history"] = price_history
     
     await db.ingredients.update_one({"ingredient_id": ingredient_id, "company_id": user.company_id}, {"$set": update_data})
