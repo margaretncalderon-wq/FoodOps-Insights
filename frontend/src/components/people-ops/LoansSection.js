@@ -255,7 +255,9 @@ export function LoansSection() {
   const [approveData, setApproveData] = useState({
     approved_amount: "",
     installments: 6,
-    start_date: ""
+    frequency: "biweekly",
+    start_date: "",
+    end_date: ""
   });
 
   const fetchData = useCallback(async () => {
@@ -298,12 +300,33 @@ export function LoansSection() {
 
   const handleOpenApprove = (loan) => {
     setSelectedLoan(loan);
+    const startDate = new Date().toISOString().split("T")[0];
+    // Get employee's payment frequency as default
+    const emp = employees.find(e => e.employee_id === loan.employee_id);
+    const freq = ["weekly", "biweekly", "monthly"].includes(emp?.payment_frequency)
+      ? emp.payment_frequency
+      : "biweekly";
+    const inst = loan.installments || 6;
     setApproveData({
       approved_amount: loan.requested_amount,
-      installments: loan.installments,
-      start_date: new Date().toISOString().split("T")[0]
+      installments: inst,
+      frequency: freq,
+      start_date: startDate,
+      end_date: computeEndDate(startDate, inst, freq)
     });
     setApproveDialogOpen(true);
+  };
+  
+  // Update approveData with auto-calc end_date on change of start/installments/frequency
+  const updateApprove = (patch) => {
+    setApproveData(prev => {
+      const next = { ...prev, ...patch };
+      if (patch.start_date !== undefined || patch.installments !== undefined || patch.frequency !== undefined) {
+        const computed = computeEndDate(next.start_date, next.installments, next.frequency);
+        if (computed) next.end_date = computed;
+      }
+      return next;
+    });
   };
 
   const handleApprove = async () => {
@@ -314,7 +337,9 @@ export function LoansSection() {
         {
           approved_amount: parseFloat(approveData.approved_amount),
           installments: approveData.installments,
-          start_date: approveData.start_date
+          frequency: approveData.frequency,
+          start_date: approveData.start_date,
+          end_date: approveData.end_date
         },
         { withCredentials: true }
       );
@@ -665,7 +690,7 @@ export function LoansSection() {
                   <label className="text-sm font-medium">{isEs ? "Cuotas" : "Installments"}</label>
                   <Select 
                     value={approveData.installments.toString()} 
-                    onValueChange={(v) => setApproveData({ ...approveData, installments: parseInt(v) })}
+                    onValueChange={(v) => updateApprove({ installments: parseInt(v) })}
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -678,11 +703,42 @@ export function LoansSection() {
                   </Select>
                 </div>
                 <div>
+                  <label className="text-sm font-medium">{isEs ? "Frecuencia" : "Frequency"}</label>
+                  <Select
+                    value={approveData.frequency}
+                    onValueChange={(v) => updateApprove({ frequency: v })}
+                  >
+                    <SelectTrigger data-testid="approve-frequency"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="weekly">{isEs ? "Semanal" : "Weekly"}</SelectItem>
+                      <SelectItem value="biweekly">{isEs ? "Quincenal" : "Biweekly"}</SelectItem>
+                      <SelectItem value="monthly">{isEs ? "Mensual" : "Monthly"}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
                   <label className="text-sm font-medium">{isEs ? "Inicio Descuentos" : "Start Deductions"}</label>
                   <Input
                     type="date"
                     value={approveData.start_date}
-                    onChange={(e) => setApproveData({ ...approveData, start_date: e.target.value })}
+                    onChange={(e) => updateApprove({ start_date: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium flex items-center justify-between">
+                    <span>{isEs ? "Fin Esperado" : "Expected End"}</span>
+                    <span className="text-[10px] text-muted-foreground font-normal">
+                      {isEs ? "auto" : "auto"}
+                    </span>
+                  </label>
+                  <Input
+                    type="date"
+                    value={approveData.end_date}
+                    onChange={(e) => setApproveData({ ...approveData, end_date: e.target.value })}
+                    data-testid="approve-end-date"
                   />
                 </div>
               </div>

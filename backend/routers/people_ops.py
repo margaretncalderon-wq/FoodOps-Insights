@@ -4057,21 +4057,29 @@ async def approve_loan(
     approved_amount = data.get("approved_amount", loan.get("requested_amount"))
     installments = data.get("installments", loan.get("installments"))
     installment_amount = approved_amount / installments
+    frequency = data.get("frequency") or "biweekly"
+    start_date = data.get("start_date", now.isoformat()[:10])
+    end_date = data.get("end_date")
+    
+    update_fields = {
+        "status": "active",
+        "approved_amount": approved_amount,
+        "remaining_balance": approved_amount,
+        "installments": installments,
+        "installment_amount": round(installment_amount, 2),
+        "frequency": frequency,
+        "start_date": start_date,
+        "approved_by": user.user_id,
+        "approved_by_name": user.name,
+        "approved_at": now,
+        "updated_at": now
+    }
+    if end_date:
+        update_fields["end_date"] = end_date
     
     await db.loans.update_one(
         {"loan_id": loan_id},
-        {"$set": {
-            "status": "active",
-            "approved_amount": approved_amount,
-            "remaining_balance": approved_amount,
-            "installments": installments,
-            "installment_amount": round(installment_amount, 2),
-            "start_date": data.get("start_date", now.isoformat()[:10]),
-            "approved_by": user.user_id,
-            "approved_by_name": user.name,
-            "approved_at": now,
-            "updated_at": now
-        }}
+        {"$set": update_fields}
     )
     
     # Update employee's active loan balance
