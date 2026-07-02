@@ -1,0 +1,33 @@
+{
+  "summary": "Regression sprint after Menu Engineering router extraction. 15/16 tests pass (94%). Extracted /api/menu-engineering/analyze & /what-if work correctly. Recipes, plated-menus, inventory, production, buffet-factors, culinary-digest all intact. Recipes<->Proposals cost bridge verified (cost-staleness + refresh-costs endpoints both return 200). Only failure: /api/debug/whoami returns 404 — PRE-EXISTING ordering bug (endpoint defined AFTER app.include_router call), NOT introduced by this refactor (confirmed via git).",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {
+        "endpoint": "/api/debug/whoami",
+        "issue": "Returns 404 'Not Found'. Endpoint is defined at server.py line 24174 with @api_router.get(...), but app.include_router(api_router) executes at line 24162 — BEFORE the whoami route is registered on api_router. FastAPI's include_router copies routes at call-time, so any @api_router.get(...) added after line 24162 is never mounted on the app. Confirmed pre-existing (same ordering in git commit 287c024f). This orphans not just whoami but also potentially any other decorator added after line 24162."
+      }
+    ]
+  },
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_menu_engineering_refactor_regression.py",
+    "/app/test_reports/pytest/menu_eng_refactor.xml"
+  ],
+  "action_items": [
+    "Move /api/debug/whoami endpoint definition to BEFORE line 24162 (app.include_router(api_router)), OR move app.include_router(api_router) to end of file. Any @api_router.* declared after line 24162 will silently 404.",
+    "OPTIONAL: Seed a proposal item linked to a recipe (with recipe_id) so future regressions can verify unit_cost snapshot on proposal items directly. Currently the only proposal items available carry unit_price/line_total but no recipe_id linkage in seed data. The cost bridge itself (refresh-costs/cost-staleness) works correctly."
+  ],
+  "critical_code_review_comments": [
+    "server.py is >24k lines — the refactor sprint moving routers out (menu_engineering, culinary_digest, brand_hub, settings, partners, notifications) is correct direction; continue extracting proposals_router (~3000 lines) and plated_menus_router next.",
+    "Ordering hazard: app.include_router(api_router) at line 24162 followed by @api_router.get(...) at line 24174 creates silent 404s. Add a comment/lint or move the include to end of file."
+  ],
+  "updated_files": ["/app/backend/tests/test_menu_engineering_refactor_regression.py"],
+  "success_rate": {"backend": "94% (15/16 executed, 1 skipped due to seed data)"},
+  "test_credentials": "demo.agency@kora.com / Evoque2024! (admin) — worked",
+  "seed_data_creation": "None. Used existing events/proposals/recipes.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Refactor sprint moved Menu Engineering (analyze + what-if) from server.py to /app/backend/routers/menu_engineering.py. Extracted router is included at server.py line 24030-24031 via api_router.include_router. All 17 regression targets verified. Only issue is whoami 404 (pre-existing ordering bug — line 24162 app.include_router freezes the routes, later @api_router additions like line 24174 whoami are orphaned). Culinary Intelligence pipeline healthy. Test file at /app/backend/tests/test_menu_engineering_refactor_regression.py reusable for future refactor iterations.",
+  "rca_of_the_issue": "RCA for /api/debug/whoami 404: FastAPI's app.include_router(router) copies router.routes into app.routes at call-time (not by reference). server.py line 24162 finalizes api_router → app. Line 24174 adds a new @api_router.get('/debug/whoami') decorator that appends to api_router.routes only — app.routes already snapshot at 24162 does not see it. Fix: relocate the whoami block above line 24162, or move the app.include_router call to end of file. Reproduction: GET {BASE_URL}/api/debug/whoami with valid Bearer → 404 {\"detail\":\"Not Found\"}. Not a regression from menu_engineering extraction (git show 287c024f confirms identical ordering pre-refactor)."
+}
