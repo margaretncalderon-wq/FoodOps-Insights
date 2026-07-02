@@ -1947,7 +1947,7 @@ async def get_ingredient(ingredient_id: str, user: User = Depends(get_current_us
     return Ingredient(**ingredient)
 
 @inventory_router.put("/ingredients/{ingredient_id}", response_model=Ingredient)
-async def update_ingredient(ingredient_id: str, data: IngredientCreate, user: User = Depends(get_current_user)):
+async def update_ingredient(ingredient_id: str, data: dict, user: User = Depends(get_current_user)):
     now = datetime.now(timezone.utc)
     
     # Get current ingredient to check price change
@@ -1955,10 +1955,20 @@ async def update_ingredient(ingredient_id: str, data: IngredientCreate, user: Us
     if not current:
         raise HTTPException(status_code=404, detail="Ingredient not found")
     
-    # PARTIAL UPDATE: only include fields the client explicitly sent.
-    # This preserves preferred_supplier_id, notes, alternate_supplier_ids, etc.
-    # when the caller (e.g., wizard) only sends a subset of fields.
-    update_data = data.model_dump(exclude_unset=True)
+    # TRUE PARTIAL UPDATE: accept a raw dict (not IngredientCreate) so callers can send
+    # any subset without triggering Pydantic 422 on missing required fields.
+    # Preserves preferred_supplier_id, notes, alternate_supplier_ids, etc.
+    # Reject unknown keys silently by whitelisting to the Ingredient/IngredientCreate model fields.
+    allowed_fields = set(IngredientCreate.model_fields.keys()) | {
+        "cost_per_base_unit", "purchase_unit", "purchase_quantity_per_unit", "purchase_cost",
+        "base_unit", "density_g_per_ml", "yield_waste_percent",
+        "preferred_supplier_id", "secondary_supplier_id", "alternate_supplier_ids",
+        "notes", "allergens", "storage_location", "pack_size", "pack_unit",
+        "barcode", "description", "image_url", "reorder_threshold", "replacement_cost",
+        "non_yieldable", "is_discrete_unit", "needs_review",
+        "ai_repaired_at", "ai_repair_reasoning", "ai_reverted_at",
+    }
+    update_data = {k: v for k, v in (data or {}).items() if k in allowed_fields}
     update_data["updated_at"] = now.isoformat()
     
     # Detect changes that affect recipe cost — price OR waste — to trigger downstream recalc
@@ -3003,11 +3013,16 @@ async def create_recipe(data: RecipeCreate, user: User = Depends(get_current_use
     
     # Check for circular dependencies in sub-recipes
     for sub in data.sub_recipes:
-        if await check_circular_dependency(recipe_id, sub.child_recipe_id, user.company_id):
-            raise HTTPException(status_code=400, detail=f"Circular dependency detected with recipe {sub.child_recipe_name}")
+        sub_d = sub if isinstance(sub, dict) else sub.model_dump()
+        child_id = sub_d.get("child_recipe_id")
+        child_name = sub_d.get("child_recipe_name") or child_id
+        if child_id and await check_circular_dependency(recipe_id, child_id, user.company_id):
+            raise HTTPException(status_code=400, detail=f"Circular dependency detected with recipe {child_name}")
     
     # Calculate costs including sub-recipes
-    sub_recipes_data = [s.model_dump() for s in data.sub_recipes] if data.sub_recipes else []
+    sub_recipes_data = [
+        (s if isinstance(s, dict) else s.model_dump()) for s in (data.sub_recipes or [])
+    ]
     food_cost, updated_ingredients, updated_sub_recipes = await calculate_recipe_cost(
         data.ingredients, sub_recipes_data, user.company_id
     )
@@ -3058,11 +3073,16 @@ async def update_recipe(recipe_id: str, data: RecipeCreate, user: User = Depends
     
     # Check for circular dependencies in sub-recipes
     for sub in data.sub_recipes:
-        if await check_circular_dependency(recipe_id, sub.child_recipe_id, user.company_id):
-            raise HTTPException(status_code=400, detail=f"Circular dependency detected with recipe {sub.child_recipe_name}")
+        sub_d = sub if isinstance(sub, dict) else sub.model_dump()
+        child_id = sub_d.get("child_recipe_id")
+        child_name = sub_d.get("child_recipe_name") or child_id
+        if child_id and await check_circular_dependency(recipe_id, child_id, user.company_id):
+            raise HTTPException(status_code=400, detail=f"Circular dependency detected with recipe {child_name}")
     
     # Recalculate costs including sub-recipes
-    sub_recipes_data = [s.model_dump() for s in data.sub_recipes] if data.sub_recipes else []
+    sub_recipes_data = [
+        (s if isinstance(s, dict) else s.model_dump()) for s in (data.sub_recipes or [])
+    ]
     food_cost, updated_ingredients, updated_sub_recipes = await calculate_recipe_cost(
         data.ingredients, sub_recipes_data, user.company_id
     )
@@ -4943,7 +4963,11 @@ async def analyze_menu_engineering(
         {"company_id": user.company_id},
         {"_id": 0, "recipe_id": 1, "name": 1, "category": 1,
          "cost_per_portion": 1, "default_portion_price": 1, "sell_price": 1,
-         "recipe_type": 1},
+         "recipe_type": 1,
+         # Sprint P0 fields — total cost per portion must be in the projection
+         # so menu-engineering classifies using food+labor+overhead (not food-only).
+         "total_cost_per_portion": 1, "food_cost": 1,
+         "labor_cost": 1, "overhead_cost": 1, "total_cost_full": 1},
     ).to_list(2000)
     recipes = [r for r in recipes if (r.get("default_portion_price") or r.get("sell_price") or 0) > 0]
 

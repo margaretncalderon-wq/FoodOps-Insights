@@ -1,0 +1,26 @@
+{
+  "summary": "Re-verified all 3 Sprint P0 blocking bug fixes (Fix #A sub_recipes iterator, Fix #B menu-engineering projection, Fix #C ingredient partial-update PUT) reported in iteration_213.json. All 10 pytest cases PASS against demo.agency@kora.com (company_3ab116c0994d, chef_hourly_rate=$25/hr, overhead=15%, target=30%). Explicit assertions added: (A) POST /api/recipes with sub_recipes block returns 200 AND sub-recipe unit conversion works on the new block (500ml of $10/L sub-recipe → ~$5); PUT /api/recipes/{id} same. (B) menu-engineering row.cost_per_portion equals total_cost_per_portion (food+labor+overhead), not food-only cost. (C) PUT /api/inventory/ingredients/{id} with body {purchase_cost: 20} returns 200 and preserves name/category/unit/preferred_supplier_id/notes intact. Regression suite (Bug 1 legacy prep_time fallback, Bug 2 _recalc_recipes_using_ingredient P0 fields, Bug 3 legacy inline sub-recipe path, /recipes/recalculate-all dry_run + apply, /menu-engineering/analyze structure) also PASS. All 3 blocking issues from iteration_213 are RESOLVED.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_recipe_costing_audit_p0.py",
+    "/app/test_reports/pytest/iter214_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Fix #C uses allowlist filter — good defense against mass-assignment; consider surfacing rejected unknown keys in a debug log for FE developers.",
+    "menu-engineering fallback `r.get('total_cost_per_portion') or r.get('cost_per_portion')` treats 0.0 as falsy; if a recipe genuinely has $0 total cost, it will fall through to legacy field (usually also 0, so cosmetic). Prefer explicit `if 'total_cost_per_portion' in r else ...`.",
+    "server.py is now 24371 lines — still well over the 700-line guideline. Split into feature routers (recipes, inventory, menu_engineering) recommended."
+  ],
+  "updated_files": ["/app/backend/tests/test_recipe_costing_audit_p0.py"],
+  "success_rate": {"backend": "100% (10/10 passed)", "frontend": "skipped (backend-only per request)"},
+  "test_credentials": "demo.agency@kora.com / Evoque2024! — company_3ab116c0994d",
+  "seed_data_creation": "All test recipes/ingredients prefixed TEST_P0_* and torn down at end of each test via session.delete. No residual data.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Sprint P0 recipe-costing audit closed. All 3 blocking bugs from iteration_213 (Fix #A/B/C) are verified fixed with dedicated assertions in /app/backend/tests/test_recipe_costing_audit_p0.py. Full test file (10 tests) can be reused as regression harness for any future changes to recipe costing, sub_recipes iteration, ingredient PUT, or menu-engineering projection.",
+  "rca of the issue": "N/A — no bugs found this iteration. Previous 3 bugs are fixed at server.py:1949-1971 (dict payload + allowlist), 3015-3027 & 3075-3087 (isinstance(sub, dict) guard), 4964-4971 (extended projection). Verified end-to-end."
+}
