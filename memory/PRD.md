@@ -1,5 +1,46 @@
 # Kora OS — Product Requirements Document
 
+## Recipe Builder Simplificado + Página de Costing Settings (Feb 3, 2026)
+
+**Status:** ✅ 8/8 backend tests PASS (iteration_217). Preview OK.
+
+### Cambios aplicados
+
+**1. Fix cálculo per-portion (RecipeBuilder.js):**
+- Antes: `costPerPortion = totalCost / form.portions_per_yield`
+- Ahora: `totalPortions = yield_quantity × portions_per_yield` y `costPerPortion = totalCost / totalPortions`
+- Coincide 100% con el backend `compute_full_recipe_costing`.
+
+**2. UI simplificada (RecipeBuilder.js):**
+Sección de precios ahora muestra SOLO:
+- 3 tarjetas: Costo Total Receta · Porciones · Costo por Porción
+- 1 precio sugerido (Método A / Food Cost) con botón "Aplicar"
+- Chip pequeño con Food Cost % y Margen $ si hay sell_price
+- Link "⚙️ Configurar labor, overhead y métodos avanzados" → `/settings/recipe-costing`
+
+**3. Nueva página `/settings/recipe-costing` (RecipeCostingSettingsPage.js):**
+- 5 presets industria clickeables (Restaurante, Fine Dining, Catering, Quick Service, Buffet)
+- 5 parámetros editables (Chef $/hr, Overhead %, Food %, Prime %, Margen %)
+- Cada uno con explicación de contexto
+- Botón "Guardar cambios" persiste a nivel empresa
+
+**4. Código muerto removido (server.py):**
+- Líneas 2073-2077: `new_per_yield`, `new_per_portion`, `new_food_cost_pct` calculadas pero nunca guardadas. Eliminadas. `full_costing` ya recomputa todo internamente.
+
+### Files
+- `/app/backend/server.py` (dead code cleanup)
+- `/app/frontend/src/components/RecipeBuilder.js` (formula fix + UI simplification)
+- `/app/frontend/src/pages/RecipeCostingSettingsPage.js` (NEW)
+- `/app/frontend/src/App.js` (new route)
+
+### Tests
+- `/app/backend/tests/test_recipe_costing_iteration217.py`
+- Confirmado: yield=1×portions=12, food=$857 → cost/portion=$71.42, price=$238.07
+- Confirmado: yield=30×portions=4 (120 total) → cost/portion=$7.14, price=$23.81
+- Proposals → recipes intactos ✅
+
+
+
 ## Recipe Pricing v2 — Operation Type Presets + Multi-Method (Feb 3, 2026)
 
 **Status:** ✅ 19/19 backend tests PASSED (iteration_216). Preview OK. Pendiente redeploy prod.
