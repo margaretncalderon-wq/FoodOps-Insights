@@ -1,5 +1,68 @@
 # Kora OS — Product Requirements Document
 
+## Employee Schedules + Days-Off + Team Calendar (Feb 3, 2026)
+
+**Status:** ✅ 21/21 backend tests PASS (iteration_219). Preview OK.
+
+### Nuevo Backend
+Colecciones nuevas: `employee_schedules`, `employee_days_off` (legacy sin tocar)
+
+Endpoints en `/api/people-ops/`:
+- **Schedules (versioned)**:
+  - `GET /schedules/employee/{id}` — historial de versiones
+  - `GET /schedules/employee/{id}/current` — versión vigente hoy
+  - `POST /schedules/employee/{id}` — nueva versión (auto-supersedes anteriores)
+  - `PUT /schedules/{schedule_id}` — editar activa (bloqueado si superseded)
+  - `DELETE /schedules/{schedule_id}`
+  - `GET /schedules/employee/{id}/expected-hours?start_date&end_date` — calcula horas esperadas día por día
+
+- **Días libres específicos**:
+  - `GET/POST /days-off/employee/{id}` (duplicados 400)
+  - `DELETE /days-off/{day_off_id}`
+
+- **Team calendar** (aggregate view):
+  - `GET /schedules/team-calendar?start_date&end_date` → schedule + days_off + approved time-off + approved OT
+
+### Modelo `employee_schedules`
+```
+{ schedule_id, company_id, employee_id, employee_name,
+  effective_from, effective_to,  # versioning ISO dates
+  weekly_pattern: { monday..sunday: { work_hours, start, end, break_min } },
+  weekly_hours_total, weekly_hours_threshold,  # DR=44, USA=40
+  status: 'active'|'superseded',
+  notes, created_at, created_by, updated_at }
+```
+
+### Rotativo/Variable
+Se implementa creando NUEVAS versiones con distinto `effective_from` — el sistema mantiene histórico completo.
+
+### Frontend nuevo
+- **`ScheduleTab.js`** — nuevo tab "Horario" en EmployeeProfile:
+  - Calendario individual mensual arriba
+  - Vista del horario actual (7 días grid, off/hours)
+  - Días libres específicos con add/delete
+  - Historial de versiones (audit trail)
+  - Dialog editor completo (pattern semanal + umbral + notas)
+- **`ScheduleCalendar.js`** — vista Homebase-style:
+  - Grid mensual estilo calendario
+  - Filtro "Todo el equipo" / empleado específico
+  - Colores: verde=horario, gris=libre, azul=time-off, naranja=OT
+  - Navegación Prev/Hoy/Next
+- **`OvertimePeriodDialog.js`** — botón **"Cargar horario base"**:
+  - Muestra columna "Base" con horas esperadas por día
+  - Muestra summary: horas base esperadas, umbral semanal, OT ingresado, días libres
+  - Días libres se pintan en gris para diferenciarlos visualmente
+
+### Files
+- `/app/backend/routers/people_ops.py` (+300 líneas)
+- `/app/frontend/src/components/people-ops/EmployeeProfilePage/ScheduleTab.js` (NEW)
+- `/app/frontend/src/components/people-ops/ScheduleCalendar.js` (NEW)
+- `/app/frontend/src/components/people-ops/OvertimePeriodDialog.js` (updated)
+- `/app/frontend/src/components/people-ops/EmployeeProfile.js` (new tab)
+- `/app/backend/tests/test_people_ops_schedules.py` (NEW)
+
+
+
 ## Overtime Periods — Nuevo flujo período-based (Feb 3, 2026)
 
 **Status:** ✅ 20/20 backend tests PASS (iteration_218). Preview OK.

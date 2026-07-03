@@ -3249,7 +3249,7 @@ async def update_employee_schedule(schedule_id: str, data: dict, user: User = De
 
 @people_ops_router.delete("/schedules/{schedule_id}")
 async def delete_employee_schedule(schedule_id: str, user: User = Depends(get_current_user)):
-    """Delete a schedule version. Only allowed if it hasn't been used in a payroll or OT period."""
+    """Delete a schedule version. Use with caution — history entry disappears from audit trail."""
     company_id = user.company_id or user.active_org_id
     result = await db.employee_schedules.delete_one(
         {"company_id": company_id, "schedule_id": schedule_id}
