@@ -17,7 +17,7 @@ import {
 } from "../ui/table";
 import {
   Clock, Plus, RefreshCw, CheckCircle, XCircle,  AlertCircle, DollarSign, Calendar, Sun, Moon,
-  Download, Mail, BarChart3, Edit, Trash2
+  Download, Mail, BarChart3, Edit, Trash2, Users
 } from "lucide-react";
 
 import { API_BASE as API } from "../../utils/api";
@@ -75,6 +75,7 @@ export function OvertimeSection() {
   const [periodDialogOpen, setPeriodDialogOpen] = useState(false);
   const [editingPeriod, setEditingPeriod] = useState(null);
   const [expandedPeriodId, setExpandedPeriodId] = useState(null);
+  const [overrideDialogOpen, setOverrideDialogOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   
   // Report (period filter + aggregate summary)
@@ -419,6 +420,16 @@ export function OvertimeSection() {
                 <option value="integrated">{isEs ? "Nómina + OT juntos (mostrar bonus)" : "Payroll + OT together (show bonus)"}</option>
                 <option value="separate">{isEs ? "Nómina y OT separados (mostrar total)" : "Payroll & OT separate (show total)"}</option>
               </select>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-7 px-2"
+                onClick={() => setOverrideDialogOpen(true)}
+                title={isEs ? "Configurar overrides por empleado" : "Configure per-employee overrides"}
+                data-testid="ot-employee-overrides-btn"
+              >
+                <Users className="w-4 h-4" />
+              </Button>
             </div>
           </div>
         </CardHeader>
@@ -455,25 +466,38 @@ export function OvertimeSection() {
                     : p.status === "rejected" ? "bg-red-100 text-red-700"
                     : p.status === "paid" ? "bg-blue-100 text-blue-700"
                     : "bg-amber-100 text-amber-700";
+                  // Resolve effective payment mode for this period's employee
+                  const empRecord = employees.find((e) => e.employee_id === p.employee_id);
+                  const effectiveMode = empRecord?.overtime_payment_mode || overtimePaymentMode;
+                  const hasOverride = !!empRecord?.overtime_payment_mode;
+                  const amountToShow = effectiveMode === "integrated"
+                    ? (p.estimated_amount_extra_only ?? 0)
+                    : (p.estimated_amount ?? 0);
+                  const otherAmount = effectiveMode === "integrated"
+                    ? (p.estimated_amount || 0)
+                    : (p.estimated_amount_extra_only || 0);
                   return (
                     <>
                       <TableRow key={p.overtime_period_id} data-testid={`period-row-${p.overtime_period_id}`}>
-                        <TableCell className="font-medium">{p.employee_name}</TableCell>
+                        <TableCell className="font-medium">
+                          {p.employee_name}
+                          {hasOverride && (
+                            <Badge variant="outline" className="ml-1 text-[9px] bg-blue-50 text-blue-700" title={isEs ? "Empleado usa modo distinto al de empresa" : "Employee uses a different mode than company"}>
+                              {effectiveMode === "integrated" ? "Int." : "Sep."}
+                            </Badge>
+                          )}
+                        </TableCell>
                         <TableCell>
                           <span className="text-xs font-mono">{p.start_date} → {p.end_date}</span>
                           <span className="text-[10px] text-muted-foreground ml-1">({p.period_type})</span>
                         </TableCell>
                         <TableCell className="text-right font-mono text-xs">{p.totals?.total_hours ?? 0}</TableCell>
                         <TableCell className="text-right font-mono font-semibold text-emerald-700" data-testid={`ot-amount-${p.overtime_period_id}`}>
-                          {formatCurrency(
-                            overtimePaymentMode === "integrated"
-                              ? (p.estimated_amount_extra_only ?? 0)
-                              : (p.estimated_amount ?? 0)
-                          )}
+                          {formatCurrency(amountToShow)}
                           <div className="text-[9px] text-muted-foreground font-normal">
-                            {overtimePaymentMode === "integrated"
-                              ? (isEs ? `total con base: ${formatCurrency(p.estimated_amount || 0)}` : `total incl. base: ${formatCurrency(p.estimated_amount || 0)}`)
-                              : (isEs ? `bonus: ${formatCurrency(p.estimated_amount_extra_only || 0)}` : `bonus: ${formatCurrency(p.estimated_amount_extra_only || 0)}`)
+                            {effectiveMode === "integrated"
+                              ? (isEs ? `total con base: ${formatCurrency(otherAmount)}` : `total incl. base: ${formatCurrency(otherAmount)}`)
+                              : (isEs ? `bonus: ${formatCurrency(otherAmount)}` : `bonus: ${formatCurrency(otherAmount)}`)
                             }
                           </div>
                         </TableCell>
@@ -587,6 +611,76 @@ export function OvertimeSection() {
         isEs={isEs}
         editPeriod={editingPeriod}
       />
+
+      {/* Per-employee OT overrides dialog */}
+      <Dialog open={overrideDialogOpen} onOpenChange={setOverrideDialogOpen}>
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{isEs ? "Overrides de OT por Empleado" : "Per-Employee OT Overrides"}</DialogTitle>
+          </DialogHeader>
+          <p className="text-xs text-muted-foreground mb-3">
+            {isEs
+              ? `Empresa: período = ${companyPeriodType}, modo pago = ${overtimePaymentMode}. Cambios aquí sobreescriben el default por empleado.`
+              : `Company: period = ${companyPeriodType}, payment mode = ${overtimePaymentMode}. Values here override the default per employee.`}
+          </p>
+          <div className="rounded-md border overflow-hidden">
+            <table className="w-full text-sm">
+              <thead className="bg-slate-50 border-b">
+                <tr>
+                  <th className="text-left px-2 py-2 text-xs uppercase">{isEs ? "Empleado" : "Employee"}</th>
+                  <th className="text-left px-2 py-2 text-xs uppercase">{isEs ? "Período" : "Period"}</th>
+                  <th className="text-left px-2 py-2 text-xs uppercase">{isEs ? "Modo de pago" : "Payment mode"}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {employees.map((emp) => {
+                  const updateEmpOverride = async (patch) => {
+                    try {
+                      await axios.put(`${API}/api/people-ops/overtime/employee-period/${emp.employee_id}`, patch, { withCredentials: true });
+                      fetchData();
+                    } catch (err) { console.error(err); }
+                  };
+                  return (
+                    <tr key={emp.employee_id} className="border-b">
+                      <td className="px-2 py-1.5">
+                        <span className="text-xs font-medium">{emp.full_name}</span>
+                      </td>
+                      <td className="px-2 py-1.5">
+                        <select
+                          className="h-7 border rounded px-2 text-xs bg-white"
+                          value={emp.overtime_period_type || ""}
+                          onChange={(e) => updateEmpOverride({ period_type: e.target.value || null })}
+                          data-testid={`override-period-${emp.employee_id}`}
+                        >
+                          <option value="">{isEs ? `(default: ${companyPeriodType})` : `(default: ${companyPeriodType})`}</option>
+                          <option value="weekly">{isEs ? "Semanal" : "Weekly"}</option>
+                          <option value="biweekly">{isEs ? "Quincenal" : "Biweekly"}</option>
+                          <option value="monthly">{isEs ? "Mensual" : "Monthly"}</option>
+                        </select>
+                      </td>
+                      <td className="px-2 py-1.5">
+                        <select
+                          className="h-7 border rounded px-2 text-xs bg-white"
+                          value={emp.overtime_payment_mode || ""}
+                          onChange={(e) => updateEmpOverride({ overtime_payment_mode: e.target.value || null })}
+                          data-testid={`override-mode-${emp.employee_id}`}
+                        >
+                          <option value="">{isEs ? `(default: ${overtimePaymentMode})` : `(default: ${overtimePaymentMode})`}</option>
+                          <option value="integrated">{isEs ? "Integrado (bonus)" : "Integrated (bonus)"}</option>
+                          <option value="separate">{isEs ? "Separado (total)" : "Separate (total)"}</option>
+                        </select>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setOverrideDialogOpen(false)} data-testid="close-override-dialog">{isEs ? "Cerrar" : "Close"}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       
       {/* Period Report — filters + summary */}
       <Card data-testid="ot-report-card">

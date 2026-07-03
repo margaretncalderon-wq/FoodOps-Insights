@@ -3999,8 +3999,14 @@ async def get_overtime_period_config(user: User = Depends(get_current_user)):
     company_default = config.get("overtime_period_type") or "biweekly"
     payment_mode = config.get("overtime_payment_mode") or "integrated"  # 'integrated' | 'separate'
     overrides_cursor = db.employees.find(
-        {"company_id": company_id, "overtime_period_type": {"$in": ["weekly", "biweekly", "monthly"]}},
-        {"_id": 0, "employee_id": 1, "full_name": 1, "overtime_period_type": 1},
+        {
+            "company_id": company_id,
+            "$or": [
+                {"overtime_period_type": {"$in": ["weekly", "biweekly", "monthly"]}},
+                {"overtime_payment_mode": {"$in": ["integrated", "separate"]}},
+            ],
+        },
+        {"_id": 0, "employee_id": 1, "full_name": 1, "overtime_period_type": 1, "overtime_payment_mode": 1},
     )
     overrides = await overrides_cursor.to_list(500)
     return {
@@ -4041,26 +4047,54 @@ async def update_overtime_period_config(data: dict, user: User = Depends(get_cur
 
 @people_ops_router.put("/overtime/employee-period/{employee_id}")
 async def set_employee_overtime_period(employee_id: str, data: dict, user: User = Depends(get_current_user)):
-    """Override period type for a single employee. period_type=null → remove override."""
+    """Override period_type and/or payment_mode for a single employee.
+    Body may contain:
+      period_type: "weekly"|"biweekly"|"monthly"|null (null → remove override)
+      overtime_payment_mode: "integrated"|"separate"|null (null → remove override)
+    """
     company_id = user.company_id or user.active_org_id
-    period_type = data.get("period_type")
-    if period_type is None:
-        result = await db.employees.update_one(
-            {"company_id": company_id, "employee_id": employee_id},
-            {"$unset": {"overtime_period_type": ""}},
-        )
-        if result.matched_count == 0:
-            raise HTTPException(status_code=404, detail="Employee not found")
-        return {"ok": True, "employee_id": employee_id, "period_type": None}
-    if period_type not in ("weekly", "biweekly", "monthly"):
-        raise HTTPException(status_code=400, detail="period_type must be weekly, biweekly, monthly or null")
+    set_updates: dict = {}
+    unset_updates: dict = {}
+
+    if "period_type" in data:
+        period_type = data.get("period_type")
+        if period_type is None:
+            unset_updates["overtime_period_type"] = ""
+        elif period_type in ("weekly", "biweekly", "monthly"):
+            set_updates["overtime_period_type"] = period_type
+        else:
+            raise HTTPException(status_code=400, detail="period_type must be weekly/biweekly/monthly or null")
+
+    if "overtime_payment_mode" in data:
+        mode = data.get("overtime_payment_mode")
+        if mode is None:
+            unset_updates["overtime_payment_mode"] = ""
+        elif mode in ("integrated", "separate"):
+            set_updates["overtime_payment_mode"] = mode
+        else:
+            raise HTTPException(status_code=400, detail="overtime_payment_mode must be 'integrated'/'separate' or null")
+
+    if not set_updates and not unset_updates:
+        raise HTTPException(status_code=400, detail="Provide period_type and/or overtime_payment_mode")
+
+    mongo_op: dict = {}
+    if set_updates:
+        mongo_op["$set"] = set_updates
+    if unset_updates:
+        mongo_op["$unset"] = unset_updates
+
     result = await db.employees.update_one(
         {"company_id": company_id, "employee_id": employee_id},
-        {"$set": {"overtime_period_type": period_type}},
+        mongo_op,
     )
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Employee not found")
-    return {"ok": True, "employee_id": employee_id, "period_type": period_type}
+    return {
+        "ok": True,
+        "employee_id": employee_id,
+        "period_type": set_updates.get("overtime_period_type") or (None if "overtime_period_type" in unset_updates else "unchanged"),
+        "overtime_payment_mode": set_updates.get("overtime_payment_mode") or (None if "overtime_payment_mode" in unset_updates else "unchanged"),
+    }
 
 
 @people_ops_router.get("/overtime/periods")
