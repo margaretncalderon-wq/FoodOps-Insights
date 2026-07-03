@@ -3993,31 +3993,50 @@ async def _resolve_employee_overtime_period(company_id: str, employee: dict) -> 
 
 @people_ops_router.get("/overtime/period-config")
 async def get_overtime_period_config(user: User = Depends(get_current_user)):
-    """Return company-default period type + list of per-employee overrides."""
+    """Return company-default period type + payment mode + list of per-employee overrides."""
     company_id = user.company_id or user.active_org_id
-    config = await db.payroll_config.find_one({"company_id": company_id}, {"_id": 0, "overtime_period_type": 1}) or {}
+    config = await db.payroll_config.find_one({"company_id": company_id}, {"_id": 0, "overtime_period_type": 1, "overtime_payment_mode": 1}) or {}
     company_default = config.get("overtime_period_type") or "biweekly"
+    payment_mode = config.get("overtime_payment_mode") or "integrated"  # 'integrated' | 'separate'
     overrides_cursor = db.employees.find(
         {"company_id": company_id, "overtime_period_type": {"$in": ["weekly", "biweekly", "monthly"]}},
         {"_id": 0, "employee_id": 1, "full_name": 1, "overtime_period_type": 1},
     )
     overrides = await overrides_cursor.to_list(500)
-    return {"company_default": company_default, "employee_overrides": overrides}
+    return {
+        "company_default": company_default,
+        "overtime_payment_mode": payment_mode,
+        "employee_overrides": overrides,
+    }
 
 
 @people_ops_router.put("/overtime/period-config")
 async def update_overtime_period_config(data: dict, user: User = Depends(get_current_user)):
-    """Set company default period type. Body: {"period_type": "weekly"|"biweekly"|"monthly"}"""
+    """Set company defaults. Body accepts:
+      period_type: "weekly"|"biweekly"|"monthly"
+      overtime_payment_mode: "integrated" (payroll includes base for OT hrs → OT payment = bonus only)
+                          or "separate" (OT paid separately from payroll → OT payment = base + bonus)
+    """
     company_id = user.company_id or user.active_org_id
-    period_type = data.get("period_type")
-    if period_type not in ("weekly", "biweekly", "monthly"):
-        raise HTTPException(status_code=400, detail="period_type must be weekly, biweekly or monthly")
+    updates: dict = {"updated_at": datetime.now(timezone.utc)}
+    if "period_type" in data:
+        period_type = data.get("period_type")
+        if period_type not in ("weekly", "biweekly", "monthly"):
+            raise HTTPException(status_code=400, detail="period_type must be weekly, biweekly or monthly")
+        updates["overtime_period_type"] = period_type
+    if "overtime_payment_mode" in data:
+        mode = data.get("overtime_payment_mode")
+        if mode not in ("integrated", "separate"):
+            raise HTTPException(status_code=400, detail="overtime_payment_mode must be 'integrated' or 'separate'")
+        updates["overtime_payment_mode"] = mode
+    if len(updates) == 1:  # only updated_at
+        raise HTTPException(status_code=400, detail="Provide period_type and/or overtime_payment_mode")
     await db.payroll_config.update_one(
         {"company_id": company_id},
-        {"$set": {"overtime_period_type": period_type, "updated_at": datetime.now(timezone.utc)}},
+        {"$set": updates},
         upsert=True,
     )
-    return {"ok": True, "period_type": period_type}
+    return {"ok": True, **updates}
 
 
 @people_ops_router.put("/overtime/employee-period/{employee_id}")

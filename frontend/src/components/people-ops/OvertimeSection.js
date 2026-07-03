@@ -68,6 +68,7 @@ export function OvertimeSection() {
   const [requests, setRequests] = useState([]);
   const [periods, setPeriods] = useState([]);
   const [companyPeriodType, setCompanyPeriodType] = useState("biweekly");
+  const [overtimePaymentMode, setOvertimePaymentMode] = useState("integrated");
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
   const [legacyDialogOpen, setLegacyDialogOpen] = useState(false);
@@ -122,6 +123,7 @@ export function OvertimeSection() {
       setEmployees(empRes.data);
       setPeriods(periodsRes.data || []);
       setCompanyPeriodType(configRes.data?.company_default || "biweekly");
+      setOvertimePaymentMode(configRes.data?.overtime_payment_mode || "integrated");
     } catch (err) {
       console.error("Error fetching overtime data:", err);
     }
@@ -384,7 +386,7 @@ export function OvertimeSection() {
       {/* Períodos de Horas Extras (nuevo flujo) */}
       <Card data-testid="ot-periods-card">
         <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between flex-wrap gap-2">
             <div>
               <CardTitle className="text-base flex items-center gap-2">
                 <Calendar className="w-5 h-5 text-blue-600" />
@@ -393,9 +395,30 @@ export function OvertimeSection() {
               </CardTitle>
               <CardDescription className="text-xs">
                 {isEs
-                  ? `Empresa: default ${companyPeriodType === "weekly" ? "Semanal" : companyPeriodType === "biweekly" ? "Quincenal" : "Mensual"}`
-                  : `Company default: ${companyPeriodType}`}
+                  ? `Período empresa: ${companyPeriodType === "weekly" ? "Semanal" : companyPeriodType === "biweekly" ? "Quincenal" : "Mensual"}`
+                  : `Company period: ${companyPeriodType}`}
               </CardDescription>
+            </div>
+            <div className="flex items-center gap-2 text-xs">
+              <span className="text-muted-foreground">
+                {isEs ? "Modo de pago OT:" : "OT payment mode:"}
+              </span>
+              <select
+                className="h-7 border rounded-md px-2 text-xs bg-white"
+                value={overtimePaymentMode}
+                onChange={async (e) => {
+                  const mode = e.target.value;
+                  setOvertimePaymentMode(mode);
+                  try {
+                    await axios.put(`${API}/api/people-ops/overtime/period-config`, { overtime_payment_mode: mode }, { withCredentials: true });
+                    fetchData();
+                  } catch (err) { console.error(err); }
+                }}
+                data-testid="ot-payment-mode-select"
+              >
+                <option value="integrated">{isEs ? "Nómina + OT juntos (mostrar bonus)" : "Payroll + OT together (show bonus)"}</option>
+                <option value="separate">{isEs ? "Nómina y OT separados (mostrar total)" : "Payroll & OT separate (show total)"}</option>
+              </select>
             </div>
           </div>
         </CardHeader>
@@ -411,11 +434,15 @@ export function OvertimeSection() {
                   <TableHead>{isEs ? "Empleado" : "Employee"}</TableHead>
                   <TableHead>{isEs ? "Período" : "Period"}</TableHead>
                   <TableHead className="text-right">{isEs ? "Horas totales" : "Total hours"}</TableHead>
-                  <TableHead className="text-right" title={isEs ? "Solo el bonus/diferencial (base ya está en nómina)" : "Bonus only (base already in payroll)"}>
-                    {isEs ? "Bonus OT" : "OT Bonus"}
-                  </TableHead>
-                  <TableHead className="text-right" title={isEs ? "Total pago horas OT (base + bonus)" : "Full OT pay (base + surcharge)"}>
-                    {isEs ? "Total OT" : "Full OT"}
+                  <TableHead className="text-right" title={
+                    overtimePaymentMode === "integrated"
+                      ? (isEs ? "Solo el bonus (base ya está en nómina)" : "Bonus only (base already in payroll)")
+                      : (isEs ? "Pago completo OT (base + surcharge)" : "Full OT payment (base + surcharge)")
+                  }>
+                    {isEs ? "A pagar" : "To pay"}
+                    <span className="text-[9px] text-muted-foreground ml-1">
+                      ({overtimePaymentMode === "integrated" ? (isEs ? "bonus" : "bonus") : (isEs ? "total" : "total")})
+                    </span>
                   </TableHead>
                   <TableHead>{isEs ? "Estado" : "Status"}</TableHead>
                   <TableHead className="text-right">{isEs ? "Acciones" : "Actions"}</TableHead>
@@ -437,11 +464,18 @@ export function OvertimeSection() {
                           <span className="text-[10px] text-muted-foreground ml-1">({p.period_type})</span>
                         </TableCell>
                         <TableCell className="text-right font-mono text-xs">{p.totals?.total_hours ?? 0}</TableCell>
-                        <TableCell className="text-right font-mono font-semibold text-emerald-700" data-testid={`ot-extra-only-${p.overtime_period_id}`}>
-                          {formatCurrency(p.estimated_amount_extra_only ?? 0)}
-                        </TableCell>
-                        <TableCell className="text-right font-mono text-slate-500" data-testid={`ot-total-${p.overtime_period_id}`}>
-                          {formatCurrency(p.estimated_amount || 0)}
+                        <TableCell className="text-right font-mono font-semibold text-emerald-700" data-testid={`ot-amount-${p.overtime_period_id}`}>
+                          {formatCurrency(
+                            overtimePaymentMode === "integrated"
+                              ? (p.estimated_amount_extra_only ?? 0)
+                              : (p.estimated_amount ?? 0)
+                          )}
+                          <div className="text-[9px] text-muted-foreground font-normal">
+                            {overtimePaymentMode === "integrated"
+                              ? (isEs ? `total con base: ${formatCurrency(p.estimated_amount || 0)}` : `total incl. base: ${formatCurrency(p.estimated_amount || 0)}`)
+                              : (isEs ? `bonus: ${formatCurrency(p.estimated_amount_extra_only || 0)}` : `bonus: ${formatCurrency(p.estimated_amount_extra_only || 0)}`)
+                            }
+                          </div>
                         </TableCell>
                         <TableCell><Badge className={statusColor}>{p.status}</Badge></TableCell>
                         <TableCell className="text-right">
@@ -499,7 +533,7 @@ export function OvertimeSection() {
                       </TableRow>
                       {isExpanded && (
                         <TableRow>
-                          <TableCell colSpan={7} className="bg-slate-50 p-3">
+                          <TableCell colSpan={6} className="bg-slate-50 p-3">
                             <div className="text-xs font-semibold uppercase text-slate-600 mb-2">
                               {isEs ? "Detalle por día" : "Daily detail"}
                             </div>
