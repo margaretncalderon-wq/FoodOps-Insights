@@ -1,6 +1,36 @@
 # Kora OS — Product Requirements Document
 
 
+## Recipe Pricing Logic — Multi-Method (Feb 3, 2026)
+
+**Bug conceptual encontrado:** el "Precio sugerido" usaba `total_cost / target_food_cost%` que cobra overhead dos veces → precio inflado ($273.66 vs correcto $237.97 para food $71.39, overhead 15%, target 30%).
+
+### Fix aplicado
+
+**Backend (`compute_full_recipe_costing`):**
+- **Método A — Food Cost (default, industria)**: `food_cost / target_food_cost%` → $237.97 ✅
+- **Método B — Prime Cost (fine dining)**: `(food + labor) / target_prime_cost%` (default 55%) → $129.80
+- **Método C — Gross Margin Markup (catering)**: `total_cost / (1 - target_margin%)` (default 65%) → $234.57
+- Nuevo campo `pricing_methods` en respuesta con los 3 métodos + labels + fórmulas + recomendación de uso.
+- Nuevo campo `prime_cost_per_portion`.
+- Nuevos settings de compañía: `recipe_target_prime_cost_percent`, `recipe_target_gross_margin_percent`.
+
+**Frontend (`RecipeBuilder.js`):**
+- Precio principal ahora muestra Método A correctamente.
+- Panel colapsable "Otras estrategias de precio" muestra B y C con botón "Usar" para aplicar cada uno.
+- Extra fix: `preview.quantity_in_base` ahora formatea a 2 decimales (antes mostraba "92.444 ml").
+
+### Contract preservado
+- `suggested_sell_price` sigue existiendo (ahora con fórmula correcta).
+- Todos los campos legacy preservados.
+- Proposals/quotes que leen `suggested_sell_price` o `sell_price` NO se rompen.
+
+### Files
+- `/app/backend/server.py` (compute_full_recipe_costing + CompanySettings + PUT allowlist)
+- `/app/frontend/src/components/RecipeBuilder.js`
+
+
+
 ## Recipe Ingredient Cost = $0 + 4-Decimal Display (Jul 2, 2026)
 
 **Status:** ✅ Fix aplicado en preview. **Pendiente: redeploy a producción.**

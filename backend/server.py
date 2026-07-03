@@ -286,7 +286,9 @@ class Company(BaseModel):
     # Recipe Costing Configuration (Sprint P0)
     chef_hourly_rate: float = 20.0  # $/hr for labor cost calculations
     recipe_overhead_percent: float = 15.0  # Applied to food cost
-    recipe_target_food_cost_percent: float = 30.0  # For suggested sell price
+    recipe_target_food_cost_percent: float = 30.0  # Method A: food ÷ target%
+    recipe_target_prime_cost_percent: float = 55.0  # Method B: (food+labor) ÷ target%
+    recipe_target_gross_margin_percent: float = 65.0  # Method C: total ÷ (1-margin%)
 
 # ============== SAAS MULTI-TENANT MODELS ==============
 
@@ -2965,9 +2967,35 @@ async def compute_full_recipe_costing(
     total_cost_percent = round((total_cost_per_portion / sell_price * 100), 2) if sell_price > 0 else 0
     contribution_dollar = round(sell_price - total_cost_per_portion, 4) if sell_price > 0 else 0
     contribution_percent = round((contribution_dollar / sell_price * 100), 2) if sell_price > 0 else 0
-    
-    # Suggested sell price to meet target food cost % (using TOTAL cost, more accurate)
-    suggested_sell_price = round(total_cost_per_portion / (target_food_pct / 100.0), 2) if target_food_pct > 0 else 0
+
+    # =========================================================
+    # SUGGESTED SELL PRICE — Three industry-standard methods
+    # =========================================================
+    # (Fixes prior bug: previously divided total_cost by target_food_pct,
+    #  which effectively double-charged overhead. Correct formula uses
+    #  ONLY food_cost in the numerator for the food-cost method.)
+    #
+    # A) Food Cost Method (classic restaurant): food ÷ target_food_pct
+    # B) Prime Cost Method (fine dining):        (food+labor) ÷ target_prime_pct
+    # C) Gross Margin Markup (catering/events):  total_cost ÷ (1 - target_margin)
+    #
+    # `suggested_sell_price` (main field, preserved for backwards compat) = Method A
+    # `pricing_methods` sub-object exposes B and C for the UI.
+
+    labor_per_portion = round(labor_cost / (yield_qty * portions if yield_qty * portions else 1), 4)
+    prime_cost_per_portion = round(cost_per_portion_food + labor_per_portion, 4)
+
+    target_prime_pct = float((company or {}).get("recipe_target_prime_cost_percent") or 55.0)
+    target_margin_pct = float((company or {}).get("recipe_target_gross_margin_percent") or 65.0)
+
+    # A) Food Cost Method — the industry default (Gastrokaisen, CaterTrax, Toast POS)
+    suggested_sell_price = round(cost_per_portion_food / (target_food_pct / 100.0), 2) if target_food_pct > 0 else 0
+    # B) Prime Cost Method
+    suggested_price_prime = round(prime_cost_per_portion / (target_prime_pct / 100.0), 2) if target_prime_pct > 0 else 0
+    # C) Gross Margin Markup — precio que deja un margen bruto X% después de food+labor+overhead
+    denom_c = max(0.01, 1.0 - (target_margin_pct / 100.0))
+    suggested_price_markup = round(total_cost_per_portion / denom_c, 2)
+
     price_gap_pct = round(((sell_price - suggested_sell_price) / suggested_sell_price * 100), 2) if suggested_sell_price > 0 else 0
     
     return {
@@ -2978,17 +3006,44 @@ async def compute_full_recipe_costing(
         "cost_per_yield": cost_per_yield,
         "cost_per_portion": cost_per_portion_food,       # legacy field: food-only per portion
         "total_cost_per_portion": total_cost_per_portion,
+        "prime_cost_per_portion": prime_cost_per_portion,
         "food_cost_percent": food_cost_percent,
         "total_cost_percent": total_cost_percent,
         "contribution_dollar": contribution_dollar,
         "contribution_percent": contribution_percent,
-        "suggested_sell_price": suggested_sell_price,
+        "suggested_sell_price": suggested_sell_price,   # Method A (default shown in UI)
         "price_gap_pct": price_gap_pct,
+        # Multi-method pricing panel for advanced UI
+        "pricing_methods": {
+            "food_cost_method": {
+                "label": "Food Cost Method",
+                "target_pct": target_food_pct,
+                "price": suggested_sell_price,
+                "formula": "food_cost ÷ target_food_cost%",
+                "recommended_for": "restaurant, cafeteria",
+            },
+            "prime_cost_method": {
+                "label": "Prime Cost Method",
+                "target_pct": target_prime_pct,
+                "price": suggested_price_prime,
+                "formula": "(food + labor) ÷ target_prime_cost%",
+                "recommended_for": "fine dining, steakhouse",
+            },
+            "gross_margin_markup": {
+                "label": "Gross Margin Markup",
+                "target_pct": target_margin_pct,
+                "price": suggested_price_markup,
+                "formula": "total_cost ÷ (1 - target_margin%)",
+                "recommended_for": "catering, events, buffet",
+            },
+        },
         # Snapshot config so history is auditable
         "costing_config_snapshot": {
             "chef_hourly_rate": chef_hourly,
             "overhead_percent": overhead_pct,
             "target_food_cost_percent": target_food_pct,
+            "target_prime_cost_percent": target_prime_pct,
+            "target_gross_margin_percent": target_margin_pct,
             "computed_at": datetime.now(timezone.utc).isoformat(),
         },
     }
@@ -7030,6 +7085,7 @@ async def update_company_settings(data: dict, user: User = Depends(get_current_u
         "signatory_name", "signatory_title",
         # Recipe Costing Configuration (Sprint P0)
         "chef_hourly_rate", "recipe_overhead_percent", "recipe_target_food_cost_percent",
+        "recipe_target_prime_cost_percent", "recipe_target_gross_margin_percent",
     ]
     update_data = {k: v for k, v in data.items() if k in allowed_fields}
 

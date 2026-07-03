@@ -299,7 +299,7 @@ function IngredientRow({ ing, onChange, onRemove, isEs }) {
         </div>
         {preview.quantity_in_base != null && preview.compatible && (
           <p className="text-[9px] text-muted-foreground" data-testid={`ingredient-conversion-${ing.item_id}`}>
-            = {preview.quantity_in_base} {preview.base_unit}
+            = {fmtNum(preview.quantity_in_base, 2)} {preview.base_unit}
           </p>
         )}
       </TableCell>
@@ -533,6 +533,8 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
     chef_hourly_rate: 20,
     recipe_overhead_percent: 15,
     recipe_target_food_cost_percent: 30,
+    recipe_target_prime_cost_percent: 55,
+    recipe_target_gross_margin_percent: 65,
   });
   const saveCostingConfig = (patch) => {
     const next = { ...costingConfig, ...patch };
@@ -550,6 +552,8 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
         chef_hourly_rate: Number(c.chef_hourly_rate ?? 20),
         recipe_overhead_percent: Number(c.recipe_overhead_percent ?? 15),
         recipe_target_food_cost_percent: Number(c.recipe_target_food_cost_percent ?? 30),
+        recipe_target_prime_cost_percent: Number(c.recipe_target_prime_cost_percent ?? 55),
+        recipe_target_gross_margin_percent: Number(c.recipe_target_gross_margin_percent ?? 65),
       });
     }).catch(() => {});
     return () => { alive = false; };
@@ -558,12 +562,26 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
   const laborCost = (totalLaborMinutes / 60) * costingConfig.chef_hourly_rate;
   const overheadCost = totalCost * (costingConfig.recipe_overhead_percent / 100);
   const totalCostFull = totalCost + laborCost + overheadCost;
-  const totalCostPerPortionFull = form.portions_per_yield > 0 ? totalCostFull / form.portions_per_yield : totalCostFull;
+  const portionsDenom = form.portions_per_yield > 0 ? form.portions_per_yield : 1;
+  const costPerPortionFoodOnly = totalCost / portionsDenom;
+  const laborPerPortion = laborCost / portionsDenom;
+  const primeCostPerPortion = costPerPortionFoodOnly + laborPerPortion;
+  const totalCostPerPortionFull = totalCostFull / portionsDenom;
   const totalCostPercent = form.sell_price > 0 ? (totalCostPerPortionFull / form.sell_price * 100) : 0;
   const contributionDollar = form.sell_price - totalCostPerPortionFull;
   const contributionPercent = form.sell_price > 0 ? (contributionDollar / form.sell_price * 100) : 0;
   const targetFoodCostPct = costingConfig.recipe_target_food_cost_percent;
-  const suggestedSellPriceByFoodCost = targetFoodCostPct > 0 ? totalCostPerPortionFull / (targetFoodCostPct / 100) : 0;
+  const targetPrimeCostPct = costingConfig.recipe_target_prime_cost_percent;
+  const targetGrossMarginPct = costingConfig.recipe_target_gross_margin_percent;
+  // Method A — Food Cost (industry default, matches Gastrokaisen)
+  const suggestedPriceFoodCost = targetFoodCostPct > 0 ? costPerPortionFoodOnly / (targetFoodCostPct / 100) : 0;
+  // Method B — Prime Cost
+  const suggestedPricePrime = targetPrimeCostPct > 0 ? primeCostPerPortion / (targetPrimeCostPct / 100) : 0;
+  // Method C — Gross Margin Markup
+  const marginDenom = Math.max(0.01, 1 - targetGrossMarginPct / 100);
+  const suggestedPriceMarkup = totalCostPerPortionFull / marginDenom;
+  // Backwards-compat variable name used elsewhere in JSX
+  const suggestedSellPriceByFoodCost = suggestedPriceFoodCost;
 
   // Margin policy → suggested sale price (Food default unless category overrides)
   const [marginPolicy, setMarginPolicy] = useState({ by_type: {}, by_category: [] });
@@ -1637,7 +1655,7 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
                 </div>
               )}
 
-              {/* Suggested price by target food-cost */}
+              {/* Suggested price — Method A: Food Cost (industry default) */}
               {suggestedSellPriceByFoodCost > 0 && (
                 <div className="flex items-center justify-between gap-3 px-4 py-3 rounded-lg border border-blue-200 bg-blue-50">
                   <div className="text-sm">
@@ -1646,7 +1664,9 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
                     </span>
                     <span className="text-2xl font-bold text-blue-700 ml-2" data-testid="suggested-price-food-cost">${fmtNum(suggestedSellPriceByFoodCost)}</span>
                     <span className="text-xs text-muted-foreground ml-2">
-                      ({language === "es" ? "para" : "for"} {targetFoodCostPct.toFixed(0)}% {language === "es" ? "food cost objetivo" : "target food cost"})
+                      ({language === "es"
+                        ? `Food Cost ${targetFoodCostPct.toFixed(0)}% — food ÷ target`
+                        : `Food Cost ${targetFoodCostPct.toFixed(0)}% — food ÷ target`})
                     </span>
                   </div>
                   <Button
@@ -1660,6 +1680,79 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
                     {language === "es" ? "Aplicar" : "Apply"}
                   </Button>
                 </div>
+              )}
+
+              {/* Advanced: Alternative pricing methods (Prime Cost + Gross Margin) */}
+              {(suggestedPricePrime > 0 || suggestedPriceMarkup > 0) && (
+                <details className="rounded-lg border border-slate-200 bg-slate-50/60 px-4 py-2 text-sm" data-testid="pricing-methods-details">
+                  <summary className="cursor-pointer select-none font-medium text-slate-700">
+                    {language === "es" ? "Otras estrategias de precio" : "Other pricing strategies"}
+                    <span className="text-xs text-muted-foreground ml-2">
+                      {language === "es" ? "(Prime Cost / Margen Bruto)" : "(Prime Cost / Gross Margin)"}
+                    </span>
+                  </summary>
+                  <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {/* Method B — Prime Cost */}
+                    <div className="rounded-md border border-emerald-200 bg-white px-3 py-2">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-[11px] uppercase tracking-wide text-emerald-700 font-semibold">
+                            {language === "es" ? "B) Prime Cost" : "B) Prime Cost"}
+                          </p>
+                          <p className="text-lg font-bold text-emerald-700" data-testid="suggested-price-prime">${fmtNum(suggestedPricePrime)}</p>
+                          <p className="text-[10px] text-muted-foreground">
+                            (food + labor) ÷ {targetPrimeCostPct.toFixed(0)}%
+                          </p>
+                          <p className="text-[10px] text-muted-foreground italic">
+                            {language === "es" ? "Fine dining, steakhouse" : "Fine dining, steakhouse"}
+                          </p>
+                        </div>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          className="h-7 text-xs"
+                          onClick={() => setForm((prev) => ({ ...prev, sell_price: Number(suggestedPricePrime.toFixed(2)) }))}
+                          data-testid="apply-price-prime"
+                        >
+                          {language === "es" ? "Usar" : "Use"}
+                        </Button>
+                      </div>
+                    </div>
+                    {/* Method C — Gross Margin Markup */}
+                    <div className="rounded-md border border-amber-200 bg-white px-3 py-2">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-[11px] uppercase tracking-wide text-amber-700 font-semibold">
+                            {language === "es" ? "C) Margen Bruto" : "C) Gross Margin"}
+                          </p>
+                          <p className="text-lg font-bold text-amber-700" data-testid="suggested-price-markup">${fmtNum(suggestedPriceMarkup)}</p>
+                          <p className="text-[10px] text-muted-foreground">
+                            total ÷ (1 − {targetGrossMarginPct.toFixed(0)}%)
+                          </p>
+                          <p className="text-[10px] text-muted-foreground italic">
+                            {language === "es" ? "Catering, eventos, buffet" : "Catering, events, buffet"}
+                          </p>
+                        </div>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          className="h-7 text-xs"
+                          onClick={() => setForm((prev) => ({ ...prev, sell_price: Number(suggestedPriceMarkup.toFixed(2)) }))}
+                          data-testid="apply-price-markup"
+                        >
+                          {language === "es" ? "Usar" : "Use"}
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground mt-2 leading-relaxed">
+                    {language === "es"
+                      ? "Cada método aplica a un tipo de operación distinto. Food Cost es el estándar restaurantero (Gastrokaisen, CaterTrax). Prime Cost es más preciso para fine dining. Margen Bruto es el que usa la industria de catering/eventos."
+                      : "Each method fits a different operation type. Food Cost is the restaurant standard (Gastrokaisen, CaterTrax). Prime Cost is more accurate for fine dining. Gross Margin is used in catering/events."}
+                  </p>
+                </details>
               )}
 
               {/* Legacy: margin-policy suggestion (kept as secondary) */}
