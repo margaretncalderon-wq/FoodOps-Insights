@@ -65,6 +65,7 @@ const DOW_EN = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 export default function OvertimePeriodDialog({
   open, onClose, onSaved, employees, defaultPeriodType = "biweekly", isEs = true,
+  editPeriod = null,  // if set, edit mode
 }) {
   const [employeeId, setEmployeeId] = useState("");
   const [periodType, setPeriodType] = useState(defaultPeriodType);
@@ -75,18 +76,40 @@ export default function OvertimePeriodDialog({
   const [saving, setSaving] = useState(false);
   const [expectedHours, setExpectedHours] = useState(null); // { daily: {...}, total_hours, weekly_hours_threshold }
   const [loadingSchedule, setLoadingSchedule] = useState(false);
+  const isEditMode = !!editPeriod;
 
   useEffect(() => {
     if (open) {
-      setEmployeeId("");
-      setPeriodType(defaultPeriodType);
-      setRefDate(new Date().toISOString().slice(0, 10));
-      setReason("");
-      setNotes("");
-      setEntries({});
-      setExpectedHours(null);
+      if (editPeriod) {
+        // Prefill from existing period
+        setEmployeeId(editPeriod.employee_id);
+        setPeriodType(editPeriod.period_type);
+        setRefDate(editPeriod.start_date);
+        setReason(editPeriod.reason || "");
+        setNotes(editPeriod.notes || "");
+        const prefill = {};
+        (editPeriod.daily_entries || []).forEach((e) => {
+          prefill[e.date] = {
+            hours_35: e.hours_35 ?? "",
+            hours_night: e.hours_night ?? "",
+            hours_holiday: e.hours_holiday ?? "",
+            hours_100: e.hours_100 ?? "",
+            notes: e.notes || "",
+          };
+        });
+        setEntries(prefill);
+        setExpectedHours(null);
+      } else {
+        setEmployeeId("");
+        setPeriodType(defaultPeriodType);
+        setRefDate(new Date().toISOString().slice(0, 10));
+        setReason("");
+        setNotes("");
+        setEntries({});
+        setExpectedHours(null);
+      }
     }
-  }, [open, defaultPeriodType]);
+  }, [open, defaultPeriodType, editPeriod]);
 
   const loadBaseSchedule = async () => {
     if (!employeeId) {
@@ -170,16 +193,23 @@ export default function OvertimePeriodDialog({
 
     setSaving(true);
     try {
-      const payload = {
-        employee_id: employeeId,
-        period_type: periodType,
-        ref_date: refDate,
-        daily_entries,
-        reason,
-        notes,
-      };
-      await axios.post(`${API}/api/people-ops/overtime/periods`, payload, { withCredentials: true });
-      toast.success(isEs ? "Período de horas extras creado" : "Overtime period created");
+      if (isEditMode) {
+        // Only send editable fields (daily_entries, reason, notes)
+        const payload = { daily_entries, reason, notes };
+        await axios.put(`${API}/api/people-ops/overtime/periods/${editPeriod.overtime_period_id}`, payload, { withCredentials: true });
+        toast.success(isEs ? "Período actualizado" : "Period updated");
+      } else {
+        const payload = {
+          employee_id: employeeId,
+          period_type: periodType,
+          ref_date: refDate,
+          daily_entries,
+          reason,
+          notes,
+        };
+        await axios.post(`${API}/api/people-ops/overtime/periods`, payload, { withCredentials: true });
+        toast.success(isEs ? "Período de horas extras creado" : "Overtime period created");
+      }
       onSaved?.();
       onClose?.();
     } catch (err) {
@@ -194,7 +224,7 @@ export default function OvertimePeriodDialog({
     <Dialog open={open} onOpenChange={(v) => !v && onClose?.()}>
       <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto" data-testid="overtime-period-dialog">
         <DialogHeader>
-          <DialogTitle>{isEs ? "Nueva Período de Horas Extras" : "New Overtime Period"}</DialogTitle>
+          <DialogTitle>{isEditMode ? (isEs ? "Editar Período de Horas Extras" : "Edit Overtime Period") : (isEs ? "Nuevo Período de Horas Extras" : "New Overtime Period")}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4">
@@ -202,7 +232,7 @@ export default function OvertimePeriodDialog({
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div>
               <Label htmlFor="employee">{isEs ? "Empleado" : "Employee"}</Label>
-              <Select value={employeeId} onValueChange={setEmployeeId}>
+              <Select value={employeeId} onValueChange={setEmployeeId} disabled={isEditMode}>
                 <SelectTrigger data-testid="overtime-period-employee-select">
                   <SelectValue placeholder={isEs ? "Selecciona…" : "Select…"} />
                 </SelectTrigger>
@@ -222,7 +252,7 @@ export default function OvertimePeriodDialog({
             </div>
             <div>
               <Label htmlFor="period-type">{isEs ? "Período" : "Period"}</Label>
-              <Select value={periodType} onValueChange={setPeriodType}>
+              <Select value={periodType} onValueChange={setPeriodType} disabled={isEditMode}>
                 <SelectTrigger data-testid="overtime-period-type-select">
                   <SelectValue />
                 </SelectTrigger>
@@ -235,7 +265,7 @@ export default function OvertimePeriodDialog({
             </div>
             <div>
               <Label htmlFor="ref-date">{isEs ? "Fecha de referencia" : "Reference date"}</Label>
-              <Input id="ref-date" type="date" value={refDate} onChange={(e) => setRefDate(e.target.value)} data-testid="overtime-period-refdate-input" />
+              <Input id="ref-date" type="date" value={refDate} onChange={(e) => setRefDate(e.target.value)} data-testid="overtime-period-refdate-input" disabled={isEditMode} />
               <p className="text-[10px] text-muted-foreground mt-1">
                 {isEs ? `Período: ${start} → ${end}` : `Period: ${start} → ${end}`}
               </p>

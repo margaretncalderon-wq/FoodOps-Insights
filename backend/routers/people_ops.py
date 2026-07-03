@@ -4073,8 +4073,15 @@ async def get_overtime_period(overtime_period_id: str, user: User = Depends(get_
     return doc
 
 
-def _compute_period_totals_and_amount(daily_entries: list, hourly_rate: float, rates: dict) -> tuple[dict, float]:
-    """Sum hours per category across daily_entries and compute estimated_amount."""
+def _compute_period_totals_and_amount(daily_entries: list, hourly_rate: float, rates: dict) -> tuple[dict, float, float]:
+    """Sum hours per category across daily_entries and compute estimated amounts.
+
+    Returns (totals, estimated_amount_total, estimated_amount_extra_only).
+    - estimated_amount_total = hours × hourly_rate × multiplier
+        (full pay for OT hours: base + surcharge — used when OT is paid separately from payroll)
+    - estimated_amount_extra_only = hours × hourly_rate × (multiplier - 1)
+        (only the surcharge/bonus above base pay — used when base is already covered by payroll salary)
+    """
     total_35 = total_night = total_holiday = total_100 = 0.0
     for entry in daily_entries or []:
         total_35 += float(entry.get("hours_35") or 0)
@@ -4088,13 +4095,19 @@ def _compute_period_totals_and_amount(daily_entries: list, hourly_rate: float, r
         "hours_100": round(total_100, 2),
         "total_hours": round(total_35 + total_night + total_holiday + total_100, 2),
     }
-    estimated = (
+    total_full = (
         total_35 * hourly_rate * rates["rate_35"]
         + total_night * hourly_rate * rates["rate_night"]
         + total_holiday * hourly_rate * rates["rate_holiday"]
         + total_100 * hourly_rate * rates["rate_100"]
     )
-    return totals, round(estimated, 2)
+    extra_only = (
+        total_35 * hourly_rate * max(0, rates["rate_35"] - 1)
+        + total_night * hourly_rate * max(0, rates["rate_night"] - 1)
+        + total_holiday * hourly_rate * max(0, rates["rate_holiday"] - 1)
+        + total_100 * hourly_rate * max(0, rates["rate_100"] - 1)
+    )
+    return totals, round(total_full, 2), round(extra_only, 2)
 
 
 async def _resolve_ot_rates(company_id: str) -> tuple[dict, float]:
@@ -4168,7 +4181,7 @@ async def create_overtime_period(data: dict, user: User = Depends(get_current_us
 
     rates, hours_per_month = await _resolve_ot_rates(company_id)
     hourly_rate = await _employee_hourly_rate(employee, hours_per_month)
-    totals, estimated = _compute_period_totals_and_amount(normalized, hourly_rate, rates)
+    totals, estimated_total, estimated_extra = _compute_period_totals_and_amount(normalized, hourly_rate, rates)
 
     overtime_period_id = f"otp_{uuid.uuid4().hex[:12]}"
     now = datetime.now(timezone.utc)
@@ -4184,7 +4197,10 @@ async def create_overtime_period(data: dict, user: User = Depends(get_current_us
         "totals": totals,
         "hourly_rate_at_creation": round(hourly_rate, 4),
         "rates_at_creation": rates,
-        "estimated_amount": estimated,
+        # Total pay for OT hours (base + surcharge) — used when OT is paid separately
+        "estimated_amount": estimated_total,
+        # Only the surcharge/bonus above base — used when base is already in payroll salary
+        "estimated_amount_extra_only": estimated_extra,
         "status": "pending",
         "reason": data.get("reason"),
         "notes": data.get("notes"),
@@ -4193,7 +4209,14 @@ async def create_overtime_period(data: dict, user: User = Depends(get_current_us
         "updated_at": now,
     }
     await db.overtime_period_requests.insert_one(doc)
-    return {"overtime_period_id": overtime_period_id, "start_date": start_date, "end_date": end_date, **totals, "estimated_amount": estimated}
+    return {
+        "overtime_period_id": overtime_period_id,
+        "start_date": start_date,
+        "end_date": end_date,
+        **totals,
+        "estimated_amount": estimated_total,
+        "estimated_amount_extra_only": estimated_extra,
+    }
 
 
 @people_ops_router.put("/overtime/periods/{overtime_period_id}")
@@ -4232,11 +4255,12 @@ async def update_overtime_period(overtime_period_id: str, data: dict, user: User
         ) or {}
         rates, hours_per_month = await _resolve_ot_rates(company_id)
         hourly_rate = await _employee_hourly_rate(employee, hours_per_month)
-        totals, estimated = _compute_period_totals_and_amount(normalized, hourly_rate, rates)
+        totals, estimated_total, estimated_extra = _compute_period_totals_and_amount(normalized, hourly_rate, rates)
         update.update({
             "daily_entries": normalized,
             "totals": totals,
-            "estimated_amount": estimated,
+            "estimated_amount": estimated_total,
+            "estimated_amount_extra_only": estimated_extra,
         })
     if "reason" in data:
         update["reason"] = data["reason"]

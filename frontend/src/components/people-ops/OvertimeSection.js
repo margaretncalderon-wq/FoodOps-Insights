@@ -72,6 +72,7 @@ export function OvertimeSection() {
   const [loading, setLoading] = useState(true);
   const [legacyDialogOpen, setLegacyDialogOpen] = useState(false);
   const [periodDialogOpen, setPeriodDialogOpen] = useState(false);
+  const [editingPeriod, setEditingPeriod] = useState(null);
   const [expandedPeriodId, setExpandedPeriodId] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   
@@ -410,7 +411,12 @@ export function OvertimeSection() {
                   <TableHead>{isEs ? "Empleado" : "Employee"}</TableHead>
                   <TableHead>{isEs ? "Período" : "Period"}</TableHead>
                   <TableHead className="text-right">{isEs ? "Horas totales" : "Total hours"}</TableHead>
-                  <TableHead className="text-right">{isEs ? "Estimado" : "Estimated"}</TableHead>
+                  <TableHead className="text-right" title={isEs ? "Solo el bonus/diferencial (base ya está en nómina)" : "Bonus only (base already in payroll)"}>
+                    {isEs ? "Bonus OT" : "OT Bonus"}
+                  </TableHead>
+                  <TableHead className="text-right" title={isEs ? "Total pago horas OT (base + bonus)" : "Full OT pay (base + surcharge)"}>
+                    {isEs ? "Total OT" : "Full OT"}
+                  </TableHead>
                   <TableHead>{isEs ? "Estado" : "Status"}</TableHead>
                   <TableHead className="text-right">{isEs ? "Acciones" : "Actions"}</TableHead>
                 </TableRow>
@@ -431,7 +437,12 @@ export function OvertimeSection() {
                           <span className="text-[10px] text-muted-foreground ml-1">({p.period_type})</span>
                         </TableCell>
                         <TableCell className="text-right font-mono text-xs">{p.totals?.total_hours ?? 0}</TableCell>
-                        <TableCell className="text-right font-mono">{formatCurrency(p.estimated_amount || 0)}</TableCell>
+                        <TableCell className="text-right font-mono font-semibold text-emerald-700" data-testid={`ot-extra-only-${p.overtime_period_id}`}>
+                          {formatCurrency(p.estimated_amount_extra_only ?? 0)}
+                        </TableCell>
+                        <TableCell className="text-right font-mono text-slate-500" data-testid={`ot-total-${p.overtime_period_id}`}>
+                          {formatCurrency(p.estimated_amount || 0)}
+                        </TableCell>
                         <TableCell><Badge className={statusColor}>{p.status}</Badge></TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-1">
@@ -440,6 +451,9 @@ export function OvertimeSection() {
                             </Button>
                             {p.status === "pending" && (
                               <>
+                                <Button size="sm" variant="ghost" onClick={() => { setEditingPeriod(p); setPeriodDialogOpen(true); }} data-testid={`edit-period-${p.overtime_period_id}`} title={isEs ? "Editar período" : "Edit period"}>
+                                  <Edit className="w-4 h-4" />
+                                </Button>
                                 <Button size="sm" variant="ghost" className="text-emerald-600 hover:text-emerald-800"
                                   onClick={async () => {
                                     try {
@@ -485,7 +499,7 @@ export function OvertimeSection() {
                       </TableRow>
                       {isExpanded && (
                         <TableRow>
-                          <TableCell colSpan={6} className="bg-slate-50 p-3">
+                          <TableCell colSpan={7} className="bg-slate-50 p-3">
                             <div className="text-xs font-semibold uppercase text-slate-600 mb-2">
                               {isEs ? "Detalle por día" : "Daily detail"}
                             </div>
@@ -532,11 +546,12 @@ export function OvertimeSection() {
       {/* Period dialog (new flow) */}
       <OvertimePeriodDialog
         open={periodDialogOpen}
-        onClose={() => setPeriodDialogOpen(false)}
+        onClose={() => { setPeriodDialogOpen(false); setEditingPeriod(null); }}
         onSaved={fetchData}
         employees={employees}
         defaultPeriodType={companyPeriodType}
         isEs={isEs}
+        editPeriod={editingPeriod}
       />
       
       {/* Period Report — filters + summary */}
