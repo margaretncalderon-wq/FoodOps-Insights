@@ -73,6 +73,8 @@ export default function OvertimePeriodDialog({
   const [notes, setNotes] = useState("");
   const [entries, setEntries] = useState({}); // { "YYYY-MM-DD": {hours_35, hours_night, hours_holiday, hours_100, notes} }
   const [saving, setSaving] = useState(false);
+  const [expectedHours, setExpectedHours] = useState(null); // { daily: {...}, total_hours, weekly_hours_threshold }
+  const [loadingSchedule, setLoadingSchedule] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -82,8 +84,31 @@ export default function OvertimePeriodDialog({
       setReason("");
       setNotes("");
       setEntries({});
+      setExpectedHours(null);
     }
   }, [open, defaultPeriodType]);
+
+  const loadBaseSchedule = async () => {
+    if (!employeeId) {
+      toast.error(isEs ? "Selecciona un empleado primero" : "Select an employee first");
+      return;
+    }
+    setLoadingSchedule(true);
+    try {
+      const res = await axios.get(
+        `${API}/api/people-ops/schedules/employee/${employeeId}/expected-hours?start_date=${start}&end_date=${end}`,
+        { withCredentials: true },
+      );
+      setExpectedHours(res.data);
+      toast.success(isEs
+        ? `Horario base cargado: ${res.data.total_hours}h esperadas · umbral semanal ${res.data.weekly_hours_threshold}h`
+        : `Base schedule loaded: ${res.data.total_hours}h expected · weekly threshold ${res.data.weekly_hours_threshold}h`);
+    } catch (err) {
+      toast.error(err.response?.data?.detail || err.message);
+    } finally {
+      setLoadingSchedule(false);
+    }
+  };
 
   const { start, end } = useMemo(() => periodBounds(periodType, refDate), [periodType, refDate]);
   const days = useMemo(() => enumerateDays(start, end), [start, end]);
@@ -217,12 +242,50 @@ export default function OvertimePeriodDialog({
             </div>
           </div>
 
+          {/* Base schedule loader */}
+          {employeeId && (
+            <div className="flex items-center justify-between gap-2 px-3 py-2 rounded-md border border-blue-200 bg-blue-50/60 text-sm">
+              <div>
+                {expectedHours ? (
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5">
+                    <span className="text-xs text-blue-800">
+                      {isEs ? "Horario base:" : "Base schedule:"} <b>{expectedHours.total_hours}h</b> {isEs ? "esperadas" : "expected"}
+                    </span>
+                    <span className="text-xs text-blue-800">
+                      {isEs ? "Umbral semanal:" : "Weekly threshold:"} <b>{expectedHours.weekly_hours_threshold}h</b>
+                    </span>
+                    <span className="text-xs text-emerald-800">
+                      {isEs ? "Horas OT ingresadas:" : "OT entered:"} <b>{Object.values(entries).reduce((s, r) => s + Number(r.hours_35||0) + Number(r.hours_night||0) + Number(r.hours_holiday||0) + Number(r.hours_100||0), 0).toFixed(2)}h</b>
+                    </span>
+                    {expectedHours.days_off_count > 0 && (
+                      <span className="text-xs text-amber-800">
+                        {expectedHours.days_off_count} {isEs ? "día(s) libre" : "day(s) off"}
+                      </span>
+                    )}
+                  </div>
+                ) : (
+                  <span className="text-xs text-muted-foreground">
+                    {isEs ? "Carga el horario base para ver horas esperadas y umbral OT." : "Load base schedule to see expected hours and OT threshold."}
+                  </span>
+                )}
+              </div>
+              <Button type="button" size="sm" variant="outline" onClick={loadBaseSchedule} disabled={loadingSchedule} data-testid="load-base-schedule-btn">
+                {loadingSchedule ? (isEs ? "Cargando…" : "Loading…") : (isEs ? "Cargar horario base" : "Load base schedule")}
+              </Button>
+            </div>
+          )}
+
           {/* Timesheet grid */}
           <div className="rounded-md border overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-slate-50 border-b">
                 <tr>
                   <th className="text-left px-2 py-2 font-medium text-xs uppercase text-slate-600">{isEs ? "Día" : "Day"}</th>
+                  {expectedHours && (
+                    <th className="text-right px-2 py-2 font-medium text-xs uppercase text-slate-600" title={isEs ? "Horas base según horario" : "Base scheduled hours"}>
+                      {isEs ? "Base" : "Base"}
+                    </th>
+                  )}
                   <th className="text-right px-2 py-2 font-medium text-xs uppercase text-slate-600">{isEs ? "Normal (35%)" : "Normal (35%)"}</th>
                   <th className="text-right px-2 py-2 font-medium text-xs uppercase text-slate-600">{isEs ? "Nocturna (15%)" : "Night (15%)"}</th>
                   <th className="text-right px-2 py-2 font-medium text-xs uppercase text-slate-600">{isEs ? "Feriado (100%)" : "Holiday (100%)"}</th>
@@ -236,14 +299,21 @@ export default function OvertimePeriodDialog({
                   const dow = dateObj.getUTCDay();
                   const row = entries[iso] || {};
                   const isWeekend = dow === 0 || dow === 6;
+                  const baseHours = expectedHours ? (expectedHours.daily?.[iso] ?? 0) : null;
+                  const isDayOff = baseHours === 0 && expectedHours;
                   return (
-                    <tr key={iso} className={`border-b ${isWeekend ? "bg-amber-50/40" : ""}`}>
+                    <tr key={iso} className={`border-b ${isDayOff ? "bg-slate-100/60" : isWeekend ? "bg-amber-50/40" : ""}`}>
                       <td className="px-2 py-1.5">
                         <span className="text-xs font-medium">
                           {(isEs ? DOW_ES : DOW_EN)[dow]}
                         </span>
                         <span className="text-[10px] text-muted-foreground ml-1">{iso.slice(5)}</span>
                       </td>
+                      {expectedHours && (
+                        <td className={`text-right px-2 py-1 text-xs font-mono ${isDayOff ? "text-slate-400" : "text-slate-600"}`}>
+                          {isDayOff ? (isEs ? "libre" : "off") : `${baseHours}h`}
+                        </td>
+                      )}
                       {["hours_35", "hours_night", "hours_holiday", "hours_100"].map((field) => (
                         <td key={field} className="px-1 py-1">
                           <Input
@@ -265,14 +335,19 @@ export default function OvertimePeriodDialog({
               <tfoot className="bg-slate-100 font-semibold">
                 <tr>
                   <td className="px-2 py-2 text-xs uppercase text-slate-600">{isEs ? "Totales" : "Totals"}</td>
+                  {expectedHours && (
+                    <td className="text-right px-2 py-2 text-xs font-mono" data-testid="totals-base-hours">
+                      {expectedHours.total_hours}h
+                    </td>
+                  )}
                   <td className="text-right px-2 py-2 text-xs" data-testid="totals-hours-35">{totals.hours_35.toFixed(2)}</td>
                   <td className="text-right px-2 py-2 text-xs" data-testid="totals-hours-night">{totals.hours_night.toFixed(2)}</td>
                   <td className="text-right px-2 py-2 text-xs" data-testid="totals-hours-holiday">{totals.hours_holiday.toFixed(2)}</td>
                   <td className="text-right px-2 py-2 text-xs" data-testid="totals-hours-100">{totals.hours_100.toFixed(2)}</td>
                 </tr>
                 <tr>
-                  <td colSpan={4} className="px-2 py-1.5 text-right text-xs text-slate-500">
-                    {isEs ? "Total horas del período:" : "Total hours in period:"}
+                  <td colSpan={expectedHours ? 5 : 4} className="px-2 py-1.5 text-right text-xs text-slate-500">
+                    {isEs ? "Total horas OT del período:" : "Total OT hours in period:"}
                   </td>
                   <td className="text-right px-2 py-1.5">
                     <Badge variant="outline" className="font-bold" data-testid="period-total-hours">{totals.total.toFixed(2)}</Badge>

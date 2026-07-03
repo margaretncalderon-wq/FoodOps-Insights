@@ -23,7 +23,7 @@ import {
   ArrowLeft, User, Briefcase, Wallet, Calendar, Building2,
   Mail, Phone, MapPin, RefreshCw, Edit2, Save, X,
   FileText, Clock, TrendingUp, AlertCircle, DollarSign, Sun, Moon,
-  Percent, Zap, CreditCard, History, Plus, ArrowRight, Trash2, AlertOctagon
+  Percent, Zap, CreditCard, History, Plus, ArrowRight, Trash2, AlertOctagon, CalendarDays
 } from "lucide-react";
 import {
   Select,
@@ -37,6 +37,7 @@ import { Switch } from "../ui/switch";
 import { API_BASE as API } from "../../utils/api";
 import { PaymentHistoryTab } from "./EmployeeProfilePage/PaymentHistoryTab";
 import { LoansTab } from "./EmployeeProfilePage/LoansTab";
+import ScheduleTab from "./EmployeeProfilePage/ScheduleTab";
 
 // formatCurrency now derives from companyCurrency via the hook within the component body.
 
@@ -366,6 +367,10 @@ export function EmployeeProfile() {
           <TabsTrigger value="time" className="flex items-center gap-2">
             <Clock className="w-4 h-4" />
             {isEs ? "Tiempo" : "Time"}
+          </TabsTrigger>
+          <TabsTrigger value="schedule" className="flex items-center gap-2" data-testid="tab-schedule">
+            <CalendarDays className="w-4 h-4" />
+            {isEs ? "Horario" : "Schedule"}
           </TabsTrigger>
           <TabsTrigger value="payment-history" className="flex items-center gap-2">
             <History className="w-4 h-4" />
@@ -1652,6 +1657,11 @@ export function EmployeeProfile() {
               <p>{isEs ? "Gestión de tiempo próximamente" : "Time management coming soon"}</p>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* Schedule Tab */}
+        <TabsContent value="schedule">
+          <ScheduleTab employeeId={employeeId} isEs={isEs} />
         </TabsContent>
 
         {/* Payment History Tab */}

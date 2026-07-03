@@ -1,0 +1,38 @@
+{
+  "summary": "Backend testing for People Ops employee schedules & days-off (iteration 219). Wrote 21 pytest tests covering all new endpoints + regressions. All 21 tests passed.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_people_ops_schedules.py",
+    "/app/test_reports/pytest/pytest_iter219.xml"
+  ],
+  "coverage": [
+    "POST /schedules/employee/{id} creates with weekly_pattern (7 days), auto weekly_hours_total=40, threshold default supported",
+    "GET /schedules/employee/{id} lists versions sorted desc",
+    "GET /schedules/employee/{id}/current returns active schedule",
+    "Second POST supersedes v1: status='superseded', effective_to=(new_from - 1 day)=2026-02-28",
+    "PUT on active updates pattern and recomputes weekly_hours_total",
+    "PUT on superseded returns 400",
+    "DELETE non-existent returns 404",
+    "expected-hours: 7 daily entries, Sunday=0 when pattern.sunday.work_hours=0, sum equals total_hours",
+    "expected-hours: date before any schedule returns 0",
+    "expected-hours: subtracts day-off (Wed 2026-03-04 -> 0)",
+    "days-off create, duplicate 400, list-in-range, delete success/404",
+    "team-calendar returns {start_date, end_date, events[], employees[]} with valid event types",
+    "Regression: overtime/periods, overtime/requests, time-off/requests all 200"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "team_calendar calls compute_expected_hours() per-employee inside a loop — O(N employees) DB roundtrips. For orgs with many employees over a wide date range this may be slow. Consider batching schedule/days-off queries once and computing in-memory.",
+    "team_calendar filter uses status {$ne: 'terminated'} for employees; ensure this aligns with your active-employee semantics (some codebases use status='active' explicitly).",
+    "DELETE /schedules/{id} has a docstring implying it should refuse deletion if used in payroll/OT, but no such check exists in code — either implement or update docstring.",
+    "create_employee_schedule supersedes prior versions only when effective_from is later; a POST with an earlier or same effective_from as an existing active version could create overlapping active versions. Consider validating monotonic effective_from or handling backward-dated inserts explicitly."
+  ],
+  "updated_files": ["/app/backend/tests/test_people_ops_schedules.py"],
+  "success_rate": {"backend": "100% (21/21)", "frontend": "N/A (skipped per request)"},
+  "test_credentials": "demo.agency@kora.com / Evoque2024!",
+  "seed_data_creation": "Test schedules and days-off created and cleaned up in the test lifecycle (uses TEST_ prefix in notes/reason).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "All schedule/days-off endpoints verified. Legacy overtime/time-off regressions still green. Test file at /app/backend/tests/test_people_ops_schedules.py is fully idempotent and can be re-run standalone."
+}

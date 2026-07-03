@@ -3099,7 +3099,362 @@ async def delete_employee_benefit(benefit_id: str, user: User = Depends(get_curr
     return {"message": "Benefit deactivated"}
 
 
-# ==================== TIME OFF / VACACIONES ENDPOINTS ====================
+
+# ==================== EMPLOYEE SCHEDULES / HORARIOS ENDPOINTS ====================
+# Weekly pattern per employee, versioned. New schedule auto-supersedes previous.
+# Rotative/variable schedules are handled by creating multiple versions with different
+# effective_from dates — e.g., temporada alta / temporada baja.
+
+DAYS_OF_WEEK = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
+
+
+def _empty_day() -> dict:
+    return {"work_hours": 0.0, "start": None, "end": None, "break_min": 0}
+
+
+def _normalize_weekly_pattern(pattern: dict) -> dict:
+    """Ensure all 7 days are present and values are numeric."""
+    out = {}
+    for d in DAYS_OF_WEEK:
+        raw = (pattern or {}).get(d) or {}
+        out[d] = {
+            "work_hours": float(raw.get("work_hours") or 0),
+            "start": raw.get("start") or None,
+            "end": raw.get("end") or None,
+            "break_min": int(raw.get("break_min") or 0),
+        }
+    return out
+
+
+def _weekly_hours_total(pattern: dict) -> float:
+    return round(sum(float((pattern.get(d) or {}).get("work_hours") or 0) for d in DAYS_OF_WEEK), 2)
+
+
+@people_ops_router.get("/schedules/employee/{employee_id}")
+async def list_employee_schedules(employee_id: str, user: User = Depends(get_current_user)):
+    """Return all schedule versions for an employee, newest first. Full audit trail."""
+    company_id = user.company_id or user.active_org_id
+    docs = await db.employee_schedules.find(
+        {"company_id": company_id, "employee_id": employee_id},
+        {"_id": 0},
+    ).sort("effective_from", -1).to_list(200)
+    return docs
+
+
+@people_ops_router.get("/schedules/employee/{employee_id}/current")
+async def get_current_employee_schedule(employee_id: str, user: User = Depends(get_current_user)):
+    """Return the currently effective schedule (effective_from <= today AND (effective_to is None OR >= today))."""
+    company_id = user.company_id or user.active_org_id
+    today_iso = datetime.now(timezone.utc).date().isoformat()
+    doc = await db.employee_schedules.find_one(
+        {
+            "company_id": company_id,
+            "employee_id": employee_id,
+            "status": "active",
+            "effective_from": {"$lte": today_iso},
+            "$or": [{"effective_to": None}, {"effective_to": {"$gte": today_iso}}],
+        },
+        {"_id": 0},
+        sort=[("effective_from", -1)],
+    )
+    return doc  # may be None
+
+
+@people_ops_router.post("/schedules/employee/{employee_id}")
+async def create_employee_schedule(employee_id: str, data: dict, user: User = Depends(get_current_user)):
+    """Create a new schedule version. Auto-closes the currently active one (effective_to = new effective_from - 1)."""
+    company_id = user.company_id or user.active_org_id
+    employee = await db.employees.find_one(
+        {"company_id": company_id, "employee_id": employee_id},
+        {"_id": 0, "full_name": 1},
+    )
+    if not employee:
+        raise HTTPException(status_code=404, detail="Employee not found")
+
+    from datetime import date as _date, timedelta as _td
+    effective_from = data.get("effective_from") or datetime.now(timezone.utc).date().isoformat()
+    weekly_pattern = _normalize_weekly_pattern(data.get("weekly_pattern") or {})
+    weekly_threshold = float(data.get("weekly_hours_threshold") or 44)  # DR default; USA=40
+
+    # Close previous open version(s)
+    close_iso = None
+    try:
+        y, m, d = [int(x) for x in effective_from.split("-")]
+        close_iso = (_date(y, m, d) - _td(days=1)).isoformat()
+    except Exception:
+        pass
+    if close_iso:
+        await db.employee_schedules.update_many(
+            {
+                "company_id": company_id,
+                "employee_id": employee_id,
+                "status": "active",
+                "$or": [{"effective_to": None}, {"effective_to": {"$gte": effective_from}}],
+            },
+            {"$set": {"effective_to": close_iso, "status": "superseded", "updated_at": datetime.now(timezone.utc)}},
+        )
+
+    schedule_id = f"sch_{uuid.uuid4().hex[:12]}"
+    now = datetime.now(timezone.utc)
+    doc = {
+        "schedule_id": schedule_id,
+        "company_id": company_id,
+        "employee_id": employee_id,
+        "employee_name": employee.get("full_name"),
+        "effective_from": effective_from,
+        "effective_to": data.get("effective_to"),
+        "weekly_pattern": weekly_pattern,
+        "weekly_hours_total": _weekly_hours_total(weekly_pattern),
+        "weekly_hours_threshold": weekly_threshold,
+        "notes": data.get("notes") or None,
+        "status": "active",
+        "created_at": now,
+        "created_by": user.user_id,
+        "updated_at": now,
+    }
+    await db.employee_schedules.insert_one(doc)
+    doc.pop("_id", None)
+    return doc
+
+
+@people_ops_router.put("/schedules/{schedule_id}")
+async def update_employee_schedule(schedule_id: str, data: dict, user: User = Depends(get_current_user)):
+    """Edit an active schedule version (no re-versioning). Use POST for a NEW effective_from."""
+    company_id = user.company_id or user.active_org_id
+    existing = await db.employee_schedules.find_one(
+        {"company_id": company_id, "schedule_id": schedule_id}, {"_id": 0}
+    )
+    if not existing:
+        raise HTTPException(status_code=404, detail="Schedule not found")
+    if existing.get("status") != "active":
+        raise HTTPException(status_code=400, detail="Only active schedules can be edited")
+
+    update = {"updated_at": datetime.now(timezone.utc)}
+    if "weekly_pattern" in data:
+        pattern = _normalize_weekly_pattern(data["weekly_pattern"])
+        update["weekly_pattern"] = pattern
+        update["weekly_hours_total"] = _weekly_hours_total(pattern)
+    if "weekly_hours_threshold" in data:
+        update["weekly_hours_threshold"] = float(data["weekly_hours_threshold"] or 44)
+    if "notes" in data:
+        update["notes"] = data["notes"]
+    if "effective_to" in data:
+        update["effective_to"] = data["effective_to"]
+    await db.employee_schedules.update_one(
+        {"company_id": company_id, "schedule_id": schedule_id},
+        {"$set": update},
+    )
+    return {"ok": True, "schedule_id": schedule_id}
+
+
+@people_ops_router.delete("/schedules/{schedule_id}")
+async def delete_employee_schedule(schedule_id: str, user: User = Depends(get_current_user)):
+    """Delete a schedule version. Only allowed if it hasn't been used in a payroll or OT period."""
+    company_id = user.company_id or user.active_org_id
+    result = await db.employee_schedules.delete_one(
+        {"company_id": company_id, "schedule_id": schedule_id}
+    )
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Schedule not found")
+    return {"ok": True}
+
+
+@people_ops_router.get("/schedules/employee/{employee_id}/expected-hours")
+async def compute_expected_hours(
+    employee_id: str,
+    start_date: str,
+    end_date: str,
+    user: User = Depends(get_current_user),
+):
+    """Sum expected work hours per day between start_date..end_date, using the schedule
+    version(s) that were effective on each day. Returns { daily: {date: hours}, total: X, threshold_weekly: 44 }.
+    Subtracts specific days-off from expected hours."""
+    from datetime import date as _date, timedelta as _td
+    company_id = user.company_id or user.active_org_id
+
+    # Load all schedule versions overlapping this range
+    schedules = await db.employee_schedules.find(
+        {"company_id": company_id, "employee_id": employee_id},
+        {"_id": 0, "effective_from": 1, "effective_to": 1, "weekly_pattern": 1, "weekly_hours_threshold": 1, "schedule_id": 1},
+    ).sort("effective_from", 1).to_list(500)
+
+    # Load days-off in range
+    days_off_cursor = db.employee_days_off.find(
+        {"company_id": company_id, "employee_id": employee_id, "date": {"$gte": start_date, "$lte": end_date}},
+        {"_id": 0, "date": 1, "reason": 1},
+    )
+    days_off = {d["date"]: d for d in await days_off_cursor.to_list(500)}
+
+    def pick_schedule(iso: str):
+        for s in schedules:
+            f = s.get("effective_from") or "0000-01-01"
+            t = s.get("effective_to") or "9999-12-31"
+            if f <= iso <= t:
+                return s
+        return None
+
+    y1, m1, d1 = [int(x) for x in start_date.split("-")]
+    y2, m2, d2 = [int(x) for x in end_date.split("-")]
+    cur = _date(y1, m1, d1); end = _date(y2, m2, d2)
+    daily = {}
+    threshold = 44.0
+    active_schedule_id = None
+    while cur <= end:
+        iso = cur.isoformat()
+        s = pick_schedule(iso)
+        if s:
+            active_schedule_id = s.get("schedule_id")
+            threshold = float(s.get("weekly_hours_threshold") or 44)
+        day_name = DAYS_OF_WEEK[cur.weekday()]
+        hours = 0.0
+        if s:
+            hours = float(((s.get("weekly_pattern") or {}).get(day_name) or {}).get("work_hours") or 0)
+        # subtract if day-off
+        if iso in days_off:
+            hours = 0.0
+        daily[iso] = round(hours, 2)
+        cur = cur + _td(days=1)
+
+    total = round(sum(daily.values()), 2)
+    return {
+        "employee_id": employee_id,
+        "start_date": start_date,
+        "end_date": end_date,
+        "daily": daily,
+        "total_hours": total,
+        "weekly_hours_threshold": threshold,
+        "schedule_id": active_schedule_id,
+        "days_off_count": len(days_off),
+    }
+
+
+# ==================== EMPLOYEE DAYS OFF (specific dates) ====================
+
+@people_ops_router.get("/days-off/employee/{employee_id}")
+async def list_days_off(
+    employee_id: str,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    user: User = Depends(get_current_user),
+):
+    company_id = user.company_id or user.active_org_id
+    q = {"company_id": company_id, "employee_id": employee_id}
+    if start_date and end_date:
+        q["date"] = {"$gte": start_date, "$lte": end_date}
+    docs = await db.employee_days_off.find(q, {"_id": 0}).sort("date", -1).to_list(500)
+    return docs
+
+
+@people_ops_router.post("/days-off/employee/{employee_id}")
+async def create_day_off(employee_id: str, data: dict, user: User = Depends(get_current_user)):
+    company_id = user.company_id or user.active_org_id
+    employee = await db.employees.find_one({"company_id": company_id, "employee_id": employee_id}, {"_id": 0, "full_name": 1})
+    if not employee:
+        raise HTTPException(status_code=404, detail="Employee not found")
+    date_iso = data.get("date")
+    if not date_iso:
+        raise HTTPException(status_code=400, detail="date required")
+    # Prevent duplicates on same date
+    existing = await db.employee_days_off.find_one({"company_id": company_id, "employee_id": employee_id, "date": date_iso}, {"_id": 0, "day_off_id": 1})
+    if existing:
+        raise HTTPException(status_code=400, detail=f"Day-off already exists for {date_iso}")
+    day_off_id = f"dof_{uuid.uuid4().hex[:12]}"
+    doc = {
+        "day_off_id": day_off_id,
+        "company_id": company_id,
+        "employee_id": employee_id,
+        "employee_name": employee.get("full_name"),
+        "date": date_iso,
+        "reason": (data.get("reason") or "").strip() or None,
+        "category": data.get("category") or "personal",  # personal|comp|other
+        "created_at": datetime.now(timezone.utc),
+        "created_by": user.user_id,
+    }
+    await db.employee_days_off.insert_one(doc)
+    doc.pop("_id", None)
+    return doc
+
+
+@people_ops_router.delete("/days-off/{day_off_id}")
+async def delete_day_off(day_off_id: str, user: User = Depends(get_current_user)):
+    company_id = user.company_id or user.active_org_id
+    result = await db.employee_days_off.delete_one({"company_id": company_id, "day_off_id": day_off_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Day-off not found")
+    return {"ok": True}
+
+
+@people_ops_router.get("/schedules/team-calendar")
+async def team_calendar(
+    start_date: str,
+    end_date: str,
+    user: User = Depends(get_current_user),
+):
+    """Aggregate all schedules + days-off + approved time-off + approved OT periods for the whole team.
+    Returns list of events for calendar view."""
+    company_id = user.company_id or user.active_org_id
+
+    # All active employees
+    employees = await db.employees.find(
+        {"company_id": company_id, "status": {"$ne": "terminated"}},
+        {"_id": 0, "employee_id": 1, "full_name": 1},
+    ).to_list(500)
+    employee_map = {e["employee_id"]: e["full_name"] for e in employees}
+
+    events = []
+
+    # Schedule expected hours (compact — one badge per employee/day if hours > 0)
+    for emp_id in employee_map:
+        exp = await compute_expected_hours(emp_id, start_date, end_date, user)
+        for iso, hours in (exp.get("daily") or {}).items():
+            if hours > 0:
+                events.append({
+                    "type": "schedule",
+                    "employee_id": emp_id,
+                    "employee_name": employee_map[emp_id],
+                    "date": iso,
+                    "hours": hours,
+                })
+
+    # Specific days off
+    days_off = await db.employee_days_off.find(
+        {"company_id": company_id, "date": {"$gte": start_date, "$lte": end_date}},
+        {"_id": 0, "employee_id": 1, "employee_name": 1, "date": 1, "reason": 1, "category": 1},
+    ).to_list(1000)
+    for d in days_off:
+        events.append({"type": "day_off", **d})
+
+    # Approved time off
+    time_off = await db.time_off_requests.find(
+        {
+            "company_id": company_id,
+            "status": "approved",
+            "$or": [
+                {"start_date": {"$lte": end_date}, "end_date": {"$gte": start_date}},
+            ],
+        },
+        {"_id": 0, "employee_id": 1, "employee_name": 1, "start_date": 1, "end_date": 1, "leave_type": 1},
+    ).to_list(1000)
+    for t in time_off:
+        events.append({"type": "time_off", **t})
+
+    # Approved overtime periods
+    ot = await db.overtime_period_requests.find(
+        {
+            "company_id": company_id,
+            "status": {"$in": ["approved", "paid"]},
+            "start_date": {"$lte": end_date},
+            "end_date": {"$gte": start_date},
+        },
+        {"_id": 0, "employee_id": 1, "employee_name": 1, "start_date": 1, "end_date": 1, "totals": 1, "overtime_period_id": 1},
+    ).to_list(500)
+    for o in ot:
+        events.append({"type": "overtime", **o})
+
+    return {"start_date": start_date, "end_date": end_date, "events": events, "employees": employees}
+
+
+
 
 @people_ops_router.get("/time-off/requests")
 async def get_time_off_requests(
