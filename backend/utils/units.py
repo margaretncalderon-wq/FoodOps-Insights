@@ -234,8 +234,9 @@ def cost_for_recipe_line(quantity: float, line_unit: str, ingredient: dict) -> f
         return 0.0
     base_unit = normalize_unit(ingredient.get("base_unit") or ingredient.get("unit") or "")
     cost_per_base = ingredient.get("cost_per_base_unit")
-    # Backwards-compat: derive from cost_per_unit if not set
-    if cost_per_base is None:
+    # Treat missing OR zero as "no canonical price" and derive from legacy cost_per_unit.
+    # (Legacy migrations often left cost_per_base_unit=0 while cost_per_unit is set correctly.)
+    if cost_per_base is None or cost_per_base == 0:
         legacy_unit = normalize_unit(ingredient.get("unit") or "")
         legacy_cost = ingredient.get("cost_per_unit") or 0
         if legacy_unit and base_unit:

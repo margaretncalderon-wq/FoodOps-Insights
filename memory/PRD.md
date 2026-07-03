@@ -1,6 +1,48 @@
 # Kora OS — Product Requirements Document
 
 
+## Recipe Ingredient Cost = $0 + 4-Decimal Display (Jul 2, 2026)
+
+**Status:** ✅ Fix aplicado en preview. **Pendiente: redeploy a producción.**
+
+### Bug reportado
+"algunos ingredientes me siguen saliendo en 0 (aceite capullo, agua). también los decimales tienen como 4."
+
+### Root cause
+1. **Backend (`utils/units.py::cost_for_recipe_line`):** el fallback a `cost_per_unit` solo se activaba cuando `cost_per_base_unit is None`. Muchos ingredientes migrados tenían `cost_per_base_unit=0.0` (no None) mientras que `cost_per_unit` estaba correcto → el cálculo devolvía $0. Confirmado en preview con Aceite Capullo Bidón 20 LT (`cost_per_base_unit=0`, `cost_per_unit=0.17`).
+2. **Frontend (`RecipeBuilder.js`):** 3 lugares mostraban costos con `.toFixed(4)` en vez de `.toFixed(2)` (línea de ingrediente, tabla packaging, preview).
+3. **Sync:** el PUT `/api/inventory/ingredients/{id}` actualizaba `cost_per_unit` pero no recomputaba `cost_per_base_unit` → los edits vía UI dejaban el campo desincronizado.
+
+### Fix aplicado
+- `utils/units.py`: cambiar `if cost_per_base is None:` → `if cost_per_base is None or cost_per_base == 0:` (fallback también para 0).
+- `RecipeBuilder.js`: 3× `.toFixed(4)` → `.toFixed(2)`.
+- `server.py PUT ingredients`: auto-sync de `cost_per_base_unit` derivándolo de `cost_per_unit + unit ↔ base_unit conversion` cuando el request no lo trae explícito.
+- Backfill preview: 2 ingredientes con `cost_per_base_unit=0` corregidos (Aceite Capullo, Carne de Cerdo Pierna).
+
+### Files
+- `/app/backend/utils/units.py`
+- `/app/backend/server.py` (PUT ingredient)
+- `/app/frontend/src/components/RecipeBuilder.js`
+
+---
+
+## Refactor `server.py` Fase 1 — Menu Engineering Router (Jul 2, 2026)
+
+**Status:** ✅ Complete. testing_agent_v3_fork iter_215: Backend 15/16 PASS (16/16 tras arreglo whoami).
+
+### Cambios
+- Extraído `/api/menu-engineering/analyze` y `/what-if` de `server.py` a `/app/backend/routers/menu_engineering.py`.
+- Corregido `IndentationError` en línea 24194 (código colgante `as e:` del delete previo).
+- Eliminado `api_router.include_router(menu_engineering_router)` duplicado en línea 16643 (usaba `None`).
+- **Bonus fix:** movido `app.include_router(api_router)` al FINAL del archivo — antes estaba en línea 24162 y cualquier `@api_router.*` después (como `/debug/whoami`) devolvía 404 silencioso.
+- Añadido comentario preventivo en el `include_router` final.
+
+### Files
+- `/app/backend/routers/menu_engineering.py` (NEW)
+- `/app/backend/server.py`
+
+
+
 ## People Ops — Toggles AFP/ARS/ISR por Empleado (Feb 28, 2026)
 
 **Status:** ✅ Complete. **Pendiente: redeploy a producción.** testing_agent_v3_fork iter_211: Backend 5/5 PASS + Frontend UI OK.

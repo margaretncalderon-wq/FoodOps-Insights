@@ -294,7 +294,7 @@ function IngredientRow({ ing, onChange, onRemove, isEs }) {
         <div className="flex items-center justify-end gap-1.5">
           {loading && <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />}
           <span className={showWarning ? "text-amber-700" : "text-foreground"}>
-            ${(preview.cost || 0).toFixed(4)}
+            ${(preview.cost || 0).toFixed(2)}
           </span>
         </div>
         {preview.quantity_in_base != null && preview.compatible && (
@@ -1904,7 +1904,7 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
                           <TableCell className="font-medium">{pf.packaging_item_name || item?.name || pf.packaging_inventory_item_id}</TableCell>
                           <TableCell className="text-right">{pf.qty_per_portion}</TableCell>
                           <TableCell className="text-right text-muted-foreground">${fmtNum(unitCost)}</TableCell>
-                          <TableCell className="text-right font-medium">${costPerPortion.toFixed(4)}</TableCell>
+                          <TableCell className="text-right font-medium">${costPerPortion.toFixed(2)}</TableCell>
                           <TableCell className="text-muted-foreground text-sm">{pf.notes || "-"}</TableCell>
                           <TableCell><Button variant="ghost" size="icon" onClick={() => handleDeletePackagingFormat(pf.format_id)}><Trash2 className="w-4 h-4 text-red-500" /></Button></TableCell>
                         </TableRow>
@@ -2225,7 +2225,7 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
                       <span className="text-blue-700">{language === "es" ? "Cantidad por Porción:" : "Qty per Portion:"}</span>
                       <span className="text-right font-medium">{packagingForm.qty_per_portion}</span>
                       <span className="text-blue-800 font-semibold">{language === "es" ? "Costo por Porción:" : "Cost per Portion:"}</span>
-                      <span className="text-right font-bold text-blue-900">${costPerPortion.toFixed(4)}</span>
+                      <span className="text-right font-bold text-blue-900">${costPerPortion.toFixed(2)}</span>
                     </div>
                   );
                 })()}

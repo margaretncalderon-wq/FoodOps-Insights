@@ -1988,7 +1988,26 @@ async def update_ingredient(ingredient_id: str, data: dict, user: User = Depends
         price_history = current.get("price_history", [])
         price_history.append({"price": update_data["cost_per_unit"], "date": now.isoformat(), "previous": current.get("cost_per_unit")})
         update_data["price_history"] = price_history
-    
+
+    # Auto-sync cost_per_base_unit when cost_per_unit changes but cost_per_base_unit
+    # was not explicitly provided (or is stale/zero). This prevents recipes from
+    # reading a legacy cost_per_base_unit=0 while cost_per_unit is set correctly.
+    if cost_changed and "cost_per_base_unit" not in update_data:
+        try:
+            from utils.units import normalize_unit as _norm_unit, convert as _unit_convert
+            merged = {**current, **update_data}
+            base_unit = _norm_unit(merged.get("base_unit") or merged.get("unit") or "")
+            legacy_unit = _norm_unit(merged.get("unit") or "")
+            legacy_cost = float(merged.get("cost_per_unit") or 0)
+            derived = legacy_cost
+            if legacy_unit and base_unit and legacy_unit != base_unit:
+                conv = _unit_convert(1.0, base_unit, legacy_unit, merged)
+                if conv is not None:
+                    derived = legacy_cost * conv
+            update_data["cost_per_base_unit"] = round(derived, 6)
+        except Exception as _e:
+            logger.warning(f"cost_per_base_unit auto-sync failed for {ingredient_id}: {_e}")
+
     await db.ingredients.update_one({"ingredient_id": ingredient_id, "company_id": user.company_id}, {"$set": update_data})
     
     # Auto-recalc downstream recipes that use this ingredient.
