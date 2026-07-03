@@ -1654,35 +1654,53 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
                 </div>
               )}
 
-              {/* Cost stack */}
+              {/* Cost stack — two columns: per portion + full recipe */}
               <div className="p-4 bg-white rounded-lg border">
-                <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-3">
-                  {language === "es" ? "Desglose de Costo por Porción" : "Cost Breakdown per Portion"}
-                </div>
-                <div className="space-y-1.5 font-mono text-sm">
-                  <div className="flex justify-between">
-                    <span>{language === "es" ? "Costo de Comida" : "Food Cost"}</span>
-                    <span className="font-medium text-green-700">${fmtNum(costPerPortion)}</span>
+                <div className="flex items-center justify-between mb-3">
+                  <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    {language === "es" ? "Desglose de Costo" : "Cost Breakdown"}
                   </div>
-                  <div className="flex justify-between text-muted-foreground">
-                    <span>
-                      {language === "es" ? "Mano de Obra" : "Labor"} 
-                      <span className="text-[10px] ml-1">({totalLaborMinutes.toFixed(0)}min × ${costingConfig.chef_hourly_rate}/hr)</span>
-                    </span>
-                    <span>${fmtNum(form.portions_per_yield > 0 ? laborCost / form.portions_per_yield : laborCost)}</span>
-                  </div>
-                  <div className="flex justify-between text-muted-foreground">
-                    <span>
-                      {language === "es" ? "Overhead" : "Overhead"} 
-                      <span className="text-[10px] ml-1">({costingConfig.recipe_overhead_percent}%)</span>
-                    </span>
-                    <span>${fmtNum(form.portions_per_yield > 0 ? overheadCost / form.portions_per_yield : overheadCost)}</span>
-                  </div>
-                  <div className="border-t pt-1.5 mt-1.5 flex justify-between font-bold text-base">
-                    <span>{language === "es" ? "COSTO TOTAL" : "TOTAL COST"}</span>
-                    <span className="text-blue-700" data-testid="recipe-total-cost-per-portion">${fmtNum(totalCostPerPortionFull)}</span>
+                  <div className="text-[11px] text-muted-foreground" data-testid="recipe-portions-summary">
+                    {language === "es" ? "Rinde:" : "Yields:"} <span className="font-semibold text-slate-700">{form.portions_per_yield || 1} {language === "es" ? "porciones" : "portions"}</span>
                   </div>
                 </div>
+                <table className="w-full font-mono text-sm">
+                  <thead>
+                    <tr className="text-[10px] uppercase text-muted-foreground border-b">
+                      <th className="text-left font-normal pb-1"></th>
+                      <th className="text-right font-normal pb-1">{language === "es" ? "Por porción" : "Per portion"}</th>
+                      <th className="text-right font-normal pb-1">{language === "es" ? "Total receta" : "Full recipe"}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td className="py-1">{language === "es" ? "Costo de Comida" : "Food Cost"}</td>
+                      <td className="text-right py-1 font-medium text-green-700">${fmtNum(costPerPortion)}</td>
+                      <td className="text-right py-1 text-green-700/70">${fmtNum(totalCost)}</td>
+                    </tr>
+                    <tr>
+                      <td className="py-1 text-muted-foreground">
+                        {language === "es" ? "Mano de Obra" : "Labor"}
+                        <span className="text-[10px] ml-1">({totalLaborMinutes.toFixed(0)}min × ${costingConfig.chef_hourly_rate}/hr)</span>
+                      </td>
+                      <td className="text-right py-1 text-muted-foreground">${fmtNum(form.portions_per_yield > 0 ? laborCost / form.portions_per_yield : laborCost)}</td>
+                      <td className="text-right py-1 text-muted-foreground">${fmtNum(laborCost)}</td>
+                    </tr>
+                    <tr>
+                      <td className="py-1 text-muted-foreground">
+                        {language === "es" ? "Overhead" : "Overhead"}
+                        <span className="text-[10px] ml-1">({costingConfig.recipe_overhead_percent}%)</span>
+                      </td>
+                      <td className="text-right py-1 text-muted-foreground">${fmtNum(form.portions_per_yield > 0 ? overheadCost / form.portions_per_yield : overheadCost)}</td>
+                      <td className="text-right py-1 text-muted-foreground">${fmtNum(overheadCost)}</td>
+                    </tr>
+                    <tr className="border-t font-bold text-base">
+                      <td className="pt-1.5">{language === "es" ? "COSTO TOTAL" : "TOTAL COST"}</td>
+                      <td className="text-right pt-1.5 text-blue-700" data-testid="recipe-total-cost-per-portion">${fmtNum(totalCostPerPortionFull)}</td>
+                      <td className="text-right pt-1.5 text-blue-700/80">${fmtNum(totalCostFull)}</td>
+                    </tr>
+                  </tbody>
+                </table>
               </div>
 
               {/* Selling & profitability */}
@@ -1831,31 +1849,6 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
                       : "Each method fits a different operation type. Food Cost is the restaurant standard (Gastrokaisen, CaterTrax). Prime Cost is more accurate for fine dining. Gross Margin is used in catering/events."}
                   </p>
                 </details>
-              )}
-
-              {/* Legacy: margin-policy suggestion (kept as secondary) */}
-              {suggestedSellPrice != null && Math.abs(suggestedSellPrice - suggestedSellPriceByFoodCost) > 0.5 && (
-                <div className="flex items-center justify-between gap-3 px-4 py-2 rounded-lg border border-emerald-200 bg-emerald-50/60">
-                  <div className="text-sm">
-                    <span className="text-emerald-700">
-                      {language === "es" ? "Alt (política de margen):" : "Alt (margin policy):"}
-                    </span>
-                    <span className="text-lg font-bold text-emerald-700 ml-2">${fmtNum(suggestedSellPrice)}</span>
-                    <span className="text-xs text-muted-foreground ml-2">
-                      ({targetMarginPct.toFixed(0)}% {language === "es" ? "margen" : "margin"})
-                    </span>
-                  </div>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    className="bg-white"
-                    onClick={() => setForm((prev) => ({ ...prev, sell_price: Number(fmtNum(suggestedSellPrice)) }))}
-                    data-testid="recipe-apply-suggested-price"
-                  >
-                    {language === "es" ? "Aplicar" : "Apply"}
-                  </Button>
-                </div>
               )}
             </CardContent>
           </Card>
