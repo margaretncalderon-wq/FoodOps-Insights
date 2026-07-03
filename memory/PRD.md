@@ -1,5 +1,27 @@
 # Kora OS — Product Requirements Document
 
+## Recipe Pricing v2 — Operation Type Presets + Multi-Method (Feb 3, 2026)
+
+**Status:** ✅ 19/19 backend tests PASSED (iteration_216). Preview OK. Pendiente redeploy prod.
+
+### Nuevas features
+1. **Selector de Tipo de Operación** con 5 presets one-click en Recipe Builder → config panel:
+   - Restaurante (Food 30% / Prime 60% / Margen 65% / Chef $20/hr / OH 15%)
+   - Fine Dining (Food 25% / Prime 55% / Margen 70% / Chef $30/hr / OH 20%)
+   - Catering / Eventos (Food 28% / Prime 55% / Margen 65% / Chef $25/hr / OH 18%)
+   - Quick Service (Food 33% / Prime 62% / Margen 60% / Chef $15/hr / OH 12%)
+   - Buffet (Food 35% / Prime 60% / Margen 55% / Chef $18/hr / OH 15%)
+2. **5 parámetros editables** en grid (Chef $/hr, Overhead %, Food %, Prime %, Margen %) con tooltips.
+3. **UI reforzada para catering**: cada precio sugerido muestra "/ porción" + subtítulo con total receta (`price × portions`) cuando portions > 1.
+
+### Compatibilidad
+- `suggested_sell_price` sigue existiendo con misma clave, fórmula correcta ahora.
+- Proposals y cotizaciones NO se rompen — verificado por testing agent (iter_216 19/19).
+
+### Tests
+- `/app/backend/tests/test_recipe_pricing_methods.py`
+
+
 
 ## Recipe Pricing Logic — Multi-Method (Feb 3, 2026)
 
