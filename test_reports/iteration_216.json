@@ -1,0 +1,32 @@
+{
+  "summary": "Backend regression + logic verification of the refactored recipe pricing engine. 19/19 tests PASSED. Core bug fix verified: suggested_sell_price now correctly equals $237.97 (was $273.66 pre-fix) for food=71.39, overhead=15%, target_food=30%, portions=1. New pricing_methods object (food_cost_method / prime_cost_method / gross_margin_markup) present with correct math. Per-portion catering math verified (10 portions -> cost/portion=7.14, suggested=~23.80). Company settings persist new target_prime_cost_percent (55) and target_gross_margin_percent (65). Proposals-recipe link intact. No regressions found.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/recipes/recalculate-all", "issue": "dry_run is declared as a query param (bool = True), so sending {\"dry_run\": false} in JSON body is silently ignored. Only ?dry_run=false query string works. Consider accepting body too, or documenting explicitly."},
+      {"endpoint": "GET /api/menus", "issue": "Not a route - menus live under /api/settings/menus. Just a documentation note (original review_request referenced /api/menus which returns 404)."}
+    ]
+  },
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_recipe_pricing_methods.py",
+    "/app/test_reports/pytest/pricing_methods.xml"
+  ],
+  "action_items": [
+    "OPTIONAL: consider allowing recalculate-all to accept dry_run in JSON body (client convenience).",
+    "Documentation: menus endpoint is /api/settings/menus (not /api/menus)."
+  ],
+  "critical_code_review_comments": [
+    "compute_full_recipe_costing (server.py 2930-3049): clean implementation, well-commented, correctly uses food_cost only for Method A (bug is truly fixed).",
+    "server.py is 24,271 lines — should be split into modular routers.",
+    "target_food_pct=0 edge case falls back to suggested_sell_price=0; acceptable but no explicit warning surfaced to the client."
+  ],
+  "updated_files": ["/app/backend/tests/test_recipe_pricing_methods.py"],
+  "success_rate": {"backend": "100%", "frontend": "not tested (per request)"},
+  "test_credentials": "demo.agency@kora.com / Evoque2024! (admin) — working",
+  "seed_data_creation": "Test creates ephemeral TEST_ prefixed ingredients + recipes with UUID suffixes; each fixture cleans up in teardown.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Regression test file at /app/backend/tests/test_recipe_pricing_methods.py covers pricing engine end-to-end (settings CRUD, single-portion math $237.97, catering per-portion math, recalculate-all, pricing_methods panel structure & math, proposals-recipe link, menu-engineering, cost-preview fallback). Run with: pytest backend/tests/test_recipe_pricing_methods.py -v",
+  "rca of the issue": "Original bug: prior formula was suggested_sell_price = total_cost / target_food% which included overhead in the numerator AND applied a food-cost target percentage denominator, so overhead was effectively counted twice. Fixed formula (line 2992) uses cost_per_portion_food (food only) as numerator, restoring standard restaurant-industry Method A: sell = food / target_food%. Verified: 71.39/0.30 = 237.97."
+}
