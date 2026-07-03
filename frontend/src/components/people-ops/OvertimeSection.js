@@ -22,6 +22,7 @@ import {
 
 import { API_BASE as API } from "../../utils/api";
 import { useCurrencyFormatter } from "../../hooks/useCurrencyFormatter";
+import OvertimePeriodDialog from "./OvertimePeriodDialog";
 
 // Helper functions for weekly entry
 const getWeekStart = (date) => {
@@ -65,9 +66,13 @@ export function OvertimeSection() {
   const isEs = language === "es";
   
   const [requests, setRequests] = useState([]);
+  const [periods, setPeriods] = useState([]);
+  const [companyPeriodType, setCompanyPeriodType] = useState("biweekly");
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [dialogOpen, setDialogOpen] = useState(false);
+  const [legacyDialogOpen, setLegacyDialogOpen] = useState(false);
+  const [periodDialogOpen, setPeriodDialogOpen] = useState(false);
+  const [expandedPeriodId, setExpandedPeriodId] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   
   // Report (period filter + aggregate summary)
@@ -106,12 +111,16 @@ export function OvertimeSection() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [reqRes, empRes] = await Promise.all([
+      const [reqRes, empRes, periodsRes, configRes] = await Promise.all([
         axios.get(`${API}/api/people-ops/overtime/requests?limit=50`, { withCredentials: true }),
-        axios.get(`${API}/api/people-ops/employees?status=active`, { withCredentials: true })
+        axios.get(`${API}/api/people-ops/employees?status=active`, { withCredentials: true }),
+        axios.get(`${API}/api/people-ops/overtime/periods?limit=100`, { withCredentials: true }),
+        axios.get(`${API}/api/people-ops/overtime/period-config`, { withCredentials: true }),
       ]);
       setRequests(reqRes.data);
       setEmployees(empRes.data);
+      setPeriods(periodsRes.data || []);
+      setCompanyPeriodType(configRes.data?.company_default || "biweekly");
     } catch (err) {
       console.error("Error fetching overtime data:", err);
     }
@@ -249,7 +258,7 @@ export function OvertimeSection() {
         }
       }
       
-      setDialogOpen(false);
+      setLegacyDialogOpen(false);
       setNewRequest({
         employee_id: "",
         date: new Date().toISOString().split("T")[0],
@@ -360,12 +369,175 @@ export function OvertimeSection() {
             <Mail className="w-4 h-4 mr-1" />
             {isEs ? "Email" : "Email"}
           </Button>
-          <Button onClick={() => setDialogOpen(true)} data-testid="new-overtime-btn">
+          <Button variant="secondary" size="sm" onClick={() => setLegacyDialogOpen(true)} data-testid="new-overtime-legacy-btn" title={isEs ? "Modo antiguo (1 día)" : "Legacy (single day)"}>
+            <Clock className="w-4 h-4 mr-1" />
+            {isEs ? "Día suelto" : "Single day"}
+          </Button>
+          <Button onClick={() => setPeriodDialogOpen(true)} data-testid="new-overtime-period-btn">
             <Plus className="w-4 h-4 mr-2" />
-            {isEs ? "Registrar Horas" : "Log Hours"}
+            {isEs ? "Nuevo Período" : "New Period"}
           </Button>
         </div>
       </div>
+
+      {/* Períodos de Horas Extras (nuevo flujo) */}
+      <Card data-testid="ot-periods-card">
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Calendar className="w-5 h-5 text-blue-600" />
+                {isEs ? "Períodos de Horas Extras" : "Overtime Periods"}
+                <Badge variant="outline" className="text-[10px]">{periods.length}</Badge>
+              </CardTitle>
+              <CardDescription className="text-xs">
+                {isEs
+                  ? `Empresa: default ${companyPeriodType === "weekly" ? "Semanal" : companyPeriodType === "biweekly" ? "Quincenal" : "Mensual"}`
+                  : `Company default: ${companyPeriodType}`}
+              </CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {periods.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-6 text-center">
+              {isEs ? "Sin períodos aún. Crea uno con el botón \"Nuevo Período\"." : "No periods yet. Create one with \"New Period\"."}
+            </p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{isEs ? "Empleado" : "Employee"}</TableHead>
+                  <TableHead>{isEs ? "Período" : "Period"}</TableHead>
+                  <TableHead className="text-right">{isEs ? "Horas totales" : "Total hours"}</TableHead>
+                  <TableHead className="text-right">{isEs ? "Estimado" : "Estimated"}</TableHead>
+                  <TableHead>{isEs ? "Estado" : "Status"}</TableHead>
+                  <TableHead className="text-right">{isEs ? "Acciones" : "Actions"}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {periods.map((p) => {
+                  const isExpanded = expandedPeriodId === p.overtime_period_id;
+                  const statusColor = p.status === "approved" ? "bg-emerald-100 text-emerald-700"
+                    : p.status === "rejected" ? "bg-red-100 text-red-700"
+                    : p.status === "paid" ? "bg-blue-100 text-blue-700"
+                    : "bg-amber-100 text-amber-700";
+                  return (
+                    <>
+                      <TableRow key={p.overtime_period_id} data-testid={`period-row-${p.overtime_period_id}`}>
+                        <TableCell className="font-medium">{p.employee_name}</TableCell>
+                        <TableCell>
+                          <span className="text-xs font-mono">{p.start_date} → {p.end_date}</span>
+                          <span className="text-[10px] text-muted-foreground ml-1">({p.period_type})</span>
+                        </TableCell>
+                        <TableCell className="text-right font-mono text-xs">{p.totals?.total_hours ?? 0}</TableCell>
+                        <TableCell className="text-right font-mono">{formatCurrency(p.estimated_amount || 0)}</TableCell>
+                        <TableCell><Badge className={statusColor}>{p.status}</Badge></TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-1">
+                            <Button size="sm" variant="ghost" onClick={() => setExpandedPeriodId(isExpanded ? null : p.overtime_period_id)} data-testid={`toggle-period-detail-${p.overtime_period_id}`}>
+                              {isExpanded ? (isEs ? "Ocultar" : "Hide") : (isEs ? "Ver detalle" : "Details")}
+                            </Button>
+                            {p.status === "pending" && (
+                              <>
+                                <Button size="sm" variant="ghost" className="text-emerald-600 hover:text-emerald-800"
+                                  onClick={async () => {
+                                    try {
+                                      await axios.post(`${API}/api/people-ops/overtime/periods/${p.overtime_period_id}/approve`, {}, { withCredentials: true });
+                                      fetchData();
+                                    } catch (err) { console.error(err); }
+                                  }}
+                                  data-testid={`approve-period-${p.overtime_period_id}`}
+                                >
+                                  <CheckCircle className="w-4 h-4" />
+                                </Button>
+                                <Button size="sm" variant="ghost" className="text-red-600 hover:text-red-800"
+                                  onClick={async () => {
+                                    const reason = window.prompt(isEs ? "Motivo del rechazo:" : "Rejection reason:", "");
+                                    if (reason === null) return;
+                                    try {
+                                      await axios.post(`${API}/api/people-ops/overtime/periods/${p.overtime_period_id}/reject`, { reason }, { withCredentials: true });
+                                      fetchData();
+                                    } catch (err) { console.error(err); }
+                                  }}
+                                  data-testid={`reject-period-${p.overtime_period_id}`}
+                                >
+                                  <XCircle className="w-4 h-4" />
+                                </Button>
+                              </>
+                            )}
+                            {p.status !== "paid" && (
+                              <Button size="sm" variant="ghost" className="text-red-600"
+                                onClick={async () => {
+                                  if (!window.confirm(isEs ? "¿Eliminar este período?" : "Delete this period?")) return;
+                                  try {
+                                    await axios.delete(`${API}/api/people-ops/overtime/periods/${p.overtime_period_id}`, { withCredentials: true });
+                                    fetchData();
+                                  } catch (err) { console.error(err); }
+                                }}
+                                data-testid={`delete-period-${p.overtime_period_id}`}
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                      {isExpanded && (
+                        <TableRow>
+                          <TableCell colSpan={6} className="bg-slate-50 p-3">
+                            <div className="text-xs font-semibold uppercase text-slate-600 mb-2">
+                              {isEs ? "Detalle por día" : "Daily detail"}
+                            </div>
+                            {(p.daily_entries && p.daily_entries.length > 0) ? (
+                              <table className="w-full text-xs">
+                                <thead>
+                                  <tr className="border-b text-slate-500">
+                                    <th className="text-left py-1">{isEs ? "Fecha" : "Date"}</th>
+                                    <th className="text-right py-1">Normal</th>
+                                    <th className="text-right py-1">Nocturna</th>
+                                    <th className="text-right py-1">Feriado</th>
+                                    <th className="text-right py-1">Extra 100%</th>
+                                    <th className="text-left py-1 pl-4">Notas</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {p.daily_entries.map((e, idx) => (
+                                    <tr key={idx} className="border-b border-slate-200">
+                                      <td className="py-1 font-mono">{e.date}</td>
+                                      <td className="text-right py-1">{e.hours_35 || 0}</td>
+                                      <td className="text-right py-1">{e.hours_night || 0}</td>
+                                      <td className="text-right py-1">{e.hours_holiday || 0}</td>
+                                      <td className="text-right py-1">{e.hours_100 || 0}</td>
+                                      <td className="py-1 pl-4 text-slate-500">{e.notes || "—"}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            ) : <p className="text-xs text-muted-foreground">{isEs ? "Sin detalles" : "No details"}</p>}
+                            {p.reason && <p className="text-xs mt-2"><b>{isEs ? "Motivo:" : "Reason:"}</b> {p.reason}</p>}
+                            {p.notes && <p className="text-xs"><b>{isEs ? "Notas:" : "Notes:"}</b> {p.notes}</p>}
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Period dialog (new flow) */}
+      <OvertimePeriodDialog
+        open={periodDialogOpen}
+        onClose={() => setPeriodDialogOpen(false)}
+        onSaved={fetchData}
+        employees={employees}
+        defaultPeriodType={companyPeriodType}
+        isEs={isEs}
+      />
       
       {/* Period Report — filters + summary */}
       <Card data-testid="ot-report-card">
@@ -676,7 +848,7 @@ export function OvertimeSection() {
       </Card>
 
       {/* New Overtime Dialog */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      <Dialog open={legacyDialogOpen} onOpenChange={setLegacyDialogOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>{isEs ? "Registrar Horas Extras" : "Log Overtime Hours"}</DialogTitle>
@@ -928,7 +1100,7 @@ export function OvertimeSection() {
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>
+            <Button variant="outline" onClick={() => setLegacyDialogOpen(false)}>
               {isEs ? "Cancelar" : "Cancel"}
             </Button>
             <Button onClick={handleCreateRequest} disabled={submitting}>

@@ -3584,6 +3584,371 @@ def _is_leap_year(y):
 
 # ==================== OVERTIME / HORAS EXTRAS ENDPOINTS ====================
 
+# --------------------------------------------------------------------------
+# Period-based overtime (new flow — Feb 2026)
+# --------------------------------------------------------------------------
+# Legacy per-day overtime_requests remain untouched for backwards compat.
+# Period requests live in `overtime_period_requests` and hold daily details
+# embedded in `daily_entries`.
+# --------------------------------------------------------------------------
+
+def _compute_period_bounds(period_type: str, ref_date_iso: str) -> tuple[str, str]:
+    """Given a period_type ('weekly'|'biweekly'|'monthly') and a reference date (YYYY-MM-DD),
+    return (start_date, end_date) as ISO strings inclusive."""
+    from datetime import date as _date, timedelta as _td
+    y, m, d = [int(x) for x in ref_date_iso.split("-")]
+    ref = _date(y, m, d)
+    if period_type == "weekly":
+        # Monday - Sunday
+        start = ref - _td(days=ref.weekday())
+        end = start + _td(days=6)
+    elif period_type == "biweekly":
+        # 1-15 or 16-EOM (Dominican Republic quincena convention)
+        if ref.day <= 15:
+            start = ref.replace(day=1)
+            end = ref.replace(day=15)
+        else:
+            start = ref.replace(day=16)
+            # last day of month
+            if ref.month == 12:
+                next_month_first = _date(ref.year + 1, 1, 1)
+            else:
+                next_month_first = _date(ref.year, ref.month + 1, 1)
+            end = next_month_first - _td(days=1)
+    elif period_type == "monthly":
+        start = ref.replace(day=1)
+        if ref.month == 12:
+            next_month_first = _date(ref.year + 1, 1, 1)
+        else:
+            next_month_first = _date(ref.year, ref.month + 1, 1)
+        end = next_month_first - _td(days=1)
+    else:
+        raise HTTPException(status_code=400, detail=f"Invalid period_type: {period_type}")
+    return start.isoformat(), end.isoformat()
+
+
+async def _resolve_employee_overtime_period(company_id: str, employee: dict) -> str:
+    """Return employee-level override or company default. Fallback: 'biweekly'."""
+    per_emp = employee.get("overtime_period_type")
+    if per_emp in ("weekly", "biweekly", "monthly"):
+        return per_emp
+    config = await db.payroll_config.find_one({"company_id": company_id}, {"_id": 0, "overtime_period_type": 1}) or {}
+    return config.get("overtime_period_type") or "biweekly"
+
+
+@people_ops_router.get("/overtime/period-config")
+async def get_overtime_period_config(user: User = Depends(get_current_user)):
+    """Return company-default period type + list of per-employee overrides."""
+    company_id = user.company_id or user.active_org_id
+    config = await db.payroll_config.find_one({"company_id": company_id}, {"_id": 0, "overtime_period_type": 1}) or {}
+    company_default = config.get("overtime_period_type") or "biweekly"
+    overrides_cursor = db.employees.find(
+        {"company_id": company_id, "overtime_period_type": {"$in": ["weekly", "biweekly", "monthly"]}},
+        {"_id": 0, "employee_id": 1, "full_name": 1, "overtime_period_type": 1},
+    )
+    overrides = await overrides_cursor.to_list(500)
+    return {"company_default": company_default, "employee_overrides": overrides}
+
+
+@people_ops_router.put("/overtime/period-config")
+async def update_overtime_period_config(data: dict, user: User = Depends(get_current_user)):
+    """Set company default period type. Body: {"period_type": "weekly"|"biweekly"|"monthly"}"""
+    company_id = user.company_id or user.active_org_id
+    period_type = data.get("period_type")
+    if period_type not in ("weekly", "biweekly", "monthly"):
+        raise HTTPException(status_code=400, detail="period_type must be weekly, biweekly or monthly")
+    await db.payroll_config.update_one(
+        {"company_id": company_id},
+        {"$set": {"overtime_period_type": period_type, "updated_at": datetime.now(timezone.utc)}},
+        upsert=True,
+    )
+    return {"ok": True, "period_type": period_type}
+
+
+@people_ops_router.put("/overtime/employee-period/{employee_id}")
+async def set_employee_overtime_period(employee_id: str, data: dict, user: User = Depends(get_current_user)):
+    """Override period type for a single employee. period_type=null → remove override."""
+    company_id = user.company_id or user.active_org_id
+    period_type = data.get("period_type")
+    if period_type is None:
+        await db.employees.update_one(
+            {"company_id": company_id, "employee_id": employee_id},
+            {"$unset": {"overtime_period_type": ""}},
+        )
+        return {"ok": True, "employee_id": employee_id, "period_type": None}
+    if period_type not in ("weekly", "biweekly", "monthly"):
+        raise HTTPException(status_code=400, detail="period_type must be weekly, biweekly, monthly or null")
+    result = await db.employees.update_one(
+        {"company_id": company_id, "employee_id": employee_id},
+        {"$set": {"overtime_period_type": period_type}},
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Employee not found")
+    return {"ok": True, "employee_id": employee_id, "period_type": period_type}
+
+
+@people_ops_router.get("/overtime/periods")
+async def list_overtime_periods(
+    status: Optional[str] = None,
+    employee_id: Optional[str] = None,
+    limit: int = 100,
+    user: User = Depends(get_current_user),
+):
+    """List period-based overtime requests (new flow)."""
+    company_id = user.company_id or user.active_org_id
+    query = {"company_id": company_id}
+    if status:
+        query["status"] = status
+    if employee_id:
+        query["employee_id"] = employee_id
+    docs = await db.overtime_period_requests.find(query, {"_id": 0}).sort("start_date", -1).to_list(limit)
+    return docs
+
+
+@people_ops_router.get("/overtime/periods/{overtime_period_id}")
+async def get_overtime_period(overtime_period_id: str, user: User = Depends(get_current_user)):
+    company_id = user.company_id or user.active_org_id
+    doc = await db.overtime_period_requests.find_one(
+        {"company_id": company_id, "overtime_period_id": overtime_period_id}, {"_id": 0}
+    )
+    if not doc:
+        raise HTTPException(status_code=404, detail="Period request not found")
+    return doc
+
+
+def _compute_period_totals_and_amount(daily_entries: list, hourly_rate: float, rates: dict) -> tuple[dict, float]:
+    """Sum hours per category across daily_entries and compute estimated_amount."""
+    total_35 = total_night = total_holiday = total_100 = 0.0
+    for entry in daily_entries or []:
+        total_35 += float(entry.get("hours_35") or 0)
+        total_night += float(entry.get("hours_night") or 0)
+        total_holiday += float(entry.get("hours_holiday") or 0)
+        total_100 += float(entry.get("hours_100") or 0)
+    totals = {
+        "hours_35": round(total_35, 2),
+        "hours_night": round(total_night, 2),
+        "hours_holiday": round(total_holiday, 2),
+        "hours_100": round(total_100, 2),
+        "total_hours": round(total_35 + total_night + total_holiday + total_100, 2),
+    }
+    estimated = (
+        total_35 * hourly_rate * rates["rate_35"]
+        + total_night * hourly_rate * rates["rate_night"]
+        + total_holiday * hourly_rate * rates["rate_holiday"]
+        + total_100 * hourly_rate * rates["rate_100"]
+    )
+    return totals, round(estimated, 2)
+
+
+async def _resolve_ot_rates(company_id: str) -> tuple[dict, float]:
+    """Return ({rate_35, rate_night, rate_holiday, rate_100}, hours_per_month)."""
+    config = await db.payroll_config.find_one({"company_id": company_id}, {"_id": 0}) or {}
+    return (
+        {
+            "rate_35": float(config.get("overtime_rate_35") or 1.35),
+            "rate_night": float(config.get("overtime_rate_night") or 1.15),
+            "rate_holiday": float(config.get("overtime_rate_holiday") or 2.0),
+            "rate_100": float(config.get("overtime_rate_100") or 2.0),
+        },
+        float(config.get("overtime_hours_per_month") or 192.0),
+    )
+
+
+async def _employee_hourly_rate(employee: dict, hours_per_month: float) -> float:
+    base_salary = float(employee.get("base_salary") or 0)
+    freq = employee.get("payment_frequency", "biweekly")
+    if freq == "monthly":
+        monthly = base_salary
+    elif freq == "biweekly":
+        monthly = base_salary * 2
+    else:  # weekly
+        monthly = base_salary * 4
+    return (monthly / hours_per_month) if hours_per_month else 0
+
+
+@people_ops_router.post("/overtime/periods")
+async def create_overtime_period(data: dict, user: User = Depends(get_current_user)):
+    """Create a period-based overtime request with embedded daily_entries.
+    Body:
+      employee_id, period_type ('weekly'|'biweekly'|'monthly'),
+      ref_date (YYYY-MM-DD anywhere in the period),
+      daily_entries: [{date, hours_35, hours_night, hours_holiday, hours_100, notes?}],
+      reason?, notes?
+    """
+    company_id = user.company_id or user.active_org_id
+    employee_id = data.get("employee_id")
+    employee = await db.employees.find_one(
+        {"company_id": company_id, "employee_id": employee_id},
+        {"_id": 0, "full_name": 1, "base_salary": 1, "payment_frequency": 1, "overtime_period_type": 1},
+    )
+    if not employee:
+        raise HTTPException(status_code=404, detail="Employee not found")
+
+    period_type = data.get("period_type") or await _resolve_employee_overtime_period(company_id, employee)
+    if period_type not in ("weekly", "biweekly", "monthly"):
+        raise HTTPException(status_code=400, detail="Invalid period_type")
+
+    ref_date = data.get("ref_date") or data.get("start_date") or datetime.now(timezone.utc).date().isoformat()
+    start_date, end_date = _compute_period_bounds(period_type, ref_date)
+
+    # Validate daily_entries fall within period
+    daily_entries = data.get("daily_entries") or []
+    normalized: list[dict] = []
+    for e in daily_entries:
+        d = e.get("date")
+        if not d:
+            continue
+        if d < start_date or d > end_date:
+            raise HTTPException(status_code=400, detail=f"Daily entry {d} outside period {start_date}..{end_date}")
+        normalized.append({
+            "date": d,
+            "hours_35": float(e.get("hours_35") or 0),
+            "hours_night": float(e.get("hours_night") or 0),
+            "hours_holiday": float(e.get("hours_holiday") or 0),
+            "hours_100": float(e.get("hours_100") or 0),
+            "notes": (e.get("notes") or "").strip() or None,
+        })
+
+    rates, hours_per_month = await _resolve_ot_rates(company_id)
+    hourly_rate = await _employee_hourly_rate(employee, hours_per_month)
+    totals, estimated = _compute_period_totals_and_amount(normalized, hourly_rate, rates)
+
+    overtime_period_id = f"otp_{uuid.uuid4().hex[:12]}"
+    now = datetime.now(timezone.utc)
+    doc = {
+        "overtime_period_id": overtime_period_id,
+        "company_id": company_id,
+        "employee_id": employee_id,
+        "employee_name": employee.get("full_name"),
+        "period_type": period_type,
+        "start_date": start_date,
+        "end_date": end_date,
+        "daily_entries": normalized,
+        "totals": totals,
+        "hourly_rate_at_creation": round(hourly_rate, 4),
+        "rates_at_creation": rates,
+        "estimated_amount": estimated,
+        "status": "pending",
+        "reason": data.get("reason"),
+        "notes": data.get("notes"),
+        "created_at": now,
+        "created_by": user.user_id,
+        "updated_at": now,
+    }
+    await db.overtime_period_requests.insert_one(doc)
+    return {"overtime_period_id": overtime_period_id, "start_date": start_date, "end_date": end_date, **totals, "estimated_amount": estimated}
+
+
+@people_ops_router.put("/overtime/periods/{overtime_period_id}")
+async def update_overtime_period(overtime_period_id: str, data: dict, user: User = Depends(get_current_user)):
+    company_id = user.company_id or user.active_org_id
+    existing = await db.overtime_period_requests.find_one(
+        {"company_id": company_id, "overtime_period_id": overtime_period_id}, {"_id": 0}
+    )
+    if not existing:
+        raise HTTPException(status_code=404, detail="Period request not found")
+    if existing.get("status") in ("approved", "paid"):
+        raise HTTPException(status_code=400, detail="Cannot edit an approved or paid period")
+
+    daily_entries = data.get("daily_entries")
+    update: dict = {}
+    if daily_entries is not None:
+        start_date = existing["start_date"]; end_date = existing["end_date"]
+        normalized = []
+        for e in daily_entries:
+            d = e.get("date")
+            if not d:
+                continue
+            if d < start_date or d > end_date:
+                raise HTTPException(status_code=400, detail=f"Daily entry {d} outside period {start_date}..{end_date}")
+            normalized.append({
+                "date": d,
+                "hours_35": float(e.get("hours_35") or 0),
+                "hours_night": float(e.get("hours_night") or 0),
+                "hours_holiday": float(e.get("hours_holiday") or 0),
+                "hours_100": float(e.get("hours_100") or 0),
+                "notes": (e.get("notes") or "").strip() or None,
+            })
+        employee = await db.employees.find_one(
+            {"company_id": company_id, "employee_id": existing["employee_id"]},
+            {"_id": 0, "base_salary": 1, "payment_frequency": 1},
+        ) or {}
+        rates, hours_per_month = await _resolve_ot_rates(company_id)
+        hourly_rate = await _employee_hourly_rate(employee, hours_per_month)
+        totals, estimated = _compute_period_totals_and_amount(normalized, hourly_rate, rates)
+        update.update({
+            "daily_entries": normalized,
+            "totals": totals,
+            "estimated_amount": estimated,
+        })
+    if "reason" in data:
+        update["reason"] = data["reason"]
+    if "notes" in data:
+        update["notes"] = data["notes"]
+    update["updated_at"] = datetime.now(timezone.utc)
+    await db.overtime_period_requests.update_one(
+        {"company_id": company_id, "overtime_period_id": overtime_period_id},
+        {"$set": update},
+    )
+    return {"ok": True, "overtime_period_id": overtime_period_id}
+
+
+@people_ops_router.post("/overtime/periods/{overtime_period_id}/approve")
+async def approve_overtime_period(overtime_period_id: str, user: User = Depends(get_current_user)):
+    company_id = user.company_id or user.active_org_id
+    result = await db.overtime_period_requests.update_one(
+        {"company_id": company_id, "overtime_period_id": overtime_period_id, "status": "pending"},
+        {"$set": {
+            "status": "approved",
+            "approved_at": datetime.now(timezone.utc),
+            "approved_by": user.user_id,
+            "updated_at": datetime.now(timezone.utc),
+        }},
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Pending period not found")
+    return {"ok": True, "overtime_period_id": overtime_period_id, "status": "approved"}
+
+
+@people_ops_router.post("/overtime/periods/{overtime_period_id}/reject")
+async def reject_overtime_period(overtime_period_id: str, data: dict, user: User = Depends(get_current_user)):
+    company_id = user.company_id or user.active_org_id
+    reason = (data or {}).get("reason", "")
+    result = await db.overtime_period_requests.update_one(
+        {"company_id": company_id, "overtime_period_id": overtime_period_id, "status": "pending"},
+        {"$set": {
+            "status": "rejected",
+            "rejected_at": datetime.now(timezone.utc),
+            "rejected_by": user.user_id,
+            "rejection_reason": reason,
+            "updated_at": datetime.now(timezone.utc),
+        }},
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Pending period not found")
+    return {"ok": True, "overtime_period_id": overtime_period_id, "status": "rejected"}
+
+
+@people_ops_router.delete("/overtime/periods/{overtime_period_id}")
+async def delete_overtime_period(overtime_period_id: str, user: User = Depends(get_current_user)):
+    company_id = user.company_id or user.active_org_id
+    existing = await db.overtime_period_requests.find_one(
+        {"company_id": company_id, "overtime_period_id": overtime_period_id}, {"_id": 0, "status": 1}
+    )
+    if not existing:
+        raise HTTPException(status_code=404, detail="Period request not found")
+    if existing.get("status") == "paid":
+        raise HTTPException(status_code=400, detail="Cannot delete a paid period")
+    await db.overtime_period_requests.delete_one(
+        {"company_id": company_id, "overtime_period_id": overtime_period_id}
+    )
+    return {"ok": True}
+
+
+# --------------------------------------------------------------------------
+# Legacy per-day overtime (kept for backwards compat)
+# --------------------------------------------------------------------------
+
 @people_ops_router.get("/overtime/requests")
 async def get_overtime_requests(
     status: Optional[str] = None,
