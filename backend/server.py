@@ -2070,13 +2070,9 @@ async def _recalc_recipes_using_ingredient(ingredient_id: str, company_id: str) 
         new_total, updated_ings, updated_subs = await calculate_recipe_cost(
             ingredients, sub_recipes, company_id,
         )
-        yield_qty = float(recipe.get("yield_quantity") or 1) or 1
-        portion_size = float(recipe.get("portion_size") or 1) or 1
-        sell_price = float(recipe.get("sell_price") or 0)
-        new_per_yield = new_total / yield_qty if yield_qty > 0 else 0
-        new_per_portion = new_per_yield / portion_size if portion_size > 0 else new_per_yield
-        new_food_cost_pct = (new_per_portion / sell_price * 100) if sell_price > 0 else 0
         # Compute full costing (labor + overhead + suggested price + contribution) — Sprint P0
+        # Note: full_costing internally recalculates cost_per_yield / cost_per_portion / food_cost_percent,
+        # so no separate local calculation is needed here.
         full_costing = await compute_full_recipe_costing(recipe, new_total, company_id)
         await db.recipes.update_one(
             {"recipe_id": rid, "company_id": company_id},

@@ -1,0 +1,33 @@
+{
+  "summary": "Regression test after Recipe Builder simplification (iter 217). 8/8 backend tests pass. Verified: (1) GET/PUT /api/settings/company persists all 5 costing fields; (2) POST /api/recipes math for yield=1×portions=12 → cost_per_portion=71.42, suggested_sell_price=238.07 (Method A, 30% target); (3) yield=30×portions=4 (120 total) → cost_per_portion=7.142, suggested_sell_price=23.81; (4) Ingredient update triggers internal recalc without crash after dead-code removal; (5) POST /api/recipes/recalculate-all works; (6) GET /api/recipes returns 200; (7) GET /api/menu-engineering/analyze returns 200. Frontend NOT tested (backend-only scope). NOTE: User-quoted expected value $237.97 for suggested price is slightly off from actual $238.07 — actual matches formula 71.42/0.30 exactly; the discrepancy in the request appears to be a rounding artifact, not a bug.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_recipe_costing_iteration217.py",
+    "/app/test_reports/pytest/iter217.xml"
+  ],
+  "action_items": [
+    "Optional: confirm with product/user that $238.07 (Method A at 30%) is the correct expectation; user's request stated $237.97 which is ~$0.10 off from the correct formula output."
+  ],
+  "critical_code_review_comments": [
+    "compute_full_recipe_costing correctly uses food-only cost_per_portion for Method A (as intended by the fix).",
+    "Dead code in recalc loop successfully removed at server.py lines 2073-2077; full_costing already recomputes cost_per_portion internally.",
+    "server.py is 24267 lines — long-standing structural issue; splitting into modules recommended but out of scope for this iteration."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_recipe_costing_iteration217.py (new)"
+  ],
+  "success_rate": {"backend": "100%", "frontend": "not tested"},
+  "test_credentials": "demo.agency@kora.com / Evoque2024!",
+  "seed_data_creation": "Created transient TEST_ingredient (auto-deleted) and 2 TEST_recipe_* recipes (auto-deleted after each test).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend regression suite lives at /app/backend/tests/test_recipe_costing_iteration217.py. Run: export REACT_APP_BACKEND_URL=$(grep REACT_APP_BACKEND_URL /app/frontend/.env | cut -d= -f2) && pytest backend/tests/test_recipe_costing_iteration217.py -v. Company config is reset to defaults (chef=20, overhead=15, food=30, prime=55, margin=65) during tests — restore per user's original preferences if they had customized values."
+}

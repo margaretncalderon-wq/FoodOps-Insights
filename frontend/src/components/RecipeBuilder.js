@@ -523,7 +523,12 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
   };
 
   const totalCost = calculateTotalCost();
-  const costPerPortion = form.portions_per_yield > 0 ? totalCost / form.portions_per_yield : totalCost;
+  // Total portions = yield_quantity × portions_per_yield  (matches backend compute_full_recipe_costing)
+  const totalPortions = Math.max(
+    1,
+    (Number(form.yield_quantity) || 1) * (Number(form.portions_per_yield) || 1),
+  );
+  const costPerPortion = totalCost / totalPortions;
   const foodCostPercent = form.sell_price > 0 ? (costPerPortion / form.sell_price * 100) : 0;
   const margin = form.sell_price - costPerPortion;
 
@@ -562,7 +567,8 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
   const laborCost = (totalLaborMinutes / 60) * costingConfig.chef_hourly_rate;
   const overheadCost = totalCost * (costingConfig.recipe_overhead_percent / 100);
   const totalCostFull = totalCost + laborCost + overheadCost;
-  const portionsDenom = form.portions_per_yield > 0 ? form.portions_per_yield : 1;
+  // Use totalPortions (yield_quantity × portions_per_yield) — same denominator as backend
+  const portionsDenom = totalPortions;
   const costPerPortionFoodOnly = totalCost / portionsDenom;
   const laborPerPortion = laborCost / portionsDenom;
   const primeCostPerPortion = costPerPortionFoodOnly + laborPerPortion;
@@ -1532,232 +1538,66 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
           {/* Cost Summary — Sprint P0: Full breakdown (food + labor + overhead + contribution) */}
           <Card className="bg-muted/30" data-testid="recipe-cost-summary">
             <CardContent className="pt-4 space-y-4">
-              {/* Costing config toggle */}
+              {/* Simple financial view — matches Gastrokaisen approach.
+                  Advanced parameters (presets, chef rate, overhead %, target %, prime %, margin %)
+                  moved to Settings → Recipe Costing. */}
               <div className="flex items-center justify-between">
                 <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  {language === "es" ? "Análisis Financiero" : "Financial Analysis"}
+                  {language === "es" ? "Costeo y Precio" : "Costing & Price"}
                 </div>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setShowCostingConfig((v) => !v)}
-                  className="h-7 text-xs text-blue-600 hover:bg-blue-50"
-                  data-testid="toggle-costing-config"
-                >
-                  {showCostingConfig
-                    ? (language === "es" ? "Ocultar Config" : "Hide Config")
-                    : (language === "es" ? "⚙️ Ajustar Parámetros" : "⚙️ Adjust Parameters")}
-                </Button>
+                <Badge variant="outline" className="text-[11px]" data-testid="recipe-portions-badge">
+                  {language === "es" ? "Rinde:" : "Yields:"}{" "}
+                  <span className="font-semibold ml-1">{totalPortions} {language === "es" ? "porciones" : "portions"}</span>
+                </Badge>
               </div>
-              {showCostingConfig && (
-                <div className="p-3 rounded-lg border border-blue-200 bg-blue-50/50 space-y-3">
-                  {/* Operation type presets — one click sets industry defaults */}
-                  <div>
-                    <label className="text-[10px] uppercase text-blue-700 block mb-1">
-                      {language === "es" ? "Tipo de Operación (preset)" : "Operation Type (preset)"}
-                    </label>
-                    <div className="flex flex-wrap gap-1.5">
-                      {[
-                        { key: "restaurant", label: language === "es" ? "Restaurante" : "Restaurant", food: 30, prime: 60, margin: 65, chef: 20, oh: 15 },
-                        { key: "fine_dining", label: language === "es" ? "Fine Dining" : "Fine Dining", food: 25, prime: 55, margin: 70, chef: 30, oh: 20 },
-                        { key: "catering", label: language === "es" ? "Catering / Eventos" : "Catering / Events", food: 28, prime: 55, margin: 65, chef: 25, oh: 18 },
-                        { key: "quick_service", label: language === "es" ? "Quick Service" : "Quick Service", food: 33, prime: 62, margin: 60, chef: 15, oh: 12 },
-                        { key: "buffet", label: language === "es" ? "Buffet" : "Buffet", food: 35, prime: 60, margin: 55, chef: 18, oh: 15 },
-                      ].map((preset) => (
-                        <Button
-                          key={preset.key}
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          className="h-7 text-[11px] bg-white border-blue-200 hover:bg-blue-100"
-                          onClick={() => saveCostingConfig({
-                            chef_hourly_rate: preset.chef,
-                            recipe_overhead_percent: preset.oh,
-                            recipe_target_food_cost_percent: preset.food,
-                            recipe_target_prime_cost_percent: preset.prime,
-                            recipe_target_gross_margin_percent: preset.margin,
-                          })}
-                          data-testid={`preset-${preset.key}`}
-                          title={`Food ${preset.food}% · Prime ${preset.prime}% · Margen ${preset.margin}% · Chef $${preset.chef}/hr · OH ${preset.oh}%`}
-                        >
-                          {preset.label}
-                        </Button>
-                      ))}
-                    </div>
-                  </div>
 
-                  {/* Numeric parameters — 5 fields in a grid */}
-                  <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-                    <div>
-                      <label className="text-[10px] uppercase text-blue-700">{language === "es" ? "Chef $/hr" : "Chef $/hr"}</label>
-                      <Input
-                        type="number" min="0" step="0.5"
-                        value={costingConfig.chef_hourly_rate}
-                        onChange={(e) => saveCostingConfig({ chef_hourly_rate: parseFloat(e.target.value) || 0 })}
-                        className="h-8"
-                        data-testid="costing-chef-hourly"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-[10px] uppercase text-blue-700">{language === "es" ? "Overhead %" : "Overhead %"}</label>
-                      <Input
-                        type="number" min="0" step="1"
-                        value={costingConfig.recipe_overhead_percent}
-                        onChange={(e) => saveCostingConfig({ recipe_overhead_percent: parseFloat(e.target.value) || 0 })}
-                        className="h-8"
-                        data-testid="costing-overhead-pct"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-[10px] uppercase text-blue-700" title={language === "es" ? "% de ventas destinado a food. Método A." : "% of sales for food. Method A."}>
-                        {language === "es" ? "Food %" : "Food %"}
-                      </label>
-                      <Input
-                        type="number" min="0" max="100" step="1"
-                        value={costingConfig.recipe_target_food_cost_percent}
-                        onChange={(e) => saveCostingConfig({ recipe_target_food_cost_percent: parseFloat(e.target.value) || 0 })}
-                        className="h-8"
-                        data-testid="costing-target-food-pct"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-[10px] uppercase text-blue-700" title={language === "es" ? "% de ventas para food+labor. Método B." : "% of sales for food+labor. Method B."}>
-                        {language === "es" ? "Prime %" : "Prime %"}
-                      </label>
-                      <Input
-                        type="number" min="0" max="100" step="1"
-                        value={costingConfig.recipe_target_prime_cost_percent}
-                        onChange={(e) => saveCostingConfig({ recipe_target_prime_cost_percent: parseFloat(e.target.value) || 0 })}
-                        className="h-8"
-                        data-testid="costing-target-prime-pct"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-[10px] uppercase text-blue-700" title={language === "es" ? "Margen bruto objetivo. Método C (catering)." : "Target gross margin. Method C (catering)."}>
-                        {language === "es" ? "Margen %" : "Margin %"}
-                      </label>
-                      <Input
-                        type="number" min="0" max="100" step="1"
-                        value={costingConfig.recipe_target_gross_margin_percent}
-                        onChange={(e) => saveCostingConfig({ recipe_target_gross_margin_percent: parseFloat(e.target.value) || 0 })}
-                        className="h-8"
-                        data-testid="costing-target-gross-margin-pct"
-                      />
-                    </div>
-                  </div>
-                  <p className="text-[10px] text-muted-foreground">
-                    {language === "es"
-                      ? "💡 Estos valores se guardan a nivel de empresa y aplican a todas las recetas. Elige un preset para configurar los 5 parámetros con los valores típicos de la industria."
-                      : "💡 These values are saved company-wide and apply to all recipes. Pick a preset to load industry-standard values for all 5 parameters."}
+              {/* Cost summary — 3 clear numbers */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="p-4 rounded-lg border bg-white">
+                  <p className="text-[10px] uppercase text-muted-foreground tracking-wide">
+                    {language === "es" ? "Costo Total Receta" : "Total Recipe Cost"}
+                  </p>
+                  <p className="text-2xl font-bold text-slate-800" data-testid="recipe-total-cost">${fmtNum(totalCost)}</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">
+                    {language === "es" ? "Solo ingredientes" : "Ingredients only"}
                   </p>
                 </div>
-              )}
-
-              {/* Cost stack — two columns: per portion + full recipe */}
-              <div className="p-4 bg-white rounded-lg border">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    {language === "es" ? "Desglose de Costo" : "Cost Breakdown"}
-                  </div>
-                  <div className="text-[11px] text-muted-foreground" data-testid="recipe-portions-summary">
-                    {language === "es" ? "Rinde:" : "Yields:"} <span className="font-semibold text-slate-700">{form.portions_per_yield || 1} {language === "es" ? "porciones" : "portions"}</span>
-                  </div>
+                <div className="p-4 rounded-lg border bg-white">
+                  <p className="text-[10px] uppercase text-muted-foreground tracking-wide">
+                    {language === "es" ? "Porciones" : "Portions"}
+                  </p>
+                  <p className="text-2xl font-bold text-slate-800" data-testid="recipe-portions">{totalPortions}</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">
+                    {(Number(form.yield_quantity) || 1)} × {(Number(form.portions_per_yield) || 1)}
+                  </p>
                 </div>
-                <table className="w-full font-mono text-sm">
-                  <thead>
-                    <tr className="text-[10px] uppercase text-muted-foreground border-b">
-                      <th className="text-left font-normal pb-1"></th>
-                      <th className="text-right font-normal pb-1">{language === "es" ? "Por porción" : "Per portion"}</th>
-                      <th className="text-right font-normal pb-1">{language === "es" ? "Total receta" : "Full recipe"}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr>
-                      <td className="py-1">{language === "es" ? "Costo de Comida" : "Food Cost"}</td>
-                      <td className="text-right py-1 font-medium text-green-700">${fmtNum(costPerPortion)}</td>
-                      <td className="text-right py-1 text-green-700/70">${fmtNum(totalCost)}</td>
-                    </tr>
-                    <tr>
-                      <td className="py-1 text-muted-foreground">
-                        {language === "es" ? "Mano de Obra" : "Labor"}
-                        <span className="text-[10px] ml-1">({totalLaborMinutes.toFixed(0)}min × ${costingConfig.chef_hourly_rate}/hr)</span>
-                      </td>
-                      <td className="text-right py-1 text-muted-foreground">${fmtNum(form.portions_per_yield > 0 ? laborCost / form.portions_per_yield : laborCost)}</td>
-                      <td className="text-right py-1 text-muted-foreground">${fmtNum(laborCost)}</td>
-                    </tr>
-                    <tr>
-                      <td className="py-1 text-muted-foreground">
-                        {language === "es" ? "Overhead" : "Overhead"}
-                        <span className="text-[10px] ml-1">({costingConfig.recipe_overhead_percent}%)</span>
-                      </td>
-                      <td className="text-right py-1 text-muted-foreground">${fmtNum(form.portions_per_yield > 0 ? overheadCost / form.portions_per_yield : overheadCost)}</td>
-                      <td className="text-right py-1 text-muted-foreground">${fmtNum(overheadCost)}</td>
-                    </tr>
-                    <tr className="border-t font-bold text-base">
-                      <td className="pt-1.5">{language === "es" ? "COSTO TOTAL" : "TOTAL COST"}</td>
-                      <td className="text-right pt-1.5 text-blue-700" data-testid="recipe-total-cost-per-portion">${fmtNum(totalCostPerPortionFull)}</td>
-                      <td className="text-right pt-1.5 text-blue-700/80">${fmtNum(totalCostFull)}</td>
-                    </tr>
-                  </tbody>
-                </table>
+                <div className="p-4 rounded-lg border bg-white">
+                  <p className="text-[10px] uppercase text-muted-foreground tracking-wide">
+                    {language === "es" ? "Costo por Porción" : "Cost per Portion"}
+                  </p>
+                  <p className="text-2xl font-bold text-green-700" data-testid="recipe-cost-per-portion">${fmtNum(costPerPortion)}</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">
+                    {language === "es" ? "Food cost únicamente" : "Food cost only"}
+                  </p>
+                </div>
               </div>
 
-              {/* Selling & profitability */}
-              {form.sell_price > 0 && (
-                <div className="p-4 bg-white rounded-lg border">
-                  <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-3">
-                    {language === "es" ? "Rentabilidad" : "Profitability"}
-                  </div>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                    <div>
-                      <p className="text-[10px] uppercase text-muted-foreground">{language === "es" ? "Precio Venta" : "Sell Price"}</p>
-                      <p className="text-lg font-bold">${fmtNum(form.sell_price)}</p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] uppercase text-muted-foreground">{language === "es" ? "Food Cost %" : "Food Cost %"}</p>
-                      <p className={`text-lg font-bold ${foodCostPercent > 35 ? "text-red-600" : foodCostPercent > 30 ? "text-amber-600" : "text-green-600"}`} data-testid="food-cost-pct">
-                        {foodCostPercent.toFixed(1)}%
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] uppercase text-muted-foreground">{language === "es" ? "Costo Total %" : "Total Cost %"}</p>
-                      <p className={`text-lg font-bold ${totalCostPercent > 70 ? "text-red-600" : totalCostPercent > 60 ? "text-amber-600" : "text-green-600"}`}>
-                        {totalCostPercent.toFixed(1)}%
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] uppercase text-muted-foreground">{language === "es" ? "Contribución" : "Contribution"}</p>
-                      <p className={`text-lg font-bold ${contributionDollar < 0 ? "text-red-600" : "text-emerald-600"}`} data-testid="contribution-dollar">
-                        ${fmtNum(contributionDollar)}
-                        <span className="text-xs font-normal text-muted-foreground ml-1">({contributionPercent.toFixed(1)}%)</span>
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Suggested price — Method A: Food Cost (industry default) */}
+              {/* Suggested price — single, prominent */}
               {suggestedSellPriceByFoodCost > 0 && (
                 <div className="flex items-center justify-between gap-3 px-4 py-3 rounded-lg border border-blue-200 bg-blue-50">
-                  <div className="text-sm">
-                    <span className="text-blue-700 font-semibold">
-                      {language === "es" ? "Precio sugerido:" : "Suggested price:"}
-                    </span>
-                    <span className="text-2xl font-bold text-blue-700 ml-2" data-testid="suggested-price-food-cost">${fmtNum(suggestedSellPriceByFoodCost)}</span>
-                    <span className="text-xs text-blue-800 ml-1 font-medium">
-                      / {language === "es" ? "porción" : "portion"}
-                    </span>
-                    <span className="text-xs text-muted-foreground ml-2">
-                      · Food Cost {targetFoodCostPct.toFixed(0)}%
-                    </span>
-                    {form.portions_per_yield > 1 && (
-                      <p className="text-[10px] text-muted-foreground mt-0.5">
-                        {language === "es"
-                          ? `Total receta (${form.portions_per_yield} porciones): $${fmtNum(suggestedSellPriceByFoodCost * form.portions_per_yield)}`
-                          : `Total recipe (${form.portions_per_yield} portions): $${fmtNum(suggestedSellPriceByFoodCost * form.portions_per_yield)}`}
-                      </p>
-                    )}
+                  <div>
+                    <p className="text-[10px] uppercase text-blue-700 tracking-wide font-semibold">
+                      {language === "es" ? "Precio de venta sugerido" : "Suggested sell price"}
+                    </p>
+                    <p className="text-2xl font-bold text-blue-700" data-testid="suggested-price-food-cost">
+                      ${fmtNum(suggestedSellPriceByFoodCost)}
+                      <span className="text-xs text-blue-800 ml-1 font-normal">/ {language === "es" ? "porción" : "portion"}</span>
+                    </p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">
+                      {language === "es"
+                        ? `Método Food Cost — food ÷ ${targetFoodCostPct.toFixed(0)}%`
+                        : `Food Cost Method — food ÷ ${targetFoodCostPct.toFixed(0)}%`}
+                    </p>
                   </div>
                   <Button
                     type="button"
@@ -1772,84 +1612,38 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
                 </div>
               )}
 
-              {/* Advanced: Alternative pricing methods (Prime Cost + Gross Margin) */}
-              {(suggestedPricePrime > 0 || suggestedPriceMarkup > 0) && (
-                <details className="rounded-lg border border-slate-200 bg-slate-50/60 px-4 py-2 text-sm" data-testid="pricing-methods-details">
-                  <summary className="cursor-pointer select-none font-medium text-slate-700">
-                    {language === "es" ? "Otras estrategias de precio" : "Other pricing strategies"}
-                    <span className="text-xs text-muted-foreground ml-2">
-                      {language === "es" ? "(Prime Cost / Margen Bruto)" : "(Prime Cost / Gross Margin)"}
+              {/* Current sell price + profitability quick chip (only if set) */}
+              {form.sell_price > 0 && (
+                <div className="flex items-center justify-between gap-2 px-3 py-2 rounded-md border bg-white text-sm">
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                    <span className="text-muted-foreground">
+                      {language === "es" ? "Precio actual:" : "Current price:"}
+                      <span className="font-semibold text-slate-800 ml-1">${fmtNum(form.sell_price)}</span>
                     </span>
-                  </summary>
-                  <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {/* Method B — Prime Cost */}
-                    <div className="rounded-md border border-emerald-200 bg-white px-3 py-2">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-[11px] uppercase tracking-wide text-emerald-700 font-semibold">
-                            {language === "es" ? "B) Prime Cost" : "B) Prime Cost"}
-                          </p>
-                          <p className="text-lg font-bold text-emerald-700" data-testid="suggested-price-prime">
-                            ${fmtNum(suggestedPricePrime)}
-                            <span className="text-[10px] text-muted-foreground font-normal ml-1">/ {language === "es" ? "porción" : "portion"}</span>
-                          </p>
-                          <p className="text-[10px] text-muted-foreground">
-                            (food + labor) ÷ {targetPrimeCostPct.toFixed(0)}%
-                          </p>
-                          <p className="text-[10px] text-muted-foreground italic">
-                            {language === "es" ? "Fine dining, steakhouse" : "Fine dining, steakhouse"}
-                          </p>
-                        </div>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="ghost"
-                          className="h-7 text-xs"
-                          onClick={() => setForm((prev) => ({ ...prev, sell_price: Number(suggestedPricePrime.toFixed(2)) }))}
-                          data-testid="apply-price-prime"
-                        >
-                          {language === "es" ? "Usar" : "Use"}
-                        </Button>
-                      </div>
-                    </div>
-                    {/* Method C — Gross Margin Markup */}
-                    <div className="rounded-md border border-amber-200 bg-white px-3 py-2">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-[11px] uppercase tracking-wide text-amber-700 font-semibold">
-                            {language === "es" ? "C) Margen Bruto" : "C) Gross Margin"}
-                          </p>
-                          <p className="text-lg font-bold text-amber-700" data-testid="suggested-price-markup">
-                            ${fmtNum(suggestedPriceMarkup)}
-                            <span className="text-[10px] text-muted-foreground font-normal ml-1">/ {language === "es" ? "porción" : "portion"}</span>
-                          </p>
-                          <p className="text-[10px] text-muted-foreground">
-                            total ÷ (1 − {targetGrossMarginPct.toFixed(0)}%)
-                          </p>
-                          <p className="text-[10px] text-muted-foreground italic">
-                            {language === "es" ? "Catering, eventos, buffet" : "Catering, events, buffet"}
-                          </p>
-                        </div>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="ghost"
-                          className="h-7 text-xs"
-                          onClick={() => setForm((prev) => ({ ...prev, sell_price: Number(suggestedPriceMarkup.toFixed(2)) }))}
-                          data-testid="apply-price-markup"
-                        >
-                          {language === "es" ? "Usar" : "Use"}
-                        </Button>
-                      </div>
-                    </div>
+                    <span className="text-muted-foreground">
+                      {language === "es" ? "Food Cost:" : "Food Cost:"}
+                      <span className={`font-semibold ml-1 ${foodCostPercent > 35 ? "text-red-600" : foodCostPercent > 30 ? "text-amber-600" : "text-green-600"}`} data-testid="food-cost-pct">
+                        {foodCostPercent.toFixed(1)}%
+                      </span>
+                    </span>
+                    <span className="text-muted-foreground">
+                      {language === "es" ? "Margen:" : "Margin:"}
+                      <span className={`font-semibold ml-1 ${margin < 0 ? "text-red-600" : "text-emerald-600"}`}>${fmtNum(margin)}</span>
+                    </span>
                   </div>
-                  <p className="text-[10px] text-muted-foreground mt-2 leading-relaxed">
-                    {language === "es"
-                      ? "Cada método aplica a un tipo de operación distinto. Food Cost es el estándar restaurantero (Gastrokaisen, CaterTrax). Prime Cost es más preciso para fine dining. Margen Bruto es el que usa la industria de catering/eventos."
-                      : "Each method fits a different operation type. Food Cost is the restaurant standard (Gastrokaisen, CaterTrax). Prime Cost is more accurate for fine dining. Gross Margin is used in catering/events."}
-                  </p>
-                </details>
+                </div>
               )}
+
+              {/* Link to advanced settings — takes user to /settings/recipe-costing */}
+              <div className="text-right">
+                <a
+                  href="/settings/recipe-costing"
+                  className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 hover:underline"
+                  data-testid="link-recipe-costing-settings"
+                >
+                  {language === "es" ? "⚙️ Configurar labor, overhead y métodos avanzados" : "⚙️ Configure labor, overhead & advanced methods"}
+                </a>
+              </div>
             </CardContent>
           </Card>
 

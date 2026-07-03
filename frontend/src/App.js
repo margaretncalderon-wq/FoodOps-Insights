@@ -68,6 +68,7 @@ const InventoryPage = lazy(() => import("./pages/InventoryPage"));
 const FoodOpsPage = lazy(() => import("./pages/FoodOpsPage"));
 const DocumentPreview = lazy(() => import("./pages/DocumentPreview"));
 const SettingsPage = lazy(() => import("./pages/SettingsPage"));
+const RecipeCostingSettingsPage = lazy(() => import("./pages/RecipeCostingSettingsPage"));
 const ClientPortal = lazy(() => import("./pages/ClientPortal"));
 const ClientDeliveryNote = lazy(() => import("./pages/ClientDeliveryNote"));
 const ClientEventPortal = lazy(() => import("./pages/ClientEventPortal"));
@@ -412,6 +413,7 @@ function AppRouter() {
       <Route path="/documents/:documentId" element={<ProtectedRoute><DocumentPreview /></ProtectedRoute>} />
       <Route path="/import-export" element={<ProtectedRoute><ImportExportPage /></ProtectedRoute>} />
       <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
+      <Route path="/settings/recipe-costing" element={<ProtectedRoute><RecipeCostingSettingsPage /></ProtectedRoute>} />
       
       {/* Super Admin Portal - Hidden from normal navigation */}
       <Route path="/super-admin" element={<ProtectedRoute><SuperAdminLayout /></ProtectedRoute>}>
