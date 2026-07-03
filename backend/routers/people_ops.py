@@ -3671,10 +3671,12 @@ async def set_employee_overtime_period(employee_id: str, data: dict, user: User 
     company_id = user.company_id or user.active_org_id
     period_type = data.get("period_type")
     if period_type is None:
-        await db.employees.update_one(
+        result = await db.employees.update_one(
             {"company_id": company_id, "employee_id": employee_id},
             {"$unset": {"overtime_period_type": ""}},
         )
+        if result.matched_count == 0:
+            raise HTTPException(status_code=404, detail="Employee not found")
         return {"ok": True, "employee_id": employee_id, "period_type": None}
     if period_type not in ("weekly", "biweekly", "monthly"):
         raise HTTPException(status_code=400, detail="period_type must be weekly, biweekly, monthly or null")

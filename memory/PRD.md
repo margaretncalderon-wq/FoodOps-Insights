@@ -1,5 +1,47 @@
 # Kora OS — Product Requirements Document
 
+## Overtime Periods — Nuevo flujo período-based (Feb 3, 2026)
+
+**Status:** ✅ 20/20 backend tests PASS (iteration_218). Preview OK.
+
+### Problema
+Antes: 1 registro de horas extras = 1 día. Trabajar OT 6 días = 6 registros separados.
+
+### Solución (Opción C — Timesheet Grid)
+1 registro = 1 período (semanal/quincenal/mensual) con grid de días embebido.
+
+### Backend nuevo
+Collection: `overtime_period_requests` (legacy `overtime_requests` intacta)
+
+Endpoints en `/api/people-ops/`:
+- `GET/PUT /overtime/period-config` — default de empresa
+- `PUT /overtime/employee-period/{employee_id}` — override por empleado
+- `GET /overtime/periods` — lista
+- `GET /overtime/periods/{id}` — detalle con daily_entries
+- `POST /overtime/periods` — crear (body: employee_id, period_type, ref_date, daily_entries[])
+- `PUT /overtime/periods/{id}` — editar (bloqueado si approved/paid)
+- `POST /overtime/periods/{id}/approve`
+- `POST /overtime/periods/{id}/reject`
+- `DELETE /overtime/periods/{id}`
+
+Períodos:
+- **Semanal**: Lunes-Domingo
+- **Quincenal**: 1-15 / 16-fin de mes (convención DR)
+- **Mensual**: 1-fin de mes
+
+### Frontend
+- Nuevo `OvertimePeriodDialog.js` — grid timesheet con horas por día × 4 categorías (normal 35%, nocturna 15%, feriado 100%, extra 100%) + totales en vivo
+- Nueva tabla "Períodos de Horas Extras" en `OvertimeSection.js` con expandir/detalle, aprobar, rechazar, eliminar
+- Botones separados: "Nuevo Período" (nuevo flujo) y "Día suelto" (legacy sigue disponible)
+
+### Files
+- `/app/backend/routers/people_ops.py` (nuevos endpoints, ~350 líneas nuevas)
+- `/app/frontend/src/components/people-ops/OvertimePeriodDialog.js` (NEW, 270 líneas)
+- `/app/frontend/src/components/people-ops/OvertimeSection.js` (integración)
+- `/app/backend/tests/test_overtime_periods.py` (NEW, testing agent)
+
+
+
 ## Recipe Builder Simplificado + Página de Costing Settings (Feb 3, 2026)
 
 **Status:** ✅ 8/8 backend tests PASS (iteration_217). Preview OK.
