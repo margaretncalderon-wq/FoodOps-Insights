@@ -1128,3 +1128,80 @@ async def _import_accounts_payable(company_id: str, rows: list, user_id: str) ->
             continue
     
     return count
+
+
+# ============================================================
+# One-shot fix for legacy ingredients with cost_per_base_unit=0
+# ============================================================
+@migration_router.post("/ingredients/backfill-cost-per-base-unit")
+async def backfill_cost_per_base_unit(dry_run: bool = True, user: User = Depends(get_current_user)):
+    """
+    Backfill `cost_per_base_unit` for ingredients that have cost_per_unit > 0
+    but cost_per_base_unit is 0/None/missing. This is a one-shot fix for legacy
+    migrated ingredients whose canonical price field was never populated.
+
+    Recipe cost calculation reads cost_per_base_unit first — a stale 0 causes
+    recipe rows to display $0.00 for that ingredient.
+
+    Set dry_run=false to actually persist the fix. Scoped to the caller's company.
+    """
+    from utils.units import normalize_unit, convert
+
+    company_id = user.company_id
+    if not company_id:
+        raise HTTPException(status_code=400, detail="No company context")
+
+    # Match legacy zeros AND missing/null
+    match = {
+        "company_id": company_id,
+        "cost_per_unit": {"$gt": 0},
+        "$or": [
+            {"cost_per_base_unit": 0},
+            {"cost_per_base_unit": 0.0},
+            {"cost_per_base_unit": None},
+            {"cost_per_base_unit": {"$exists": False}},
+        ],
+    }
+    cursor = db.ingredients.find(match)
+    updates = []
+    async for ing in cursor:
+        base_unit = normalize_unit(ing.get("base_unit") or ing.get("unit") or "")
+        legacy_unit = normalize_unit(ing.get("unit") or "")
+        legacy_cost = float(ing.get("cost_per_unit") or 0)
+        if not base_unit:
+            base_unit = legacy_unit or "g"
+        derived = legacy_cost
+        if legacy_unit and base_unit and legacy_unit != base_unit:
+            conv = convert(1.0, base_unit, legacy_unit, ing)
+            if conv is not None:
+                derived = legacy_cost * conv
+        derived = round(derived, 6)
+        updates.append({
+            "ingredient_id": ing["ingredient_id"],
+            "name": ing.get("name"),
+            "unit": ing.get("unit"),
+            "base_unit": base_unit,
+            "old_cost_per_base_unit": ing.get("cost_per_base_unit"),
+            "new_cost_per_base_unit": derived,
+        })
+
+    applied = 0
+    if not dry_run:
+        for u in updates:
+            await db.ingredients.update_one(
+                {"ingredient_id": u["ingredient_id"], "company_id": company_id},
+                {"$set": {
+                    "cost_per_base_unit": u["new_cost_per_base_unit"],
+                    "base_unit": u["base_unit"],
+                    "updated_at": datetime.now(timezone.utc).isoformat(),
+                }},
+            )
+            applied += 1
+
+    return {
+        "dry_run": dry_run,
+        "candidates": len(updates),
+        "applied": applied,
+        "sample": updates[:10],
+    }
+
