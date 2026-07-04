@@ -1,0 +1,36 @@
+{
+  "summary": "Backend regression testing (iteration 220) for the bug fix that integrates the new `overtime_period_requests` (periodic OT) collection into the Payroll flow. Wrote 12 pytest cases covering: periodic OT creation → approval → projection inclusion → pending-in-range inclusion → payroll period creation (linking + status='processed' + `linked_overtime_period_ids`) → payroll period deletion (release back to 'approved'). Also validated regression of legacy per-day OT flow (create/approve/consume/release). All 12 tests PASSED.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_payroll_ot_periodic_integration.py",
+    "/app/test_reports/pytest/pytest_iter220.xml"
+  ],
+  "coverage": [
+    "POST /api/people-ops/overtime/periods (weekly, hours_35=5 + hours_night=2) → 200, estimated_amount > 0",
+    "POST /api/people-ops/overtime/periods/{id}/approve → status='approved', payroll_period_id null",
+    "GET /api/people-ops/payroll/projection?period_type=biweekly → pending_overtime.count includes periodic OT, total_hours>=7, totals.pending_overtime_amount > 0, estimated_gross reflects OT",
+    "GET /api/people-ops/overtime/pending-in-range → total_ot_count includes both, raw_periods contains the OT period, summary_by_employee exposes both ot_ids and ot_period_ids",
+    "POST /api/people-ops/payroll/periods (biweekly covering the OT range) → entries include overtime_hours_35/night & amounts for the employee, linked_overtime_period_ids populated with the OT period id",
+    "After payroll create: overtime_period_requests doc → status='processed', payroll_period_id=<period_id>",
+    "After payroll create: projection & pending-in-range no longer list the consumed periodic OT",
+    "DELETE /api/people-ops/payroll/periods/{id} → periodic OT reverts to status='approved', payroll_period_id nullified",
+    "REGRESSION legacy OT: POST /overtime/requests + /approve → appears in pending-in-range.raw & summary_by_employee.ot_ids; consumed by payroll (linked_overtime_ids populated, status='processed'); released back to 'approved' on payroll DELETE"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "people_ops.py is now 7344 lines. It has grown well past the 700-line guideline and should be split into sub-modules (payroll, overtime, schedules, etc.) to be maintainable.",
+    "In create_payroll_period the OT-period query filters by `start_date <= end_date` AND `end_date >= start_date` (overlap) which is correct, but the shortfall-adjusted totals are computed at OT-creation time — if schedule/days-off change between OT creation and payroll run, the effective totals used in payroll may be stale. Consider recomputing on consumption or documenting the trade-off.",
+    "Projection aggregates ALL approved & unpaid periodic OT regardless of pay-period date range (only company_id + status + payroll_period_id null). This is intentional per current code, but note it may over-count if a company has OT approved for a future period further out than the projected pay period.",
+    "In delete_payroll_period the release sets `status='approved'` unconditionally — if the OT-period had been auto-created in a different status (e.g. would have been 'pending' when consumed), release would elevate its state. Currently only approved OTs are ever consumed, so this is safe, but a defensive branch on the previous status would be cleaner.",
+    "`overtime_period_requests` release does not clear payroll_period_id via $unset — it sets it to None. Downstream `$or: [{payroll_period_id: None}, {$exists: false}]` handles both, but consistent use of $unset would keep documents cleaner."
+  ],
+  "updated_files": ["/app/backend/tests/test_payroll_ot_periodic_integration.py"],
+  "success_rate": {"backend": "100% (12/12)", "frontend": "N/A (backend-only per request)"},
+  "test_credentials": "demo.agency@kora.com / Evoque2024! (admin). Test uses first active employee with base_salary > 0 (no need for pame login).",
+  "seed_data_creation": "Ephemeral: 1 periodic OT (2026-04-06..12, 5h_35 + 2h_night), 1 legacy OT (2026-04-14, 3h_35), 2 payroll periods (both deleted by the test flow). Any leftovers use TEST_iter220 in name/reason and are best-effort cleaned by module teardown.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Bug fix verified end-to-end. Test module `/app/backend/tests/test_payroll_ot_periodic_integration.py` is idempotent (uses 2026-04 dates + TEST_iter220 naming) and can be re-run standalone. Employee is chosen dynamically by base_salary > 0; if the demo org's employees change this may need adjustment. Prior iteration_219 covered schedule/days-off endpoints; combined with this run, both OT flows and payroll integration are green.",
+  "rca of the issue": "Original bug: The payroll creation & projection only queried the legacy `overtime_requests` collection, so approved `overtime_period_requests` never showed up in 'Pendientes de Pago' nor got consumed/processed by a payroll run. Fix (verified): (a) create_payroll_period now also queries `overtime_period_requests` overlapping the pay period date range, aggregates effective_totals per employee, records `linked_overtime_period_ids` on the payroll entry, and marks the OT-period docs `status='processed'` with `payroll_period_id`. (b) payroll projection & /overtime/pending-in-range now union both collections. (c) delete_payroll_period releases both collections back to `status='approved'` and clears `payroll_period_id`. Repro would be: create weekly OT period (5h_35+2h_night), approve, GET projection — before fix pending_overtime would be 0; after fix count>=1, hours>=7, amount>0."
+}

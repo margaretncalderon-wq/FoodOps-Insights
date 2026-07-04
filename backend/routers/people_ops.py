@@ -1916,6 +1916,7 @@ async def create_payroll_period(
     
     include_ot = data.auto_include_overtime and payment_kind != "salary_only"
     ot_by_employee: dict = {}
+    ot_period_ids_by_employee: dict = {}
     if include_ot:
         ot_list = await db.overtime_requests.find(ot_query, {"_id": 0}).to_list(2000)
         for ot in ot_list:
@@ -1928,6 +1929,29 @@ async def create_payroll_period(
             acc["hours_holiday"] += float(ot.get("hours_holiday") or 0)
             acc["hours_100"] += float(ot.get("hours_100") or 0)
             acc["ot_ids"].append(ot.get("overtime_id"))
+
+        # NEW: also include period-based approved OT overlapping the pay period date range
+        ot_period_query = {
+            "company_id": company_id,
+            "status": "approved",
+            "$or": [{"payroll_period_id": None}, {"payroll_period_id": {"$exists": False}}],
+            "start_date": {"$lte": data.end_date},
+            "end_date": {"$gte": data.start_date},
+        }
+        ot_periods = await db.overtime_period_requests.find(ot_period_query, {"_id": 0}).to_list(500)
+        for otp in ot_periods:
+            emp_id = otp.get("employee_id")
+            if not emp_id:
+                continue
+            # Prefer effective (shortfall-adjusted) totals
+            eff_totals = otp.get("effective_totals") or otp.get("totals") or {}
+            acc = ot_by_employee.setdefault(emp_id, {"hours_35": 0.0, "hours_night": 0.0, "hours_holiday": 0.0, "hours_100": 0.0, "ot_ids": []})
+            acc["hours_35"] += float(eff_totals.get("hours_35") or 0)
+            acc["hours_night"] += float(eff_totals.get("hours_night") or 0)
+            acc["hours_holiday"] += float(eff_totals.get("hours_holiday") or 0)
+            acc["hours_100"] += float(eff_totals.get("hours_100") or 0)
+            # Track period IDs separately so we can mark them consumed after pay run
+            ot_period_ids_by_employee.setdefault(emp_id, []).append(otp.get("overtime_period_id"))
     
     # Get employees: for "overtime_only" only employees with OT in range; for "regular" all active
     if payment_kind == "overtime_only":
@@ -1971,6 +1995,7 @@ async def create_payroll_period(
         
         # Pull OT for this employee
         ot_data = ot_by_employee.get(emp.get("employee_id"), {"hours_35": 0.0, "hours_night": 0.0, "hours_holiday": 0.0, "hours_100": 0.0, "ot_ids": []})
+        ot_period_ids_emp = ot_period_ids_by_employee.get(emp.get("employee_id"), [])
         h35, hn, hh, h100 = ot_data["hours_35"], ot_data["hours_night"], ot_data["hours_holiday"], ot_data["hours_100"]
         amt_35 = h35 * hourly_rate * rate_35
         amt_night = hn * hourly_rate * rate_night
@@ -2116,6 +2141,7 @@ async def create_payroll_period(
             
             "notes": None,
             "linked_overtime_ids": ot_data["ot_ids"],
+            "linked_overtime_period_ids": ot_period_ids_emp,
             "created_at": now.isoformat(),
             "updated_at": now.isoformat()
         }
@@ -2132,6 +2158,14 @@ async def create_payroll_period(
     if consumed_ot_ids:
         await db.overtime_requests.update_many(
             {"company_id": company_id, "overtime_id": {"$in": consumed_ot_ids}},
+            {"$set": {"payroll_period_id": period_id, "status": "processed", "updated_at": now.isoformat()}}
+        )
+
+    # Link the consumed OT PERIOD requests (new periodic overtime collection)
+    consumed_ot_period_ids = [pid for ids in ot_period_ids_by_employee.values() for pid in ids if pid]
+    if consumed_ot_period_ids:
+        await db.overtime_period_requests.update_many(
+            {"company_id": company_id, "overtime_period_id": {"$in": consumed_ot_period_ids}},
             {"$set": {"payroll_period_id": period_id, "status": "processed", "updated_at": now.isoformat()}}
         )
     
@@ -2224,6 +2258,11 @@ async def delete_payroll_period(
     
     # Release linked OTs back to 'approved' and remove the payroll_period_id link
     await db.overtime_requests.update_many(
+        {"company_id": company_id, "payroll_period_id": period_id},
+        {"$set": {"payroll_period_id": None, "status": "approved", "updated_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    # Also release periodic OT
+    await db.overtime_period_requests.update_many(
         {"company_id": company_id, "payroll_period_id": period_id},
         {"$set": {"payroll_period_id": None, "status": "approved", "updated_at": datetime.now(timezone.utc).isoformat()}}
     )
@@ -2489,7 +2528,7 @@ async def payroll_projection(
     for row in employee_breakdown:
         row["pending_deductions"] = round(pending_ded_by_emp.get(row["employee_id"], 0), 2)
     
-    # Approved (unpaid) overtime - amount estimate
+    # Approved (unpaid) overtime — legacy per-day requests
     ot_query = {
         "company_id": company_id,
         "employee_id": {"$in": active_ids},
@@ -2497,12 +2536,41 @@ async def payroll_projection(
         "$or": [{"payroll_period_id": None}, {"payroll_period_id": {"$exists": False}}]
     }
     pending_ot = await db.overtime_requests.find(ot_query, {"_id": 0}).to_list(500)
-    
+
     ot_hours = 0.0
     ot_amount = 0.0
     for ot in pending_ot:
         ot_hours += float(ot.get("hours") or 0)
         ot_amount += float(ot.get("amount") or 0)
+
+    # NEW: Approved (unpaid) overtime PERIODS — use employee override or company default
+    # to decide which amount to include (bonus-only vs full)
+    payroll_cfg = await db.payroll_config.find_one({"company_id": company_id}, {"_id": 0, "overtime_payment_mode": 1}) or {}
+    company_mode = payroll_cfg.get("overtime_payment_mode") or "integrated"
+    employees_map = {e["employee_id"]: e for e in employees}
+    pending_ot_periods = await db.overtime_period_requests.find(
+        {
+            "company_id": company_id,
+            "employee_id": {"$in": active_ids},
+            "status": "approved",
+            "$or": [{"payroll_period_id": None}, {"payroll_period_id": {"$exists": False}}],
+        },
+        {"_id": 0},
+    ).to_list(500)
+    for otp in pending_ot_periods:
+        # Prefer shortfall-adjusted (effective) amounts if present
+        effective_totals = otp.get("effective_totals") or otp.get("totals") or {}
+        ot_hours += float(effective_totals.get("total_hours") or 0)
+        # Mode resolution: employee override → company default
+        emp = employees_map.get(otp.get("employee_id")) or {}
+        mode = emp.get("overtime_payment_mode") or company_mode
+        if mode == "integrated":
+            # Only surcharge/bonus adds to gross (base already in salary)
+            amt = float(otp.get("estimated_amount_effective_extra_only") or otp.get("estimated_amount_extra_only") or 0)
+        else:
+            # Separate → full OT pay (base + surcharge) is additional
+            amt = float(otp.get("estimated_amount_effective") or otp.get("estimated_amount") or 0)
+        ot_amount += amt
     
     # Active loans summary
     active_loans = await db.loans.find(
@@ -2543,7 +2611,7 @@ async def payroll_projection(
             "top_5": pending_ded_docs[:5]
         },
         "pending_overtime": {
-            "count": len(pending_ot),
+            "count": len(pending_ot) + len(pending_ot_periods),
             "total_hours": round(ot_hours, 2),
             "total_amount": round(ot_amount, 2)
         },
@@ -4632,7 +4700,11 @@ async def get_pending_overtime_in_range(
     user: User = Depends(get_current_user)
 ):
     """Returns approved & unpaid overtime requests within a date range.
-    Used in the 'Create Payroll Period' dialog to preview OT to be included."""
+    Used in the 'Create Payroll Period' dialog to preview OT to be included.
+
+    Includes both legacy per-day `overtime_requests` and the newer
+    `overtime_period_requests` collection (period-based OT).
+    """
     company_id, _ = await check_people_ops_access(user, "view")
     ots = await db.overtime_requests.find({
         "company_id": company_id,
@@ -4640,7 +4712,7 @@ async def get_pending_overtime_in_range(
         "date": {"$gte": start_date, "$lte": end_date},
         "$or": [{"payroll_period_id": None}, {"payroll_period_id": {"$exists": False}}],
     }, {"_id": 0}).sort("date", 1).to_list(2000)
-    
+
     # Aggregate by employee
     by_emp: dict = {}
     for ot in ots:
@@ -4653,6 +4725,7 @@ async def get_pending_overtime_in_range(
             "hours_35": 0.0, "hours_night": 0.0, "hours_holiday": 0.0, "hours_100": 0.0,
             "estimated_amount": 0.0,
             "ot_ids": [],
+            "ot_period_ids": [],
         })
         acc["hours_35"] += float(ot.get("hours_35") or 0)
         acc["hours_night"] += float(ot.get("hours_night") or 0)
@@ -4660,12 +4733,48 @@ async def get_pending_overtime_in_range(
         acc["hours_100"] += float(ot.get("hours_100") or 0)
         acc["estimated_amount"] += float(ot.get("estimated_amount") or 0)
         acc["ot_ids"].append(ot.get("overtime_id"))
-    
+
+    # Include period-based OT overlapping the date range
+    ot_periods = await db.overtime_period_requests.find({
+        "company_id": company_id,
+        "status": "approved",
+        "$or": [{"payroll_period_id": None}, {"payroll_period_id": {"$exists": False}}],
+        "start_date": {"$lte": end_date},
+        "end_date": {"$gte": start_date},
+    }, {"_id": 0}).sort("start_date", 1).to_list(500)
+
+    for otp in ot_periods:
+        emp_id = otp.get("employee_id")
+        if not emp_id:
+            continue
+        eff_totals = otp.get("effective_totals") or otp.get("totals") or {}
+        acc = by_emp.setdefault(emp_id, {
+            "employee_id": emp_id,
+            "employee_name": otp.get("employee_name"),
+            "hours_35": 0.0, "hours_night": 0.0, "hours_holiday": 0.0, "hours_100": 0.0,
+            "estimated_amount": 0.0,
+            "ot_ids": [],
+            "ot_period_ids": [],
+        })
+        acc["hours_35"] += float(eff_totals.get("hours_35") or 0)
+        acc["hours_night"] += float(eff_totals.get("hours_night") or 0)
+        acc["hours_holiday"] += float(eff_totals.get("hours_holiday") or 0)
+        acc["hours_100"] += float(eff_totals.get("hours_100") or 0)
+        acc["estimated_amount"] += float(otp.get("estimated_amount_effective") or otp.get("estimated_amount") or 0)
+        acc["ot_period_ids"].append(otp.get("overtime_period_id"))
+
+    total_amount = sum(o.get("estimated_amount") or 0 for o in ots)
+    total_amount += sum(
+        (otp.get("estimated_amount_effective") or otp.get("estimated_amount") or 0)
+        for otp in ot_periods
+    )
+
     return {
         "summary_by_employee": list(by_emp.values()),
         "raw": ots,
-        "total_ot_count": len(ots),
-        "total_estimated_amount": round(sum(o.get("estimated_amount") or 0 for o in ots), 2),
+        "raw_periods": ot_periods,
+        "total_ot_count": len(ots) + len(ot_periods),
+        "total_estimated_amount": round(total_amount, 2),
     }
 
 
