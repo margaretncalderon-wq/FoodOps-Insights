@@ -65,22 +65,29 @@ export default function ScheduleTab({ employeeId, isEs = true }) {
   useEffect(() => { fetchData(); }, [fetchData]);
 
   const openNewDialog = () => {
-    if (current) {
-      // Prefill with current pattern to make edits easy
-      setForm({
-        effective_from: new Date().toISOString().slice(0, 10),
-        weekly_pattern: { ...current.weekly_pattern },
-        weekly_hours_threshold: current.weekly_hours_threshold ?? 44,
-        notes: "",
-      });
-    } else {
-      setForm({
-        effective_from: new Date().toISOString().slice(0, 10),
-        weekly_pattern: emptyPattern(),
-        weekly_hours_threshold: 44,
-        notes: "",
-      });
+    // Always start from a normalized full-7-days pattern, then overlay current if exists.
+    // This guarantees ALL day keys are present, so number inputs never see undefined.
+    const basePattern = emptyPattern();
+    const merged = { ...basePattern };
+    if (current?.weekly_pattern) {
+      for (const dayKey of Object.keys(basePattern)) {
+        const cur = current.weekly_pattern[dayKey];
+        if (cur) {
+          merged[dayKey] = {
+            work_hours: Number(cur.work_hours ?? 0),
+            start: cur.start || "",
+            end: cur.end || "",
+            break_min: Number(cur.break_min ?? 0),
+          };
+        }
+      }
     }
+    setForm({
+      effective_from: new Date().toISOString().slice(0, 10),
+      weekly_pattern: merged,
+      weekly_hours_threshold: Number(current?.weekly_hours_threshold ?? 44),
+      notes: "",
+    });
     setDialogOpen(true);
   };
 

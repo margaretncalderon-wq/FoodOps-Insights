@@ -470,12 +470,15 @@ export function OvertimeSection() {
                   const empRecord = employees.find((e) => e.employee_id === p.employee_id);
                   const effectiveMode = empRecord?.overtime_payment_mode || overtimePaymentMode;
                   const hasOverride = !!empRecord?.overtime_payment_mode;
-                  const amountToShow = effectiveMode === "integrated"
-                    ? (p.estimated_amount_extra_only ?? 0)
-                    : (p.estimated_amount ?? 0);
-                  const otherAmount = effectiveMode === "integrated"
-                    ? (p.estimated_amount || 0)
-                    : (p.estimated_amount_extra_only || 0);
+                  // Prefer effective (shortfall-adjusted) amounts when present; fall back to raw
+                  const netTotal = p.estimated_amount_effective ?? p.estimated_amount ?? 0;
+                  const netExtra = p.estimated_amount_effective_extra_only ?? p.estimated_amount_extra_only ?? 0;
+                  const grossTotal = p.estimated_amount ?? 0;
+                  const grossExtra = p.estimated_amount_extra_only ?? 0;
+                  const amountToShow = effectiveMode === "integrated" ? netExtra : netTotal;
+                  const otherAmount = effectiveMode === "integrated" ? netTotal : netExtra;
+                  const grossToShow = effectiveMode === "integrated" ? grossExtra : grossTotal;
+                  const hasShortfall = (p.shortfall_hours ?? 0) > 0;
                   return (
                     <>
                       <TableRow key={p.overtime_period_id} data-testid={`period-row-${p.overtime_period_id}`}>
@@ -491,12 +494,22 @@ export function OvertimeSection() {
                           <span className="text-xs font-mono">{p.start_date} → {p.end_date}</span>
                           <span className="text-[10px] text-muted-foreground ml-1">({p.period_type})</span>
                         </TableCell>
-                        <TableCell className="text-right font-mono text-xs">{p.totals?.total_hours ?? 0}</TableCell>
+                        <TableCell className="text-right font-mono text-xs">
+                          {p.totals?.total_hours ?? 0}
+                          {hasShortfall && (
+                            <div className="text-[9px] text-amber-700" title={isEs ? `Shortfall aplicado: ${p.shortfall_hours}h (día libre ${p.shortfall_days_off_hours}h + time-off ${p.shortfall_time_off_hours}h)` : `Shortfall: ${p.shortfall_hours}h`}>
+                              −{p.shortfall_hours}h {isEs ? "libre" : "off"}
+                            </div>
+                          )}
+                        </TableCell>
                         <TableCell className="text-right font-mono font-semibold text-emerald-700" data-testid={`ot-amount-${p.overtime_period_id}`}>
                           {formatCurrency(amountToShow)}
                           <div className="text-[9px] text-muted-foreground font-normal">
+                            {hasShortfall && (
+                              <span className="text-amber-700 line-through mr-1">{formatCurrency(grossToShow)}</span>
+                            )}
                             {effectiveMode === "integrated"
-                              ? (isEs ? `total con base: ${formatCurrency(otherAmount)}` : `total incl. base: ${formatCurrency(otherAmount)}`)
+                              ? (isEs ? `total: ${formatCurrency(otherAmount)}` : `total: ${formatCurrency(otherAmount)}`)
                               : (isEs ? `bonus: ${formatCurrency(otherAmount)}` : `bonus: ${formatCurrency(otherAmount)}`)
                             }
                           </div>

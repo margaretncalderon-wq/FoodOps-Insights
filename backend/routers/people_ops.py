@@ -4126,6 +4126,108 @@ async def get_overtime_period(overtime_period_id: str, user: User = Depends(get_
     return doc
 
 
+async def _compute_shortfall_hours(company_id: str, employee_id: str, start_date: str, end_date: str) -> tuple[float, float, float]:
+    """Return (scheduled_gross_hours, days_off_hours, time_off_hours) for the period.
+    - scheduled_gross_hours: sum of pattern hours across all days in period (before subtractions)
+    - days_off_hours: hours the employee would have worked but marked as day-off
+    - time_off_hours: approved time-off overlapping the period, in hours
+    Total shortfall = days_off_hours + time_off_hours
+    """
+    from datetime import date as _date, timedelta as _td
+
+    # Load schedule versions
+    schedules = await db.employee_schedules.find(
+        {"company_id": company_id, "employee_id": employee_id},
+        {"_id": 0, "effective_from": 1, "effective_to": 1, "weekly_pattern": 1},
+    ).sort("effective_from", 1).to_list(500)
+
+    def pick_schedule(iso: str):
+        for s in schedules:
+            f = s.get("effective_from") or "0000-01-01"
+            t = s.get("effective_to") or "9999-12-31"
+            if f <= iso <= t:
+                return s
+        return None
+
+    # Load days-off in range
+    dof = await db.employee_days_off.find(
+        {"company_id": company_id, "employee_id": employee_id, "date": {"$gte": start_date, "$lte": end_date}},
+        {"_id": 0, "date": 1},
+    ).to_list(500)
+    days_off_dates = {d["date"] for d in dof}
+
+    y1, m1, d1 = [int(x) for x in start_date.split("-")]
+    y2, m2, d2 = [int(x) for x in end_date.split("-")]
+    cur = _date(y1, m1, d1); end = _date(y2, m2, d2)
+    scheduled_gross = 0.0
+    days_off_hours = 0.0
+    while cur <= end:
+        iso = cur.isoformat()
+        s = pick_schedule(iso)
+        day_name = DAYS_OF_WEEK[cur.weekday()]
+        hrs = 0.0
+        if s:
+            hrs = float(((s.get("weekly_pattern") or {}).get(day_name) or {}).get("work_hours") or 0)
+        scheduled_gross += hrs
+        if iso in days_off_dates:
+            days_off_hours += hrs
+        cur = cur + _td(days=1)
+
+    # Approved time-off overlapping the period (assume 8h/day, or use hours field if present)
+    tofs = await db.time_off_requests.find(
+        {
+            "company_id": company_id,
+            "employee_id": employee_id,
+            "status": "approved",
+            "start_date": {"$lte": end_date},
+            "end_date": {"$gte": start_date},
+        },
+        {"_id": 0, "start_date": 1, "end_date": 1, "days_requested": 1, "hours": 1},
+    ).to_list(200)
+
+    time_off_hours = 0.0
+    for t in tofs:
+        # Clip to period
+        f = max(t["start_date"], start_date)
+        u = min(t["end_date"], end_date)
+        if u < f:
+            continue
+        # Sum expected hours per day in overlap (using schedule)
+        cy1, cm1, cd1 = [int(x) for x in f.split("-")]
+        cy2, cm2, cd2 = [int(x) for x in u.split("-")]
+        cur = _date(cy1, cm1, cd1); end2 = _date(cy2, cm2, cd2)
+        while cur <= end2:
+            iso = cur.isoformat()
+            s = pick_schedule(iso)
+            day_name = DAYS_OF_WEEK[cur.weekday()]
+            hrs = 0.0
+            if s:
+                hrs = float(((s.get("weekly_pattern") or {}).get(day_name) or {}).get("work_hours") or 0)
+            time_off_hours += hrs
+            cur = cur + _td(days=1)
+
+    return round(scheduled_gross, 2), round(days_off_hours, 2), round(time_off_hours, 2)
+
+
+def _apply_shortfall_to_totals(totals: dict, shortfall: float) -> dict:
+    """Return effective_totals with OT hours reduced by shortfall.
+    Reduction is applied in order: hours_35 first (least-premium), then night, holiday, 100%.
+    (Reason: the missing normal hours "eat into" the least valuable OT bucket first.)"""
+    if shortfall <= 0:
+        return dict(totals)
+    remaining = float(shortfall)
+    net = dict(totals)
+    for key in ("hours_35", "hours_night", "hours_holiday", "hours_100"):
+        v = float(net.get(key) or 0)
+        take = min(remaining, v)
+        net[key] = round(v - take, 2)
+        remaining -= take
+        if remaining <= 0:
+            break
+    net["total_hours"] = round(sum(float(net.get(k) or 0) for k in ("hours_35", "hours_night", "hours_holiday", "hours_100")), 2)
+    return net
+
+
 def _compute_period_totals_and_amount(daily_entries: list, hourly_rate: float, rates: dict) -> tuple[dict, float, float]:
     """Sum hours per category across daily_entries and compute estimated amounts.
 
@@ -4236,6 +4338,25 @@ async def create_overtime_period(data: dict, user: User = Depends(get_current_us
     hourly_rate = await _employee_hourly_rate(employee, hours_per_month)
     totals, estimated_total, estimated_extra = _compute_period_totals_and_amount(normalized, hourly_rate, rates)
 
+    # Compute shortfall from schedule + time-off / days-off, apply to get effective (net) OT
+    sched_gross, days_off_h, time_off_h = await _compute_shortfall_hours(company_id, employee_id, start_date, end_date)
+    shortfall = days_off_h + time_off_h
+    net_totals = _apply_shortfall_to_totals(totals, shortfall)
+    net_amount_total = round(
+        net_totals["hours_35"] * hourly_rate * rates["rate_35"]
+        + net_totals["hours_night"] * hourly_rate * rates["rate_night"]
+        + net_totals["hours_holiday"] * hourly_rate * rates["rate_holiday"]
+        + net_totals["hours_100"] * hourly_rate * rates["rate_100"],
+        2,
+    )
+    net_amount_extra = round(
+        net_totals["hours_35"] * hourly_rate * max(0, rates["rate_35"] - 1)
+        + net_totals["hours_night"] * hourly_rate * max(0, rates["rate_night"] - 1)
+        + net_totals["hours_holiday"] * hourly_rate * max(0, rates["rate_holiday"] - 1)
+        + net_totals["hours_100"] * hourly_rate * max(0, rates["rate_100"] - 1),
+        2,
+    )
+
     overtime_period_id = f"otp_{uuid.uuid4().hex[:12]}"
     now = datetime.now(timezone.utc)
     doc = {
@@ -4250,10 +4371,17 @@ async def create_overtime_period(data: dict, user: User = Depends(get_current_us
         "totals": totals,
         "hourly_rate_at_creation": round(hourly_rate, 4),
         "rates_at_creation": rates,
-        # Total pay for OT hours (base + surcharge) — used when OT is paid separately
+        # Raw amounts (from entered hours as-is, ignoring shortfall)
         "estimated_amount": estimated_total,
-        # Only the surcharge/bonus above base — used when base is already in payroll salary
         "estimated_amount_extra_only": estimated_extra,
+        # Shortfall-adjusted (effective) amounts and totals
+        "shortfall_hours": round(shortfall, 2),
+        "shortfall_days_off_hours": days_off_h,
+        "shortfall_time_off_hours": time_off_h,
+        "scheduled_gross_hours": sched_gross,
+        "effective_totals": net_totals,
+        "estimated_amount_effective": net_amount_total,
+        "estimated_amount_effective_extra_only": net_amount_extra,
         "status": "pending",
         "reason": data.get("reason"),
         "notes": data.get("notes"),
@@ -4269,6 +4397,9 @@ async def create_overtime_period(data: dict, user: User = Depends(get_current_us
         **totals,
         "estimated_amount": estimated_total,
         "estimated_amount_extra_only": estimated_extra,
+        "shortfall_hours": round(shortfall, 2),
+        "estimated_amount_effective": net_amount_total,
+        "estimated_amount_effective_extra_only": net_amount_extra,
     }
 
 
@@ -4309,11 +4440,38 @@ async def update_overtime_period(overtime_period_id: str, data: dict, user: User
         rates, hours_per_month = await _resolve_ot_rates(company_id)
         hourly_rate = await _employee_hourly_rate(employee, hours_per_month)
         totals, estimated_total, estimated_extra = _compute_period_totals_and_amount(normalized, hourly_rate, rates)
+        # Recompute shortfall too
+        sched_gross, days_off_h, time_off_h = await _compute_shortfall_hours(
+            company_id, existing["employee_id"], existing["start_date"], existing["end_date"],
+        )
+        shortfall = days_off_h + time_off_h
+        net_totals = _apply_shortfall_to_totals(totals, shortfall)
+        net_amount_total = round(
+            net_totals["hours_35"] * hourly_rate * rates["rate_35"]
+            + net_totals["hours_night"] * hourly_rate * rates["rate_night"]
+            + net_totals["hours_holiday"] * hourly_rate * rates["rate_holiday"]
+            + net_totals["hours_100"] * hourly_rate * rates["rate_100"],
+            2,
+        )
+        net_amount_extra = round(
+            net_totals["hours_35"] * hourly_rate * max(0, rates["rate_35"] - 1)
+            + net_totals["hours_night"] * hourly_rate * max(0, rates["rate_night"] - 1)
+            + net_totals["hours_holiday"] * hourly_rate * max(0, rates["rate_holiday"] - 1)
+            + net_totals["hours_100"] * hourly_rate * max(0, rates["rate_100"] - 1),
+            2,
+        )
         update.update({
             "daily_entries": normalized,
             "totals": totals,
             "estimated_amount": estimated_total,
             "estimated_amount_extra_only": estimated_extra,
+            "shortfall_hours": round(shortfall, 2),
+            "shortfall_days_off_hours": days_off_h,
+            "shortfall_time_off_hours": time_off_h,
+            "scheduled_gross_hours": sched_gross,
+            "effective_totals": net_totals,
+            "estimated_amount_effective": net_amount_total,
+            "estimated_amount_effective_extra_only": net_amount_extra,
         })
     if "reason" in data:
         update["reason"] = data["reason"]
