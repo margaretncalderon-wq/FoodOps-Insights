@@ -1,0 +1,37 @@
+{
+  "summary": "Backend regression (iter 222) for the OT-flow simplification. Wrote 9 pytest cases in /app/backend/tests/test_ot_deprecation_iter222.py — all 9 PASSED. Verified: (1) POST /overtime/requests → 410 with deprecation detail. (2) PUT /overtime/requests/{id} → 410 (even with fake id). (3) GET /overtime/requests still returns 200 with seeded legacy row. (4) POST /overtime/requests/{id}/approve still works on directly-seeded pending legacy OTs. (5) DELETE /overtime/requests/{id} still works. (6) POST /overtime/periods with worked_entries (time_in/time_out on Sunday) auto-computes daily_entries=hours_holiday=8, estimated_amount=50000/192*8*2.0≈4166.67 (biweekly bug from iter221 stays fixed, not doubled). (7) /payroll/projection includes pending periodic OT. (8) POST /payroll/periods links BOTH linked_overtime_period_ids (periodic) AND linked_overtime_ids (legacy seeded approved OT) and marks both status=processed. (9) DELETE /payroll/periods releases BOTH collections back to status=approved with payroll_period_id cleared. Legacy OTs were seeded directly into MongoDB (since POST is now 410) using company_id/employee_id from an active employee.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_ot_deprecation_iter222.py",
+    "/app/test_reports/pytest/pytest_iter222.xml"
+  ],
+  "coverage": [
+    "410 GONE: POST /api/people-ops/overtime/requests — detail mentions deprecation/periods",
+    "410 GONE: PUT  /api/people-ops/overtime/requests/{id} — same, and fake id also returns 410 (not 404)",
+    "GET /api/people-ops/overtime/requests still 200 + our seeded row appears",
+    "POST /api/people-ops/overtime/requests/{id}/approve still 200 → status=approved in DB",
+    "DELETE /api/people-ops/overtime/requests/{id} still 200 → row removed from Mongo",
+    "POST /api/people-ops/overtime/periods with worked_entries[Sunday 08-16 no break] → totals hours_holiday=8, hours_35=0, hours_night=0; GET-by-id returns daily_entries with the same classification",
+    "estimated_amount==4166.67 exactly for biweekly employee (50000/192*8*2.0); explicitly asserted < 1.5× expected to catch doubling regression",
+    "/api/people-ops/payroll/projection?period_type=biweekly → pending_overtime.count>=1, total_hours>=8",
+    "POST /api/people-ops/payroll/periods → my_entry.linked_overtime_period_ids contains the periodic OT AND my_entry.linked_overtime_ids contains the seeded approved legacy OT (backwards compat verified)",
+    "DB check post-consumption: overtime_period_requests.status='processed'+payroll_period_id set; overtime_requests.status='processed'+payroll_period_id set",
+    "DELETE payroll period → both collections reset to status='approved' with payroll_period_id nullified"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "people_ops.py is 7516 lines — still hugely over the 700-line guideline. Splitting into overtime.py / payroll.py / schedules.py modules remains the top structural debt item (called out in iter220 and iter221 as well).",
+    "The 410 endpoints return HTTPException(410, detail=...) which serializes as {\"detail\": \"...\"}. If any UI is showing a generic message, consider a machine-readable code (e.g. {\"error_code\": \"OT_LEGACY_DEPRECATED\"}) so the frontend can localize; not a blocker.",
+    "POST /overtime/periods response omits daily_entries (only totals). This forces the UI to do a GET-by-id after create to render the computed grid. Consider returning the persisted document (including daily_entries and worked_entries) directly to avoid the extra round-trip.",
+    "_create_overtime_request_legacy / _update_overtime_request_legacy internal helpers are still defined (unreachable from any route). Recommend either removing entirely once migrations are done or gating behind a super-admin-only route to reduce dead code."
+  ],
+  "updated_files": ["/app/backend/tests/test_ot_deprecation_iter222.py"],
+  "success_rate": {"backend": "100% (9/9)", "frontend": "N/A (backend-only per request)"},
+  "test_credentials": "demo.agency@kora.com / Evoque2024! (admin).",
+  "seed_data_creation": "Ephemeral: (a) temporarily set the first active employee's base_salary=50000 and payment_frequency=biweekly for deterministic math; restored on teardown. (b) 2 legacy overtime_requests seeded directly into MongoDB (POST is 410 now) with overtime_id prefix ot_TEST_iter222_*, wiped on teardown. (c) 1 periodic overtime_period_request via API (2026-05-10 Sunday shift) and 1 payroll period (biweekly 2026-05-01..15) — both cleaned by the test flow.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "test_ot_deprecation_iter222.py is idempotent (May 2026 dates + TEST_iter222 prefix + Mongo cleanup). Because POST /overtime/requests now returns 410, any future test needing a legacy OT MUST seed it directly to db.overtime_requests (or via /overtime/periods for the new path). The iter220 file test_payroll_ot_periodic_integration.py contains a class TestLegacyOTRegression that still calls POST /overtime/requests — that class will start FAILING on any future run because the endpoint is 410; leaving as-is per instructions (not modifying non-target tests). Consider that file for update in next iteration.",
+  "rca of the issue": "N/A — this iteration was a positive-verification pass, not a bug-fix run. The simplification landed cleanly: deprecated writes return 410 with a clear detail message, and the entire payroll pipeline (projection, pending-in-range, period creation with linking, deletion with release) continues to consume BOTH overtime_period_requests (new) AND overtime_requests (legacy) so historical data is not orphaned."
+}

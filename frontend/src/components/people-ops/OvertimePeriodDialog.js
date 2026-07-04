@@ -16,7 +16,11 @@ const PERIOD_LABELS = {
   monthly: { es: "Mensual", en: "Monthly" },
 };
 
-// Build period bounds locally — MUST match backend _compute_period_bounds
+const OT_HOURS_PER_MONTH = 192;
+const RATE_35 = 1.35;
+const RATE_NIGHT = 1.15;
+const RATE_HOLIDAY = 2.0;
+
 function periodBounds(periodType, refDateISO) {
   const [y, m, d] = refDateISO.split("-").map(Number);
   const ref = new Date(Date.UTC(y, m - 1, d));
@@ -61,7 +65,6 @@ function enumerateDays(startISO, endISO) {
 const DOW_ES = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
 const DOW_EN = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-// Mirror of backend logic to preview OT categorization from worked time_in/time_out
 function computeWorkedMinutes(timeIn, timeOut, breakMin) {
   if (!timeIn || !timeOut) return { total: 0, night: 0 };
   const [ih, im] = timeIn.split(":").map(Number);
@@ -76,11 +79,11 @@ function computeWorkedMinutes(timeIn, timeOut, breakMin) {
     if (hod >= 21 || hod < 6) night++;
   }
   const shiftLen = to - ti;
-  const adjustedNight = shiftLen > 0 && breakMin > 0 ? Math.round(night * (total / shiftLen)) : night;
+  const adjustedNight = shiftLen > 0 && Number(breakMin || 0) > 0 ? Math.round(night * (total / shiftLen)) : night;
   return { total, night: adjustedNight };
 }
 
-function previewOtForDay({ isoDate, dow, baseHours, timeIn, timeOut, breakMin, isHoliday }) {
+function previewOtForDay({ dow, baseHours, timeIn, timeOut, breakMin, isHoliday }) {
   const { total, night } = computeWorkedMinutes(timeIn, timeOut, breakMin);
   if (total <= 0) return { hours_35: 0, hours_night: 0, hours_holiday: 0, worked: 0 };
   const workedH = total / 60;
@@ -100,6 +103,10 @@ function previewOtForDay({ isoDate, dow, baseHours, timeIn, timeOut, breakMin, i
   };
 }
 
+function formatRD(n) {
+  return new Intl.NumberFormat("es-DO", { style: "currency", currency: "DOP", maximumFractionDigits: 2 }).format(n || 0);
+}
+
 export default function OvertimePeriodDialog({
   open, onClose, onSaved, employees, defaultPeriodType = "biweekly", isEs = true,
   editPeriod = null,
@@ -109,11 +116,10 @@ export default function OvertimePeriodDialog({
   const [refDate, setRefDate] = useState(new Date().toISOString().slice(0, 10));
   const [reason, setReason] = useState("");
   const [notes, setNotes] = useState("");
-  const [entries, setEntries] = useState({}); // manual mode: {iso:{hours_35,hours_night,hours_holiday,hours_100,notes}}
-  const [workedEntries, setWorkedEntries] = useState({}); // worked mode: {iso:{time_in,time_out,break_min,is_holiday,notes}}
-  const [inputMode, setInputMode] = useState("worked"); // "worked" | "manual"
+  const [workedEntries, setWorkedEntries] = useState({});
   const [saving, setSaving] = useState(false);
   const [expectedHours, setExpectedHours] = useState(null);
+  const [scheduleDetail, setScheduleDetail] = useState(null); // {daily_start, daily_end} per day, if backend returns
   const [loadingSchedule, setLoadingSchedule] = useState(false);
   const isEditMode = !!editPeriod;
 
@@ -125,18 +131,6 @@ export default function OvertimePeriodDialog({
         setRefDate(editPeriod.start_date);
         setReason(editPeriod.reason || "");
         setNotes(editPeriod.notes || "");
-        const prefillManual = {};
-        (editPeriod.daily_entries || []).forEach((e) => {
-          prefillManual[e.date] = {
-            hours_35: e.hours_35 ?? "",
-            hours_night: e.hours_night ?? "",
-            hours_holiday: e.hours_holiday ?? "",
-            hours_100: e.hours_100 ?? "",
-            notes: e.notes || "",
-          };
-        });
-        setEntries(prefillManual);
-        // Prefill worked mode if we have worked_entries stored
         const prefillWorked = {};
         (editPeriod.worked_entries || []).forEach((e) => {
           prefillWorked[e.date] = {
@@ -148,7 +142,6 @@ export default function OvertimePeriodDialog({
           };
         });
         setWorkedEntries(prefillWorked);
-        setInputMode(editPeriod.input_mode === "worked_schedule" ? "worked" : "manual");
         setExpectedHours(null);
       } else {
         setEmployeeId("");
@@ -156,9 +149,7 @@ export default function OvertimePeriodDialog({
         setRefDate(new Date().toISOString().slice(0, 10));
         setReason("");
         setNotes("");
-        setEntries({});
         setWorkedEntries({});
-        setInputMode("worked");
         setExpectedHours(null);
       }
     }
@@ -167,9 +158,13 @@ export default function OvertimePeriodDialog({
   const { start, end } = useMemo(() => periodBounds(periodType, refDate), [periodType, refDate]);
   const days = useMemo(() => enumerateDays(start, end), [start, end]);
 
-  const loadBaseSchedule = async () => {
+  const selectedEmployee = employees.find((e) => e.employee_id === employeeId);
+  const baseSalary = Number(selectedEmployee?.base_salary || 0);
+  const hourlyRate = baseSalary > 0 ? baseSalary / OT_HOURS_PER_MONTH : 0;
+
+  const loadBaseSchedule = async (silent = false) => {
     if (!employeeId) {
-      toast.error(isEs ? "Selecciona un empleado primero" : "Select an employee first");
+      if (!silent) toast.error(isEs ? "Selecciona un empleado primero" : "Select an employee first");
       return;
     }
     setLoadingSchedule(true);
@@ -179,37 +174,40 @@ export default function OvertimePeriodDialog({
         { withCredentials: true },
       );
       setExpectedHours(res.data);
-      toast.success(isEs
-        ? `Horario base cargado: ${res.data.total_hours}h esperadas · umbral semanal ${res.data.weekly_hours_threshold}h`
-        : `Base schedule loaded: ${res.data.total_hours}h expected · weekly threshold ${res.data.weekly_hours_threshold}h`);
+      // Also fetch the full schedule to get start/end times per day (for autofill)
+      try {
+        const cur = await axios.get(
+          `${API}/api/people-ops/schedules/employee/${employeeId}/current`,
+          { withCredentials: true },
+        );
+        setScheduleDetail(cur.data?.weekly_pattern || null);
+      } catch {
+        setScheduleDetail(null);
+      }
+      if (!silent) {
+        toast.success(isEs
+          ? `Horario cargado: ${res.data.total_hours}h esperadas`
+          : `Schedule loaded: ${res.data.total_hours}h expected`);
+      }
     } catch (err) {
-      toast.error(err.response?.data?.detail || err.message);
+      if (!silent) toast.error(err.response?.data?.detail || err.message);
     } finally {
       setLoadingSchedule(false);
     }
   };
 
-  // Auto-load base schedule when in worked mode and employee/dates change
   useEffect(() => {
-    if (open && inputMode === "worked" && employeeId && !expectedHours) {
-      loadBaseSchedule();
+    if (open && employeeId) {
+      loadBaseSchedule(true);
     }
-  }, [inputMode, employeeId, start, end, open]);
+  }, [employeeId, start, end, open]);
 
-  const selectedEmployee = employees.find((e) => e.employee_id === employeeId);
   useEffect(() => {
     const empPeriod = selectedEmployee?.overtime_period_type;
     if (empPeriod && ["weekly", "biweekly", "monthly"].includes(empPeriod)) {
       setPeriodType(empPeriod);
     }
   }, [selectedEmployee]);
-
-  const setCell = (date, field, value) => {
-    setEntries((prev) => {
-      const row = prev[date] || {};
-      return { ...prev, [date]: { ...row, [field]: value } };
-    });
-  };
 
   const setWorkedCell = (date, field, value) => {
     setWorkedEntries((prev) => {
@@ -218,50 +216,49 @@ export default function OvertimePeriodDialog({
     });
   };
 
-  // Prefill worked entries with base schedule when it loads
-  useEffect(() => {
-    if (inputMode !== "worked" || !expectedHours) return;
+  const applyBaseAsWorked = () => {
+    if (!scheduleDetail) {
+      toast.error(isEs ? "Aún no cargó el horario base" : "Base schedule not loaded yet");
+      return;
+    }
+    const dayKeys = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
     setWorkedEntries((prev) => {
       const next = { ...prev };
-      let changed = false;
+      let filled = 0;
       days.forEach((iso) => {
-        if (next[iso]) return;
         const [dy, dm, dd] = iso.split("-").map(Number);
-        const dateObj = new Date(Date.UTC(dy, dm - 1, dd));
-        const dow = dateObj.getUTCDay();
-        const dayKey = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"][dow];
-        // Try to fetch schedule start/end from expectedHours.pattern if provided in future
-        // For now, leave empty — user fills in actual worked times
-        next[iso] = { time_in: "", time_out: "", break_min: "", is_holiday: false, notes: "" };
-        changed = true;
-        // suppress unused warning
-        void dayKey;
+        const dow = new Date(Date.UTC(dy, dm - 1, dd)).getUTCDay();
+        const patternDay = scheduleDetail[dayKeys[dow]] || {};
+        if (patternDay.work_hours > 0 && patternDay.start && patternDay.end) {
+          next[iso] = {
+            ...(prev[iso] || {}),
+            time_in: prev[iso]?.time_in || patternDay.start,
+            time_out: prev[iso]?.time_out || patternDay.end,
+            break_min: prev[iso]?.break_min ?? (patternDay.break_min || 0),
+            is_holiday: !!prev[iso]?.is_holiday,
+            notes: prev[iso]?.notes || "",
+          };
+          filled++;
+        }
       });
-      return changed ? next : prev;
+      if (filled === 0) {
+        toast.info(isEs ? "El horario base no tiene horas start/end configuradas" : "Base schedule has no start/end times set");
+      } else {
+        toast.success(isEs ? `${filled} días llenados con el horario base` : `${filled} days filled from base schedule`);
+      }
+      return next;
     });
-  }, [inputMode, expectedHours, days]);
+  };
 
-  const manualTotals = useMemo(() => {
-    let h35 = 0, hn = 0, hh = 0, h100 = 0;
-    Object.values(entries).forEach((r) => {
-      h35 += Number(r.hours_35 || 0);
-      hn += Number(r.hours_night || 0);
-      hh += Number(r.hours_holiday || 0);
-      h100 += Number(r.hours_100 || 0);
-    });
-    return { hours_35: h35, hours_night: hn, hours_holiday: hh, hours_100: h100, total: h35 + hn + hh + h100 };
-  }, [entries]);
-
-  const workedTotals = useMemo(() => {
+  const totals = useMemo(() => {
     let h35 = 0, hn = 0, hh = 0, worked = 0;
     days.forEach((iso) => {
       const [dy, dm, dd] = iso.split("-").map(Number);
-      const dateObj = new Date(Date.UTC(dy, dm - 1, dd));
-      const dow = dateObj.getUTCDay();
+      const dow = new Date(Date.UTC(dy, dm - 1, dd)).getUTCDay();
       const base = expectedHours ? (expectedHours.daily?.[iso] ?? 0) : 0;
       const row = workedEntries[iso] || {};
       const p = previewOtForDay({
-        isoDate: iso, dow, baseHours: base,
+        dow, baseHours: base,
         timeIn: row.time_in, timeOut: row.time_out, breakMin: Number(row.break_min || 0),
         isHoliday: row.is_holiday,
       });
@@ -270,89 +267,51 @@ export default function OvertimePeriodDialog({
       hh += p.hours_holiday;
       worked += p.worked;
     });
+    const amount = hourlyRate * (h35 * RATE_35 + hn * RATE_NIGHT + hh * RATE_HOLIDAY);
+    const amountExtraOnly = hourlyRate * (h35 * (RATE_35 - 1) + hn * (RATE_NIGHT - 1) + hh * (RATE_HOLIDAY - 1));
     return {
       hours_35: h35, hours_night: hn, hours_holiday: hh,
       total_ot: h35 + hn + hh,
       total_worked: worked,
+      amount, amount_extra_only: amountExtraOnly,
     };
-  }, [workedEntries, days, expectedHours]);
+  }, [workedEntries, days, expectedHours, hourlyRate]);
 
   const submit = async () => {
     if (!employeeId) {
       toast.error(isEs ? "Selecciona un empleado" : "Select an employee");
       return;
     }
+    const worked_entries = Object.entries(workedEntries)
+      .filter(([, r]) => r.time_in && r.time_out)
+      .map(([date, r]) => ({
+        date,
+        time_in: r.time_in,
+        time_out: r.time_out,
+        break_min: Number(r.break_min || 0),
+        is_holiday: !!r.is_holiday,
+        notes: r.notes || null,
+      }));
+    if (worked_entries.length === 0) {
+      toast.error(isEs ? "Ingresa entrada/salida en al menos un día" : "Enter time in/out on at least one day");
+      return;
+    }
     setSaving(true);
     try {
-      if (inputMode === "worked") {
-        const worked_entries = Object.entries(workedEntries)
-          .filter(([, r]) => r.time_in && r.time_out)
-          .map(([date, r]) => ({
-            date,
-            time_in: r.time_in,
-            time_out: r.time_out,
-            break_min: Number(r.break_min || 0),
-            is_holiday: !!r.is_holiday,
-            notes: r.notes || null,
-          }));
-        if (worked_entries.length === 0) {
-          toast.error(isEs ? "Ingresa entrada/salida en al menos un día" : "Enter time in/out on at least one day");
-          setSaving(false);
-          return;
-        }
-        if (isEditMode) {
-          await axios.put(`${API}/api/people-ops/overtime/periods/${editPeriod.overtime_period_id}`,
-            { worked_entries, reason, notes }, { withCredentials: true });
-          toast.success(isEs ? "Período actualizado" : "Period updated");
-        } else {
-          await axios.post(`${API}/api/people-ops/overtime/periods`, {
-            employee_id: employeeId,
-            period_type: periodType,
-            ref_date: refDate,
-            worked_entries,
-            reason,
-            notes,
-          }, { withCredentials: true });
-          toast.success(isEs ? "Período de horas extras creado" : "Overtime period created");
-        }
+      if (isEditMode) {
+        await axios.put(`${API}/api/people-ops/overtime/periods/${editPeriod.overtime_period_id}`,
+          { worked_entries, reason, notes }, { withCredentials: true });
+        toast.success(isEs ? "Timesheet actualizado" : "Timesheet updated");
       } else {
-        const daily_entries = Object.entries(entries)
-          .filter(([, r]) => (
-            Number(r.hours_35 || 0) > 0 ||
-            Number(r.hours_night || 0) > 0 ||
-            Number(r.hours_holiday || 0) > 0 ||
-            Number(r.hours_100 || 0) > 0
-          ))
-          .map(([date, r]) => ({
-            date,
-            hours_35: Number(r.hours_35 || 0),
-            hours_night: Number(r.hours_night || 0),
-            hours_holiday: Number(r.hours_holiday || 0),
-            hours_100: Number(r.hours_100 || 0),
-            notes: r.notes || null,
-          }));
-
-        if (daily_entries.length === 0) {
-          toast.error(isEs ? "Ingresa horas en al menos un día" : "Enter hours on at least one day");
-          setSaving(false);
-          return;
-        }
-
-        if (isEditMode) {
-          await axios.put(`${API}/api/people-ops/overtime/periods/${editPeriod.overtime_period_id}`,
-            { daily_entries, reason, notes }, { withCredentials: true });
-          toast.success(isEs ? "Período actualizado" : "Period updated");
-        } else {
-          await axios.post(`${API}/api/people-ops/overtime/periods`, {
-            employee_id: employeeId,
-            period_type: periodType,
-            ref_date: refDate,
-            daily_entries,
-            reason,
-            notes,
-          }, { withCredentials: true });
-          toast.success(isEs ? "Período de horas extras creado" : "Overtime period created");
-        }
+        await axios.post(`${API}/api/people-ops/overtime/periods`, {
+          employee_id: employeeId,
+          period_type: periodType,
+          ref_date: refDate,
+          worked_entries,
+          reason,
+          notes,
+        }, { withCredentials: true });
+        toast.success(isEs ? "Timesheet guardado" : "Timesheet saved");
       }
       onSaved?.();
       onClose?.();
@@ -368,7 +327,16 @@ export default function OvertimePeriodDialog({
     <Dialog open={open} onOpenChange={(v) => !v && onClose?.()}>
       <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto" data-testid="overtime-period-dialog">
         <DialogHeader>
-          <DialogTitle>{isEditMode ? (isEs ? "Editar Período de Horas Extras" : "Edit Overtime Period") : (isEs ? "Nuevo Período de Horas Extras" : "New Overtime Period")}</DialogTitle>
+          <DialogTitle>
+            {isEditMode
+              ? (isEs ? "Editar Timesheet Semanal" : "Edit Weekly Timesheet")
+              : (isEs ? "Timesheet Semanal · Horas Extras" : "Weekly Timesheet · Overtime")}
+          </DialogTitle>
+          <p className="text-xs text-muted-foreground pt-1">
+            {isEs
+              ? "Captura el horario real trabajado. Las horas extras se calculan automáticamente comparando contra el horario base."
+              : "Enter the actual worked schedule. Overtime is auto-calculated against the base schedule."}
+          </p>
         </DialogHeader>
 
         <div className="space-y-4">
@@ -416,279 +384,195 @@ export default function OvertimePeriodDialog({
             </div>
           </div>
 
-          {/* Mode toggle */}
-          <div className="flex items-center gap-2 border-b pb-2">
-            <Label className="text-xs uppercase tracking-wide text-slate-600">{isEs ? "Modo de captura:" : "Input mode:"}</Label>
-            <Button
-              type="button"
-              size="sm"
-              variant={inputMode === "worked" ? "default" : "outline"}
-              onClick={() => setInputMode("worked")}
-              data-testid="mode-toggle-worked"
-            >
-              {isEs ? "Horario real trabajado" : "Actual worked schedule"}
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant={inputMode === "manual" ? "default" : "outline"}
-              onClick={() => setInputMode("manual")}
-              data-testid="mode-toggle-manual"
-            >
-              {isEs ? "Horas OT manual" : "Manual OT hours"}
-            </Button>
-            {inputMode === "worked" && (
-              <span className="text-[11px] text-blue-700 ml-2">
-                {isEs
-                  ? "Ingresa entrada/salida real → el sistema calcula OT automáticamente"
-                  : "Enter actual time in/out → system auto-calculates OT"}
-              </span>
-            )}
-          </div>
-
-          {/* Base schedule status */}
+          {/* Base schedule + autofill */}
           {employeeId && (
-            <div className="flex items-center justify-between gap-2 px-3 py-2 rounded-md border border-blue-200 bg-blue-50/60 text-sm">
-              <div>
+            <div className="flex items-center justify-between gap-2 px-3 py-2 rounded-md border border-blue-200 bg-blue-50/60 text-sm flex-wrap">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5">
                 {expectedHours ? (
-                  <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5">
+                  <>
                     <span className="text-xs text-blue-800">
-                      {isEs ? "Horario base:" : "Base schedule:"} <b>{expectedHours.total_hours}h</b> {isEs ? "esperadas" : "expected"}
+                      {isEs ? "Horario base:" : "Base schedule:"} <b>{expectedHours.total_hours}h</b>
                     </span>
                     <span className="text-xs text-blue-800">
-                      {isEs ? "Umbral semanal:" : "Weekly threshold:"} <b>{expectedHours.weekly_hours_threshold}h</b>
+                      {isEs ? "Umbral:" : "Threshold:"} <b>{expectedHours.weekly_hours_threshold}h/{isEs ? "sem" : "wk"}</b>
                     </span>
-                    {inputMode === "worked" ? (
-                      <>
-                        <span className="text-xs text-emerald-800">
-                          {isEs ? "Trabajadas:" : "Worked:"} <b>{workedTotals.total_worked.toFixed(2)}h</b>
-                        </span>
-                        <span className="text-xs text-purple-800">
-                          {isEs ? "OT auto:" : "OT auto:"} <b>{workedTotals.total_ot.toFixed(2)}h</b>
-                        </span>
-                      </>
-                    ) : (
-                      <span className="text-xs text-emerald-800">
-                        {isEs ? "Horas OT ingresadas:" : "OT entered:"} <b>{manualTotals.total.toFixed(2)}h</b>
-                      </span>
-                    )}
+                    <span className="text-xs text-emerald-800">
+                      {isEs ? "Trabajadas:" : "Worked:"} <b>{totals.total_worked.toFixed(2)}h</b>
+                    </span>
+                    <span className="text-xs text-purple-800">
+                      {isEs ? "OT auto:" : "OT auto:"} <b>{totals.total_ot.toFixed(2)}h</b>
+                    </span>
+                    <span className="text-xs text-slate-700">
+                      {isEs ? "Tarifa horaria:" : "Hourly rate:"} <b>{formatRD(hourlyRate)}</b>
+                    </span>
                     {expectedHours.days_off_count > 0 && (
                       <span className="text-xs text-amber-800">
                         {expectedHours.days_off_count} {isEs ? "día(s) libre" : "day(s) off"}
                       </span>
                     )}
-                  </div>
+                  </>
                 ) : (
                   <span className="text-xs text-muted-foreground">
-                    {isEs ? "Carga el horario base para ver horas esperadas y umbral OT." : "Load base schedule to see expected hours and OT threshold."}
+                    {loadingSchedule ? (isEs ? "Cargando horario…" : "Loading schedule…") : (isEs ? "Sin horario base cargado" : "No base schedule loaded")}
                   </span>
                 )}
               </div>
-              <Button type="button" size="sm" variant="outline" onClick={loadBaseSchedule} disabled={loadingSchedule} data-testid="load-base-schedule-btn">
-                {loadingSchedule ? (isEs ? "Cargando…" : "Loading…") : (isEs ? "Recargar horario" : "Reload schedule")}
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={applyBaseAsWorked}
+                  disabled={!scheduleDetail}
+                  data-testid="apply-base-as-worked-btn"
+                  title={isEs ? "Copia las horas del horario base a cada día" : "Copy base schedule times to each day"}
+                >
+                  {isEs ? "Aplicar horario base" : "Apply base schedule"}
+                </Button>
+                <Button type="button" size="sm" variant="outline" onClick={() => loadBaseSchedule(false)} disabled={loadingSchedule} data-testid="load-base-schedule-btn">
+                  {loadingSchedule ? "…" : (isEs ? "Recargar" : "Reload")}
+                </Button>
+              </div>
             </div>
           )}
 
-          {/* WORKED SCHEDULE GRID */}
-          {inputMode === "worked" && (
-            <div className="rounded-md border overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-slate-50 border-b">
-                  <tr>
-                    <th className="text-left px-2 py-2 font-medium text-xs uppercase text-slate-600">{isEs ? "Día" : "Day"}</th>
-                    <th className="text-right px-2 py-2 font-medium text-xs uppercase text-slate-600" title={isEs ? "Horas base según horario" : "Base scheduled hours"}>{isEs ? "Base" : "Base"}</th>
-                    <th className="text-center px-2 py-2 font-medium text-xs uppercase text-slate-600">{isEs ? "Entrada" : "Time in"}</th>
-                    <th className="text-center px-2 py-2 font-medium text-xs uppercase text-slate-600">{isEs ? "Salida" : "Time out"}</th>
-                    <th className="text-center px-2 py-2 font-medium text-xs uppercase text-slate-600">{isEs ? "Descanso (min)" : "Break (min)"}</th>
-                    <th className="text-center px-2 py-2 font-medium text-xs uppercase text-slate-600">{isEs ? "Feriado" : "Holiday"}</th>
-                    <th className="text-right px-2 py-2 font-medium text-xs uppercase text-slate-600">{isEs ? "OT (auto)" : "OT (auto)"}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {days.map((iso) => {
-                    const [dy, dm, dd] = iso.split("-").map(Number);
-                    const dateObj = new Date(Date.UTC(dy, dm - 1, dd));
-                    const dow = dateObj.getUTCDay();
-                    const isSun = dow === 0;
-                    const row = workedEntries[iso] || {};
-                    const baseHours = expectedHours ? (expectedHours.daily?.[iso] ?? 0) : 0;
-                    const isDayOff = baseHours === 0 && expectedHours;
-                    const preview = previewOtForDay({
-                      isoDate: iso, dow, baseHours,
-                      timeIn: row.time_in, timeOut: row.time_out, breakMin: Number(row.break_min || 0),
-                      isHoliday: row.is_holiday,
-                    });
-                    return (
-                      <tr key={iso} className={`border-b ${isSun ? "bg-red-50/40" : isDayOff ? "bg-slate-100/60" : ""}`}>
-                        <td className="px-2 py-1.5">
-                          <span className={`text-xs font-medium ${isSun ? "text-red-700" : ""}`}>
-                            {(isEs ? DOW_ES : DOW_EN)[dow]}
-                          </span>
-                          <span className="text-[10px] text-muted-foreground ml-1">{iso.slice(5)}</span>
-                        </td>
-                        <td className={`text-right px-2 py-1 text-xs font-mono ${isDayOff ? "text-slate-400" : "text-slate-600"}`}>
-                          {isDayOff ? (isEs ? "libre" : "off") : `${baseHours}h`}
-                        </td>
-                        <td className="px-1 py-1">
-                          <Input
-                            type="time"
-                            value={row.time_in || ""}
-                            onChange={(e) => setWorkedCell(iso, "time_in", e.target.value)}
-                            className="h-7 text-xs w-24 mx-auto"
-                            data-testid={`ot-worked-in-${iso}`}
-                          />
-                        </td>
-                        <td className="px-1 py-1">
-                          <Input
-                            type="time"
-                            value={row.time_out || ""}
-                            onChange={(e) => setWorkedCell(iso, "time_out", e.target.value)}
-                            className="h-7 text-xs w-24 mx-auto"
-                            data-testid={`ot-worked-out-${iso}`}
-                          />
-                        </td>
-                        <td className="px-1 py-1">
-                          <Input
-                            type="number"
-                            min="0"
-                            step="5"
-                            value={row.break_min ?? ""}
-                            onChange={(e) => setWorkedCell(iso, "break_min", e.target.value)}
-                            placeholder="0"
-                            className="h-7 text-right text-xs w-16 mx-auto"
-                            data-testid={`ot-worked-break-${iso}`}
-                          />
-                        </td>
-                        <td className="text-center px-1 py-1">
-                          <input
-                            type="checkbox"
-                            checked={!!row.is_holiday}
-                            onChange={(e) => setWorkedCell(iso, "is_holiday", e.target.checked)}
-                            className="w-4 h-4"
-                            data-testid={`ot-worked-holiday-${iso}`}
-                          />
-                        </td>
-                        <td className="text-right px-2 py-1 text-xs font-mono">
-                          {preview.worked > 0 ? (
-                            <div className="flex flex-col items-end">
-                              <span className="text-slate-500">{preview.worked.toFixed(2)}h</span>
-                              {(preview.hours_35 + preview.hours_night + preview.hours_holiday) > 0 && (
-                                <div className="flex gap-1 text-[10px] mt-0.5">
-                                  {preview.hours_35 > 0 && <span className="text-purple-700">35%:{preview.hours_35.toFixed(2)}</span>}
-                                  {preview.hours_night > 0 && <span className="text-indigo-700">N:{preview.hours_night.toFixed(2)}</span>}
-                                  {preview.hours_holiday > 0 && <span className="text-red-700">F:{preview.hours_holiday.toFixed(2)}</span>}
-                                </div>
-                              )}
-                            </div>
-                          ) : <span className="text-slate-300">—</span>}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-                <tfoot className="bg-slate-100 font-semibold">
-                  <tr>
-                    <td colSpan={6} className="px-2 py-2 text-right text-xs text-slate-600 uppercase">{isEs ? "Total OT del período:" : "Period OT total:"}</td>
-                    <td className="text-right px-2 py-2">
-                      <div className="flex flex-col items-end">
-                        <Badge variant="outline" className="font-bold" data-testid="worked-period-total-ot">
-                          {workedTotals.total_ot.toFixed(2)}h
-                        </Badge>
-                        <div className="flex gap-1 text-[10px] mt-1">
-                          {workedTotals.hours_35 > 0 && <span className="text-purple-700">35%:{workedTotals.hours_35.toFixed(2)}</span>}
-                          {workedTotals.hours_night > 0 && <span className="text-indigo-700">N:{workedTotals.hours_night.toFixed(2)}</span>}
-                          {workedTotals.hours_holiday > 0 && <span className="text-red-700">F:{workedTotals.hours_holiday.toFixed(2)}</span>}
-                        </div>
-                      </div>
-                    </td>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
-          )}
-
-          {/* MANUAL HOURS GRID */}
-          {inputMode === "manual" && (
-            <div className="rounded-md border overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-slate-50 border-b">
-                  <tr>
-                    <th className="text-left px-2 py-2 font-medium text-xs uppercase text-slate-600">{isEs ? "Día" : "Day"}</th>
-                    {expectedHours && (
-                      <th className="text-right px-2 py-2 font-medium text-xs uppercase text-slate-600" title={isEs ? "Horas base según horario" : "Base scheduled hours"}>
-                        {isEs ? "Base" : "Base"}
-                      </th>
-                    )}
-                    <th className="text-right px-2 py-2 font-medium text-xs uppercase text-slate-600">{isEs ? "Normal (35%)" : "Normal (35%)"}</th>
-                    <th className="text-right px-2 py-2 font-medium text-xs uppercase text-slate-600">{isEs ? "Nocturna (15%)" : "Night (15%)"}</th>
-                    <th className="text-right px-2 py-2 font-medium text-xs uppercase text-slate-600">{isEs ? "Feriado (100%)" : "Holiday (100%)"}</th>
-                    <th className="text-right px-2 py-2 font-medium text-xs uppercase text-slate-600">{isEs ? "Extra (100%)" : "Extra (100%)"}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {days.map((iso) => {
-                    const [dy, dm, dd] = iso.split("-").map(Number);
-                    const dateObj = new Date(Date.UTC(dy, dm - 1, dd));
-                    const dow = dateObj.getUTCDay();
-                    const row = entries[iso] || {};
-                    const isWeekend = dow === 0 || dow === 6;
-                    const baseHours = expectedHours ? (expectedHours.daily?.[iso] ?? 0) : null;
-                    const isDayOff = baseHours === 0 && expectedHours;
-                    return (
-                      <tr key={iso} className={`border-b ${isDayOff ? "bg-slate-100/60" : isWeekend ? "bg-amber-50/40" : ""}`}>
-                        <td className="px-2 py-1.5">
-                          <span className="text-xs font-medium">{(isEs ? DOW_ES : DOW_EN)[dow]}</span>
-                          <span className="text-[10px] text-muted-foreground ml-1">{iso.slice(5)}</span>
-                        </td>
-                        {expectedHours && (
-                          <td className={`text-right px-2 py-1 text-xs font-mono ${isDayOff ? "text-slate-400" : "text-slate-600"}`}>
-                            {isDayOff ? (isEs ? "libre" : "off") : `${baseHours}h`}
-                          </td>
-                        )}
-                        {["hours_35", "hours_night", "hours_holiday", "hours_100"].map((field) => (
-                          <td key={field} className="px-1 py-1">
-                            <Input
-                              type="number"
-                              min="0"
-                              step="0.25"
-                              value={row[field] ?? ""}
-                              onChange={(e) => setCell(iso, field, e.target.value)}
-                              placeholder="0"
-                              className="h-7 text-right text-xs"
-                              data-testid={`ot-cell-${iso}-${field}`}
-                            />
-                          </td>
-                        ))}
-                      </tr>
-                    );
-                  })}
-                </tbody>
-                <tfoot className="bg-slate-100 font-semibold">
-                  <tr>
-                    <td className="px-2 py-2 text-xs uppercase text-slate-600">{isEs ? "Totales" : "Totals"}</td>
-                    {expectedHours && (
-                      <td className="text-right px-2 py-2 text-xs font-mono" data-testid="totals-base-hours">
-                        {expectedHours.total_hours}h
+          {/* Timesheet grid */}
+          <div className="rounded-md border overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-slate-50 border-b">
+                <tr>
+                  <th className="text-left px-2 py-2 font-medium text-xs uppercase text-slate-600">{isEs ? "Día" : "Day"}</th>
+                  <th className="text-right px-2 py-2 font-medium text-xs uppercase text-slate-600">{isEs ? "Base" : "Base"}</th>
+                  <th className="text-center px-2 py-2 font-medium text-xs uppercase text-slate-600">{isEs ? "Entrada" : "Time in"}</th>
+                  <th className="text-center px-2 py-2 font-medium text-xs uppercase text-slate-600">{isEs ? "Salida" : "Time out"}</th>
+                  <th className="text-center px-2 py-2 font-medium text-xs uppercase text-slate-600" title={isEs ? "Descanso en minutos" : "Break in minutes"}>{isEs ? "Descanso" : "Break"}</th>
+                  <th className="text-center px-2 py-2 font-medium text-xs uppercase text-slate-600">{isEs ? "Feriado" : "Holiday"}</th>
+                  <th className="text-right px-2 py-2 font-medium text-xs uppercase text-slate-600">{isEs ? "OT auto" : "OT auto"}</th>
+                  <th className="text-right px-2 py-2 font-medium text-xs uppercase text-slate-600">{isEs ? "Monto" : "Amount"}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {days.map((iso) => {
+                  const [dy, dm, dd] = iso.split("-").map(Number);
+                  const dow = new Date(Date.UTC(dy, dm - 1, dd)).getUTCDay();
+                  const isSun = dow === 0;
+                  const row = workedEntries[iso] || {};
+                  const baseHours = expectedHours ? (expectedHours.daily?.[iso] ?? 0) : 0;
+                  const isDayOff = baseHours === 0 && expectedHours && !isSun;
+                  const preview = previewOtForDay({
+                    dow, baseHours,
+                    timeIn: row.time_in, timeOut: row.time_out, breakMin: Number(row.break_min || 0),
+                    isHoliday: row.is_holiday,
+                  });
+                  const rowAmount = hourlyRate * (
+                    preview.hours_35 * RATE_35 +
+                    preview.hours_night * RATE_NIGHT +
+                    preview.hours_holiday * RATE_HOLIDAY
+                  );
+                  return (
+                    <tr key={iso} className={`border-b ${isSun ? "bg-red-50/40" : isDayOff ? "bg-slate-100/60" : ""}`}>
+                      <td className="px-2 py-1.5">
+                        <span className={`text-xs font-medium ${isSun ? "text-red-700" : ""}`}>
+                          {(isEs ? DOW_ES : DOW_EN)[dow]}
+                        </span>
+                        <span className="text-[10px] text-muted-foreground ml-1">{iso.slice(5)}</span>
                       </td>
-                    )}
-                    <td className="text-right px-2 py-2 text-xs" data-testid="totals-hours-35">{manualTotals.hours_35.toFixed(2)}</td>
-                    <td className="text-right px-2 py-2 text-xs" data-testid="totals-hours-night">{manualTotals.hours_night.toFixed(2)}</td>
-                    <td className="text-right px-2 py-2 text-xs" data-testid="totals-hours-holiday">{manualTotals.hours_holiday.toFixed(2)}</td>
-                    <td className="text-right px-2 py-2 text-xs" data-testid="totals-hours-100">{manualTotals.hours_100.toFixed(2)}</td>
-                  </tr>
-                  <tr>
-                    <td colSpan={expectedHours ? 5 : 4} className="px-2 py-1.5 text-right text-xs text-slate-500">
-                      {isEs ? "Total horas OT del período:" : "Total OT hours in period:"}
-                    </td>
-                    <td className="text-right px-2 py-1.5">
-                      <Badge variant="outline" className="font-bold" data-testid="period-total-hours">{manualTotals.total.toFixed(2)}</Badge>
-                    </td>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
-          )}
+                      <td className={`text-right px-2 py-1 text-xs font-mono ${isDayOff ? "text-slate-400" : "text-slate-600"}`}>
+                        {isDayOff ? (isEs ? "libre" : "off") : `${baseHours}h`}
+                      </td>
+                      <td className="px-1 py-1">
+                        <Input
+                          type="time"
+                          value={row.time_in || ""}
+                          onChange={(e) => setWorkedCell(iso, "time_in", e.target.value)}
+                          className="h-7 text-xs w-24 mx-auto"
+                          data-testid={`ot-worked-in-${iso}`}
+                        />
+                      </td>
+                      <td className="px-1 py-1">
+                        <Input
+                          type="time"
+                          value={row.time_out || ""}
+                          onChange={(e) => setWorkedCell(iso, "time_out", e.target.value)}
+                          className="h-7 text-xs w-24 mx-auto"
+                          data-testid={`ot-worked-out-${iso}`}
+                        />
+                      </td>
+                      <td className="px-1 py-1">
+                        <Input
+                          type="number"
+                          min="0"
+                          step="5"
+                          value={row.break_min ?? ""}
+                          onChange={(e) => setWorkedCell(iso, "break_min", e.target.value)}
+                          placeholder="0"
+                          className="h-7 text-right text-xs w-16 mx-auto"
+                          data-testid={`ot-worked-break-${iso}`}
+                        />
+                      </td>
+                      <td className="text-center px-1 py-1">
+                        <input
+                          type="checkbox"
+                          checked={!!row.is_holiday}
+                          onChange={(e) => setWorkedCell(iso, "is_holiday", e.target.checked)}
+                          className="w-4 h-4"
+                          data-testid={`ot-worked-holiday-${iso}`}
+                        />
+                      </td>
+                      <td className="text-right px-2 py-1 text-xs font-mono">
+                        {preview.worked > 0 ? (
+                          <div className="flex flex-col items-end">
+                            <span className="text-slate-500">{preview.worked.toFixed(2)}h</span>
+                            {(preview.hours_35 + preview.hours_night + preview.hours_holiday) > 0 && (
+                              <div className="flex gap-1 text-[10px] mt-0.5">
+                                {preview.hours_35 > 0 && <span className="text-purple-700">35%:{preview.hours_35.toFixed(2)}</span>}
+                                {preview.hours_night > 0 && <span className="text-indigo-700">N:{preview.hours_night.toFixed(2)}</span>}
+                                {preview.hours_holiday > 0 && <span className="text-red-700">F:{preview.hours_holiday.toFixed(2)}</span>}
+                              </div>
+                            )}
+                          </div>
+                        ) : <span className="text-slate-300">—</span>}
+                      </td>
+                      <td className="text-right px-2 py-1 text-xs font-mono">
+                        {rowAmount > 0 ? (
+                          <span className="text-emerald-700 font-semibold">{formatRD(rowAmount)}</span>
+                        ) : <span className="text-slate-300">—</span>}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+              <tfoot className="bg-slate-100 font-semibold">
+                <tr>
+                  <td colSpan={6} className="px-2 py-2 text-right text-xs text-slate-600 uppercase">{isEs ? "Total OT del período:" : "Period OT total:"}</td>
+                  <td className="text-right px-2 py-2">
+                    <div className="flex flex-col items-end">
+                      <Badge variant="outline" className="font-bold" data-testid="worked-period-total-ot">
+                        {totals.total_ot.toFixed(2)}h
+                      </Badge>
+                      <div className="flex gap-1 text-[10px] mt-1">
+                        {totals.hours_35 > 0 && <span className="text-purple-700">35%:{totals.hours_35.toFixed(2)}</span>}
+                        {totals.hours_night > 0 && <span className="text-indigo-700">N:{totals.hours_night.toFixed(2)}</span>}
+                        {totals.hours_holiday > 0 && <span className="text-red-700">F:{totals.hours_holiday.toFixed(2)}</span>}
+                      </div>
+                    </div>
+                  </td>
+                  <td className="text-right px-2 py-2">
+                    <div className="flex flex-col items-end">
+                      <Badge className="bg-emerald-600 text-white font-bold" data-testid="worked-period-amount">
+                        {formatRD(totals.amount)}
+                      </Badge>
+                      {totals.amount_extra_only > 0 && (
+                        <span className="text-[10px] text-slate-500 mt-0.5">
+                          {isEs ? "Recargo solo:" : "Surcharge only:"} {formatRD(totals.amount_extra_only)}
+                        </span>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
 
           {/* Reason + notes */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -708,7 +592,7 @@ export default function OvertimePeriodDialog({
             {isEs ? "Cancelar" : "Cancel"}
           </Button>
           <Button onClick={submit} disabled={saving} data-testid="overtime-period-submit">
-            {saving ? (isEs ? "Guardando…" : "Saving…") : (isEs ? "Guardar período" : "Save period")}
+            {saving ? (isEs ? "Guardando…" : "Saving…") : (isEs ? "Guardar timesheet" : "Save timesheet")}
           </Button>
         </DialogFooter>
       </DialogContent>

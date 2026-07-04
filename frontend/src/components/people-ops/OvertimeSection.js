@@ -364,7 +364,7 @@ export function OvertimeSection() {
             {isEs ? "Horas Extras" : "Overtime"}
           </h2>
           <p className="text-sm text-muted-foreground">
-            {isEs ? "Registro y aprobación de horas extras" : "Overtime registration and approval"}
+            {isEs ? "Timesheet semanal y aprobación de horas extras" : "Weekly timesheet & overtime approval"}
           </p>
         </div>
         <div className="flex gap-2">
@@ -373,13 +373,9 @@ export function OvertimeSection() {
             <Mail className="w-4 h-4 mr-1" />
             {isEs ? "Email" : "Email"}
           </Button>
-          <Button variant="secondary" size="sm" onClick={() => setLegacyDialogOpen(true)} data-testid="new-overtime-legacy-btn" title={isEs ? "Modo antiguo (1 día)" : "Legacy (single day)"}>
-            <Clock className="w-4 h-4 mr-1" />
-            {isEs ? "Día suelto" : "Single day"}
-          </Button>
           <Button onClick={() => setPeriodDialogOpen(true)} data-testid="new-overtime-period-btn">
             <Plus className="w-4 h-4 mr-2" />
-            {isEs ? "Nuevo Período" : "New Period"}
+            {isEs ? "Timesheet Semanal" : "Weekly Timesheet"}
           </Button>
         </div>
       </div>
@@ -851,9 +847,18 @@ export function OvertimeSection() {
         </div>
       </div>
 
-      {/* Requests Table */}
+      {/* Requests Table — LEGACY read-only historial */}
       <Card>
         <CardContent className="p-0">
+          <div className="px-4 py-2 border-b bg-amber-50 text-xs text-amber-900 flex items-center gap-2">
+            <Clock className="w-3.5 h-3.5" />
+            <span>
+              <strong>{isEs ? "Historial de OT antigua (solo lectura)." : "Legacy OT history (read-only)."}</strong>{" "}
+              {isEs
+                ? "Para nuevos registros usa el Timesheet Semanal."
+                : "For new records use the Weekly Timesheet."}
+            </span>
+          </div>
           {/* Period filter badge */}
           {report?.label && (
             <div className="px-4 py-2 border-b bg-muted/30 text-xs text-muted-foreground flex items-center justify-between">
@@ -866,7 +871,7 @@ export function OvertimeSection() {
           {filteredRequests.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
               <Clock className="w-12 h-12 mx-auto mb-3 opacity-50" />
-              <p>{isEs ? "No hay registros de horas extras en el período seleccionado" : "No overtime records in selected period"}</p>
+              <p>{isEs ? "No hay historial de horas extras legacy en el período seleccionado" : "No legacy overtime records in selected period"}</p>
               {requests.length > 0 && (
                 <p className="text-xs mt-1">{isEs ? `Hay ${requests.length} registros en otros períodos. Cambia el filtro arriba.` : `${requests.length} records exist in other periods. Change the filter above.`}</p>
               )}
@@ -973,16 +978,6 @@ export function OvertimeSection() {
                             {isEs ? "Listo para nómina" : "Ready for payroll"}
                           </Badge>
                         )}
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => openEditOt(req)}
-                          className="text-blue-600 hover:bg-blue-50 h-7 w-7 p-0"
-                          title={isEs ? "Editar" : "Edit"}
-                          data-testid={`edit-overtime-${req.overtime_id}`}
-                        >
-                          <Edit className="w-3.5 h-3.5" />
-                        </Button>
                         <Button
                           variant="ghost"
                           size="sm"

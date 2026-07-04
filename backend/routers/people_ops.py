@@ -4799,7 +4799,15 @@ async def get_overtime_requests(
 
 @people_ops_router.post("/overtime/requests")
 async def create_overtime_request(data: dict, user: User = Depends(get_current_user)):
-    """Create an overtime request (supports 4 OT categories: normal, night, holiday, 100%)"""
+    """DEPRECATED — legacy per-day overtime creation. Use POST /overtime/periods (Timesheet Semanal)."""
+    raise HTTPException(
+        status_code=410,
+        detail="Legacy per-day overtime is deprecated. Use POST /api/people-ops/overtime/periods (Timesheet Semanal) instead."
+    )
+
+
+async def _create_overtime_request_legacy(data: dict, user: User):
+    """Kept for internal migrations only — do not expose."""
     company_id = user.company_id or user.active_org_id
     
     employee_id = data.get("employee_id")
@@ -5305,10 +5313,19 @@ async def update_overtime_request(
     data: dict,
     user: User = Depends(get_current_user)
 ):
-    """Edit an overtime request. Recalculates estimated_amount from hours + rates.
-    Allowed for any status. Blocked if already paid in a processed payroll period.
-    Body may include: date, hours_35, hours_night, hours_holiday, hours_100, reason, notes
-    """
+    """DEPRECATED — legacy per-day OT editing. Delete the legacy record and re-create via Timesheet Semanal."""
+    raise HTTPException(
+        status_code=410,
+        detail="Legacy per-day overtime editing is deprecated. Use PUT /api/people-ops/overtime/periods/{id} (Timesheet Semanal) instead."
+    )
+
+
+async def _update_overtime_request_legacy(
+    overtime_id: str,
+    data: dict,
+    user: User,
+):
+    """Kept for internal migrations only — do not expose."""
     company_id = user.company_id or user.active_org_id
     ot = await db.overtime_requests.find_one(
         {"company_id": company_id, "overtime_id": overtime_id},
