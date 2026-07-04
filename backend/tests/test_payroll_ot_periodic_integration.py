@@ -51,6 +51,15 @@ def employee_id(session):
 
 
 @pytest.fixture(scope="module")
+def company_id(session):
+    r = session.get(f"{API}/auth/me")
+    d = r.json() if r.status_code == 200 else {}
+    return d.get("company_id") or d.get("active_org_id") or d.get("user", {}).get("company_id")
+
+
+
+
+@pytest.fixture(scope="module")
 def state():
     return {
         "ot_period_id": None,
@@ -207,20 +216,35 @@ class TestPeriodicOTFlowsIntoPayroll:
 
 
 class TestLegacyOTRegression:
-    """Regression: per-day legacy OT must still be picked up, processed and released."""
+    """Regression: per-day legacy OT must still be picked up, processed and released.
+    NOTE: POST /overtime/requests is now 410 (iter222). Seed directly to Mongo.
+    """
 
-    def test_1_create_legacy_ot(self, session, employee_id, state):
-        payload = {
+    def test_1_create_legacy_ot(self, session, employee_id, state, company_id):
+        # Seed a legacy OT directly (endpoint is deprecated → 410).
+        import uuid, os
+        from pymongo import MongoClient
+        from dotenv import load_dotenv
+        load_dotenv("/app/backend/.env")
+        client = MongoClient(os.environ["MONGO_URL"])
+        db = client[os.environ["DB_NAME"]]
+        ot_id = f"ot_iter220_{uuid.uuid4().hex[:8]}"
+        emp = db.employees.find_one({"employee_id": employee_id})
+        hourly = float(emp.get("base_salary") or 0) / 192
+        db.overtime_requests.insert_one({
+            "overtime_id": ot_id,
+            "company_id": company_id,
             "employee_id": employee_id,
+            "employee_name": emp.get("full_name"),
             "date": "2026-04-14",
-            "hours_35": 3,
+            "hours_35": 3.0, "hours_night": 0, "hours_holiday": 0, "hours_100": 0,
+            "hourly_rate_at_creation": hourly,
+            "estimated_amount": hourly * 3.0 * 1.35,
             "reason": "TEST_iter220 legacy regression",
-        }
-        r = session.post(f"{API}/people-ops/overtime/requests", json=payload)
-        assert r.status_code == 200, r.text
-        d = r.json()
-        ot_id = d.get("overtime_id") or d.get("id")
-        assert ot_id
+            "status": "pending",
+            "payroll_period_id": None,
+            "created_at": "2026-04-14T00:00:00+00:00",
+        })
         state["legacy_ot_id"] = ot_id
 
     def test_2_approve_legacy_ot(self, session, state):

@@ -1,5 +1,27 @@
 # Kora OS — Product Requirements Document
 
+## OT Flow Simplification — Timesheet Semanal único (Feb 4, 2026)
+
+**Status:** ✅ 9/9 backend regression PASS (iteration_222). UI screenshot verificado.
+
+### Cambios
+- **Un solo flujo de creación**: "Timesheet Semanal" (colección `overtime_period_requests`, modo `worked_schedule`).
+- **Endpoints legacy deprecados** (retornan HTTP 410 con mensaje explicativo):
+  - `POST /api/people-ops/overtime/requests`
+  - `PUT /api/people-ops/overtime/requests/{id}`
+- **Endpoints legacy preservados** para lectura y cleanup: `GET`, `DELETE`, `approve/reject`. Payroll sigue consumiendo AMBAS colecciones.
+- **`OvertimeSection.js`**: eliminado botón "Día suelto" y edit inline. Tabla legacy con banner amarillo "Historial de OT antigua (solo lectura). Para nuevos registros usa el Timesheet Semanal."
+- **`OvertimePeriodDialog.js`**: eliminado modo "Manual", queda solo el grid Lun-Dom con `Entrada / Salida / Descanso / ✓ Feriado / OT auto / Monto RD$` en vivo por fila y total del período. Botón "Aplicar horario base" para autofill.
+
+### Impacto en features de Payroll
+Ningún cambio funcional. `pay_period_computation`, `pending-in-range`, `payroll/projection` y `DELETE /payroll/periods/{id}` siguen leyendo ambas colecciones.
+
+### Test coverage
+- `/app/backend/tests/test_ot_deprecation_iter222.py` — 9 pytest nuevos.
+- `/app/backend/tests/test_payroll_ot_periodic_integration.py` — actualizado (`TestLegacyOTRegression` ahora siembra directo a Mongo).
+
+
+
 ## OT Hourly Rate Bug Fix + Worked Schedule Input (Feb 4, 2026)
 
 **Status:** ✅ 8/8 backend tests PASS (iteration_221). Bug crítico resuelto + nueva funcionalidad.
