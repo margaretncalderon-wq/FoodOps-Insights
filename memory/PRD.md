@@ -1,5 +1,32 @@
 # Kora OS — Product Requirements Document
 
+## OT Hourly Rate Bug Fix + Worked Schedule Input (Feb 4, 2026)
+
+**Status:** ✅ 8/8 backend tests PASS (iteration_221). Bug crítico resuelto + nueva funcionalidad.
+
+### Bug crítico resuelto (usuario reportó: "manual da mucho menos")
+- **Causa raíz:** En 6 lugares de `people_ops.py`, para empleados con `payment_frequency='biweekly'` se multiplicaba `base_salary × 2` (y ×4 para `weekly`), asumiendo que ese campo era por-quincena. Pero el frontend (`EmployeeProfile.js` L828) explícitamente indica: *"Ingresa siempre el monto MENSUAL. En quincenal se divide ÷2 automáticamente"*. Consecuencia: la tarifa horaria era **2× mayor** para quincenales y **4×** para semanales → OT cobrado el doble/cuádruple.
+- **Fix:** Todas las funciones (`_employee_hourly_rate`, `pay_period_computation`, legacy OT create/update, termination liquidation, comp summary, overtime_report) ahora usan `base_salary / hours_per_month` directamente.
+- **Impacto:** Cualquier OT calculado antes de este fix para empleados quincenales/semanales estaba inflado. Recalcular períodos OT `pending` si aplica.
+
+### Feature nueva: Modo "Horario Real Trabajado"
+`OvertimePeriodDialog.js` ahora expone un toggle:
+- **"Horario real trabajado"** (default): grid Lun-Dom con `Entrada / Salida / Descanso (min) / ✓ Feriado`. Muestra preview en vivo de horas OT auto-clasificadas.
+- **"Horas OT manual"**: modo legacy (h35, hn, hh, h100 por día).
+
+Backend nuevo:
+- Helpers `_time_to_minutes`, `_compute_worked_and_night_minutes`, `_compute_daily_entries_from_worked`.
+- `POST/PUT /api/people-ops/overtime/periods` acepta `worked_entries: [{date, time_in, time_out, break_min?, is_holiday?}]`.
+- Reglas de clasificación (default República Dominicana):
+  - **Domingo** o `is_holiday=true` → todas las horas trabajadas = `hours_holiday` (2.0×)
+  - Resto: `OT = max(0, worked − base_del_horario)`. Del OT, la fracción que cae en 21:00-06:00 = `hours_night` (1.15×); resto = `hours_35` (1.35×).
+- Documento persiste `input_mode` (`worked_schedule` | `manual`) y `worked_entries` para round-trip de UI.
+
+### Test coverage
+`/app/backend/tests/test_ot_hourly_rate_and_worked_schedule.py` — 8 tests.
+
+
+
 ## Payroll ⇄ Overtime Periods integration (Feb 4, 2026)
 
 **Status:** ✅ 12/12 backend tests PASS (iteration_220). Bug reported by user resuelto.
