@@ -1,5 +1,27 @@
 # Kora OS — Product Requirements Document
 
+## Payroll ⇄ Overtime Periods integration (Feb 4, 2026)
+
+**Status:** ✅ 12/12 backend tests PASS (iteration_220). Bug reported by user resuelto.
+
+### Problema
+El usuario reportó: _"las horas extras no salen en el cálculo total ni en pendientes de pago ni nada"_. Las nuevas solicitudes de OT periódicas (`overtime_period_requests`) no se estaban:
+1. Sumando al **Payroll Projection / Pendientes de Pago**.
+2. Consumiendo (marcando como `processed`) al generar un período de nómina.
+3. Liberando de vuelta a `approved` al eliminar un período.
+
+### Fix aplicado en `/app/backend/routers/people_ops.py`
+- **`POST /api/people-ops/payroll/periods`** (`pay_period_computation` ~línea 1920): ahora consulta también `overtime_period_requests` que se traslapen con el rango del período. Suma horas usando `effective_totals` (shortfall-aware) y las agrega a `ot_by_employee`. Tras la generación, marca las OT-period como `status='processed'` con `payroll_period_id`.
+- **Entry doc**: se añade `linked_overtime_period_ids` en cada `payroll_entries` para trazabilidad.
+- **`DELETE /api/people-ops/payroll/periods/{id}`**: libera también `overtime_period_requests` → `status='approved'`, `payroll_period_id=null`.
+- **`GET /api/people-ops/payroll/projection`**: la sección `pending_overtime` ahora cuenta ambas colecciones. Respeta el modo `integrated`/`separate` (per-employee override o `payroll_config.overtime_payment_mode`).
+- **`GET /api/people-ops/overtime/pending-in-range`**: (usado por el diálogo de "Crear período de nómina") ahora devuelve `raw_periods` + `ot_period_ids` en `summary_by_employee`, y `total_ot_count` incluye ambos tipos.
+
+### Test coverage
+`/app/backend/tests/test_payroll_ot_periodic_integration.py` — 12 tests, incluye regresión del flujo legacy per-day.
+
+
+
 ## Employee Schedules + Days-Off + Team Calendar (Feb 3, 2026)
 
 **Status:** ✅ 21/21 backend tests PASS (iteration_219). Preview OK.
