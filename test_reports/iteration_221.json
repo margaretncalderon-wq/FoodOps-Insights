@@ -1,0 +1,34 @@
+{
+  "summary": "Backend regression (iter 221) for (A) OT hourly-rate bug fix and (B) worked_schedule input mode. Wrote 8 pytest cases in /app/backend/tests/test_ot_hourly_rate_and_worked_schedule.py. All 8 PASSED. Verified: biweekly employee 50000/192*5*1.35≈1757.81 (not doubled); weekly employee same value (not quadrupled); projection includes corrected periodic OT (not doubled); worked_entries auto-classify into hours_35/hours_night with midnight-crossing shifts; Sunday & is_holiday flag route worked hours into hours_holiday; PUT switches manual→worked_schedule and rebuilds daily_entries; manual mode regression intact.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_ot_hourly_rate_and_worked_schedule.py",
+    "/app/test_reports/pytest/pytest_iter221.xml"
+  ],
+  "coverage": [
+    "BUG A biweekly: POST /overtime/periods with 5h_35 → estimated_amount==base/192*5*1.35 within 1 RD$ (was ×2 before fix)",
+    "BUG A weekly: same math (was ×4 before fix)",
+    "BUG A projection: /payroll/projection?period_type=biweekly → pending_overtime.total_amount is at the corrected (1×) magnitude — printed 364.58 (extra/premium only) which is consistent with base/192*4*(1.35-1); nowhere near a doubled value",
+    "FEATURE B worked_schedule create: daily_entries auto-computed; Mon 08-19 break 60 → 10h worked with OT split; Tue 22:00-02:00 crossing midnight → hours_night>0",
+    "FEATURE B Sunday: 8h Sunday shift → hours_holiday=8, hours_35=0, hours_night=0",
+    "FEATURE B is_holiday flag: 8h weekday with is_holiday=true → hours_holiday=8",
+    "FEATURE B PUT: switching manual→worked_entries via PUT sets input_mode='worked_schedule' and recomputes daily_entries",
+    "REGRESSION manual mode: input_mode='manual', worked_entries=[], daily_entries preserved"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "people_ops.py is 7499 lines — still well past the 700-line guideline. Split into sub-modules (overtime.py, payroll.py, schedules.py) recommended.",
+    "_compute_worked_and_night_minutes prorates night minutes by (worked/shift_len) after break — assumes breaks fall proportionally across the shift. For deterministic legal calculation, consider allowing an explicit break_time_in/out.",
+    "In _compute_daily_entries_from_worked, the night vs h35 split assumes the base hours were worked FIRST (from time_in). This may under-report night when the shift starts before 21:00 but the OT portion happens to fall at the tail-end in night hours — currently correctly handled by min(night_h_total, ot_total_h) as an upper bound, but not exact. Documented for now.",
+    "input_mode is stored, but the read endpoint /overtime/periods (list) response was not inspected for exposing input_mode/worked_entries — UI toggle round-trip depends on GET-by-id which was verified."
+  ],
+  "updated_files": ["/app/backend/tests/test_ot_hourly_rate_and_worked_schedule.py"],
+  "success_rate": {"backend": "100% (8/8)", "frontend": "N/A (backend-only per request)"},
+  "test_credentials": "demo.agency@kora.com / Evoque2024! (admin).",
+  "seed_data_creation": "Temporarily set 2 employees' base_salary=50000 and payment_frequency to biweekly/weekly. Original values are captured in fixture and restored at module teardown. All OT periods created carry reason='TEST_iter221 ...' and are deleted at end of each test. May_2026 dates chosen to avoid collision with iter218-220 (April 2026).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "iter220 payroll-consumption regression (create periodic OT → approve → generate payroll → OT marked processed) is NOT re-verified here because it was covered end-to-end in iter220 test module and code paths for consumption are unchanged. Test module is idempotent and can be re-run; picks first two active employees dynamically. The projection.pending_overtime.total_amount reports the extra/premium portion (not total gross); verified via math but do not confuse with estimated_amount which is total OT payout.",
+  "rca of the issue": "Bug A root cause (already fixed by main agent): _employee_hourly_rate used to multiply base_salary by frequency (×2 biweekly, ×4 weekly) to derive a 'monthly' figure, but base_salary is already stored as monthly per the EmployeeProfile UI contract. Fix (verified): helper now returns base_salary / hours_per_month directly. Feature B: two new helpers (_time_to_minutes, _compute_worked_and_night_minutes) + _compute_daily_entries_from_worked classify shifts into hours_35/night/holiday based on Sunday/is_holiday/night-window(21-06) rules. create/update endpoints accept worked_entries, persist input_mode+worked_entries for round-trip. Regression: reproduction of the old bug would show estimated_amount≈base/192*hours*rate*2 for biweekly; after fix it matches base/192*hours*rate exactly."
+}

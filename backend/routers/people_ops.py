@@ -1974,7 +1974,6 @@ async def create_payroll_period(
     
     for emp in employees:
         base_salary = float(emp.get("base_salary") or 0)
-        freq = emp.get("payment_frequency", "biweekly")
         
         # period_salary = how much salary this employee gets for this period
         if payment_kind == "overtime_only":
@@ -1989,8 +1988,9 @@ async def create_payroll_period(
             else:  # monthly
                 period_salary = monthly_equivalent
         
-        # Hourly rate derived from MONTHLY salary equivalent
-        monthly_salary_eq = base_salary if freq == "monthly" else (base_salary * 2 if freq == "biweekly" else base_salary * 4)
+        # Hourly rate derived from MONTHLY salary. base_salary is stored as MONTHLY
+        # regardless of payment_frequency (see EmployeeProfile UI note).
+        monthly_salary_eq = base_salary
         hourly_rate = (monthly_salary_eq / hours_per_month) if hours_per_month else 0
         
         # Pull OT for this employee
@@ -4348,15 +4348,151 @@ async def _resolve_ot_rates(company_id: str) -> tuple[dict, float]:
 
 
 async def _employee_hourly_rate(employee: dict, hours_per_month: float) -> float:
+    # base_salary is ALWAYS stored as the MONTHLY amount (see EmployeeProfile UI note)
     base_salary = float(employee.get("base_salary") or 0)
-    freq = employee.get("payment_frequency", "biweekly")
-    if freq == "monthly":
-        monthly = base_salary
-    elif freq == "biweekly":
-        monthly = base_salary * 2
-    else:  # weekly
-        monthly = base_salary * 4
-    return (monthly / hours_per_month) if hours_per_month else 0
+    return (base_salary / hours_per_month) if hours_per_month else 0
+
+
+def _time_to_minutes(t: str) -> int:
+    """Convert 'HH:MM' → minutes since midnight."""
+    try:
+        h, m = str(t).split(":")
+        return int(h) * 60 + int(m)
+    except (ValueError, AttributeError):
+        return 0
+
+
+def _compute_worked_and_night_minutes(time_in: str, time_out: str, break_min: int = 0) -> tuple[int, int]:
+    """From a worked shift, return (total_worked_minutes, night_minutes).
+
+    - Handles shifts that cross midnight (time_out < time_in).
+    - Night window: 21:00-06:00 (next day). Uses minute-by-minute overlap for correctness.
+    - Break minutes are subtracted from total worked but NOT reclassified as night.
+    """
+    if not time_in or not time_out:
+        return 0, 0
+    ti = _time_to_minutes(time_in)
+    to = _time_to_minutes(time_out)
+    if to <= ti:
+        to += 24 * 60  # crosses midnight
+    total = max(0, to - ti - int(break_min or 0))
+    if total == 0:
+        return 0, 0
+    # Compute night portion (before subtracting break)
+    night = 0
+    for m in range(ti, to):
+        hod = (m // 60) % 24
+        if hod >= 21 or hod < 6:
+            night += 1
+    # If break was taken, distribute proportionally to avoid over-classifying as night
+    shift_len = to - ti
+    if int(break_min or 0) > 0 and shift_len > 0:
+        night = int(round(night * (total / shift_len)))
+    return total, night
+
+
+async def _compute_daily_entries_from_worked(
+    company_id: str,
+    employee_id: str,
+    start_date: str,
+    end_date: str,
+    worked_entries: list,
+) -> list:
+    """Translate 'actual worked schedule' rows → categorized daily_entries.
+
+    worked_entries: [{date, time_in, time_out, break_min?, is_holiday?, notes?}]
+    Rules (Dominican Republic default, editable per row):
+      • Sunday OR flagged is_holiday=true → all worked hours = hours_holiday (2.0×)
+      • Otherwise:
+          - Compute base_hours from employee's active schedule pattern for that weekday
+            (0 if unscheduled → whole shift is OT)
+          - Compute worked_hours = time_out - time_in − break_min
+          - OT = max(0, worked_hours − base_hours)
+          - Split OT into night (portion overlapping 21:00-06:00 window) & hours_35 (rest)
+      • Days where worked ≤ base contribute nothing (no OT)
+    Returns a list of daily_entries in the same shape used elsewhere.
+    """
+    from datetime import date as _date
+
+    # Load schedules overlapping this range once
+    schedules = await db.employee_schedules.find(
+        {"company_id": company_id, "employee_id": employee_id},
+        {"_id": 0, "effective_from": 1, "effective_to": 1, "weekly_pattern": 1},
+    ).to_list(500)
+
+    def _base_hours_for(iso: str) -> float:
+        try:
+            dt = _date.fromisoformat(iso)
+        except ValueError:
+            return 0.0
+        day_name = DAYS_OF_WEEK[dt.weekday()]
+        for s in schedules:
+            f = s.get("effective_from") or "0000-01-01"
+            t = s.get("effective_to") or "9999-12-31"
+            if f <= iso <= t:
+                return float(((s.get("weekly_pattern") or {}).get(day_name) or {}).get("work_hours") or 0)
+        return 0.0
+
+    out: list = []
+    for e in worked_entries or []:
+        iso = e.get("date")
+        if not iso or iso < start_date or iso > end_date:
+            continue
+        time_in = e.get("time_in") or ""
+        time_out = e.get("time_out") or ""
+        break_min = int(e.get("break_min") or 0)
+        if not time_in or not time_out:
+            # Skip rows without a shift entered
+            continue
+
+        worked_min, night_min = _compute_worked_and_night_minutes(time_in, time_out, break_min)
+        if worked_min <= 0:
+            continue
+        worked_h = worked_min / 60.0
+        night_h_total = night_min / 60.0
+
+        try:
+            dt = _date.fromisoformat(iso)
+            is_sunday = dt.weekday() == 6
+        except ValueError:
+            is_sunday = False
+        is_holiday_flag = bool(e.get("is_holiday"))
+
+        h35 = 0.0
+        hn = 0.0
+        hh = 0.0
+        h100 = 0.0
+
+        if is_sunday or is_holiday_flag:
+            # Everything worked counts as holiday/sunday premium (2.0×)
+            hh = round(worked_h, 2)
+        else:
+            base_h = _base_hours_for(iso)
+            ot_total_h = max(0.0, worked_h - base_h)
+            if ot_total_h > 0:
+                # Assume base was worked FIRST (starting at time_in). Night portion of OT
+                # is bounded by night_h_total but capped by ot_total_h.
+                # For a defensible split: night_ot = min(night_h_total, ot_total_h)
+                night_ot = min(night_h_total, ot_total_h)
+                h35 = round(max(0.0, ot_total_h - night_ot), 2)
+                hn = round(night_ot, 2)
+
+        out.append({
+            "date": iso,
+            "hours_35": h35,
+            "hours_night": hn,
+            "hours_holiday": hh,
+            "hours_100": h100,
+            "worked_time_in": time_in,
+            "worked_time_out": time_out,
+            "worked_break_min": break_min,
+            "worked_total_hours": round(worked_h, 2),
+            "is_holiday_flag": is_holiday_flag,
+            "notes": (e.get("notes") or "").strip() or None,
+        })
+    return out
+
+
 
 
 @people_ops_router.post("/overtime/periods")
@@ -4384,23 +4520,39 @@ async def create_overtime_period(data: dict, user: User = Depends(get_current_us
     ref_date = data.get("ref_date") or data.get("start_date") or datetime.now(timezone.utc).date().isoformat()
     start_date, end_date = _compute_period_bounds(period_type, ref_date)
 
-    # Validate daily_entries fall within period
-    daily_entries = data.get("daily_entries") or []
-    normalized: list[dict] = []
-    for e in daily_entries:
-        d = e.get("date")
-        if not d:
-            continue
-        if d < start_date or d > end_date:
-            raise HTTPException(status_code=400, detail=f"Daily entry {d} outside period {start_date}..{end_date}")
-        normalized.append({
-            "date": d,
-            "hours_35": float(e.get("hours_35") or 0),
-            "hours_night": float(e.get("hours_night") or 0),
-            "hours_holiday": float(e.get("hours_holiday") or 0),
-            "hours_100": float(e.get("hours_100") or 0),
-            "notes": (e.get("notes") or "").strip() or None,
-        })
+    # Two supported input modes:
+    # (1) worked_entries — [{date, time_in, time_out, break_min?, is_holiday?}] — auto-classified
+    # (2) daily_entries — [{date, hours_35, hours_night, hours_holiday, hours_100}] — manual
+    worked_entries_input = data.get("worked_entries") or []
+    if worked_entries_input:
+        # Validate all worked_entries fall in period
+        for e in worked_entries_input:
+            d = e.get("date")
+            if d and (d < start_date or d > end_date):
+                raise HTTPException(status_code=400, detail=f"Worked entry {d} outside period {start_date}..{end_date}")
+        normalized = await _compute_daily_entries_from_worked(
+            company_id, employee_id, start_date, end_date, worked_entries_input
+        )
+        input_mode = "worked_schedule"
+    else:
+        # Manual mode — keep legacy daily_entries behavior
+        daily_entries = data.get("daily_entries") or []
+        normalized = []
+        for e in daily_entries:
+            d = e.get("date")
+            if not d:
+                continue
+            if d < start_date or d > end_date:
+                raise HTTPException(status_code=400, detail=f"Daily entry {d} outside period {start_date}..{end_date}")
+            normalized.append({
+                "date": d,
+                "hours_35": float(e.get("hours_35") or 0),
+                "hours_night": float(e.get("hours_night") or 0),
+                "hours_holiday": float(e.get("hours_holiday") or 0),
+                "hours_100": float(e.get("hours_100") or 0),
+                "notes": (e.get("notes") or "").strip() or None,
+            })
+        input_mode = "manual"
 
     rates, hours_per_month = await _resolve_ot_rates(company_id)
     hourly_rate = await _employee_hourly_rate(employee, hours_per_month)
@@ -4436,6 +4588,8 @@ async def create_overtime_period(data: dict, user: User = Depends(get_current_us
         "start_date": start_date,
         "end_date": end_date,
         "daily_entries": normalized,
+        "input_mode": input_mode,
+        "worked_entries": worked_entries_input if input_mode == "worked_schedule" else [],
         "totals": totals,
         "hourly_rate_at_creation": round(hourly_rate, 4),
         "rates_at_creation": rates,
@@ -4483,24 +4637,36 @@ async def update_overtime_period(overtime_period_id: str, data: dict, user: User
         raise HTTPException(status_code=400, detail="Cannot edit an approved or paid period")
 
     daily_entries = data.get("daily_entries")
+    worked_entries_input = data.get("worked_entries")
     update: dict = {}
-    if daily_entries is not None:
+    if daily_entries is not None or worked_entries_input is not None:
         start_date = existing["start_date"]; end_date = existing["end_date"]
-        normalized = []
-        for e in daily_entries:
-            d = e.get("date")
-            if not d:
-                continue
-            if d < start_date or d > end_date:
-                raise HTTPException(status_code=400, detail=f"Daily entry {d} outside period {start_date}..{end_date}")
-            normalized.append({
-                "date": d,
-                "hours_35": float(e.get("hours_35") or 0),
-                "hours_night": float(e.get("hours_night") or 0),
-                "hours_holiday": float(e.get("hours_holiday") or 0),
-                "hours_100": float(e.get("hours_100") or 0),
-                "notes": (e.get("notes") or "").strip() or None,
-            })
+        if worked_entries_input is not None:
+            for e in worked_entries_input:
+                d = e.get("date")
+                if d and (d < start_date or d > end_date):
+                    raise HTTPException(status_code=400, detail=f"Worked entry {d} outside period {start_date}..{end_date}")
+            normalized = await _compute_daily_entries_from_worked(
+                company_id, existing["employee_id"], start_date, end_date, worked_entries_input
+            )
+            input_mode = "worked_schedule"
+        else:
+            normalized = []
+            for e in daily_entries:
+                d = e.get("date")
+                if not d:
+                    continue
+                if d < start_date or d > end_date:
+                    raise HTTPException(status_code=400, detail=f"Daily entry {d} outside period {start_date}..{end_date}")
+                normalized.append({
+                    "date": d,
+                    "hours_35": float(e.get("hours_35") or 0),
+                    "hours_night": float(e.get("hours_night") or 0),
+                    "hours_holiday": float(e.get("hours_holiday") or 0),
+                    "hours_100": float(e.get("hours_100") or 0),
+                    "notes": (e.get("notes") or "").strip() or None,
+                })
+            input_mode = "manual"
         employee = await db.employees.find_one(
             {"company_id": company_id, "employee_id": existing["employee_id"]},
             {"_id": 0, "base_salary": 1, "payment_frequency": 1},
@@ -4530,6 +4696,8 @@ async def update_overtime_period(overtime_period_id: str, data: dict, user: User
         )
         update.update({
             "daily_entries": normalized,
+            "input_mode": input_mode,
+            "worked_entries": worked_entries_input if input_mode == "worked_schedule" else [],
             "totals": totals,
             "estimated_amount": estimated_total,
             "estimated_amount_extra_only": estimated_extra,
@@ -4650,8 +4818,8 @@ async def create_overtime_request(data: dict, user: User = Depends(get_current_u
     hours_per_month = config.get("overtime_hours_per_month", 192.0) or 192.0
     
     base_salary = float(employee.get("base_salary") or 0)
-    freq = employee.get("payment_frequency", "biweekly")
-    monthly_salary = base_salary if freq == "monthly" else (base_salary * 2 if freq == "biweekly" else base_salary * 4)
+    # base_salary is ALWAYS the MONTHLY amount (see EmployeeProfile UI note)
+    monthly_salary = base_salary
     hourly_rate = (monthly_salary / hours_per_month) if hours_per_month else 0
     
     h35 = float(data.get("hours_35") or 0)
@@ -4878,8 +5046,8 @@ async def overtime_report(
             if not row:
                 continue
             base = float(e.get("base_salary") or 0)
-            freq = e.get("payment_frequency", "biweekly")
-            monthly = base if freq == "monthly" else (base * 2 if freq == "biweekly" else base * 4)
+            # base_salary is ALWAYS MONTHLY
+            monthly = base
             row["base_salary"] = round(base, 2)
             row["monthly_salary_eq"] = round(monthly, 2)
             row["hourly_rate"] = round((monthly / hours_per_month) if hours_per_month else 0, 2)
@@ -5185,8 +5353,8 @@ async def update_overtime_request(
         hours_per_month = config.get("overtime_hours_per_month", 192.0) or 192.0
 
         base_salary = float(emp.get("base_salary") or 0)
-        freq = emp.get("payment_frequency", "biweekly")
-        monthly = base_salary if freq == "monthly" else (base_salary * 2 if freq == "biweekly" else base_salary * 4)
+        # base_salary is ALWAYS MONTHLY (see EmployeeProfile UI note)
+        monthly = base_salary
         hourly = (monthly / hours_per_month) if hours_per_month else 0
 
         estimated = (
@@ -5730,14 +5898,8 @@ async def create_offboarding(data: dict, user: User = Depends(get_current_user))
     hire_date = employee.get("hire_date")
     base_salary = employee.get("base_salary", 0)
     
-    # Get payment frequency to calculate monthly salary
-    freq = employee.get("payment_frequency", "biweekly")
-    if freq == "biweekly":
-        monthly_salary = base_salary * 2
-    elif freq == "weekly":
-        monthly_salary = base_salary * 4
-    else:
-        monthly_salary = base_salary
+    # Get monthly salary - base_salary is ALWAYS stored as MONTHLY amount
+    monthly_salary = base_salary
     
     # Get vacation days owed
     vacation_days_owed = employee.get("vacation_days_available", 0)
@@ -6012,16 +6174,9 @@ async def get_employee_compensation_summary(employee_id: str, user: User = Depen
         {"_id": 0}
     ).to_list(50)
     
-    # Calculate monthly totals
+    # Calculate monthly totals - base_salary is ALWAYS the MONTHLY amount
     base_salary = employee.get("base_salary", 0)
-    freq = employee.get("payment_frequency", "biweekly")
-    
-    if freq == "biweekly":
-        monthly_base = base_salary * 2
-    elif freq == "weekly":
-        monthly_base = base_salary * 4
-    else:
-        monthly_base = base_salary
+    monthly_base = base_salary
     
     monthly_benefits = 0
     monthly_deductions = 0
