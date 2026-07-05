@@ -121,6 +121,7 @@ export default function OvertimePeriodDialog({
   const [expectedHours, setExpectedHours] = useState(null);
   const [scheduleDetail, setScheduleDetail] = useState(null); // {daily_start, daily_end} per day, if backend returns
   const [loadingSchedule, setLoadingSchedule] = useState(false);
+  const [loadingTimeClock, setLoadingTimeClock] = useState(false);
   const isEditMode = !!editPeriod;
 
   useEffect(() => {
@@ -215,6 +216,49 @@ export default function OvertimePeriodDialog({
       return { ...prev, [date]: { ...row, [field]: value } };
     });
   };
+
+  const loadFromTimeClock = async () => {
+    if (!employeeId) {
+      toast.error(isEs ? "Selecciona un empleado" : "Select an employee");
+      return;
+    }
+    setLoadingTimeClock(true);
+    try {
+      const res = await axios.get(
+        `${API}/api/people-ops/time-clock/aggregate-daily?employee_id=${employeeId}&start_date=${start}&end_date=${end}`,
+        { withCredentials: true },
+      );
+      const daysArr = res.data?.days || [];
+      if (daysArr.length === 0) {
+        toast.info(isEs
+          ? "El Reloj no tiene registros en este período"
+          : "Time Clock has no records for this period");
+        return;
+      }
+      setWorkedEntries((prev) => {
+        const next = { ...prev };
+        daysArr.forEach((d) => {
+          next[d.date] = {
+            ...(next[d.date] || {}),
+            time_in: d.time_in,
+            time_out: d.time_out,
+            break_min: d.break_min,
+            is_holiday: !!next[d.date]?.is_holiday,
+            notes: next[d.date]?.notes || (d.shift_count > 1 ? `${d.shift_count} turnos` : ""),
+          };
+        });
+        return next;
+      });
+      toast.success(isEs
+        ? `${daysArr.length} día(s) cargados del Reloj`
+        : `${daysArr.length} day(s) loaded from Time Clock`);
+    } catch (err) {
+      toast.error(err.response?.data?.detail || err.message);
+    } finally {
+      setLoadingTimeClock(false);
+    }
+  };
+
 
   const applyBaseAsWorked = () => {
     if (!scheduleDetail) {
@@ -428,6 +472,17 @@ export default function OvertimePeriodDialog({
                   title={isEs ? "Copia las horas del horario base a cada día" : "Copy base schedule times to each day"}
                 >
                   {isEs ? "Aplicar horario base" : "Apply base schedule"}
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={loadFromTimeClock}
+                  disabled={!employeeId || loadingTimeClock}
+                  data-testid="load-from-timeclock-btn"
+                  title={isEs ? "Carga las horas trabajadas registradas en el Reloj" : "Load worked hours from Time Clock"}
+                >
+                  {loadingTimeClock ? "…" : (isEs ? "Cargar desde Reloj" : "Load from Time Clock")}
                 </Button>
                 <Button type="button" size="sm" variant="outline" onClick={() => loadBaseSchedule(false)} disabled={loadingSchedule} data-testid="load-base-schedule-btn">
                   {loadingSchedule ? "…" : (isEs ? "Recargar" : "Reload")}

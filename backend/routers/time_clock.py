@@ -339,6 +339,97 @@ async def delete_entry(entry_id: str, user: User = Depends(get_current_user)):
     return {"message": "Entry deleted"}
 
 
+@router.get("/aggregate-daily")
+async def aggregate_daily_worked(
+    employee_id: str,
+    start_date: str,
+    end_date: str,
+    user: User = Depends(get_current_user),
+):
+    """Aggregate time_entries for an employee into daily rows suitable for
+    prefilling the Weekly Timesheet (OT) dialog.
+
+    Per work_date, returns:
+      - time_in  = earliest clock_in of the day (HH:MM)
+      - time_out = latest clock_out of the day (HH:MM). If the last entry is
+        still open (no clock_out), it is skipped so we don't estimate a fake
+        exit time.
+      - break_min = total minutes BETWEEN the entries within the day (gaps
+        between one clock_out and the next clock_in). Approximates rest breaks.
+
+    Only closed shifts are considered. Shifts crossing midnight are stored under
+    their `work_date` field.
+    """
+    company_id, _ = await check_people_ops_access(user, "view")
+    query = {
+        "company_id": company_id,
+        "employee_id": employee_id,
+        "work_date": {"$gte": start_date, "$lte": end_date},
+        "clock_out": {"$ne": None},
+    }
+    entries = await db.time_entries.find(query, {"_id": 0}).sort("clock_in", 1).to_list(2000)
+
+    from datetime import datetime as _dt
+    by_day: dict[str, list] = {}
+    for e in entries:
+        d = e.get("work_date")
+        if not d:
+            continue
+        by_day.setdefault(d, []).append(e)
+
+    out: list = []
+    for d, rows in sorted(by_day.items()):
+        rows.sort(key=lambda x: x.get("clock_in") or "")
+        first_in = rows[0].get("clock_in")
+        last_out = rows[-1].get("clock_out")
+        if not first_in or not last_out:
+            continue
+
+        try:
+            ti = _dt.fromisoformat(first_in.replace("Z", "+00:00"))
+            to = _dt.fromisoformat(last_out.replace("Z", "+00:00"))
+        except (ValueError, AttributeError):
+            continue
+
+        time_in = ti.strftime("%H:%M")
+        time_out = to.strftime("%H:%M")
+
+        # Sum gaps between entries → break minutes
+        break_minutes = 0
+        for i in range(len(rows) - 1):
+            try:
+                out_i = _dt.fromisoformat(rows[i]["clock_out"].replace("Z", "+00:00"))
+                in_next = _dt.fromisoformat(rows[i + 1]["clock_in"].replace("Z", "+00:00"))
+                gap = (in_next - out_i).total_seconds() / 60.0
+                if gap > 0:
+                    break_minutes += gap
+            except (ValueError, AttributeError, KeyError):
+                continue
+
+        # Compute worked minutes from entries themselves (sum of total_minutes)
+        worked_minutes = sum(int(r.get("total_minutes") or 0) for r in rows)
+
+        out.append({
+            "date": d,
+            "time_in": time_in,
+            "time_out": time_out,
+            "break_min": int(round(break_minutes)),
+            "worked_minutes": worked_minutes,
+            "shift_count": len(rows),
+            "source": "time_clock",
+        })
+
+    return {
+        "employee_id": employee_id,
+        "start_date": start_date,
+        "end_date": end_date,
+        "days": out,
+        "total_days": len(out),
+    }
+
+
+
+
 @router.get("/entries/{entry_id}/audit")
 async def get_entry_audit(entry_id: str, user: User = Depends(get_current_user)):
     """Return audit history for a specific time entry (admins/managers only)."""
