@@ -1,5 +1,30 @@
 # Kora OS — Product Requirements Document
 
+## Timesheet — Marcar Días Libres + Fix Open Shifts (Feb 4, 2026)
+
+**Status:** ✅ 4/4 nuevos + 13/13 regresión (iter 224).
+
+### Feature: columna "Libre" en el Timesheet Semanal
+- **Frontend**: nueva columna con checkbox "Libre" junto a "Feriado". Al marcar:
+  - Se deshabilita entrada/salida/descanso
+  - Fila queda naranja
+  - Muestra `−Xh` en OT auto (shortfall) y `−RD$Y` en Monto
+  - El header muestra `Faltantes: −Xh`
+- **Backend**: `POST/PUT /api/people-ops/overtime/periods` acepta `days_off_dates: [YYYY-MM-DD]`.
+  - Upsert de esos días en `employee_days_off` con `source='timesheet'` ANTES de calcular shortfall
+  - PUT hace diff-cleanup: borra los días previamente marcados por timesheet que ya no están en el payload → desmarcar funciona
+  - Días marcados manualmente (sin `source='timesheet'`) se preservan al hacer diff
+- Shortfall se propaga a `estimated_amount_effective` que es el monto que Payroll usa realmente.
+
+### Bug fix: open shifts en aggregate-daily
+`GET /api/people-ops/time-clock/aggregate-daily` ahora filtra estrictamente `clock_out` con `$exists=true` y `$nin=[None, ""]` + filtro defensivo en Python. Los turnos sin clock-out ya no filtran a la agregación diaria.
+
+### Test coverage
+- `/app/backend/tests/test_timesheet_days_off_iter224.py` — 4 tests.
+- Regresión: iter222 (9), iter223 (5+1skip), iter224 (4) = 18 tests verdes.
+
+
+
 ## Time Clock → Timesheet Prefill (Feb 4, 2026)
 
 **Status:** ✅ 6/6 backend tests PASS + 9/9 regresión (iteration_223).

@@ -365,9 +365,12 @@ async def aggregate_daily_worked(
         "company_id": company_id,
         "employee_id": employee_id,
         "work_date": {"$gte": start_date, "$lte": end_date},
-        "clock_out": {"$ne": None},
+        "clock_out": {"$exists": True, "$nin": [None, ""]},
     }
     entries = await db.time_entries.find(query, {"_id": 0}).sort("clock_in", 1).to_list(2000)
+
+    # Extra defensive filter in Python (in case any entries slipped through)
+    entries = [e for e in entries if e.get("clock_out")]
 
     from datetime import datetime as _dt
     by_day: dict[str, list] = {}
