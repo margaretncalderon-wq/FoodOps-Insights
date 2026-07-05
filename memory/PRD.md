@@ -1,5 +1,27 @@
 # Kora OS — Product Requirements Document
 
+## Time Clock → Timesheet Prefill (Feb 4, 2026)
+
+**Status:** ✅ 6/6 backend tests PASS + 9/9 regresión (iteration_223).
+
+### Feature
+`OvertimePeriodDialog.js` ahora tiene botón **"Cargar desde Reloj"** que trae los registros del Time Clock del período y prellena la grilla. Elimina la captura manual cuando el equipo usa el reloj checador.
+
+### Backend
+- Nuevo endpoint: `GET /api/people-ops/time-clock/aggregate-daily?employee_id&start_date&end_date`
+- Agrega `time_entries` por `work_date`:
+  - `time_in` = primer clock_in del día
+  - `time_out` = último clock_out del día
+  - `break_min` = suma de gaps entre turnos (aprox. descansos)
+  - `worked_minutes`, `shift_count`, `source='time_clock'`
+- Turnos abiertos (sin clock_out) se excluyen para no falsear cálculos.
+
+### Frontend
+- Botón junto a "Aplicar horario base" y "Recargar".
+- Al presionar, hace GET al endpoint y setea `workedEntries` con las horas del reloj. Si hay más de un turno el mismo día, agrega nota "N turnos".
+
+
+
 ## OT Flow Simplification — Timesheet Semanal único (Feb 4, 2026)
 
 **Status:** ✅ 9/9 backend regression PASS (iteration_222). UI screenshot verificado.
