@@ -83,23 +83,25 @@ function computeWorkedMinutes(timeIn, timeOut, breakMin) {
   return { total, night: adjustedNight };
 }
 
-function previewOtForDay({ dow, baseHours, timeIn, timeOut, breakMin, isHoliday }) {
+function previewOtForDay({ dow, baseHours, timeIn, timeOut, breakMin, isHoliday, isOff }) {
+  if (isOff) return { hours_35: 0, hours_night: 0, hours_holiday: 0, worked: 0, shortfall: baseHours || 0, off: true };
   const { total, night } = computeWorkedMinutes(timeIn, timeOut, breakMin);
-  if (total <= 0) return { hours_35: 0, hours_night: 0, hours_holiday: 0, worked: 0 };
+  if (total <= 0) return { hours_35: 0, hours_night: 0, hours_holiday: 0, worked: 0, shortfall: 0 };
   const workedH = total / 60;
   const nightH = night / 60;
   const isSunday = dow === 0;
   if (isSunday || isHoliday) {
-    return { hours_35: 0, hours_night: 0, hours_holiday: workedH, worked: workedH };
+    return { hours_35: 0, hours_night: 0, hours_holiday: workedH, worked: workedH, shortfall: 0 };
   }
   const otTotal = Math.max(0, workedH - (baseHours || 0));
-  if (otTotal <= 0) return { hours_35: 0, hours_night: 0, hours_holiday: 0, worked: workedH };
+  if (otTotal <= 0) return { hours_35: 0, hours_night: 0, hours_holiday: 0, worked: workedH, shortfall: 0 };
   const nightOt = Math.min(nightH, otTotal);
   return {
     hours_35: Math.max(0, otTotal - nightOt),
     hours_night: nightOt,
     hours_holiday: 0,
     worked: workedH,
+    shortfall: 0,
   };
 }
 
@@ -122,6 +124,7 @@ export default function OvertimePeriodDialog({
   const [scheduleDetail, setScheduleDetail] = useState(null); // {daily_start, daily_end} per day, if backend returns
   const [loadingSchedule, setLoadingSchedule] = useState(false);
   const [loadingTimeClock, setLoadingTimeClock] = useState(false);
+  const [offDates, setOffDates] = useState(() => new Set());
   const isEditMode = !!editPeriod;
 
   useEffect(() => {
@@ -143,6 +146,7 @@ export default function OvertimePeriodDialog({
           };
         });
         setWorkedEntries(prefillWorked);
+        setOffDates(new Set());
         setExpectedHours(null);
       } else {
         setEmployeeId("");
@@ -151,6 +155,7 @@ export default function OvertimePeriodDialog({
         setReason("");
         setNotes("");
         setWorkedEntries({});
+        setOffDates(new Set());
         setExpectedHours(null);
       }
     }
@@ -200,6 +205,19 @@ export default function OvertimePeriodDialog({
   useEffect(() => {
     if (open && employeeId) {
       loadBaseSchedule(true);
+      // Load existing days off for this period range
+      (async () => {
+        try {
+          const res = await axios.get(
+            `${API}/api/people-ops/days-off/employee/${employeeId}?start_date=${start}&end_date=${end}`,
+            { withCredentials: true },
+          );
+          const list = Array.isArray(res.data) ? res.data : [];
+          setOffDates(new Set(list.map((d) => d.date)));
+        } catch {
+          // silent
+        }
+      })();
     }
   }, [employeeId, start, end, open]);
 
@@ -215,6 +233,22 @@ export default function OvertimePeriodDialog({
       const row = prev[date] || {};
       return { ...prev, [date]: { ...row, [field]: value } };
     });
+  };
+
+  const toggleDayOff = (date, checked) => {
+    setOffDates((prev) => {
+      const next = new Set(prev);
+      if (checked) next.add(date);
+      else next.delete(date);
+      return next;
+    });
+    if (checked) {
+      // Clear worked times when marked off
+      setWorkedEntries((prev) => ({
+        ...prev,
+        [date]: { time_in: "", time_out: "", break_min: "", is_holiday: false, notes: prev[date]?.notes || "" },
+      }));
+    }
   };
 
   const loadFromTimeClock = async () => {
@@ -295,31 +329,45 @@ export default function OvertimePeriodDialog({
   };
 
   const totals = useMemo(() => {
-    let h35 = 0, hn = 0, hh = 0, worked = 0;
+    let h35 = 0, hn = 0, hh = 0, worked = 0, shortfall = 0;
     days.forEach((iso) => {
       const [dy, dm, dd] = iso.split("-").map(Number);
       const dow = new Date(Date.UTC(dy, dm - 1, dd)).getUTCDay();
       const base = expectedHours ? (expectedHours.daily?.[iso] ?? 0) : 0;
       const row = workedEntries[iso] || {};
+      const isOff = offDates.has(iso);
       const p = previewOtForDay({
         dow, baseHours: base,
         timeIn: row.time_in, timeOut: row.time_out, breakMin: Number(row.break_min || 0),
-        isHoliday: row.is_holiday,
+        isHoliday: row.is_holiday, isOff,
       });
       h35 += p.hours_35;
       hn += p.hours_night;
       hh += p.hours_holiday;
       worked += p.worked;
+      shortfall += p.shortfall || 0;
     });
-    const amount = hourlyRate * (h35 * RATE_35 + hn * RATE_NIGHT + hh * RATE_HOLIDAY);
-    const amountExtraOnly = hourlyRate * (h35 * (RATE_35 - 1) + hn * (RATE_NIGHT - 1) + hh * (RATE_HOLIDAY - 1));
+    // Apply shortfall to OT categories (backend logic: consume from hours_35 first, then night, then holiday, then 100)
+    let s = shortfall;
+    let net35 = h35, netN = hn, netH = hh;
+    if (s > 0) {
+      const cut35 = Math.min(net35, s); net35 -= cut35; s -= cut35;
+      const cutN = Math.min(netN, s); netN -= cutN; s -= cutN;
+      const cutH = Math.min(netH, s); netH -= cutH; s -= cutH;
+    }
+    const grossAmount = hourlyRate * (h35 * RATE_35 + hn * RATE_NIGHT + hh * RATE_HOLIDAY);
+    const netAmount = hourlyRate * (net35 * RATE_35 + netN * RATE_NIGHT + netH * RATE_HOLIDAY);
+    const netAmountExtra = hourlyRate * (net35 * (RATE_35 - 1) + netN * (RATE_NIGHT - 1) + netH * (RATE_HOLIDAY - 1));
     return {
       hours_35: h35, hours_night: hn, hours_holiday: hh,
       total_ot: h35 + hn + hh,
       total_worked: worked,
-      amount, amount_extra_only: amountExtraOnly,
+      shortfall,
+      net_hours_35: net35, net_hours_night: netN, net_hours_holiday: netH,
+      net_total_ot: net35 + netN + netH,
+      amount: grossAmount, net_amount: netAmount, net_amount_extra_only: netAmountExtra,
     };
-  }, [workedEntries, days, expectedHours, hourlyRate]);
+  }, [workedEntries, days, expectedHours, hourlyRate, offDates]);
 
   const submit = async () => {
     if (!employeeId) {
@@ -327,7 +375,7 @@ export default function OvertimePeriodDialog({
       return;
     }
     const worked_entries = Object.entries(workedEntries)
-      .filter(([, r]) => r.time_in && r.time_out)
+      .filter(([date, r]) => r.time_in && r.time_out && !offDates.has(date))
       .map(([date, r]) => ({
         date,
         time_in: r.time_in,
@@ -336,15 +384,16 @@ export default function OvertimePeriodDialog({
         is_holiday: !!r.is_holiday,
         notes: r.notes || null,
       }));
-    if (worked_entries.length === 0) {
-      toast.error(isEs ? "Ingresa entrada/salida en al menos un día" : "Enter time in/out on at least one day");
+    const days_off_dates = Array.from(offDates);
+    if (worked_entries.length === 0 && days_off_dates.length === 0) {
+      toast.error(isEs ? "Ingresa horario en al menos un día o marca días libres" : "Enter schedule on at least one day or mark days off");
       return;
     }
     setSaving(true);
     try {
       if (isEditMode) {
         await axios.put(`${API}/api/people-ops/overtime/periods/${editPeriod.overtime_period_id}`,
-          { worked_entries, reason, notes }, { withCredentials: true });
+          { worked_entries, days_off_dates, reason, notes }, { withCredentials: true });
         toast.success(isEs ? "Timesheet actualizado" : "Timesheet updated");
       } else {
         await axios.post(`${API}/api/people-ops/overtime/periods`, {
@@ -352,6 +401,7 @@ export default function OvertimePeriodDialog({
           period_type: periodType,
           ref_date: refDate,
           worked_entries,
+          days_off_dates,
           reason,
           notes,
         }, { withCredentials: true });
@@ -444,8 +494,13 @@ export default function OvertimePeriodDialog({
                       {isEs ? "Trabajadas:" : "Worked:"} <b>{totals.total_worked.toFixed(2)}h</b>
                     </span>
                     <span className="text-xs text-purple-800">
-                      {isEs ? "OT auto:" : "OT auto:"} <b>{totals.total_ot.toFixed(2)}h</b>
+                      {isEs ? "OT auto:" : "OT auto:"} <b>{totals.net_total_ot.toFixed(2)}h</b>
                     </span>
+                    {totals.shortfall > 0 && (
+                      <span className="text-xs text-orange-700">
+                        {isEs ? "Faltantes:" : "Shortfall:"} <b>−{totals.shortfall.toFixed(2)}h</b>
+                      </span>
+                    )}
                     <span className="text-xs text-slate-700">
                       {isEs ? "Tarifa horaria:" : "Hourly rate:"} <b>{formatRD(hourlyRate)}</b>
                     </span>
@@ -501,7 +556,8 @@ export default function OvertimePeriodDialog({
                   <th className="text-center px-2 py-2 font-medium text-xs uppercase text-slate-600">{isEs ? "Entrada" : "Time in"}</th>
                   <th className="text-center px-2 py-2 font-medium text-xs uppercase text-slate-600">{isEs ? "Salida" : "Time out"}</th>
                   <th className="text-center px-2 py-2 font-medium text-xs uppercase text-slate-600" title={isEs ? "Descanso en minutos" : "Break in minutes"}>{isEs ? "Descanso" : "Break"}</th>
-                  <th className="text-center px-2 py-2 font-medium text-xs uppercase text-slate-600">{isEs ? "Feriado" : "Holiday"}</th>
+                  <th className="text-center px-2 py-2 font-medium text-xs uppercase text-slate-600" title={isEs ? "Marca si es feriado nacional (100% recargo)" : "National holiday (100% surcharge)"}>{isEs ? "Feriado" : "Holiday"}</th>
+                  <th className="text-center px-2 py-2 font-medium text-xs uppercase text-slate-600" title={isEs ? "El empleado NO trabajó este día. Descuenta las horas base del OT." : "Employee did NOT work. Deducts base hours from OT."}>{isEs ? "Libre" : "Off"}</th>
                   <th className="text-right px-2 py-2 font-medium text-xs uppercase text-slate-600">{isEs ? "OT auto" : "OT auto"}</th>
                   <th className="text-right px-2 py-2 font-medium text-xs uppercase text-slate-600">{isEs ? "Monto" : "Amount"}</th>
                 </tr>
@@ -514,18 +570,20 @@ export default function OvertimePeriodDialog({
                   const row = workedEntries[iso] || {};
                   const baseHours = expectedHours ? (expectedHours.daily?.[iso] ?? 0) : 0;
                   const isDayOff = baseHours === 0 && expectedHours && !isSun;
+                  const isOff = offDates.has(iso);
                   const preview = previewOtForDay({
                     dow, baseHours,
                     timeIn: row.time_in, timeOut: row.time_out, breakMin: Number(row.break_min || 0),
-                    isHoliday: row.is_holiday,
+                    isHoliday: row.is_holiday, isOff,
                   });
                   const rowAmount = hourlyRate * (
                     preview.hours_35 * RATE_35 +
                     preview.hours_night * RATE_NIGHT +
                     preview.hours_holiday * RATE_HOLIDAY
                   );
+                  const rowShortfallAmount = hourlyRate * (preview.shortfall || 0) * RATE_35;
                   return (
-                    <tr key={iso} className={`border-b ${isSun ? "bg-red-50/40" : isDayOff ? "bg-slate-100/60" : ""}`}>
+                    <tr key={iso} className={`border-b ${isOff ? "bg-orange-50/60" : isSun ? "bg-red-50/40" : isDayOff ? "bg-slate-100/60" : ""}`}>
                       <td className="px-2 py-1.5">
                         <span className={`text-xs font-medium ${isSun ? "text-red-700" : ""}`}>
                           {(isEs ? DOW_ES : DOW_EN)[dow]}
@@ -542,6 +600,7 @@ export default function OvertimePeriodDialog({
                           onChange={(e) => setWorkedCell(iso, "time_in", e.target.value)}
                           className="h-7 text-xs w-24 mx-auto"
                           data-testid={`ot-worked-in-${iso}`}
+                          disabled={isOff}
                         />
                       </td>
                       <td className="px-1 py-1">
@@ -551,6 +610,7 @@ export default function OvertimePeriodDialog({
                           onChange={(e) => setWorkedCell(iso, "time_out", e.target.value)}
                           className="h-7 text-xs w-24 mx-auto"
                           data-testid={`ot-worked-out-${iso}`}
+                          disabled={isOff}
                         />
                       </td>
                       <td className="px-1 py-1">
@@ -563,6 +623,7 @@ export default function OvertimePeriodDialog({
                           placeholder="0"
                           className="h-7 text-right text-xs w-16 mx-auto"
                           data-testid={`ot-worked-break-${iso}`}
+                          disabled={isOff}
                         />
                       </td>
                       <td className="text-center px-1 py-1">
@@ -572,10 +633,25 @@ export default function OvertimePeriodDialog({
                           onChange={(e) => setWorkedCell(iso, "is_holiday", e.target.checked)}
                           className="w-4 h-4"
                           data-testid={`ot-worked-holiday-${iso}`}
+                          disabled={isOff}
+                        />
+                      </td>
+                      <td className="text-center px-1 py-1">
+                        <input
+                          type="checkbox"
+                          checked={isOff}
+                          onChange={(e) => toggleDayOff(iso, e.target.checked)}
+                          className="w-4 h-4"
+                          data-testid={`ot-worked-off-${iso}`}
+                          title={isEs ? "Marca día libre (no trabajó, descuenta horas base)" : "Mark day off (deducts base hours)"}
                         />
                       </td>
                       <td className="text-right px-2 py-1 text-xs font-mono">
-                        {preview.worked > 0 ? (
+                        {isOff ? (
+                          <span className="text-orange-700 font-semibold" data-testid={`ot-shortfall-${iso}`}>
+                            −{(preview.shortfall || 0).toFixed(2)}h
+                          </span>
+                        ) : preview.worked > 0 ? (
                           <div className="flex flex-col items-end">
                             <span className="text-slate-500">{preview.worked.toFixed(2)}h</span>
                             {(preview.hours_35 + preview.hours_night + preview.hours_holiday) > 0 && (
@@ -589,7 +665,11 @@ export default function OvertimePeriodDialog({
                         ) : <span className="text-slate-300">—</span>}
                       </td>
                       <td className="text-right px-2 py-1 text-xs font-mono">
-                        {rowAmount > 0 ? (
+                        {isOff && (preview.shortfall || 0) > 0 ? (
+                          <span className="text-orange-700 font-semibold" title={isEs ? "Descuento aproximado (a tarifa 35%)" : "Approx deduction (at 35% rate)"}>
+                            −{formatRD(rowShortfallAmount)}
+                          </span>
+                        ) : rowAmount > 0 ? (
                           <span className="text-emerald-700 font-semibold">{formatRD(rowAmount)}</span>
                         ) : <span className="text-slate-300">—</span>}
                       </td>
@@ -599,27 +679,30 @@ export default function OvertimePeriodDialog({
               </tbody>
               <tfoot className="bg-slate-100 font-semibold">
                 <tr>
-                  <td colSpan={6} className="px-2 py-2 text-right text-xs text-slate-600 uppercase">{isEs ? "Total OT del período:" : "Period OT total:"}</td>
+                  <td colSpan={7} className="px-2 py-2 text-right text-xs text-slate-600 uppercase">{isEs ? "Total OT del período:" : "Period OT total:"}</td>
                   <td className="text-right px-2 py-2">
                     <div className="flex flex-col items-end">
                       <Badge variant="outline" className="font-bold" data-testid="worked-period-total-ot">
-                        {totals.total_ot.toFixed(2)}h
+                        {totals.net_total_ot.toFixed(2)}h
+                        {totals.shortfall > 0 && (
+                          <span className="text-orange-600 ml-1 text-[10px]">(−{totals.shortfall.toFixed(2)}h)</span>
+                        )}
                       </Badge>
                       <div className="flex gap-1 text-[10px] mt-1">
-                        {totals.hours_35 > 0 && <span className="text-purple-700">35%:{totals.hours_35.toFixed(2)}</span>}
-                        {totals.hours_night > 0 && <span className="text-indigo-700">N:{totals.hours_night.toFixed(2)}</span>}
-                        {totals.hours_holiday > 0 && <span className="text-red-700">F:{totals.hours_holiday.toFixed(2)}</span>}
+                        {totals.net_hours_35 > 0 && <span className="text-purple-700">35%:{totals.net_hours_35.toFixed(2)}</span>}
+                        {totals.net_hours_night > 0 && <span className="text-indigo-700">N:{totals.net_hours_night.toFixed(2)}</span>}
+                        {totals.net_hours_holiday > 0 && <span className="text-red-700">F:{totals.net_hours_holiday.toFixed(2)}</span>}
                       </div>
                     </div>
                   </td>
                   <td className="text-right px-2 py-2">
                     <div className="flex flex-col items-end">
                       <Badge className="bg-emerald-600 text-white font-bold" data-testid="worked-period-amount">
-                        {formatRD(totals.amount)}
+                        {formatRD(totals.net_amount)}
                       </Badge>
-                      {totals.amount_extra_only > 0 && (
+                      {totals.net_amount_extra_only > 0 && (
                         <span className="text-[10px] text-slate-500 mt-0.5">
-                          {isEs ? "Recargo solo:" : "Surcharge only:"} {formatRD(totals.amount_extra_only)}
+                          {isEs ? "Recargo solo:" : "Surcharge only:"} {formatRD(totals.net_amount_extra_only)}
                         </span>
                       )}
                     </div>

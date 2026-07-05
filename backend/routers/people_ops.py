@@ -4558,6 +4558,26 @@ async def create_overtime_period(data: dict, user: User = Depends(get_current_us
     hourly_rate = await _employee_hourly_rate(employee, hours_per_month)
     totals, estimated_total, estimated_extra = _compute_period_totals_and_amount(normalized, hourly_rate, rates)
 
+    # Persist explicit day-off dates provided in this Timesheet so shortfall can apply
+    days_off_dates = data.get("days_off_dates") or []
+    if days_off_dates:
+        now_iso = datetime.now(timezone.utc).isoformat()
+        for iso in days_off_dates:
+            if not iso or iso < start_date or iso > end_date:
+                continue
+            await db.employee_days_off.update_one(
+                {"company_id": company_id, "employee_id": employee_id, "date": iso},
+                {"$set": {
+                    "company_id": company_id,
+                    "employee_id": employee_id,
+                    "employee_name": employee.get("full_name"),
+                    "date": iso,
+                    "source": "timesheet",
+                    "updated_at": now_iso,
+                }},
+                upsert=True,
+            )
+
     # Compute shortfall from schedule + time-off / days-off, apply to get effective (net) OT
     sched_gross, days_off_h, time_off_h = await _compute_shortfall_hours(company_id, employee_id, start_date, end_date)
     shortfall = days_off_h + time_off_h
@@ -4674,6 +4694,45 @@ async def update_overtime_period(overtime_period_id: str, data: dict, user: User
         rates, hours_per_month = await _resolve_ot_rates(company_id)
         hourly_rate = await _employee_hourly_rate(employee, hours_per_month)
         totals, estimated_total, estimated_extra = _compute_period_totals_and_amount(normalized, hourly_rate, rates)
+
+        # Persist explicit day-off dates provided in this Timesheet update
+        days_off_dates = data.get("days_off_dates") or []
+        if days_off_dates:
+            now_iso = datetime.now(timezone.utc).isoformat()
+            for iso in days_off_dates:
+                if not iso or iso < existing["start_date"] or iso > existing["end_date"]:
+                    continue
+                await db.employee_days_off.update_one(
+                    {"company_id": company_id, "employee_id": existing["employee_id"], "date": iso},
+                    {"$set": {
+                        "company_id": company_id,
+                        "employee_id": existing["employee_id"],
+                        "employee_name": existing.get("employee_name"),
+                        "date": iso,
+                        "source": "timesheet",
+                        "updated_at": now_iso,
+                    }},
+                    upsert=True,
+                )
+        # Remove day-off marks that were unchecked (present in DB for this period range
+        # from a previous save but NOT in the current days_off_dates list)
+        if "days_off_dates" in data:
+            keep = set(days_off_dates or [])
+            existing_days = await db.employee_days_off.find(
+                {"company_id": company_id, "employee_id": existing["employee_id"],
+                 "date": {"$gte": existing["start_date"], "$lte": existing["end_date"]},
+                 "source": "timesheet"},
+                {"_id": 0, "date": 1},
+            ).to_list(200)
+            to_remove = [d["date"] for d in existing_days if d.get("date") not in keep]
+            if to_remove:
+                await db.employee_days_off.delete_many({
+                    "company_id": company_id,
+                    "employee_id": existing["employee_id"],
+                    "date": {"$in": to_remove},
+                    "source": "timesheet",
+                })
+
         # Recompute shortfall too
         sched_gross, days_off_h, time_off_h = await _compute_shortfall_hours(
             company_id, existing["employee_id"], existing["start_date"], existing["end_date"],
@@ -6236,7 +6295,7 @@ async def get_employee_compensation_summary(employee_id: str, user: User = Depen
         "employee_id": employee_id,
         "employee_name": employee.get("full_name"),
         "base_salary": base_salary,
-        "payment_frequency": freq,
+        "payment_frequency": employee.get("payment_frequency", "biweekly"),
         "monthly_base_salary": round(monthly_base, 2),
         "monthly_benefits": round(monthly_benefits, 2),
         "monthly_deductions": round(monthly_deductions, 2),

@@ -1,0 +1,32 @@
+{
+  "summary": "Iteration 224 — Backend-only tests for Weekly Timesheet days_off_dates integration on POST/PUT /api/people-ops/overtime/periods. All 4 new tests pass. Regression: iter222 (9/9) still passes. iter223: 5/6 (one unrelated pre-existing failure — test_open_shift_excluded, open shifts leaking into aggregate-daily; NOT caused by iter224 changes).",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "GET /api/people-ops/time-clock/aggregate-daily", "issue": "test_open_shift_excluded (iter223 regression suite) fails: open shifts (clock_out=null) are still appearing in aggregate response. Endpoint should filter clock_out != None. Pre-existing — unrelated to iter224 diff."}
+    ]
+  },
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_timesheet_days_off_iter224.py",
+    "/app/test_reports/pytest/pytest_iter224.xml"
+  ],
+  "action_items": [
+    "Investigate iter223 aggregate-daily open-shift filter regression (pre-existing, not related to iter224)."
+  ],
+  "critical_code_review_comments": [
+    "days_off_dates upsert BEFORE _compute_shortfall_hours in both POST (line ~4562) and PUT (~4699) is correctly ordered — shortfall reflects the new marks.",
+    "Diff-cleanup filter uses source='timesheet' — manual (source missing/other) entries are safely preserved. Verified in test_D.",
+    "PUT only runs cleanup when the client explicitly sends `days_off_dates` key (`if 'days_off_dates' in data`), so partial-updates that don't touch day-offs won't accidentally wipe them. Good.",
+    "Minor: `days_off_dates` filtered per-item by period bounds (`if iso < start_date or iso > end_date: continue`) — no error raised for out-of-range dates. Consider returning 400 for stricter validation, but current lenient behavior is acceptable.",
+    "The upsert stores `updated_at` but no `created_at`/`created_by`/`day_off_id` when created via timesheet — inconsistent with manual entries. Downstream consumers that expect `day_off_id` (e.g., DELETE by id) will need to fetch by (company, employee, date). Not blocking but worth noting."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (4/4 new tests) + 9/9 iter222 + 5/6 iter223 (unrelated)", "frontend": "n/a"},
+  "test_credentials": "demo.agency@kora.com / Evoque2024!",
+  "seed_data_creation": "Created 8h Mon-Sun schedule (effective 2026-06-01) on first active employee; forced base_salary=50000 biweekly; created transient employee_days_off rows (dates 2026-06-20/27/28) and overtime_period_requests for biweekly 2026-06-16..2026-06-30. All cleaned up in module teardown + per-test autouse fixture.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "iter224 spec fully covered by /app/backend/tests/test_timesheet_days_off_iter224.py (4 tests). Run with REACT_APP_BACKEND_URL exported. Pre-existing iter223 open-shift bug (test_open_shift_excluded) should be flagged if main agent hasn't already picked it up.",
+  "rca of the issue": "n/a — no bugs in iter224 scope. Feature works as specified: (a) POST upserts source='timesheet' day-offs BEFORE shortfall calc; (b) shortfall_hours matches sum of pattern hours for those dates; (c) estimated_amount_effective < estimated_amount; (d) PUT diff-based cleanup removes only source='timesheet' rows no longer in payload; (e) manually-added day-offs (source missing) are preserved."
+}
