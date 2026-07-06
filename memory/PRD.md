@@ -1,5 +1,38 @@
 # Kora OS — Product Requirements Document
 
+## OT Nocturna: Recargos Apilados 35%+15%=50% (Feb 4, 2026)
+
+**Status:** ✅ Verificado end-to-end. Regresión 12/12 PASS.
+
+### Bug corregido
+Antes: horas OT nocturnas se pagaban solo al 15% (`hours_night × 1.15`). Esto viola la interpretación estándar de RRHH en RD donde recargos se APILAN: si la hora es EXTRA (35%) Y nocturna (15%), se paga 50% recargo total.
+
+### Nueva regla (default)
+`rate_night_effective = rate_35 + rate_night_config - 1.0 = 1.35 + 1.15 - 1.0 = 1.50`
+
+Referencia legal: Código de Trabajo RD Art. 149 (nocturno) + Art. 203 (extraordinario).
+
+### Configurable
+Nuevo campo `payroll_config.overtime_night_stack_surcharges: bool = True` (default apilado).
+- Toggle en `PayrollConfigSection.js` con borde índigo y explicación en 2 idiomas.
+- Cuando `False`: usa la tasa `overtime_rate_night` cruda (típicamente 1.15).
+
+### Impacto verificado
+Empleado con base RD$23k mensual, tarifa RD$119.79/h, 4h OT nocturnas:
+- **Con stack (default)**: RD$2,343.75
+- **Sin stack**: RD$1,796.87
+- Diferencia: +30% para el empleado
+
+### Backend
+- `_resolve_ot_rates` en `people_ops.py` computa `rate_night` efectivo según el toggle. Retorna también `rate_night_raw` y `rate_night_stacked` para trazabilidad.
+- Todas las funciones que consumen rates (`create_overtime_period`, `update_overtime_period`, `_compute_period_totals_and_amount`, `pay_period_computation`) ya usan la tasa efectiva.
+
+### Backward compat
+- Si config existente no tiene el flag → asume `True` (default apilado).
+- Empresas que quieren mantener 1.15 solo tienen que desactivar el toggle.
+
+
+
 ## OT Strict vs Lenient Configurable (Feb 4, 2026)
 
 **Status:** ✅ Verificado end-to-end. Regresión 17/17 PASS.

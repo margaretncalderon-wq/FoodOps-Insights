@@ -468,6 +468,27 @@ export function PayrollConfigSection() {
                 </p>
               </div>
             </div>
+
+            <div className="flex items-start gap-3 p-3 rounded-md border border-indigo-200 bg-indigo-50/60">
+              <input
+                type="checkbox"
+                id="ot-night-stack-check"
+                checked={config?.overtime_night_stack_surcharges !== false}
+                onChange={(e) => handleChange("overtime_night_stack_surcharges", e.target.checked)}
+                className="w-4 h-4 mt-0.5"
+                data-testid="ot-night-stack-toggle"
+              />
+              <div className="flex-1">
+                <label htmlFor="ot-night-stack-check" className="text-sm font-medium cursor-pointer">
+                  {isEs ? "Apilar recargos: OT nocturna = 35% + 15% = 50%" : "Stack surcharges: night OT = 35% + 15% = 50%"}
+                </label>
+                <p className="text-[11px] text-indigo-800 mt-0.5">
+                  {isEs
+                    ? "Ley RD (Art. 149 + 203): las horas OT que caen en franja nocturna (21:00-06:00) apilan recargo de extras (35%) + recargo nocturno (15%) = 50%. Desactivar para pagar solo 15% en nocturnas OT (menos común)."
+                    : "DR Law (Art. 149 + 203): OT hours in the night window (21:00-06:00) stack overtime (35%) + night (15%) surcharges = 50%. Turn off to pay only 15% for night OT (less common)."}
+                </p>
+              </div>
+            </div>
           </CardContent>
         </Card>
 

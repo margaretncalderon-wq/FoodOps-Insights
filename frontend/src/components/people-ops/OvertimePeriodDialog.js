@@ -18,7 +18,8 @@ const PERIOD_LABELS = {
 
 const OT_HOURS_PER_MONTH = 192;
 const RATE_35 = 1.35;
-const RATE_NIGHT = 1.15;
+const RATE_NIGHT_RAW = 1.15;  // Base night surcharge (DR Art. 149)
+const RATE_NIGHT_STACKED = RATE_35 + RATE_NIGHT_RAW - 1.0;  // 1.35 + 0.15 = 1.50 (stacked: OT + night)
 const RATE_HOLIDAY = 2.0;
 
 function periodBounds(periodType, refDateISO) {
@@ -404,9 +405,10 @@ export default function OvertimePeriodDialog({
       const cutN = Math.min(netN, s); netN -= cutN; s -= cutN;
       const cutH = Math.min(netH, s); netH -= cutH; s -= cutH;
     }
-    const grossAmount = hourlyRate * (h35 * RATE_35 + hn * RATE_NIGHT + hh * RATE_HOLIDAY);
-    const netAmount = hourlyRate * (net35 * RATE_35 + netN * RATE_NIGHT + netH * RATE_HOLIDAY);
-    const netAmountExtra = hourlyRate * (net35 * (RATE_35 - 1) + netN * (RATE_NIGHT - 1) + netH * (RATE_HOLIDAY - 1));
+    const rNight = RATE_NIGHT_STACKED; // Frontend uses stacked (default). Backend authoritatively re-computes with company config.
+    const grossAmount = hourlyRate * (h35 * RATE_35 + hn * rNight + hh * RATE_HOLIDAY);
+    const netAmount = hourlyRate * (net35 * RATE_35 + netN * rNight + netH * RATE_HOLIDAY);
+    const netAmountExtra = hourlyRate * (net35 * (RATE_35 - 1) + netN * (rNight - 1) + netH * (RATE_HOLIDAY - 1));
     return {
       hours_35: h35, hours_night: hn, hours_holiday: hh,
       total_ot: h35 + hn + hh,
@@ -643,7 +645,7 @@ export default function OvertimePeriodDialog({
                   });
                   const rowAmount = hourlyRate * (
                     preview.hours_35 * RATE_35 +
-                    preview.hours_night * RATE_NIGHT +
+                    preview.hours_night * RATE_NIGHT_STACKED +
                     preview.hours_holiday * RATE_HOLIDAY
                   );
                   const rowShortfallAmount = hourlyRate * (preview.shortfall || 0) * RATE_35;

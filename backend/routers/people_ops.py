@@ -1760,6 +1760,7 @@ async def save_payroll_config(
         "overtime_rate_100": data.overtime_rate_100,
         "overtime_hours_per_month": data.overtime_hours_per_month,
         "overtime_strict_shortfall": data.overtime_strict_shortfall,
+        "overtime_night_stack_surcharges": data.overtime_night_stack_surcharges,
         "country_code": (data.country_code or "").upper()[:2] or None,
         "include_regalia": data.include_regalia,
         "regalia_months": data.regalia_months,
@@ -2656,7 +2657,9 @@ async def update_payroll_entry(
     
     config = await db.payroll_config.find_one({"company_id": company_id}, {"_id": 0}) or {}
     rate_35 = config.get("overtime_rate_35", 1.35)
-    rate_night = config.get("overtime_rate_night", 1.15)
+    rate_night_raw = config.get("overtime_rate_night", 1.15)
+    stack_night_cfg = bool(config.get("overtime_night_stack_surcharges", True))
+    rate_night = (rate_35 + rate_night_raw - 1.0) if stack_night_cfg else rate_night_raw
     rate_holiday = config.get("overtime_rate_holiday", 2.0)
     rate_100 = config.get("overtime_rate_100", 2.0)
     hours_per_month = config.get("overtime_hours_per_month", 192.0) or 192.0
@@ -4335,12 +4338,27 @@ def _compute_period_totals_and_amount(daily_entries: list, hourly_rate: float, r
 
 
 async def _resolve_ot_rates(company_id: str) -> tuple[dict, float]:
-    """Return ({rate_35, rate_night, rate_holiday, rate_100}, hours_per_month)."""
+    """Return ({rate_35, rate_night, rate_holiday, rate_100}, hours_per_month).
+
+    Night OT rate stacks surcharges by default (DR labor law: Art. 149 + 203):
+        rate_night_effective = 1 + (rate_35 - 1) + (rate_night_config - 1)
+                             = rate_35 + rate_night_config - 1
+                             = 1.35 + 1.15 - 1 = 1.50
+    When `overtime_night_stack_surcharges=False`, the raw configured
+    `overtime_rate_night` is used (only the 15% night surcharge, no OT stack).
+    """
     config = await db.payroll_config.find_one({"company_id": company_id}, {"_id": 0}) or {}
+    rate_35 = float(config.get("overtime_rate_35") or 1.35)
+    rate_night_raw = float(config.get("overtime_rate_night") or 1.15)
+    # Default: True (stack surcharges when OT hours also fall in night window)
+    stack_night = bool(config.get("overtime_night_stack_surcharges", True))
+    effective_night = (rate_35 + rate_night_raw - 1.0) if stack_night else rate_night_raw
     return (
         {
-            "rate_35": float(config.get("overtime_rate_35") or 1.35),
-            "rate_night": float(config.get("overtime_rate_night") or 1.15),
+            "rate_35": rate_35,
+            "rate_night": effective_night,
+            "rate_night_raw": rate_night_raw,
+            "rate_night_stacked": stack_night,
             "rate_holiday": float(config.get("overtime_rate_holiday") or 2.0),
             "rate_100": float(config.get("overtime_rate_100") or 2.0),
         },
@@ -4897,7 +4915,9 @@ async def _create_overtime_request_legacy(data: dict, user: User):
     
     config = await db.payroll_config.find_one({"company_id": company_id}, {"_id": 0}) or {}
     rate_35 = config.get("overtime_rate_35", 1.35)
-    rate_night = config.get("overtime_rate_night", 1.15)
+    rate_night_raw = config.get("overtime_rate_night", 1.15)
+    stack_night_cfg = bool(config.get("overtime_night_stack_surcharges", True))
+    rate_night = (rate_35 + rate_night_raw - 1.0) if stack_night_cfg else rate_night_raw
     rate_holiday = config.get("overtime_rate_holiday", 2.0)
     rate_100 = config.get("overtime_rate_100", 2.0)
     hours_per_month = config.get("overtime_hours_per_month", 192.0) or 192.0
