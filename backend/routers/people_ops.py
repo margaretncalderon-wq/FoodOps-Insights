@@ -6050,7 +6050,31 @@ async def create_offboarding(data: dict, user: User = Depends(get_current_user))
     }
     
     await db.offboarding.insert_one(offboarding)
-    
+
+    # If the caller requested immediate termination (single-click flow from the
+    # Salidas UI), auto-submit and auto-approve now. This sets the employee's
+    # `status='terminated'` immediately so they disappear from active lists.
+    if data.get("auto_approve"):
+        approval_now = datetime.now(timezone.utc)
+        await db.offboarding.update_one(
+            {"offboarding_id": offboarding_id},
+            {"$set": {
+                "status": "approved",
+                "approved_by": user.user_id,
+                "approved_by_name": user.name,
+                "approved_at": approval_now,
+                "updated_at": approval_now,
+            }},
+        )
+        await db.employees.update_one(
+            {"company_id": company_id, "employee_id": employee_id},
+            {"$set": {
+                "status": "terminated",
+                "termination_date": termination_date,
+                "updated_at": approval_now,
+            }},
+        )
+
     return {
         "offboarding_id": offboarding_id,
         "liquidation": liquidation,
@@ -6164,7 +6188,7 @@ async def approve_offboarding(offboarding_id: str, user: User = Depends(get_curr
     
     # Update employee status
     await db.employees.update_one(
-        {"employee_id": record.get("employee_id")},
+        {"company_id": company_id, "employee_id": record.get("employee_id")},
         {"$set": {
             "status": "terminated",
             "termination_date": record.get("termination_date"),
@@ -6173,6 +6197,46 @@ async def approve_offboarding(offboarding_id: str, user: User = Depends(get_curr
     )
     
     return {"message": "Offboarding approved, employee terminated"}
+
+
+@people_ops_router.post("/offboarding/reconcile-terminated")
+async def reconcile_terminated_employees(user: User = Depends(get_current_user)):
+    """Repair endpoint: for every offboarding record with status in
+    ['approved', 'processed'], ensure the corresponding employee is marked as
+    `status='terminated'`.
+
+    Fixes cases where the employee status was left as 'active' (e.g., legacy
+    records, race conditions, or the approve endpoint failing silently before
+    the fix that added company_id filter).
+    """
+    company_id = user.company_id or user.active_org_id
+    approved = await db.offboarding.find(
+        {"company_id": company_id, "status": {"$in": ["approved", "processed"]}},
+        {"_id": 0, "employee_id": 1, "termination_date": 1, "offboarding_id": 1},
+    ).to_list(2000)
+
+    updated = 0
+    now = datetime.now(timezone.utc)
+    for rec in approved:
+        emp = await db.employees.find_one(
+            {"company_id": company_id, "employee_id": rec.get("employee_id")},
+            {"_id": 0, "status": 1},
+        )
+        if not emp or emp.get("status") == "terminated":
+            continue
+        r = await db.employees.update_one(
+            {"company_id": company_id, "employee_id": rec.get("employee_id")},
+            {"$set": {
+                "status": "terminated",
+                "termination_date": rec.get("termination_date"),
+                "updated_at": now,
+            }},
+        )
+        if r.modified_count:
+            updated += 1
+    return {"total_records": len(approved), "employees_fixed": updated}
+
+
 
 
 @people_ops_router.delete("/offboarding/{offboarding_id}")

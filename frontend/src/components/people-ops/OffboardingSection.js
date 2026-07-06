@@ -61,7 +61,8 @@ export function OffboardingSection() {
     termination_date: "",
     last_working_day: "",
     pending_salary_days: 0,
-    reason: ""
+    reason: "",
+    auto_approve: true,
   });
 
   const fetchData = useCallback(async () => {
@@ -111,7 +112,8 @@ export function OffboardingSection() {
     setLiquidationPreview(null);
     setNewOffboarding({
       employee_id: "", termination_type: "resignation",
-      termination_date: "", last_working_day: "", pending_salary_days: 0, reason: ""
+      termination_date: "", last_working_day: "", pending_salary_days: 0, reason: "",
+      auto_approve: true,
     });
     fetchData();
   };
@@ -411,6 +413,27 @@ export function OffboardingSection() {
                   onChange={(e) => setNewOffboarding({ ...newOffboarding, reason: e.target.value })}
                   placeholder={isEs ? "Describa el motivo de la terminación..." : "Describe the reason for termination..."}
                 />
+              </div>
+
+              <div className="flex items-start gap-2 p-3 rounded-md border border-amber-200 bg-amber-50/60">
+                <input
+                  type="checkbox"
+                  id="auto-approve-check"
+                  checked={!!newOffboarding.auto_approve}
+                  onChange={(e) => setNewOffboarding({ ...newOffboarding, auto_approve: e.target.checked })}
+                  className="w-4 h-4 mt-0.5"
+                  data-testid="offboarding-auto-approve"
+                />
+                <div className="flex-1">
+                  <label htmlFor="auto-approve-check" className="text-sm font-medium cursor-pointer">
+                    {isEs ? "Terminar empleado inmediatamente" : "Terminate employee immediately"}
+                  </label>
+                  <p className="text-[11px] text-amber-800 mt-0.5">
+                    {isEs
+                      ? "Al aprobar, el empleado quedará marcado como TERMINATED y saldrá de listas activas (Directorio, CRM, Timesheet)."
+                      : "On approve, employee becomes TERMINATED and disappears from active lists (Directory, CRM, Timesheet)."}
+                  </p>
+                </div>
               </div>
 
               <DialogFooter>

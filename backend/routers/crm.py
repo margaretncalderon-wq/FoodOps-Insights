@@ -1848,23 +1848,30 @@ async def submit_lead_form(form_id: str, data: dict, campaign_code: Optional[str
 
 @crm_router.get("/team-members")
 async def get_team_members(user: User = Depends(get_current_user)):
-    """Get all active team members for owner assignment dropdown"""
-    # Get removed/revoked membership user_ids to exclude
-    removed_memberships = await db.memberships.find({
+    """Get all active team members for owner assignment dropdown.
+
+    Source-of-truth is the `memberships` collection — a user is only shown if
+    they have an ACTIVE membership in this company. This prevents stale/deleted
+    users from surfacing when the `users.is_active` flag was not set at delete
+    time.
+    """
+    # Active memberships → user_ids allowed to appear
+    memberships = await db.memberships.find({
         "$or": [{"company_id": user.company_id}, {"organization_id": user.company_id}],
-        "status": {"$in": ["removed", "revoked", "suspended"]}
-    }, {"_id": 0, "user_id": 1}).to_list(100)
-    removed_user_ids = [m["user_id"] for m in removed_memberships]
-    
-    query = {"company_id": user.company_id, "is_active": {"$ne": False}}
-    if removed_user_ids:
-        query["user_id"] = {"$nin": removed_user_ids}
-    
+        "status": {"$nin": ["removed", "revoked", "suspended", "inactive", "pending"]},
+    }, {"_id": 0, "user_id": 1, "role": 1}).to_list(500)
+    active_user_ids = list({m.get("user_id") for m in memberships if m.get("user_id")})
+    if not active_user_ids:
+        return []
+
     users = await db.users.find(
-        query,
+        {
+            "user_id": {"$in": active_user_ids},
+            "is_active": {"$ne": False},
+        },
         {"_id": 0, "user_id": 1, "name": 1, "first_name": 1, "last_name": 1, "email": 1, "role_id": 1}
-    ).to_list(100)
-    
+    ).to_list(500)
+
     # Ensure each user has a display name: name → first_name + last_name → email fallback
     for u in users:
         if not u.get("name"):
@@ -1879,7 +1886,7 @@ async def get_team_members(user: User = Depends(get_current_user)):
                     u["name"] = email.split("@")[0].replace(".", " ").title()
                 else:
                     u["name"] = f"User {u.get('user_id', '')[-6:]}"
-    
+
     return users
 
 

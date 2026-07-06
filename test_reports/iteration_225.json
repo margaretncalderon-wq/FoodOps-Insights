@@ -1,0 +1,32 @@
+{
+  "summary": "Backend-only tests for offboarding auto_approve, default draft, reconcile-terminated, and CRM /team-members membership-based filtering. All 5 tests passed against preview URL.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_offboarding_crm_iter225.py",
+    "/app/test_reports/pytest/iter225.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "GET /api/people-ops/employees returns ALL employees (including terminated) by default. Frontend must pass ?status=active (or filter client-side) to hide terminated employees. The review request assumed the endpoint has an implicit active filter — it does not. Confirmed the terminated employee is correctly excluded when ?status=active is used.",
+    "reconcile-terminated endpoint has no role/permission check beyond get_current_user — any authenticated user in the company can trigger a bulk mutation. Consider restricting to admin/hr.",
+    "CRM /team-members still combines memberships filter with users.is_active {$ne: False}. This matches user C case (field missing) but if a user's is_active is explicitly False while membership is active, they will be excluded. Behavior appears intentional but worth documenting."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_offboarding_crm_iter225.py (new)"
+  ],
+  "success_rate": {"backend": "100%", "frontend": "n/a"},
+  "test_credentials": "demo.agency@kora.com / Evoque2024!",
+  "seed_data_creation": "Tests create ephemeral employees, offboarding records, users, and memberships prefixed with test_iter225_ / usr_test225_ / mem_test225_ and clean them up in finally blocks.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Test file at /app/backend/tests/test_offboarding_crm_iter225.py. Requires env: REACT_APP_BACKEND_URL, MONGO_URL, DB_NAME. All 5 tests passed. Covers: (1) POST /people-ops/offboarding with auto_approve=true → offboarding.status='approved', employee.status='terminated'; (2) POST without auto_approve → draft + employee remains active; (3) POST /offboarding/reconcile-terminated fixes stuck approved records; (4) GET /crm/team-members includes users with active membership (even if users.is_active missing), excludes users with removed membership; (5) empty case returns list.",
+  "rca_of_the_issue": "Fixes verified. Auto-approve branch correctly sets both offboarding.status='approved' and employee.status='terminated' atomically in a single POST. Reconcile endpoint correctly repairs historical stuck records. CRM team-members refactor to memberships-first correctly excludes removed users while including users with missing is_active field."
+}
