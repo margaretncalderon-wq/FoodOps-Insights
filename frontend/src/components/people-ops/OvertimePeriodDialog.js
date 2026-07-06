@@ -69,9 +69,14 @@ function computeWorkedMinutes(timeIn, timeOut, breakMin) {
   if (!timeIn || !timeOut) return { total: 0, night: 0 };
   const [ih, im] = timeIn.split(":").map(Number);
   const [oh, om] = timeOut.split(":").map(Number);
+  if (Number.isNaN(ih) || Number.isNaN(im) || Number.isNaN(oh) || Number.isNaN(om)) {
+    return { total: 0, night: 0 };
+  }
   let ti = ih * 60 + im;
   let to = oh * 60 + om;
-  if (to <= ti) to += 24 * 60;
+  // Only assume overnight shift when salida is STRICTLY less than entrada.
+  // Equal times (e.g. 12:30 → 12:30) should be treated as 0 hours, NOT 24h.
+  if (to < ti) to += 24 * 60;
   const total = Math.max(0, to - ti - Number(breakMin || 0));
   let night = 0;
   for (let m = ti; m < to; m++) {
@@ -637,8 +642,9 @@ export default function OvertimePeriodDialog({
                       : vac.type === "personal" ? (isEs ? "Personal" : "Personal")
                       : (vac.type || "off")
                   ) : "";
+                  const isSameTime = row.time_in && row.time_out && row.time_in === row.time_out && !isOff;
                   return (
-                    <tr key={iso} className={`border-b ${isVac ? "bg-blue-50/70" : offDates.has(iso) ? "bg-orange-50/60" : isSun ? "bg-red-50/40" : isDayOff ? "bg-slate-100/60" : ""}`}>
+                    <tr key={iso} className={`border-b ${isVac ? "bg-blue-50/70" : offDates.has(iso) ? "bg-orange-50/60" : isSameTime ? "bg-red-50/60" : isSun ? "bg-red-50/40" : isDayOff ? "bg-slate-100/60" : ""}`}>
                       <td className="px-2 py-1.5">
                         <div className="flex flex-col">
                           <span className={`text-xs font-medium ${isSun ? "text-red-700" : ""}`}>
@@ -715,6 +721,10 @@ export default function OvertimePeriodDialog({
                         {isOff ? (
                           <span className={`font-semibold ${isVac ? "text-blue-700" : "text-orange-700"}`} data-testid={`ot-shortfall-${iso}`}>
                             −{(preview.shortfall || 0).toFixed(2)}h
+                          </span>
+                        ) : isSameTime ? (
+                          <span className="text-red-600 text-[10px] font-medium" title={isEs ? "Entrada y salida iguales: 0h" : "Same in/out: 0h"}>
+                            ⚠ {isEs ? "iguales" : "same"}
                           </span>
                         ) : preview.worked > 0 ? (
                           <div className="flex flex-col items-end">

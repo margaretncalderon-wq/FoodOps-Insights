@@ -4373,7 +4373,9 @@ def _compute_worked_and_night_minutes(time_in: str, time_out: str, break_min: in
         return 0, 0
     ti = _time_to_minutes(time_in)
     to = _time_to_minutes(time_out)
-    if to <= ti:
+    # Only assume overnight when salida is STRICTLY less than entrada.
+    # Equal times (e.g. 12:30 → 12:30) means 0h worked, not 24h.
+    if to < ti:
         to += 24 * 60  # crosses midnight
     total = max(0, to - ti - int(break_min or 0))
     if total == 0:
