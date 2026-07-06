@@ -427,6 +427,7 @@ class PayrollConfigCreate(BaseModel):
     overtime_rate_holiday: float = 2.0  # Día feriado / domingo (100% extra)
     overtime_rate_100: float = 2.0   # Hora extra al 100% (>68 hrs/semana RD)
     overtime_hours_per_month: float = 192.0  # Hours used to derive hourly rate from monthly salary
+    overtime_strict_shortfall: bool = True  # STRICT: partial workdays (worked < base) deduct from OT. LENIENT: only marked days-off/vacations count.
     
     # Country code for OT rate defaults & labels (ISO-2). Falls back to company.country.
     country_code: Optional[str] = None  # e.g. "DO", "MX", "CO", "US"

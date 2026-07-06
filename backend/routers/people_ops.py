@@ -1759,6 +1759,7 @@ async def save_payroll_config(
         "overtime_rate_holiday": data.overtime_rate_holiday,
         "overtime_rate_100": data.overtime_rate_100,
         "overtime_hours_per_month": data.overtime_hours_per_month,
+        "overtime_strict_shortfall": data.overtime_strict_shortfall,
         "country_code": (data.country_code or "").upper()[:2] or None,
         "include_regalia": data.include_regalia,
         "regalia_months": data.regalia_months,
@@ -4587,8 +4588,10 @@ async def create_overtime_period(data: dict, user: User = Depends(get_current_us
 
     # Compute shortfall from schedule + time-off / days-off, apply to get effective (net) OT
     sched_gross, days_off_h, time_off_h = await _compute_shortfall_hours(company_id, employee_id, start_date, end_date)
-    # STRICT mode: partial days (worked < base) also deduct from OT
-    partial_short_h = round(sum(float(e.get("partial_shortfall_hours") or 0) for e in normalized), 2)
+    # STRICT mode: partial days (worked < base) also deduct from OT. Respect company config.
+    strict_config = await db.payroll_config.find_one({"company_id": company_id}, {"_id": 0, "overtime_strict_shortfall": 1})
+    strict_mode = True if not strict_config else bool(strict_config.get("overtime_strict_shortfall", True))
+    partial_short_h = round(sum(float(e.get("partial_shortfall_hours") or 0) for e in normalized), 2) if strict_mode else 0.0
     shortfall = days_off_h + time_off_h + partial_short_h
     net_totals = _apply_shortfall_to_totals(totals, shortfall)
     net_amount_total = round(
@@ -4747,8 +4750,10 @@ async def update_overtime_period(overtime_period_id: str, data: dict, user: User
         sched_gross, days_off_h, time_off_h = await _compute_shortfall_hours(
             company_id, existing["employee_id"], existing["start_date"], existing["end_date"],
         )
-        # STRICT mode: partial days (worked < base) also deduct from OT
-        partial_short_h = round(sum(float(e.get("partial_shortfall_hours") or 0) for e in normalized), 2)
+        # STRICT mode: partial days (worked < base) also deduct from OT. Respect company config.
+        strict_config = await db.payroll_config.find_one({"company_id": company_id}, {"_id": 0, "overtime_strict_shortfall": 1})
+        strict_mode = True if not strict_config else bool(strict_config.get("overtime_strict_shortfall", True))
+        partial_short_h = round(sum(float(e.get("partial_shortfall_hours") or 0) for e in normalized), 2) if strict_mode else 0.0
         shortfall = days_off_h + time_off_h + partial_short_h
         net_totals = _apply_shortfall_to_totals(totals, shortfall)
         net_amount_total = round(

@@ -447,6 +447,27 @@ export function PayrollConfigSection() {
                 {isEs ? "Para calcular valor hora normal (DO: 192, MX: 192, CO: 240, US: 173)" : "To compute regular hourly rate (DO: 192, MX: 192, CO: 240, US: 173)"}
               </p>
             </div>
+
+            <div className="flex items-start gap-3 p-3 rounded-md border border-amber-200 bg-amber-50/60">
+              <input
+                type="checkbox"
+                id="ot-strict-check"
+                checked={config?.overtime_strict_shortfall !== false}
+                onChange={(e) => handleChange("overtime_strict_shortfall", e.target.checked)}
+                className="w-4 h-4 mt-0.5"
+                data-testid="ot-strict-shortfall-toggle"
+              />
+              <div className="flex-1">
+                <label htmlFor="ot-strict-check" className="text-sm font-medium cursor-pointer">
+                  {isEs ? "Modo estricto: horas parciales descuentan del OT" : "Strict mode: partial workdays deduct from OT"}
+                </label>
+                <p className="text-[11px] text-amber-800 mt-0.5">
+                  {isEs
+                    ? "Si un empleado trabaja MENOS que su horario base un día (ej. 7h de 8h), esa 1h faltante se descuenta del OT acumulado del período. Desactivar para modo lenient (solo días marcados Libre o vacaciones descuentan)."
+                    : "If an employee works LESS than their base schedule (e.g. 7h of 8h), the missing 1h deducts from period OT. Turn off for lenient mode (only marked days-off / vacations deduct)."}
+                </p>
+              </div>
+            </div>
           </CardContent>
         </Card>
 

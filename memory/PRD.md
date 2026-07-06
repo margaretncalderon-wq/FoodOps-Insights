@@ -1,5 +1,23 @@
 # Kora OS — Product Requirements Document
 
+## OT Strict vs Lenient Configurable (Feb 4, 2026)
+
+**Status:** ✅ Verificado end-to-end. Regresión 17/17 PASS.
+
+### Feature
+Cada empresa (tenant) puede elegir su política de shortfall parcial vía **Payroll Config** → nuevo toggle **"Modo estricto: horas parciales descuentan del OT"**.
+
+- **Estricto (default `True`)**: Jue 7h + Vie 10h → OT bruto 2h, faltantes 1h, neto **1h · RD$527.34**
+- **Lenient (default `False`)**: Jue 7h + Vie 10h → OT bruto 2h, faltantes 0h, neto **2h · RD$1,054.69**
+
+### Cambios técnicos
+- `PayrollConfigCreate.overtime_strict_shortfall: bool = True` (nuevo campo)
+- `create_overtime_period` y `update_overtime_period` leen `payroll_config.overtime_strict_shortfall` antes de sumar `partial_short_h`
+- Frontend `PayrollConfigSection.js` — nuevo checkbox amber con explicación clara
+- Backward compat: si el config no tiene el campo, se asume `True` (comportamiento estricto por defecto)
+
+
+
 ## OT Modo Estricto: Partial Shortfall (Feb 4, 2026)
 
 **Status:** ✅ Verificado end-to-end. Regresión 17/17 PASS.
