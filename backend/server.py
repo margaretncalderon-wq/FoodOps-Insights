@@ -17049,6 +17049,9 @@ async def startup_init_plans():
     await create_indexes()
     # Migrate company_entities: normalize id fields
     await _migrate_company_entity_ids()
+    # Multi-tenant self-healing migrations (idempotent, safe to run on every boot)
+    await _migrate_reconcile_terminated_employees()
+    await _migrate_deactivate_orphaned_users()
     # Start background scheduler (daily sales alerts cron)
     try:
         from scheduler import start_scheduler
@@ -17056,6 +17059,78 @@ async def startup_init_plans():
     except Exception as e:
         import logging
         logging.getLogger(__name__).warning(f"Scheduler failed to start: {e}")
+
+
+async def _migrate_reconcile_terminated_employees():
+    """Self-healing (all tenants): for every offboarding record with status in
+    ['approved', 'processed'], ensure the corresponding employee.status is
+    'terminated'. Fixes historical cases where an approve step didn't propagate
+    to the employee record. Idempotent — safe on every boot.
+    """
+    try:
+        approved = await db.offboarding.find(
+            {"status": {"$in": ["approved", "processed"]}},
+            {"_id": 0, "employee_id": 1, "company_id": 1, "termination_date": 1},
+        ).to_list(20000)
+        fixed = 0
+        for rec in approved:
+            emp_id = rec.get("employee_id")
+            company_id = rec.get("company_id")
+            if not emp_id or not company_id:
+                continue
+            r = await db.employees.update_one(
+                {"company_id": company_id, "employee_id": emp_id, "status": {"$ne": "terminated"}},
+                {"$set": {
+                    "status": "terminated",
+                    "termination_date": rec.get("termination_date"),
+                    "updated_at": datetime.now(timezone.utc).isoformat(),
+                }},
+            )
+            if r.modified_count:
+                fixed += 1
+        if fixed:
+            print(f"[Migration] Reconciled {fixed} terminated employees across all tenants")
+    except Exception as e:
+        print(f"[Migration] reconcile_terminated_employees skipped: {e}")
+
+
+async def _migrate_deactivate_orphaned_users():
+    """Self-healing (all tenants): users whose ONLY memberships are in
+    [removed, revoked, suspended, inactive] should have `is_active=false`.
+    Prevents deleted users from surfacing in CRM salesperson dropdowns and
+    other user-selection lists.
+    Idempotent — safe on every boot.
+    """
+    try:
+        # Aggregate memberships by user_id → set of statuses
+        pipeline = [
+            {"$group": {"_id": "$user_id", "statuses": {"$addToSet": "$status"}}},
+        ]
+        cursor = db.memberships.aggregate(pipeline)
+        inactive_statuses = {"removed", "revoked", "suspended", "inactive", "pending"}
+        orphan_user_ids: list[str] = []
+        async for row in cursor:
+            uid = row.get("_id")
+            statuses = set(row.get("statuses") or [])
+            if not uid or not statuses:
+                continue
+            # If all memberships are in inactive_statuses, mark user inactive
+            if statuses and statuses.issubset(inactive_statuses):
+                orphan_user_ids.append(uid)
+
+        fixed = 0
+        if orphan_user_ids:
+            for chunk_start in range(0, len(orphan_user_ids), 500):
+                chunk = orphan_user_ids[chunk_start:chunk_start + 500]
+                r = await db.users.update_many(
+                    {"user_id": {"$in": chunk}, "is_active": {"$ne": False}},
+                    {"$set": {"is_active": False, "updated_at": datetime.now(timezone.utc).isoformat()}},
+                )
+                fixed += r.modified_count
+        if fixed:
+            print(f"[Migration] Deactivated {fixed} orphaned users across all tenants")
+    except Exception as e:
+        print(f"[Migration] deactivate_orphaned_users skipped: {e}")
 
 
 async def _migrate_company_entity_ids():

@@ -1,5 +1,38 @@
 # Kora OS — Product Requirements Document
 
+## Auto-Repair Multi-Tenant en Startup (Feb 4, 2026)
+
+**Status:** ✅ Ejecutado en boot → "Deactivated 2 orphaned users across all tenants".
+
+### Motivación
+El usuario reportó que al rediseñar en producción los bugs solo se arreglaban para él. Como app multi-tenant, se necesitaba una auto-reparación que corriera para TODAS las empresas sin intervención manual.
+
+### Migraciones idempotentes agregadas al `@app.on_event("startup")` en `/app/backend/server.py`
+
+**1. `_migrate_reconcile_terminated_employees()`**
+- Recorre TODOS los `offboarding` con status ∈ {approved, processed} en la BD entera
+- Fuerza `employees.status='terminated'` para el `employee_id` correspondiente si aún estaba activo
+- Multi-tenant: sin filtro de company_id (todas las empresas al mismo tiempo)
+- Idempotente: no toca a los que ya están terminated
+
+**2. `_migrate_deactivate_orphaned_users()`**
+- Agrupa memberships por user_id
+- Si todos los statuses del user están en {removed, revoked, suspended, inactive, pending} → `users.is_active=false`
+- Multi-tenant: sin filtro de company_id
+- Idempotente: solo actualiza si no está ya en false
+- Escritura en chunks de 500
+
+### Efecto en producción
+Con el próximo redeploy:
+- Todas las Agustinas de todos los tenants quedan `terminated` automáticamente
+- Todos los usuarios borrados de todos los tenants quedan `is_active=false` → dejan de aparecer en CRM/mentions/dropdowns
+- Los logs de backend imprimen cuántos se fixearon
+
+### Prevención de recurrencia
+Los fixes de flujo (`auto_approve` default + `get_team_members` memberships-first) previenen que estos bugs vuelvan a aparecer para NUEVOS casos post-deploy.
+
+
+
 ## Fix Producción: Salidas + Vendedores fantasma en CRM (Feb 4, 2026)
 
 **Status:** ✅ 5/5 backend tests PASS (iter 225).
