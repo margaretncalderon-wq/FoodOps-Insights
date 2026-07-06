@@ -1,5 +1,36 @@
 # Kora OS — Product Requirements Document
 
+## Fix Producción: Salidas + Vendedores fantasma en CRM (Feb 4, 2026)
+
+**Status:** ✅ 5/5 backend tests PASS (iter 225).
+
+### Bugs reportados en PRODUCCIÓN
+1. Empleada "Agustina" con salida procesada seguía apareciendo como **activa** en todas las vistas.
+2. Usuarios borrados seguían apareciendo como **vendedores** en el CRM.
+
+### Causa raíz
+1. El flujo Offboarding requería 3 pasos: create → submit → approve. Solo `approve_offboarding` setea `employee.status='terminated'`. Los usuarios se olvidan de completar todo, o el paso quedaba a medias.
+2. `GET /crm/team-members` filtraba por `users.is_active != false`. Si el campo `is_active` estaba faltante (undefined) el usuario pasaba el filtro aunque su membresía estuviera `removed`.
+
+### Fixes
+**Backend:**
+- `POST /api/people-ops/offboarding` acepta `auto_approve: true` → crea + auto-aprueba + marca empleado terminado en un solo call.
+- `POST /api/people-ops/offboarding/reconcile-terminated` — endpoint de reparación. Recorre todos los offboarding `approved`/`processed` y fuerza `employee.status='terminated'`. Idempotente. Esto arregla a Agustina en un click.
+- `approve_offboarding` ahora filtra el update de `employees` por `company_id` (defensa contra data cross-tenant).
+- `GET /api/crm/team-members` refactorizado a **memberships-first**: solo usuarios con membresía activa (`status NOT IN [removed, revoked, suspended, inactive, pending]`) aparecen en el dropdown.
+
+**Frontend:**
+- Diálogo "Salidas" tiene nuevo checkbox **"Terminar empleado inmediatamente"** (default `true`) con banner amarillo explicativo.
+
+### Cómo aplicar en producción
+1. **Rediseña** para llevar el fix a producción.
+2. **Para Agustina**: llama a `POST /api/people-ops/offboarding/reconcile-terminated` (o toca botón desde UI si lo agrego). Un solo hit corrige todas las históricas.
+
+### Test coverage
+- `/app/backend/tests/test_offboarding_crm_iter225.py` — 5 tests.
+
+
+
 ## Auto-marcar Vacaciones Aprobadas en el Timesheet (Feb 4, 2026)
 
 **Status:** ✅ Regresión 13/13 PASS. Feature de solo frontend (backend ya lo soportaba).
