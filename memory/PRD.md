@@ -1,5 +1,38 @@
 # Kora OS — Product Requirements Document
 
+## OT Modo Estricto: Partial Shortfall (Feb 4, 2026)
+
+**Status:** ✅ Verificado end-to-end. Regresión 17/17 PASS.
+
+### Feature
+Cuando un empleado trabaja MENOS que su horario base ese día (ej: base 8h, trabajó 7h → 1h faltante), esa 1h se descuenta automáticamente del OT acumulado del período. Cierra el loophole donde el empleado podía llegar tarde/salir temprano un día y aún cobrar OT completo otro día.
+
+### Regla
+- Domingo o feriado → todo lo trabajado = `hours_holiday` (no aplica partial short)
+- Trabajó > base → `OT = worked − base` (como antes)
+- Trabajó ≤ base → `partial_shortfall = base − worked` (nuevo, se suma al shortfall total)
+- Días marcados "Libre" o "Vacaciones" → shortfall = base_hours (como antes)
+
+### Backend
+- `_compute_daily_entries_from_worked` retorna `partial_shortfall_hours` por día
+- `create_overtime_period` y `update_overtime_period` suman esos partials al `shortfall` (`shortfall = days_off_h + time_off_h + partial_short_h`)
+- Doc guarda `shortfall_partial_hours` para trazabilidad
+- `estimated_amount_effective` refleja el neto real
+
+### Frontend
+- Filas donde trabajó < base ahora muestran **"−Xh faltantes"** en amarillo en la columna OT AUTO
+- Monto muestra descuento en amarillo
+- Header separa el shortfall en 3 fuentes: `vac:` (azul), `parc:` (amarillo, nuevas), y manual (naranja)
+
+### Ejemplo verificado
+Empleado con base 8h/día:
+- Jue: 08:00-15:00 (7h) → −1h partial
+- Vie: 08:00-18:00 (10h) → +2h OT
+- Bruto: 2h OT · Neto: 2−1 = 1h OT
+- `estimated_amount_effective` = 50% del `estimated_amount`
+
+
+
 ## Auto-Repair Multi-Tenant en Startup (Feb 4, 2026)
 
 **Status:** ✅ Ejecutado en boot → "Deactivated 2 orphaned users across all tenants".

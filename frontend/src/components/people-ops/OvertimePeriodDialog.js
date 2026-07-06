@@ -99,7 +99,11 @@ function previewOtForDay({ dow, baseHours, timeIn, timeOut, breakMin, isHoliday,
     return { hours_35: 0, hours_night: 0, hours_holiday: workedH, worked: workedH, shortfall: 0 };
   }
   const otTotal = Math.max(0, workedH - (baseHours || 0));
-  if (otTotal <= 0) return { hours_35: 0, hours_night: 0, hours_holiday: 0, worked: workedH, shortfall: 0 };
+  if (otTotal <= 0) {
+    // STRICT mode: worked less than base scheduled → partial shortfall
+    const partialShort = (baseHours || 0) > 0 && workedH < (baseHours || 0) ? (baseHours - workedH) : 0;
+    return { hours_35: 0, hours_night: 0, hours_holiday: 0, worked: workedH, shortfall: partialShort, partial: partialShort > 0 };
+  }
   const nightOt = Math.min(nightH, otTotal);
   return {
     hours_35: Math.max(0, otTotal - nightOt),
@@ -370,7 +374,7 @@ export default function OvertimePeriodDialog({
   };
 
   const totals = useMemo(() => {
-    let h35 = 0, hn = 0, hh = 0, worked = 0, shortfall = 0, shortfallVac = 0;
+    let h35 = 0, hn = 0, hh = 0, worked = 0, shortfall = 0, shortfallVac = 0, shortfallPartial = 0;
     days.forEach((iso) => {
       const [dy, dm, dd] = iso.split("-").map(Number);
       const dow = new Date(Date.UTC(dy, dm - 1, dd)).getUTCDay();
@@ -390,6 +394,7 @@ export default function OvertimePeriodDialog({
       const rowShort = p.shortfall || 0;
       shortfall += rowShort;
       if (isVacation) shortfallVac += rowShort;
+      if (p.partial) shortfallPartial += rowShort;
     });
     // Apply shortfall to OT categories (backend logic: consume from hours_35 first, then night, then holiday)
     let s = shortfall;
@@ -408,7 +413,8 @@ export default function OvertimePeriodDialog({
       total_worked: worked,
       shortfall,
       shortfall_vacation: shortfallVac,
-      shortfall_manual: shortfall - shortfallVac,
+      shortfall_partial: shortfallPartial,
+      shortfall_manual: shortfall - shortfallVac - shortfallPartial,
       net_hours_35: net35, net_hours_night: netN, net_hours_holiday: netH,
       net_total_ot: net35 + netN + netH,
       amount: grossAmount, net_amount: netAmount, net_amount_extra_only: netAmountExtra,
@@ -548,6 +554,11 @@ export default function OvertimePeriodDialog({
                         {totals.shortfall_vacation > 0 && (
                           <span className="text-blue-700 ml-1">
                             ({isEs ? "vac:" : "vac:"} −{totals.shortfall_vacation.toFixed(2)}h)
+                          </span>
+                        )}
+                        {totals.shortfall_partial > 0 && (
+                          <span className="text-amber-700 ml-1">
+                            ({isEs ? "parc:" : "part:"} −{totals.shortfall_partial.toFixed(2)}h)
                           </span>
                         )}
                       </span>
@@ -726,6 +737,13 @@ export default function OvertimePeriodDialog({
                           <span className="text-red-600 text-[10px] font-medium" title={isEs ? "Entrada y salida iguales: 0h" : "Same in/out: 0h"}>
                             ⚠ {isEs ? "iguales" : "same"}
                           </span>
+                        ) : preview.partial ? (
+                          <div className="flex flex-col items-end">
+                            <span className="text-slate-500">{preview.worked.toFixed(2)}h</span>
+                            <span className="text-amber-700 text-[10px] font-semibold" title={isEs ? `Trabajó ${preview.worked.toFixed(2)}h de ${baseHours}h base — descuenta ${(preview.shortfall || 0).toFixed(2)}h del OT` : `Worked ${preview.worked.toFixed(2)}h of ${baseHours}h base — deducts ${(preview.shortfall || 0).toFixed(2)}h from OT`}>
+                              −{(preview.shortfall || 0).toFixed(2)}h {isEs ? "faltantes" : "short"}
+                            </span>
+                          </div>
                         ) : preview.worked > 0 ? (
                           <div className="flex flex-col items-end">
                             <span className="text-slate-500">{preview.worked.toFixed(2)}h</span>
@@ -742,6 +760,10 @@ export default function OvertimePeriodDialog({
                       <td className="text-right px-2 py-1 text-xs font-mono">
                         {isOff && (preview.shortfall || 0) > 0 ? (
                           <span className={`font-semibold ${isVac ? "text-blue-700" : "text-orange-700"}`} title={isEs ? "Descuento aproximado (a tarifa 35%)" : "Approx deduction (at 35% rate)"}>
+                            −{formatRD(rowShortfallAmount)}
+                          </span>
+                        ) : preview.partial && (preview.shortfall || 0) > 0 ? (
+                          <span className="text-amber-700 font-semibold" title={isEs ? "Descuento por horas faltantes (a tarifa 35%)" : "Deduction for short hours (at 35% rate)"}>
                             −{formatRD(rowShortfallAmount)}
                           </span>
                         ) : rowAmount > 0 ? (

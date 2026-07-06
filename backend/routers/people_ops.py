@@ -4464,6 +4464,7 @@ async def _compute_daily_entries_from_worked(
         hn = 0.0
         hh = 0.0
         h100 = 0.0
+        partial_short = 0.0  # base_h - worked_h when worked < base (STRICT mode)
 
         if is_sunday or is_holiday_flag:
             # Everything worked counts as holiday/sunday premium (2.0×)
@@ -4478,6 +4479,9 @@ async def _compute_daily_entries_from_worked(
                 night_ot = min(night_h_total, ot_total_h)
                 h35 = round(max(0.0, ot_total_h - night_ot), 2)
                 hn = round(night_ot, 2)
+            elif base_h > 0 and worked_h < base_h:
+                # STRICT: worked less than scheduled → partial shortfall deducts from OT
+                partial_short = round(base_h - worked_h, 2)
 
         out.append({
             "date": iso,
@@ -4489,6 +4493,7 @@ async def _compute_daily_entries_from_worked(
             "worked_time_out": time_out,
             "worked_break_min": break_min,
             "worked_total_hours": round(worked_h, 2),
+            "partial_shortfall_hours": partial_short,
             "is_holiday_flag": is_holiday_flag,
             "notes": (e.get("notes") or "").strip() or None,
         })
@@ -4582,7 +4587,9 @@ async def create_overtime_period(data: dict, user: User = Depends(get_current_us
 
     # Compute shortfall from schedule + time-off / days-off, apply to get effective (net) OT
     sched_gross, days_off_h, time_off_h = await _compute_shortfall_hours(company_id, employee_id, start_date, end_date)
-    shortfall = days_off_h + time_off_h
+    # STRICT mode: partial days (worked < base) also deduct from OT
+    partial_short_h = round(sum(float(e.get("partial_shortfall_hours") or 0) for e in normalized), 2)
+    shortfall = days_off_h + time_off_h + partial_short_h
     net_totals = _apply_shortfall_to_totals(totals, shortfall)
     net_amount_total = round(
         net_totals["hours_35"] * hourly_rate * rates["rate_35"]
@@ -4622,6 +4629,7 @@ async def create_overtime_period(data: dict, user: User = Depends(get_current_us
         "shortfall_hours": round(shortfall, 2),
         "shortfall_days_off_hours": days_off_h,
         "shortfall_time_off_hours": time_off_h,
+        "shortfall_partial_hours": partial_short_h,
         "scheduled_gross_hours": sched_gross,
         "effective_totals": net_totals,
         "estimated_amount_effective": net_amount_total,
@@ -4739,7 +4747,9 @@ async def update_overtime_period(overtime_period_id: str, data: dict, user: User
         sched_gross, days_off_h, time_off_h = await _compute_shortfall_hours(
             company_id, existing["employee_id"], existing["start_date"], existing["end_date"],
         )
-        shortfall = days_off_h + time_off_h
+        # STRICT mode: partial days (worked < base) also deduct from OT
+        partial_short_h = round(sum(float(e.get("partial_shortfall_hours") or 0) for e in normalized), 2)
+        shortfall = days_off_h + time_off_h + partial_short_h
         net_totals = _apply_shortfall_to_totals(totals, shortfall)
         net_amount_total = round(
             net_totals["hours_35"] * hourly_rate * rates["rate_35"]
@@ -4765,6 +4775,7 @@ async def update_overtime_period(overtime_period_id: str, data: dict, user: User
             "shortfall_hours": round(shortfall, 2),
             "shortfall_days_off_hours": days_off_h,
             "shortfall_time_off_hours": time_off_h,
+            "shortfall_partial_hours": partial_short_h,
             "scheduled_gross_hours": sched_gross,
             "effective_totals": net_totals,
             "estimated_amount_effective": net_amount_total,
