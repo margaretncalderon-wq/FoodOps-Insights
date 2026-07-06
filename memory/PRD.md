@@ -1,5 +1,29 @@
 # Kora OS — Product Requirements Document
 
+## Auto-marcar Vacaciones Aprobadas en el Timesheet (Feb 4, 2026)
+
+**Status:** ✅ Regresión 13/13 PASS. Feature de solo frontend (backend ya lo soportaba).
+
+### Feature
+Al abrir el Timesheet Semanal, si el empleado tiene solicitudes de time-off aprobadas (colección `time_off_requests`) que solapen el período, esos días se muestran automáticamente como bloqueados/read-only con:
+- Fondo azul (vs naranja para "Libre" manual)
+- Etiqueta 🏖 **Vacaciones / Enfermedad / Personal** debajo del nombre del día
+- Checkbox "Libre" pre-marcado y deshabilitado (no se puede desmarcar desde el Timesheet — hay que rechazar/editar la solicitud original)
+- Preview de shortfall en azul (`−Xh` y `−RD$Y`)
+- Header muestra desglose: `Faltantes: −Xh (vac: −Yh)`
+
+### Sin doble descuento
+- Vacaciones se descuentan una sola vez por `_compute_shortfall_hours` → rama `time_off_h` (colección `time_off_requests`)
+- Días marcados como "Libre" manual → rama `days_off_h` (colección `employee_days_off`, source='timesheet')
+- El submit del Timesheet NO envía vacaciones en `days_off_dates`, sólo las manuales.
+
+### Cómo se ve
+- 🏖 azul = auto (viene de time-off aprobado)
+- 🔒 naranja = manual (marcado por gerente)
+- Ambos aplican shortfall al monto neto de la OT
+
+
+
 ## Timesheet — Marcar Días Libres + Fix Open Shifts (Feb 4, 2026)
 
 **Status:** ✅ 4/4 nuevos + 13/13 regresión (iter 224).

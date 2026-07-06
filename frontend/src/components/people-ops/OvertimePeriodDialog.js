@@ -125,6 +125,7 @@ export default function OvertimePeriodDialog({
   const [loadingSchedule, setLoadingSchedule] = useState(false);
   const [loadingTimeClock, setLoadingTimeClock] = useState(false);
   const [offDates, setOffDates] = useState(() => new Set());
+  const [vacationDates, setVacationDates] = useState(() => ({})); // {iso: {type, request_id, reason}}
   const isEditMode = !!editPeriod;
 
   useEffect(() => {
@@ -216,6 +217,41 @@ export default function OvertimePeriodDialog({
           setOffDates(new Set(list.map((d) => d.date)));
         } catch {
           // silent
+        }
+      })();
+      // Load approved time-off (vacations/sick/etc) overlapping this period
+      (async () => {
+        try {
+          const res = await axios.get(
+            `${API}/api/people-ops/time-off/requests?status=approved&employee_id=${employeeId}&limit=200`,
+            { withCredentials: true },
+          );
+          const list = Array.isArray(res.data) ? res.data : [];
+          const map = {};
+          list.forEach((r) => {
+            const s = r.start_date;
+            const e = r.end_date || r.start_date;
+            if (!s || !e || e < start || s > end) return;
+            // Expand date range and mark each covered day
+            const [y1, m1, d1] = s.split("-").map(Number);
+            const [y2, m2, d2] = e.split("-").map(Number);
+            const cur = new Date(Date.UTC(y1, m1 - 1, d1));
+            const stop = new Date(Date.UTC(y2, m2 - 1, d2));
+            while (cur <= stop) {
+              const iso = cur.toISOString().slice(0, 10);
+              if (iso >= start && iso <= end) {
+                map[iso] = {
+                  type: r.time_off_type || "vacation",
+                  request_id: r.request_id,
+                  reason: r.reason || "",
+                };
+              }
+              cur.setUTCDate(cur.getUTCDate() + 1);
+            }
+          });
+          setVacationDates(map);
+        } catch {
+          setVacationDates({});
         }
       })();
     }
@@ -329,13 +365,14 @@ export default function OvertimePeriodDialog({
   };
 
   const totals = useMemo(() => {
-    let h35 = 0, hn = 0, hh = 0, worked = 0, shortfall = 0;
+    let h35 = 0, hn = 0, hh = 0, worked = 0, shortfall = 0, shortfallVac = 0;
     days.forEach((iso) => {
       const [dy, dm, dd] = iso.split("-").map(Number);
       const dow = new Date(Date.UTC(dy, dm - 1, dd)).getUTCDay();
       const base = expectedHours ? (expectedHours.daily?.[iso] ?? 0) : 0;
       const row = workedEntries[iso] || {};
-      const isOff = offDates.has(iso);
+      const isVacation = !!vacationDates[iso];
+      const isOff = offDates.has(iso) || isVacation;
       const p = previewOtForDay({
         dow, baseHours: base,
         timeIn: row.time_in, timeOut: row.time_out, breakMin: Number(row.break_min || 0),
@@ -345,9 +382,11 @@ export default function OvertimePeriodDialog({
       hn += p.hours_night;
       hh += p.hours_holiday;
       worked += p.worked;
-      shortfall += p.shortfall || 0;
+      const rowShort = p.shortfall || 0;
+      shortfall += rowShort;
+      if (isVacation) shortfallVac += rowShort;
     });
-    // Apply shortfall to OT categories (backend logic: consume from hours_35 first, then night, then holiday, then 100)
+    // Apply shortfall to OT categories (backend logic: consume from hours_35 first, then night, then holiday)
     let s = shortfall;
     let net35 = h35, netN = hn, netH = hh;
     if (s > 0) {
@@ -363,11 +402,13 @@ export default function OvertimePeriodDialog({
       total_ot: h35 + hn + hh,
       total_worked: worked,
       shortfall,
+      shortfall_vacation: shortfallVac,
+      shortfall_manual: shortfall - shortfallVac,
       net_hours_35: net35, net_hours_night: netN, net_hours_holiday: netH,
       net_total_ot: net35 + netN + netH,
       amount: grossAmount, net_amount: netAmount, net_amount_extra_only: netAmountExtra,
     };
-  }, [workedEntries, days, expectedHours, hourlyRate, offDates]);
+  }, [workedEntries, days, expectedHours, hourlyRate, offDates, vacationDates]);
 
   const submit = async () => {
     if (!employeeId) {
@@ -375,7 +416,7 @@ export default function OvertimePeriodDialog({
       return;
     }
     const worked_entries = Object.entries(workedEntries)
-      .filter(([date, r]) => r.time_in && r.time_out && !offDates.has(date))
+      .filter(([date, r]) => r.time_in && r.time_out && !offDates.has(date) && !vacationDates[date])
       .map(([date, r]) => ({
         date,
         time_in: r.time_in,
@@ -499,6 +540,11 @@ export default function OvertimePeriodDialog({
                     {totals.shortfall > 0 && (
                       <span className="text-xs text-orange-700">
                         {isEs ? "Faltantes:" : "Shortfall:"} <b>−{totals.shortfall.toFixed(2)}h</b>
+                        {totals.shortfall_vacation > 0 && (
+                          <span className="text-blue-700 ml-1">
+                            ({isEs ? "vac:" : "vac:"} −{totals.shortfall_vacation.toFixed(2)}h)
+                          </span>
+                        )}
                       </span>
                     )}
                     <span className="text-xs text-slate-700">
@@ -570,7 +616,10 @@ export default function OvertimePeriodDialog({
                   const row = workedEntries[iso] || {};
                   const baseHours = expectedHours ? (expectedHours.daily?.[iso] ?? 0) : 0;
                   const isDayOff = baseHours === 0 && expectedHours && !isSun;
-                  const isOff = offDates.has(iso);
+                  const vac = vacationDates[iso];
+                  const isVac = !!vac;
+                  const isOff = offDates.has(iso) || isVac;
+                  const disabledInputs = isOff;
                   const preview = previewOtForDay({
                     dow, baseHours,
                     timeIn: row.time_in, timeOut: row.time_out, breakMin: Number(row.break_min || 0),
@@ -582,13 +631,26 @@ export default function OvertimePeriodDialog({
                     preview.hours_holiday * RATE_HOLIDAY
                   );
                   const rowShortfallAmount = hourlyRate * (preview.shortfall || 0) * RATE_35;
+                  const vacLabel = vac ? (
+                    vac.type === "vacation" ? (isEs ? "Vacaciones" : "Vacation")
+                      : vac.type === "sick" ? (isEs ? "Enfermedad" : "Sick")
+                      : vac.type === "personal" ? (isEs ? "Personal" : "Personal")
+                      : (vac.type || "off")
+                  ) : "";
                   return (
-                    <tr key={iso} className={`border-b ${isOff ? "bg-orange-50/60" : isSun ? "bg-red-50/40" : isDayOff ? "bg-slate-100/60" : ""}`}>
+                    <tr key={iso} className={`border-b ${isVac ? "bg-blue-50/70" : offDates.has(iso) ? "bg-orange-50/60" : isSun ? "bg-red-50/40" : isDayOff ? "bg-slate-100/60" : ""}`}>
                       <td className="px-2 py-1.5">
-                        <span className={`text-xs font-medium ${isSun ? "text-red-700" : ""}`}>
-                          {(isEs ? DOW_ES : DOW_EN)[dow]}
-                        </span>
-                        <span className="text-[10px] text-muted-foreground ml-1">{iso.slice(5)}</span>
+                        <div className="flex flex-col">
+                          <span className={`text-xs font-medium ${isSun ? "text-red-700" : ""}`}>
+                            {(isEs ? DOW_ES : DOW_EN)[dow]}
+                            <span className="text-[10px] text-muted-foreground ml-1">{iso.slice(5)}</span>
+                          </span>
+                          {isVac && (
+                            <span className="text-[10px] text-blue-700 font-semibold" title={vac.reason || ""}>
+                              🏖 {vacLabel}
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className={`text-right px-2 py-1 text-xs font-mono ${isDayOff ? "text-slate-400" : "text-slate-600"}`}>
                         {isDayOff ? (isEs ? "libre" : "off") : `${baseHours}h`}
@@ -600,7 +662,7 @@ export default function OvertimePeriodDialog({
                           onChange={(e) => setWorkedCell(iso, "time_in", e.target.value)}
                           className="h-7 text-xs w-24 mx-auto"
                           data-testid={`ot-worked-in-${iso}`}
-                          disabled={isOff}
+                          disabled={disabledInputs}
                         />
                       </td>
                       <td className="px-1 py-1">
@@ -610,7 +672,7 @@ export default function OvertimePeriodDialog({
                           onChange={(e) => setWorkedCell(iso, "time_out", e.target.value)}
                           className="h-7 text-xs w-24 mx-auto"
                           data-testid={`ot-worked-out-${iso}`}
-                          disabled={isOff}
+                          disabled={disabledInputs}
                         />
                       </td>
                       <td className="px-1 py-1">
@@ -623,7 +685,7 @@ export default function OvertimePeriodDialog({
                           placeholder="0"
                           className="h-7 text-right text-xs w-16 mx-auto"
                           data-testid={`ot-worked-break-${iso}`}
-                          disabled={isOff}
+                          disabled={disabledInputs}
                         />
                       </td>
                       <td className="text-center px-1 py-1">
@@ -633,22 +695,25 @@ export default function OvertimePeriodDialog({
                           onChange={(e) => setWorkedCell(iso, "is_holiday", e.target.checked)}
                           className="w-4 h-4"
                           data-testid={`ot-worked-holiday-${iso}`}
-                          disabled={isOff}
+                          disabled={disabledInputs}
                         />
                       </td>
                       <td className="text-center px-1 py-1">
                         <input
                           type="checkbox"
-                          checked={isOff}
+                          checked={offDates.has(iso) || isVac}
                           onChange={(e) => toggleDayOff(iso, e.target.checked)}
                           className="w-4 h-4"
                           data-testid={`ot-worked-off-${iso}`}
-                          title={isEs ? "Marca día libre (no trabajó, descuenta horas base)" : "Mark day off (deducts base hours)"}
+                          disabled={isVac}
+                          title={isVac
+                            ? (isEs ? `Auto: ${vacLabel} aprobada` : `Auto: approved ${vacLabel}`)
+                            : (isEs ? "Marca día libre (no trabajó, descuenta horas base)" : "Mark day off (deducts base hours)")}
                         />
                       </td>
                       <td className="text-right px-2 py-1 text-xs font-mono">
                         {isOff ? (
-                          <span className="text-orange-700 font-semibold" data-testid={`ot-shortfall-${iso}`}>
+                          <span className={`font-semibold ${isVac ? "text-blue-700" : "text-orange-700"}`} data-testid={`ot-shortfall-${iso}`}>
                             −{(preview.shortfall || 0).toFixed(2)}h
                           </span>
                         ) : preview.worked > 0 ? (
@@ -666,7 +731,7 @@ export default function OvertimePeriodDialog({
                       </td>
                       <td className="text-right px-2 py-1 text-xs font-mono">
                         {isOff && (preview.shortfall || 0) > 0 ? (
-                          <span className="text-orange-700 font-semibold" title={isEs ? "Descuento aproximado (a tarifa 35%)" : "Approx deduction (at 35% rate)"}>
+                          <span className={`font-semibold ${isVac ? "text-blue-700" : "text-orange-700"}`} title={isEs ? "Descuento aproximado (a tarifa 35%)" : "Approx deduction (at 35% rate)"}>
                             −{formatRD(rowShortfallAmount)}
                           </span>
                         ) : rowAmount > 0 ? (
