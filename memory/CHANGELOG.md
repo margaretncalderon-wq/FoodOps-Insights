@@ -1,6 +1,40 @@
 # Kora OS - Changelog
 
 
+## February 2026 — Refactor: server.py Phase 3 (Suppliers + Inventory)
+
+### Extractions (server.py: 21,578 → 19,297 lines, −2,281 in this slice / −20.7% cumulative from 24,342)
+
+**Suppliers slice**
+- **`routers/suppliers.py`** (new, ~137 lines): 8 endpoints — CRUD (`GET`/`POST`/`PUT`/`DELETE`), extended update, plus supplier-items (SKU mapping + by-ingredient lookup).
+- **`models/suppliers.py`** (new): `Supplier`, `SupplierCreate`, `SupplierItemCreate`, `SupplierExtendedUpdate`.
+
+**Inventory slice (the big one)**
+- **`routers/inventory.py`** (new, ~1,997 lines): full Inventory module. Endpoints for ingredient CRUD, adjust/patch, low-stock, valuation, transactions, reserve/release-reservation, reservations list, AI Repair + undo, extended fields, price history CRUD, bulk upload by supplier, update-prices-from-invoice, value-summary, import (validate/import/template). Also **owns `_recalc_recipes_using_ingredient`** helper (only caller left in server.py after refactor).
+- Also brings along `purchase_list_router` (Purchase Lists endpoints — 5 routes) which was interleaved with inventory endpoints. Registered separately from server.py via re-export.
+- **`models/inventory.py`** (new): `Ingredient(Create)`, `InventoryItem(Create/Update)`, `InventoryTransaction(Create)`, `InventoryItemExtendedUpdate`, `InventoryPriceHistory(Create)`.
+
+### Not extracted in this slice
+- `@operations_router` endpoints (`/operations/items`, `/below-par`, `/reorder-list`) stayed in server.py — belong to a different router prefix; will move when Operations gets its own extraction.
+- `BulkProductUpload` Pydantic body model was moved along with its endpoint into `routers/inventory.py`.
+
+### Verified
+- Backend restarts clean (no import errors).
+- Smoke test PASS on 16 GETs across every touched module (inventory, ingredients, low-stock, valuation, transactions, reservations, value-summary, import-template, recipes, plated-menus, suppliers, events, purchase-lists, people-ops, menu-engineering, kitchen-beo).
+- Full CRUD cycle on `/api/inventory/ingredients` (create → PUT → GET → adjust → PATCH → extended → DELETE) all 200 ✓.
+- Full CRUD cycle on `/api/suppliers` (create → GET → extended → DELETE) all 200 ✓.
+- Frontend landing page renders correctly.
+- Ruff lint on new files: only pre-existing style warnings (bare-except, unused-vars) — no F821 undefined names.
+
+### Notes for next session
+- `server.py` is now **19,297 lines** (down from 24,342 at the start). Next best extraction targets:
+  - **`routers/events.py`** + `models/events.py` (~1,500 lines) — Events, event menu, stock check.
+  - **`routers/purchase_orders.py`** (~700 lines) — after inventory.
+  - **`routers/proposals.py`** (~2,000 lines) — proposals, items, financials.
+- The pre-existing `list_cost_variance` broken import in `culinary_digest.py` remains (silently returns `[]`).
+
+
+
 ## February 2026 — Refactor: server.py Phase 2 (Recipes)
 
 ### Extractions (server.py: 23,122 → 21,578 lines, −1,544 in this slice / −11.4% cumulative from 24,342)
