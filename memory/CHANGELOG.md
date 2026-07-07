@@ -1,6 +1,31 @@
 # Kora OS - Changelog
 
 
+## February 2026 — Refactor: server.py Phase 2 (Recipes)
+
+### Extractions (server.py: 23,122 → 21,578 lines, −1,544 in this slice / −11.4% cumulative from 24,342)
+- **`routers/recipes.py`** (new, ~1,445 lines): full Recipe module.
+  - Endpoints: CRUD (`GET/POST/PUT/DELETE`), duplicate, scale-preview, save-scaled-menu, cost-history, ai-analyze, suggest-ingredients-bulk, suggest-ingredients, recalculate-all, portion-formats CRUD, packaging-formats CRUD, generate-picklist-items, image upload/delete, extended update.
+  - Helpers (exported for use in `_recalc_recipes_using_ingredient` etc. in server.py): `calculate_recipe_cost`, `compute_full_recipe_costing`, `check_circular_dependency`, `is_discrete_unit_for_ingredient`, `_scale_ingredient_line`, `DISCRETE_UNIT_HINTS`.
+- **`models/recipes.py`** (new): `RecipeIngredient`, `RecipeCreate`, `Recipe`, `RecipePortionFormat(Create)`, `RecipePackagingFormat(Create)`, `RecipeExtendedUpdate`, `RecipeScalePreview`, `SaveScaledMenuRequest`.
+- **`utils/legacy_units.py`** (new): `UNIT_CONVERSIONS` dict + `convert_units` helper.
+- `server.py` imports these back for the 3 remaining callsites (`_recalc_recipes_using_ingredient`, etc.).
+
+### Kept in server.py (not in this slice)
+- `@inventory_router.post("/ingredients/ai-repair")` and `.../undo/{history_id}` — these belong to inventory, will move when inventory router is extracted.
+
+### Bug fix caught during refactor
+- `POST /api/recipes/{id}/duplicate` was returning the mutated MongoDB doc **with `_id` (ObjectId)** after insert, causing `PydanticSerializationError: Unable to serialize unknown type: ObjectId`. Fixed by `new_recipe.pop("_id", None)` before return. This bug existed in production code but was not being hit by clients — surfaced by curl smoke test after refactor.
+
+### Verified
+- Backend restarts clean (no import errors).
+- Smoke test PASS: `/api/recipes` (GET, POST, PUT, DELETE, duplicate, scale, cost-history, portion-formats, recalculate-all), `/api/inventory`, `/api/plated-menus`, `/api/events`, `/api/menu-engineering/analyze`, `/api/buffet-factors`, `/api/kitchen-beo/batch`, `/api/people-ops/employees`, `/api/inventory/ingredients`, `/api/suppliers`, `/api/notifications` — all 200 OK.
+- Frontend landing page renders correctly.
+- Ruff lint on all new files: no errors.
+
+
+
+
 ## February 2026 — Refactor: server.py Phase 1 (Culinary Slices)
 
 ### Extractions (server.py: 24,342 → 23,122 lines, −1,220 / −5%)
