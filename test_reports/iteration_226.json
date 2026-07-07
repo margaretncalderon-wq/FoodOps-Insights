@@ -1,0 +1,41 @@
+{
+  "summary": "Backend-only testing of Weekly Timesheet worked_entries save/reload flow. Created dedicated test file with 7 tests covering CREATE+REOPEN across Thu/Sat/Sun, PUT full-array update of Thu+Sat, PUT partial (single-day) replace semantics, time_in==time_out edge case, and time_in-only (no time_out) graceful handling. All 7 pass. Regression suite (test_ot_hourly_rate_and_worked_schedule + test_timesheet_days_off_iter224 + test_offboarding_crm_iter225) — all 17 tests pass. NO backend bug reproduces the 'days not saving' report: Thursday and Saturday persist correctly through POST → GET → PUT → GET cycles when the frontend sends them in worked_entries.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_ot_worked_entries_persistence_iter226.py",
+    "/app/test_reports/pytest/iter226_persistence.xml",
+    "/app/test_reports/pytest/iter226_regression.xml"
+  ],
+  "action_items": [
+    "Backend save/reload flow is CORRECT — worked_entries persists exactly as sent (verified for Mon/Tue/Wed/Thu/Fri/Sat/Sun combinations, incl. partial and edge cases).",
+    "Root cause of the user report is very likely FRONTEND-side, not backend. Recommend main agent investigate the following in OvertimePeriodDialog.js: (a) how worked_entries is BUILT from the form state before POST/PUT — verify the normalization loop iterates ALL 7 days (Mon..Sun), not only days with a mutation flag (a stale/incomplete state on Thursday and Saturday rows would silently omit them from the payload); (b) confirm the 'reject partial rows' validation is not accidentally dropping fully-filled Thu/Sat rows (e.g., a whitespace-only comparison bug or wrong index); (c) confirm the prefill on Edit reads `editPeriod.worked_entries` (raw source-of-truth), NOT `daily_entries` — because backend correctly skips zero-hour rows from daily_entries, so reading daily_entries would MASK Thursday/Saturday if entrada==salida or empty on that day previously. (d) Add a browser-devtools payload capture step before POST/PUT: log the exact worked_entries array being sent — if Thu/Sat are missing there, the bug is 100% in the frontend build step.",
+    "Consider adding a backend safeguard: reject requests with worked_entries==[] on PUT if input_mode was previously 'worked_schedule' — currently a PUT with an empty array will silently wipe all days (this is the documented replace semantic but is a footgun if the frontend ever sends [] by mistake)."
+  ],
+  "critical_code_review_comments": [
+    "PUT /overtime/periods/{id} correctly REPLACES worked_entries when the field is present (line 4794). This is by-design but silent — if frontend sends worked_entries: [] the whole schedule is wiped without warning.",
+    "_compute_daily_entries_from_worked (line 4415) correctly SKIPS rows where time_out is empty or worked_min<=0, but the raw worked_entries_input is still stored intact on the doc (line 4642/4794). Frontend prefill MUST read from worked_entries, not daily_entries, otherwise skipped rows appear 'lost' on reopen.",
+    "people_ops.py is >7600 lines — recommend splitting into sub-routers (overtime, offboarding, schedules, employees) for maintainability.",
+    "No Pydantic model on POST/PUT overtime periods — accepting raw `dict` skips validation. Consider a WorkedEntry BaseModel with time_in/time_out validators."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_ot_worked_entries_persistence_iter226.py (new)"
+  ],
+  "success_rate": {
+    "backend": "100% (7/7 new + 17/17 regression = 24/24)",
+    "frontend": "N/A (backend-only per request)"
+  },
+  "test_credentials": "demo.agency@kora.com / Evoque2024! (from /app/memory/test_credentials.md)",
+  "seed_data_creation": "Created 4 pending overtime_period_requests during tests (2 weekly, dated ~2 weeks ago). Cleanup best-effort via DELETE at end of suite; residual pending rows in demo tenant are harmless.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "The backend worked_entries persistence is verified solid. If the user reports the bug AGAIN, the next agent must (1) do an actual UI Playwright test filling Thursday and Saturday specifically, then intercept the POST/PUT payload to see EXACTLY what worked_entries the frontend sends; (2) then GET the period back and inspect the returned worked_entries; (3) diff. The bug is almost certainly in OvertimePeriodDialog.js submit() building of the array — most likely the normalization loop only iterates rows in a Map/dict where Thu/Sat keys were never initialized, or the 'reject partial rows' filter is over-eager. Reference file: /app/frontend/src/components/people-ops/OvertimePeriodDialog.js.",
+  "rca of the issue": "NOT REPRODUCED at backend layer. Backend POST/PUT/GET of /api/people-ops/overtime/periods correctly persists worked_entries for every weekday including Thursday and Saturday (verified with explicit tests test_1 and test_2). The reported 'days not saving' symptom (toast success but old values on reopen) is consistent with one of: (A) frontend building the worked_entries payload from an incomplete state object where Thursday/Saturday rows are absent — backend then stores what it receives; (B) frontend prefill reading from daily_entries instead of worked_entries — since backend skips zero-hour / partial rows from daily_entries, previously-zero Thu/Sat would appear cleared on reopen even though worked_entries has them. Recommended mitigation: main agent should (1) log the outgoing payload in submit(); (2) confirm prefill source is `editPeriod.worked_entries`; (3) ensure the normalization loop iterates all rows the user has interacted with, not only 'dirty' ones."
+}

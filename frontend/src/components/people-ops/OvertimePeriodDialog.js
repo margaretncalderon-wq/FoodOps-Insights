@@ -428,15 +428,27 @@ export default function OvertimePeriodDialog({
       toast.error(isEs ? "Selecciona un empleado" : "Select an employee");
       return;
     }
-    const worked_entries = Object.entries(workedEntries)
-      .filter(([date, r]) => r.time_in && r.time_out && !offDates.has(date) && !vacationDates[date])
-      .map(([date, r]) => ({
-        date,
-        time_in: r.time_in,
-        time_out: r.time_out,
-        break_min: Number(r.break_min || 0),
-        is_holiday: !!r.is_holiday,
-        notes: r.notes || null,
+    // Normalize + validate: strip whitespace, ensure HH:MM format. Warn on partial rows.
+    const workedRows = Object.entries(workedEntries).map(([date, r]) => ({
+      date,
+      time_in: (r.time_in || "").trim(),
+      time_out: (r.time_out || "").trim(),
+      break_min: Number(r.break_min || 0),
+      is_holiday: !!r.is_holiday,
+      notes: r.notes || null,
+      _raw: r,
+    }));
+    const partialRows = workedRows.filter(r => (r.time_in && !r.time_out) || (!r.time_in && r.time_out));
+    if (partialRows.length > 0) {
+      toast.error(isEs
+        ? `${partialRows.length} día(s) tienen solo entrada o solo salida. Completa ambos o déjalos vacíos.`
+        : `${partialRows.length} day(s) have only in OR out. Fill both or leave empty.`);
+      return;
+    }
+    const worked_entries = workedRows
+      .filter((r) => r.time_in && r.time_out && !offDates.has(r.date) && !vacationDates[r.date])
+      .map(({ date, time_in, time_out, break_min, is_holiday, notes }) => ({
+        date, time_in, time_out, break_min, is_holiday, notes,
       }));
     const days_off_dates = Array.from(offDates);
     if (worked_entries.length === 0 && days_off_dates.length === 0) {
