@@ -1,6 +1,29 @@
 # Kora OS - Changelog
 
 
+## February 2026 — Refactor: server.py Phase 1 (Culinary Slices)
+
+### Extractions (server.py: 24,342 → 23,122 lines, −1,220 / −5%)
+- **`routers/buffet_factors.py`** (new): `BuffetFactorCreate` model + `_resolve_buffet_factor` helper + 4 CRUD endpoints. Also exports `_resolve_buffet_factor` for use in server.py's remaining projected-cost / kitchen-BEO callsites (imports back).
+- **`routers/kitchen_beo.py`** (new): 3 endpoints (`GET /event/{id}`, `POST /event/{id}/mark-printed`, `GET /batch`). Uses `_resolve_buffet_factor` from the buffet_factors module. 447 lines relocated.
+- **`routers/plated_menus.py`** (new): 10 endpoints — CRUD + `recalculate-all`, `staleness`, `refresh-costs`, `projected-cost`, `convert-to-catalog`. Also owns `calculate_menu_cost` helper (no external callers). 595 lines relocated.
+- **`models/plated_menus.py`** (new): `MenuCourse`, `PlatedMenuCreate`, `PlatedMenu`, `PlatedMenuExtendedUpdate`.
+- server.py now imports these routers/helpers instead of declaring them.
+
+### Verified
+- Backend restarts clean (no import errors).
+- Smoke test PASS: `/api/recipes`, `/api/inventory`, `/api/plated-menus`, `/api/events`, `/api/menu-engineering/analyze`, `/api/buffet-factors`, `/api/kitchen-beo/batch`, `/api/people-ops/employees` all return 200.
+- Full CRUD cycle on `/api/plated-menus` (create → staleness → delete) works end-to-end.
+- Frontend landing page renders (smoke screenshot).
+- Ruff lint on new files: no errors.
+
+### Notes for next session
+- server.py still holds Recipes (~1,150 lines), Inventory/Suppliers (~2,000 lines), Events, Proposals, etc. Recommended next slice: **Recipes** (models + helpers `calculate_recipe_cost`, `compute_full_recipe_costing`, `check_circular_dependency` + CRUD/scale/AI endpoints).
+- Pre-existing broken import spotted in `culinary_digest.py`: `from server import list_cost_variance` — that function no longer exists in server.py. Wrapped in try/except so it silently returns `[]`. Should be fixed when Cost Variance endpoints are re-introduced. NOT caused by this refactor.
+- `cost_variance_router` is declared in server.py (line 178) with no attached endpoints — leftover from a prior partial refactor. Safe to remove when Cost Variance is properly re-introduced.
+
+
+
 ## February 2026 — Iteration 197
 
 ### Bug Fix: Third calendar missing meal-split (user follow-up)
