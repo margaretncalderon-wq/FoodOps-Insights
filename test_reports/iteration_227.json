@@ -1,0 +1,28 @@
+{
+  "summary": "FRONTEND UI reproduction test for Weekly Timesheet Thursday/Saturday edit revert bug. BUG DID NOT REPRODUCE in preview environment. Full round-trip (create → save → reopen → edit → save → reopen) works correctly. POST/PUT payloads include the edited days with exact times, and prefill on reopen correctly shows the persisted values.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "OvertimeSection - Overtime Periods table", "issues": ["React warning: 'Each child in a list should have a unique key prop' from TableBody. The .map at OvertimeSection.js line 459 returns a React Fragment (<>...</>) but Fragment does not receive the key prop. Change '<>...' to '<React.Fragment key={p.overtime_period_id}>...</React.Fragment>' to fix."]}
+    ]
+  },
+  "test_report_links": [],
+  "action_items": [
+    "Inform user that the bug is FIXED in preview environment (https://foodops-insights.preview.emergentagent.com). User needs to REDEPLOY to production for the fix to reach them.",
+    "Fix React key warning at OvertimeSection.js line ~479 by using React.Fragment with key instead of shorthand <>...</>"
+  ],
+  "critical_code_review_comments": [
+    "OvertimeSection.js line 479: periods.map returns a shorthand Fragment (<>...</>) which loses the key. Must use React.Fragment key={p.overtime_period_id}. This causes React reconciliation warnings and could in theory affect state stability of children.",
+    "OvertimePeriodDialog.js prefill useEffect (line 141) correctly handles editPeriod updates. onClose in OvertimeSection.js line 616 clears editingPeriod to null, and edit-click line 521 sets it to the fresh row from refreshed list. Round-trip verified working."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A (backend already verified 24/24 in iter226)", "frontend": "100% - all Thursday/Saturday edit round-trip scenarios pass in preview"},
+  "test_credentials": "demo.agency@kora.com / Evoque2024! (worked)",
+  "seed_data_creation": "Created test period otp_8e9491d3a8e9 for employee emp_91f4dfa58d68 (María González), weekly 2026-08-17→2026-08-23 with Thu=05:00-12:00, Sat=14:00-22:00. Recommend cleanup.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Verified full round-trip in preview: (1) POST payload correctly includes both Thursday(04:00-11:00) and Saturday(14:00-22:00). (2) First reopen prefill correctly showed 04:00-11:00 and 14:00-22:00. (3) PUT payload after editing Thu to 05:00-12:00 correctly includes updated Thu AND unchanged Sat. (4) Second reopen shows Thu=05:00-12:00 and Sat=14:00-22:00 persisted. Bug is not present in preview code. If user still sees the bug they must be on the old production build - needs redeploy.",
+  "rca of the issue": "REPRODUCTION IN PREVIEW: FAILED (bug does not manifest). Steps tried: Login → People Ops → Overtime → Weekly Timesheet → Select María González → set weekly period type + ref_date 2026-08-20 → filled Thu(08-20)=04:00-11:00 and Sat(08-22)=14:00-22:00 → Save → Reopen via edit-period button → verified prefill matched → Edited Thu to 05:00-12:00 → Save (PUT captured with both rows) → Reopened → values persisted correctly. Conclusion: user's reported symptom (Thu/Sat reverting to 12:30/12:30) is NOT reproducible in the current preview build. Most likely explanation: user is testing on a stale production build that predates the fixes made in preview. Recommend redeploy."
+}
