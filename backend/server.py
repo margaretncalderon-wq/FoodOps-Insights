@@ -8220,6 +8220,83 @@ async def ensure_default_plans():
 
 # Initialize plans on startup
 @app.on_event("startup")
+async def startup_validate_critical_helpers():
+    """MULTI-TENANT SAFETY NET (auto-detects regressions like the one on
+    2026-02-08 where `_generate_proposal_number` was broken by a stale
+    `from server import ...`). Refuses to serve traffic if any helper
+    that's imported across router boundaries is missing / broken.
+    Runs BEFORE any tenant request lands. Cheap: pure imports, ~5ms."""
+    import logging
+    log = logging.getLogger("startup_validation")
+
+    validations = []
+
+    async def _check(desc: str, thunk):
+        try:
+            result = thunk()
+            if hasattr(result, "__await__"):
+                result = await result
+            validations.append(("ok", desc))
+        except Exception as exc:
+            validations.append(("FAIL", f"{desc} → {type(exc).__name__}: {exc}"))
+
+    # Helpers that were moved across module boundaries during the P1/P2 refactor.
+    # If ANY of these break at import time, the whole app is broken for every
+    # tenant — we want to know at boot, not on the first user click.
+    await _check(
+        "routers.proposals.generate_proposal_number importable",
+        lambda: __import__("routers.proposals", fromlist=["generate_proposal_number"]).generate_proposal_number,
+    )
+    await _check(
+        "routers.recipes.calculate_recipe_cost importable",
+        lambda: __import__("routers.recipes", fromlist=["calculate_recipe_cost"]).calculate_recipe_cost,
+    )
+    await _check(
+        "routers.buffet_factors._resolve_buffet_factor importable",
+        lambda: __import__("routers.buffet_factors", fromlist=["_resolve_buffet_factor"])._resolve_buffet_factor,
+    )
+    await _check(
+        "routers.plated_menus.calculate_menu_cost importable",
+        lambda: __import__("routers.plated_menus", fromlist=["calculate_menu_cost"]).calculate_menu_cost,
+    )
+    await _check(
+        "server.get_margin_policy_doc importable",
+        lambda: get_margin_policy_doc,
+    )
+    await _check(
+        "server.check_usage_limit importable",
+        lambda: check_usage_limit,
+    )
+    await _check(
+        "server.increment_usage importable",
+        lambda: increment_usage,
+    )
+    # Exercise the late-import wrappers themselves so an ImportError inside a
+    # `from server import ...` late binding surfaces here rather than at
+    # request time (this is the exact class of bug we just fixed).
+    from routers.proposals import _generate_proposal_number as _prop_gen
+    from routers.events import _generate_proposal_number as _ev_gen
+    from routers.events import _check_usage_limit, _increment_usage
+    await _check("routers.proposals._generate_proposal_number wrapper", lambda: _prop_gen)
+    await _check("routers.events._generate_proposal_number wrapper", lambda: _ev_gen)
+    await _check("routers.events._check_usage_limit wrapper", lambda: _check_usage_limit)
+    await _check("routers.events._increment_usage wrapper", lambda: _increment_usage)
+
+    failures = [v for v in validations if v[0] == "FAIL"]
+    if failures:
+        # Fail loudly and REFUSE to serve traffic. Multi-tenant means every
+        # tenant would hit the broken path — better to crash the pod, let
+        # Kubernetes restart it, and let a human notice than to silently 500.
+        for _, msg in failures:
+            log.critical("STARTUP VALIDATION FAILED: %s", msg)
+        raise RuntimeError(
+            f"Refusing to serve traffic — {len(failures)} critical helper(s) "
+            f"broken at import time. See CRITICAL logs above."
+        )
+    log.info("✅ Startup validation passed: %d cross-module helpers wired correctly.", len(validations))
+
+
+@app.on_event("startup")
 async def startup_init_plans():
     await ensure_default_plans()
     # Initialize default addons

@@ -1,0 +1,22 @@
+{
+  "summary": "Verified multi-tenant startup validation safety net + regression runner. All 6 AUTO scenarios pass: (1) live backend logs '✅ Startup validation passed: 11 cross-module helpers wired correctly'; (2) failure path proven via new test_startup_validation.py — deleting generate_proposal_number or check_usage_limit causes RuntimeError('Refusing to serve traffic'); (3) run_regression.sh is executable and completes in 12.87s exit 0; (4) full 148-test regression battery still green (148 passed, 1 skipped); (5) startup validation overhead measured at 0.51ms (budget 100ms); (6) test_p2_bugfix_proposal_number.py (16 tests) still catches the ImportError bug class.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_startup_validation.py",
+    "/app/scripts/run_regression.sh"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "FastAPI on_event('startup') is deprecated (13 DeprecationWarnings). Consider migrating both startup_validate_critical_helpers and startup_init_plans to the lifespan context-manager pattern. Non-blocking.",
+    "The two @app.on_event('startup') handlers rely on registration order (validation before init_plans). Currently correct (line 8222 before 8299) but fragile — future reorders could let invalid helpers reach ensure_default_plans before validation. Consider consolidating into a single lifespan with explicit ordering."
+  ],
+  "updated_files": ["/app/backend/tests/test_startup_validation.py"],
+  "success_rate": {"backend": "100%", "frontend": "N/A"},
+  "test_credentials": "demo.agency@kora.com / Evoque2024! (not exercised — validation tests are subprocess/import-level, no HTTP)",
+  "seed_data_creation": "none",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Regression suite now includes /app/backend/tests/test_startup_validation.py (4 tests). If you extend the startup guard with more helpers, update the expected count '11' and add a matching failure-path test that monkeypatches the new helper.",
+  "rca of the issue": "N/A — preventative safety net verification. Prior RCA: proposal auto-numbering broke because routers/proposals.py used `from server import generate_proposal_number` late import but the symbol was moved during P1/P2 refactor → silent 500 per tenant. New guard imports all cross-module symbols + late-import wrappers at boot; missing symbol → pod refuses to start → K8s crash-loop → humans notice immediately."
+}
