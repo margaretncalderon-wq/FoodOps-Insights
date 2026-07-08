@@ -1,6 +1,33 @@
 # Kora OS - Changelog
 
 
+## February 2026 — Refactor: server.py Phase 7 (P2 - Purchase Lists split)
+
+### Extractions
+- **`routers/purchase_lists.py`** (new, 276 lines): extracted `purchase_list_router` + 6 endpoints (list, generate-from-event, create, update-status, delete) out of `routers/inventory.py`.
+- **`models/purchase_lists.py`** (new): `PurchaseListItem`, `PurchaseListCreate`, `PurchaseList` moved out of server.py.
+- **`routers/inventory.py`**: 1,999 → 1,744 lines (-255).
+- **`server.py`**: 15,542 → 15,518 lines (removed 26 lines of PurchaseList Pydantic models + updated imports).
+
+### Skipped this session (deferred to future — cosmetic, doesn't affect user's inventory/recipes concern)
+- Proposals split (routers/proposals.py is 2,117 lines) — decided to defer since it's an organizational nicety with real risk if boundary detection goes wrong.
+
+### Testing verification — `testing_agent_v3_fork` iteration 229
+- ✅ **93/93 tests PASSED (100%)** — 67 P1 (regression suite still green) + 26 new P2 tests
+- Test file created: `/app/backend/tests/test_p2_purchase_lists_extraction.py`
+- Coverage: full CRUD on `/api/inventory/ingredients`, full recipes lifecycle (including `/duplicate` ObjectId regression check), all purchase-lists endpoints, cross-router regression
+- Backend supervisor logs: clean startup, no ImportError/NameError/circular imports
+- Zero backend_issues, zero action_items
+
+### Cumulative refactor state
+- **server.py: 24,342 → 15,518 lines (−8,824 lines / −36.3%)**
+- **10 router files**: buffet_factors, kitchen_beo, plated_menus, recipes, suppliers, inventory, events (rewritten), purchase_orders, proposals, **purchase_lists (NEW)**
+- **7 model files**: plated_menus, recipes, suppliers, inventory, purchase_orders, proposals, **purchase_lists (NEW)**
+- **1 utils**: legacy_units
+- **2 regression test suites**: test_p1_refactor_verification.py (67 tests) + test_p2_purchase_lists_extraction.py (26 tests)
+
+
+
 ## February 2026 — Refactor: server.py Phase 6 (Events residuals) — COMPLETE
 
 ### Final extractions this session
