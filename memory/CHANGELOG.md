@@ -1,6 +1,34 @@
 # Kora OS - Changelog
 
 
+## February 2026 — Refactor: server.py Phase 4 (Events core)
+
+### Extractions (server.py: 19,297 → 18,420 lines, −877 in this slice / −24.3% cumulative from 24,342)
+- **`routers/events.py`** (overwritten, ~954 lines): main Events block extracted from server.py's `# ============== EVENT MENU & STOCK CHECK ==============` section.
+  - Endpoints: list, pipeline, confirmed, lost-reasons-analytics, POST create, POST duplicate, GET/PUT/DELETE by id, tasks (POST/PUT), menu attach, stock-check, generate-purchase-list, legacy `/events/purchase-orders/*` routes (list, status update, receive).
+  - Inline helper `normalize_stage` (small; not worth moving to shared utils).
+  - Late-imports (avoid circular) for 3 server-scope helpers: `check_usage_limit`, `increment_usage`, `generate_proposal_number` — wrapped in local `_check_usage_limit`, `_increment_usage`, `_generate_proposal_number` async functions that do the import inside.
+  - Existing `routers/events.py` was orphaned (447 lines, never imported anywhere, contained never-called `/deposit(s)` endpoints). Verified via `grep -r "from routers.events"` returning nothing. Safe to overwrite.
+
+### Kept in server.py (not in this slice — for future slices)
+- Event financials + extended update (`/{id}/financials`, `/{id}/extended`) — lines around 6456.
+- Event scaling / consolidated purchase list (`/generate-purchase-list`, `/create-po-from-purchase-list`, `/mark-procurement-complete`, `/reopen-procurement`) — ~700 lines around 8088-8625.
+- Packing list endpoints — around 10120, 10732.
+- These still use `events_router` (imported from `routers.events`) as their router symbol, which works fine.
+
+### Verified
+- Backend restarts clean.
+- Smoke test PASS: `/api/events` (list, pipeline, confirmed, lost-reasons-analytics), full CRUD cycle (POST → PUT → duplicate → task POST → DELETE) — all 200 ✓
+- `/api/events/{id}`, `/api/events/{id}/stock-check`, `/api/events/{id}/financials` — 200 ✓
+- All other modules (`/api/recipes`, `/api/inventory`, `/api/plated-menus`, `/api/suppliers`, `/api/purchase-lists`, `/api/menu-engineering`, `/api/people-ops`) — 200 ✓
+- Frontend renders correctly.
+- Ruff lint: no F821 (undefined names). Only pre-existing bare-except/E712 style warnings.
+
+### Known pre-existing issue (NOT caused by this refactor)
+- `GET /api/events/purchase-orders` returns 404 because FastAPI registers `GET /{event_id}` before `GET /purchase-orders` — the wildcard shadows the static path. This shadowing existed in the original code; the refactor preserved the exact registration order. To be fixed when `/events/purchase-orders/*` is moved to `purchase_orders_router`.
+
+
+
 ## February 2026 — Refactor: server.py Phase 3 (Suppliers + Inventory)
 
 ### Extractions (server.py: 21,578 → 19,297 lines, −2,281 in this slice / −20.7% cumulative from 24,342)
