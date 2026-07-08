@@ -72,8 +72,8 @@ def resolve_min_margin(
 
 
 async def _generate_proposal_number(company_id: str) -> str:
-    """Late-imported wrapper to avoid circular import with server.py."""
-    from server import generate_proposal_number
+    """Kept as internal alias for backward compatibility with callers.
+    `generate_proposal_number` lives in this module (defined below)."""
     return await generate_proposal_number(company_id)
 
 

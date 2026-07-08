@@ -72,7 +72,7 @@ export default function InventoryPage() {
     try {
       const [ingredientsRes, suppliersRes, lowStockRes] = await Promise.all([
         axios.get(`${API}/inventory/ingredients`, { withCredentials: true }),
-        axios.get(`${API}/inventory/suppliers`, { withCredentials: true }),
+        axios.get(`${API}/suppliers`, { withCredentials: true }),
         axios.get(`${API}/inventory/low-stock`, { withCredentials: true }),
       ]);
       setIngredients(ingredientsRes.data);
@@ -114,7 +114,7 @@ export default function InventoryPage() {
   const handleSubmitSupplier = async (e) => {
     e.preventDefault();
     try {
-      await axios.post(`${API}/inventory/suppliers`, supplierForm, { withCredentials: true });
+      await axios.post(`${API}/suppliers`, supplierForm, { withCredentials: true });
       toast.success(language === "es" ? "Proveedor creado" : "Supplier created");
       fetchData();
       setSupplierDialogOpen(false);

@@ -1,0 +1,30 @@
+{
+  "summary": "Verified both production bug fixes and all cumulative regression suites. BUG-1 (proposal auto-create ImportError on `_generate_proposal_number`) and BUG-2 (InventoryPage 404 on /inventory/suppliers) are both resolved. Wrote new regression suite test_p2_bugfix_proposal_number.py (16 tests, all pass) covering the exact real-user paths (new event → GET proposal auto-creates, duplicate event, /api/suppliers CRUD, inventory/recipes/allergens/plated-menus/purchase-lists list endpoints, cost-health overview). Ran the 4 prior refactor suites — 132 passed, 1 skipped, 0 failed. Total: 148 tests passing.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_p2_bugfix_proposal_number.py",
+    "/app/backend/tests/test_p1_refactor_verification.py",
+    "/app/backend/tests/test_p2_purchase_lists_extraction.py",
+    "/app/backend/tests/test_p2_section_templates_extraction.py",
+    "/app/backend/tests/test_p2_financials_cost_health_extraction.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "User needs to redeploy preview → production for fixes to take effect (per problem statement)."
+  ],
+  "critical_code_review_comments": [
+    "The `_generate_proposal_number` wrappers in both routers/proposals.py (line 74-77) and routers/events.py (line 70-74) are now correctly wired. Consider removing the wrapper in proposals.py entirely — it just delegates to a local same-module function and adds no value beyond aliasing.",
+    "Multiple late-import wrappers in routers/events.py (_check_usage_limit, _increment_usage) still import from server.py. When those functions get extracted in a future refactor, the exact same class of bug can reappear — recommend adding a startup smoke test that GETs /api/proposals/event/{fresh_event_id} on a fresh event (which is now covered by test_p2_bugfix_proposal_number.py)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_p2_bugfix_proposal_number.py (NEW)"
+  ],
+  "success_rate": {"backend": "100% (148/148 including 1 pre-existing skip)", "frontend": "not tested (backend-only request)"},
+  "test_credentials": "demo.agency@kora.com / Evoque2024! (from /app/memory/test_credentials.md)",
+  "seed_data_creation": "Each test creates its own event/supplier tagged with BUGFIX_<uuid6> and cleans up in teardown.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Baseline is now 148 backend tests (132 prior + 16 bug-fix). Include test_p2_bugfix_proposal_number.py in every future regression run — it guards against the class of late-import bug that only shows up on the auto-create path (new event → first GET of its proposal).",
+  "rca of the issue": "BUG-1 RCA: During P1 refactor, `generate_proposal_number` was moved from server.py into routers/proposals.py, but the late-import wrappers `_generate_proposal_number` in both routers/proposals.py and routers/events.py were left with the stale `from server import generate_proposal_number`. This raised ImportError at request time, but ONLY on the code path where an event had no proposal yet (the auto-create branch inside GET /api/proposals/event/{id}). Previous smoke tests all hit events with existing proposals and never triggered that branch. FIX: proposals.py wrapper now delegates to local `generate_proposal_number`; events.py wrapper now imports `from routers.proposals import generate_proposal_number`. BUG-2 RCA: InventoryPage's Promise.all called `${API}/inventory/suppliers` which never existed — the endpoint is `/api/suppliers` (routers/suppliers.py). One 404 rejected the whole Promise.all, leaving ingredients + suppliers + lowStock empty. FIX: frontend URLs changed to /api/suppliers for both GET and POST."
+}

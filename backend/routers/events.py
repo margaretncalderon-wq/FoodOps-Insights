@@ -68,7 +68,9 @@ async def _increment_usage(company_id: str, metric: str, amount: int = 1):
 
 
 async def _generate_proposal_number(company_id: str) -> str:
-    from server import generate_proposal_number
+    """Late-imported wrapper — `generate_proposal_number` was extracted into
+    routers.proposals during the P1 refactor, so we import from there now."""
+    from routers.proposals import generate_proposal_number
     return await generate_proposal_number(company_id)
 
 
