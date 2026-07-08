@@ -1,0 +1,34 @@
+{
+  "summary": "P1 refactor verification: server.py split into 9 router modules + 6 model modules + utils/legacy_units.py. Zero business logic changes. All 67 tests PASSED (100%). Covered: (a) 22 smoke GETs across all extracted routers, (b) 7 endpoints ObjectId-leak checks, (c) full CRUD cycles for buffet-factors / suppliers / recipes / plated-menus / inventory (ingredients) / events, (d) endpoints using re-imported helpers: _resolve_buffet_factor (buffet-factors, kitchen-beo/batch, plated-menus/projected-cost), calculate_recipe_cost (recipes/cost-history, /scale), _recalc_recipes_using_ingredient (inventory extended update). (e) Regression check confirmed FIXED: POST /api/recipes/{id}/duplicate no longer leaks MongoDB _id/ObjectId (assert '_id' not in body passes). Kitchen-BEO batch works. Backend supervisor logs show clean startup, no import errors, no tracebacks.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_p1_refactor_verification.py",
+    "/app/test_reports/pytest/p1_refactor.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py is still 15,542 lines — consider further extraction of remaining modules (calendar, financials, tasks, documents, exports) in a follow-up sprint P2.",
+    "routers/inventory.py is 1,999 lines and contains an interleaved purchase_list_router — split purchase_lists into its own router file for consistency.",
+    "routers/proposals.py is 2,117 lines (largest new router) — consider splitting proposal-items and proposal-templates into sub-routers for maintainability.",
+    "culinary_digest.py has a pre-existing broken import (list_cost_variance) currently silenced with try/except — NOT caused by this refactor but should be resolved to avoid hiding future regressions.",
+    "All extracted routers correctly strip MongoDB _id from responses — no ObjectId serialization leaks detected across 7 sampled list endpoints and all created-doc responses."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_p1_refactor_verification.py"
+  ],
+  "success_rate": {"backend": "100% (67/67)", "frontend": "n/a (backend-only request)"},
+  "test_credentials": "demo.agency@kora.com / Evoque2024! (from /app/memory/test_credentials.md)",
+  "seed_data_creation": "All test data prefixed with P1TEST_<uuid> and cleaned up via CRUD delete steps in each test class. No stray data left in DB.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "P1 structural refactor of server.py verified as non-regressing. Test file /app/backend/tests/test_p1_refactor_verification.py provides 67 tests covering all extracted routers with full CRUD + ObjectId-leak checks. Re-run with `pytest /app/backend/tests/test_p1_refactor_verification.py -v` after any further server.py splits (P2). Known non-issue: pre-existing culinary_digest.list_cost_variance import handled with try/except at import time.",
+  "rca of the issue": "N/A - No bugs found. Both bugs the main agent fixed during refactor are verified: (1) POST /api/recipes/{id}/duplicate correctly pops _id before returning (test_duplicate_no_objectid_leak passes); (2) Legacy shadowed /api/events/purchase-orders* routes removed cleanly - GET /api/purchase-orders returns 200 via the new purchase_orders router without conflicts."
+}

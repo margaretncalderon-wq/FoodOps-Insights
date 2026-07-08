@@ -22,6 +22,7 @@ from models.auth import User
 from models.events import (
     Event,
     EventCreate,
+    EventExtendedUpdate,
     EventUpdate,
 )
 from utils.activity_logger import log_activity, user_info
@@ -896,3 +897,197 @@ async def generate_event_purchase_list(event_id: str, user: User = Depends(get_c
         "unassigned_items": by_supplier.get("no_supplier", [])
     }
 
+
+
+# ============== EVENT FINANCIALS ROUTES ==============
+
+class PackingListItem(BaseModel):
+    inventory_item_id: Optional[str] = None
+    name: str
+    inventory_type: str = "equipment"
+    category: str = "other"
+    quantity: int = 1
+    unit: str = "unit"
+    replacement_cost: float = 0
+    notes: str = ""
+
+
+class PackingListUpdate(BaseModel):
+    items: List[dict]
+
+
+# ============== EVENT FINANCIALS ROUTES ==============
+
+@events_router.get("/{event_id}/financials")
+async def get_event_financials(event_id: str, user: User = Depends(get_current_user)):
+    """Get internal financials for an event (Admin/Owner only)"""
+    event = await db.events.find_one({"event_id": event_id, "company_id": user.company_id})
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+    
+    proposal = await db.proposals.find_one({"event_id": event_id, "company_id": user.company_id}, {"_id": 0})
+    if not proposal:
+        return {
+            "total_revenue": 0,
+            "total_cost": 0,
+            "gross_margin": 0,
+            "margin_percentage": 0,
+            "by_item_type": {},
+            "warnings": [],
+            "has_proposal": False
+        }
+    
+    # Get all items
+    items = await db.order_items.find({"proposal_id": proposal["proposal_id"]}, {"_id": 0}).to_list(500)
+    
+    # Calculate by item type
+    by_type = {}
+    warnings = []
+    total_revenue = 0
+    total_cost = 0
+    
+    for item in items:
+        itype = item.get("item_type", "Other")
+        if itype not in by_type:
+            by_type[itype] = {"revenue": 0, "cost": 0, "margin": 0, "count": 0}
+        
+        item_revenue = item.get("total_price", 0)
+        item_cost = item.get("total_cost", 0) or 0
+        
+        by_type[itype]["revenue"] += item_revenue
+        by_type[itype]["cost"] += item_cost
+        by_type[itype]["margin"] += item_revenue - item_cost
+        by_type[itype]["count"] += 1
+        
+        total_revenue += item_revenue
+        total_cost += item_cost
+        
+        # Check for missing cost
+        if item.get("internal_cost") is None:
+            warnings.append({
+                "type": "missing_cost",
+                "item_id": item.get("item_id"),
+                "description": item.get("description"),
+                "message": f"Missing internal cost for: {item.get('description')}"
+            })
+    
+    gross_margin = total_revenue - total_cost
+    margin_pct = (gross_margin / total_revenue * 100) if total_revenue > 0 else 0
+    
+    # Low margin warning (threshold: 20%)
+    if margin_pct < 20 and total_revenue > 0:
+        warnings.append({
+            "type": "low_margin",
+            "message": f"Low overall margin: {margin_pct:.1f}%"
+        })
+    
+    return {
+        "total_revenue": total_revenue,
+        "total_cost": total_cost,
+        "gross_margin": gross_margin,
+        "margin_percentage": margin_pct,
+        "by_item_type": by_type,
+        "warnings": warnings,
+        "has_proposal": True,
+        "proposal_status": proposal.get("status"),
+        "proposal_number": proposal.get("proposal_number")
+    }
+# ============== EXTENDED EVENT ROUTES ==============
+
+@events_router.put("/{event_id}/extended")
+async def update_event_extended(event_id: str, data: EventExtendedUpdate, user: User = Depends(get_current_user)):
+    """Update extended event fields"""
+    now = datetime.now(timezone.utc)
+    
+    event = await db.events.find_one({"event_id": event_id, "company_id": user.company_id})
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+    
+    update_data = {k: v for k, v in data.model_dump().items() if v is not None}
+    update_data["updated_at"] = now.isoformat()
+    
+    # If closing event, log it
+    if data.operational_status == "Closed" and event.get("operational_status") != "Closed":
+        proposal = await db.proposals.find_one({"event_id": event_id, "company_id": user.company_id})
+        if proposal:
+            await db.audit_logs.insert_one({
+                "log_id": f"audit_{uuid.uuid4().hex[:12]}",
+                "event_id": event_id,
+                "proposal_id": proposal["proposal_id"],
+                "company_id": user.company_id,
+                "user_id": user.user_id,
+                "user_name": user.name,
+                "action_type": "event_closed",
+                "changes": {"operational_status": "Closed"},
+                "timestamp": now.isoformat()
+            })
+    
+    await db.events.update_one(
+        {"event_id": event_id},
+        {"$set": update_data}
+    )
+    
+    return await db.events.find_one({"event_id": event_id}, {"_id": 0})
+
+
+@events_router.get("/{event_id}/packing-list")
+async def get_event_packing_list(event_id: str, user: User = Depends(get_current_user)):
+    """Get packing list items for an event"""
+    event = await db.events.find_one(
+        {"event_id": event_id, "company_id": user.company_id},
+        {"_id": 0}
+    )
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+    
+    # Get packing list from event or production assets
+    packing_list = event.get("packing_list", [])
+    
+    if not packing_list:
+        # Try production assets
+        production = await db.production_assets.find_one(
+            {"event_id": event_id},
+            {"_id": 0, "packing_list": 1}
+        )
+        packing_list = production.get("packing_list", []) if production else []
+    
+    return packing_list
+
+@events_router.put("/{event_id}/packing-list")
+async def update_event_packing_list(event_id: str, data: PackingListUpdate, user: User = Depends(get_current_user)):
+    """Update packing list items for an event"""
+    event = await db.events.find_one(
+        {"event_id": event_id, "company_id": user.company_id},
+        {"_id": 0}
+    )
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+    
+    now = datetime.now(timezone.utc)
+    
+    # Save to event document
+    await db.events.update_one(
+        {"event_id": event_id},
+        {"$set": {
+            "packing_list": data.items,
+            "updated_at": now.isoformat()
+        }}
+    )
+    
+    return {"message": "Packing list updated", "items_count": len(data.items)}
+# Endpoint to get packing list supplies for an event
+@events_router.get("/{event_id}/packing-list-supplies")
+async def get_event_packing_list_supplies(event_id: str, user: User = Depends(get_current_user)):
+    """Get operations supplies items from the packing list for an event"""
+    # Get supplies type inventory items that might be in packing list
+    supplies = await db.ingredients.find(
+        {
+            "company_id": user.company_id,
+            "inventory_type": {"$in": ["equipment", "disposable", "event_supply"]}
+        },
+        {"_id": 0}
+    ).to_list(500)
+    
+    # TODO: In the future, this should come from actual packing list data
+    # For now, return available supplies that could be added to the event
+    return supplies
