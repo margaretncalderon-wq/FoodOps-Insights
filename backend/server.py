@@ -92,6 +92,8 @@ from routers.events import events_router
 from routers.purchase_orders import purchase_orders_router
 from routers.proposals import proposals_router
 from routers import proposal_section_templates  # noqa: F401 — registers section-template routes on proposals_router
+from routers import proposal_financials  # noqa: F401 — registers financials/day-logistics/custom-fields routes
+from routers import proposal_cost_health  # noqa: F401 — registers cost-staleness/refresh/margin-approval/cost-health routes
 from models.proposals import (
     OrderItem,
     OrderItemCreate,

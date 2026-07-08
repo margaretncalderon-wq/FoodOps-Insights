@@ -1,0 +1,56 @@
+{
+  "summary": "P2 refactor slice verified: proposal_financials.py (financials + day-logistics + custom-fields) and proposal_cost_health.py (cost-staleness + refresh-costs + request-margin-approval + cost-health overview/refresh-all) extracted from routers/proposals.py using the sibling-router pattern. URLs unchanged. Backend starts cleanly. Full regression (P1 + P2 purchase-lists + P2 section-templates) + new focused suite = 132 passed / 1 skipped.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "routers/proposal_financials.py", "issue": "Historical NameError (BaseModel not imported) was present during an earlier reload cycle in backend logs, but the current file has the import and backend is running cleanly. No action needed — flagged for awareness."}
+    ]
+  },
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_p2_financials_cost_health_extraction.py",
+    "/app/backend/tests/test_p1_refactor_verification.py",
+    "/app/backend/tests/test_p2_purchase_lists_extraction.py",
+    "/app/backend/tests/test_p2_section_templates_extraction.py",
+    "/app/test_reports/pytest/p1_p2_all.xml",
+    "/app/test_reports/pytest/p2_financials_cost_health.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "routers/proposals.py down to 1,078 lines (from 2,117 at P2 start) — good progress. Remaining helpers (sanitize_float, _compute_item_discount, _generate_proposal_number, resolve_min_margin, get_margin_policy_doc) are still fine here as shared utilities but could be moved to a routers/proposal_helpers.py in a future slice to break the routers.proposals coupling.",
+    "server.py is still 15,518 lines — dominant code smell; broader refactor concern, not blocking.",
+    "Sibling-router pattern remains functional but couples files. Consider migrating each sibling to APIRouter(prefix='/proposals') + include_router() in future to fully decouple. Not urgent.",
+    "proposal_cost_health.py at 662 lines contains the large cost_health_overview handler (~160 lines) — candidate for extracting the per-proposal margin scan into a helper for readability.",
+    "Endpoint ordering: /api/proposals/cost-health/overview must be registered BEFORE the dynamic /{proposal_id}/... routes to avoid path-param shadowing. Both live on the same proposals_router now; verified working via tests but future re-ordering could regress this — worth a comment in code."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_p2_financials_cost_health_extraction.py (NEW, 20 tests)"
+  ],
+  "success_rate": {"backend": "100%", "frontend": "N/A (backend-only)"},
+  "test_credentials": "demo.agency@kora.com / Evoque2024! (admin) — from /app/memory/test_credentials.md",
+  "seed_data_creation": "None persisted — day_logistics PUT writes a synthetic 2099-01-01 entry to a real proposal in the tenant (harmless placeholder date). Custom-fields PUT writes a P2FCH_-tagged key. Neither is cleaned up but both are idempotent and out-of-band.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Four cumulative P2 regression suites now exist: test_p1_refactor_verification.py (67), test_p2_purchase_lists_extraction.py (26), test_p2_section_templates_extraction.py (19+1 skip), test_p2_financials_cost_health_extraction.py (20). Total 132 pass / 1 skip. server.py imports must remain in order: routers.proposals FIRST, then proposal_section_templates, proposal_financials, proposal_cost_health for side-effect decorator registration. If any of those sibling files start importing OTHER sibling files, watch for cycles. REACT_APP_BACKEND_URL is https://foodops-insights.preview.emergentagent.com (NOT culinary-ops-10 as mentioned in the request).",
+  "test_results_detail": {
+    "p1_refactor_verification": "67/67 PASSED",
+    "p2_purchase_lists_extraction": "26/26 PASSED",
+    "p2_section_templates_extraction": "19/19 PASSED + 1 skipped",
+    "p2_financials_cost_health_extraction": "20/20 PASSED (new)",
+    "startup_check": "Backend supervisor log shows clean startup; earlier NameError during a hot-reload cycle was self-healed",
+    "circular_import_check": "PASSED — no cycles; sibling files only import from routers.proposals (one direction)",
+    "endpoints_verified": [
+      "PUT /api/proposals/{id}/financials (200 + 404)",
+      "GET /api/proposals/{id}/day-logistics (200 + 404)",
+      "PUT /api/proposals/{id}/day-logistics (roundtrip persistence + invalid-entry filter + 404)",
+      "PUT /api/proposals/{id}/custom-fields (200/400 + 404)",
+      "GET /api/proposals/{id}/cost-staleness (structural + 404)",
+      "POST /api/proposals/{id}/refresh-costs (200/400/403 + 404)",
+      "POST /api/proposals/{id}/request-margin-approval (200/400 + 404)",
+      "GET /api/proposals/cost-health/overview",
+      "POST /api/proposals/cost-health/refresh-all",
+      "GET /api/proposals/event/{event_id} (regression)",
+      "GET /api/proposals/{id}/items (regression)"
+    ]
+  }
+}
