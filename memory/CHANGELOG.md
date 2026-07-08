@@ -1,6 +1,54 @@
 # Kora OS - Changelog
 
 
+## February 2026 — Refactor: server.py Phase 5 (Purchase Orders + Proposals)
+
+### Extractions (server.py: 18,420 → 15,728 lines, −2,692 in this slice / −35.4% cumulative from 24,342)
+
+**Purchase Orders slice**
+- **`routers/purchase_orders.py`** (new, 524 lines): 8 endpoints — CRUD (`GET`/`POST`/`PUT`/`DELETE`), `PUT /{po_id}/status`, `POST /{po_id}/receive`, `POST /{po_id}/register-invoice`.
+- **`models/purchase_orders.py`** (new): `PurchaseOrderLineCreate/Model`, `PurchaseOrderCreate`, `PurchaseOrderLineCreateModel`, `PurchaseOrderFullCreate`, `PurchaseOrderFull`.
+- **Fixed pre-existing 404 bug**: removed the shadowed `@events_router.get("/purchase-orders")`, `.put/status`, `.post/receive` legacy routes that never worked (matched by `/{event_id}` first). Verified with grep — frontend does not use them.
+
+**Proposals slice (the biggest)**
+- **`routers/proposals.py`** (new, 2,111 lines): full Proposals module. Endpoints: proposal by-event, PUT, financials, day-logistics (GET/PUT), custom-fields, order items CRUD + bulk-from-menu + bulk-from-plated-menu + repair-descriptions + bulk-reorder, cost-staleness/refresh/request-margin-approval, cost-health overview + refresh-all, section-templates CRUD + apply-template + check + refresh, duplicate-day.
+- **`models/proposals.py`** (new): `Proposal(Create/Update)`, `OrderItem(Create/Update)`.
+- Inline helpers copied from server.py to avoid circular imports: `sanitize_float`, `resolve_min_margin`. Late-imported wrappers: `_generate_proposal_number`, `get_margin_policy_doc`.
+- Preserved in server.py: the single `@orchestration_router.post("/calendar/reschedule-service")` endpoint that was interleaved with proposals block.
+
+### Verified
+- Backend restarts clean.
+- 15 endpoints returning 200: `/api/events`, `/api/events/pipeline`, `/api/proposals/cost-health/overview`, `/api/proposals/section-templates`, `/api/recipes`, `/api/inventory`, `/api/plated-menus`, `/api/suppliers`, `/api/purchase-orders`, `/api/purchase-lists`, `/api/menu-engineering/analyze`, `/api/people-ops/employees`, `/api/expenses`, `/api/buffet-factors`, `/api/proposals/event/{id}` ✓
+- Full CRUD cycle on `/api/proposals/{id}/items` (POST → PUT → DELETE) — 200 ✓
+- `/api/proposals/{id}/cost-staleness` and `/api/proposals/{id}/refresh-costs` — 200 ✓
+- Frontend landing page renders correctly.
+- Ruff lint on new files: no errors.
+
+### Summary of full refactor (5 phases, this session)
+
+| Phase | Extract | Δ Lines |
+|-------|---------|---------|
+| 1 | Buffet Factors + Kitchen BEO + Plated Menus | −1,220 |
+| 2 | Recipes (+ helpers, models, legacy_units) | −1,544 |
+| 3 | Suppliers + Inventory | −2,281 |
+| 4 | Events (core) | −877 |
+| 5 | Purchase Orders + Proposals | −2,692 |
+| **Total** | **9 routers + 7 model files + 1 utils** | **−8,614 lines (−35.4%)** |
+
+**server.py: 24,342 → 15,728 lines.**
+
+### Files created this refactor sprint
+- `routers/`: `buffet_factors.py`, `kitchen_beo.py`, `plated_menus.py`, `recipes.py`, `suppliers.py`, `inventory.py`, `events.py` (rewritten), `purchase_orders.py`, `proposals.py`
+- `models/`: `plated_menus.py`, `recipes.py`, `suppliers.py`, `inventory.py`, `purchase_orders.py`, `proposals.py`
+- `utils/`: `legacy_units.py`
+
+### Notes / Known issues
+- Pre-existing broken import in `culinary_digest.py`: `from server import list_cost_variance` — silently returns `[]`. Not caused by refactor; will be fixed when Cost Variance is properly re-introduced.
+- `cost_variance_router` still declared in server.py with zero endpoints attached (orphaned).
+- Events remaining in server.py: `/{id}/financials`, `/{id}/extended`, `/generate-purchase-list` (consolidated), `/create-po-from-purchase-list`, `/mark-procurement-complete`, `/reopen-procurement`, packing-list endpoints (~1,000 lines). Can be moved in a future session but require careful handling due to interleaving with orchestration + accounting engine.
+
+
+
 ## February 2026 — Refactor: server.py Phase 4 (Events core)
 
 ### Extractions (server.py: 19,297 → 18,420 lines, −877 in this slice / −24.3% cumulative from 24,342)
