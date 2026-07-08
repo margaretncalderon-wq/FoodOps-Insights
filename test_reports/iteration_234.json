@@ -1,0 +1,33 @@
+{
+  "summary": "Verified Promise.allSettled resilience layer + full 152-test regression baseline + real-endpoint smoke on preview + proposal auto-create end-to-end. Backend regression: 152 passed, 1 skipped, 0 failed. New iter234 smoke suite (11 tests) all green: all 10 endpoints consumed by FoodOpsPage/InventoryPage/Recipes/MenuEngineering return 200, and /api/proposals/event/{event_id} auto-creates a PROP-YYYY-NNNN proposal on fresh events. Frontend live check: login → /inventory + /recipes render without any 'error loading data' banner. Source review of FoodOpsPage.js (lines 275-307) and InventoryPage.js (lines 71-90) confirms Promise.allSettled + pick(fulfilled/rejected → fallback []) pattern is correctly applied — one broken endpoint can no longer collapse the whole page. Startup validation log confirmed: '✅ Startup validation passed: 11 cross-module helpers wired correctly'.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter234_resilience_endpoints.py",
+    "/app/test_reports/pytest/regression_iter234.xml",
+    "/app/test_reports/pytest/iter234_endpoints.xml"
+  ],
+  "action_items": [
+    "User must Deploy to Production so preview-only fixes (proposal_number ImportError fix, inventory/suppliers URL, Promise.allSettled resilience) reach culinary-ops-10.emergent.host — production still runs stale code that caused the original 'error loading data' report."
+  ],
+  "critical_code_review_comments": [
+    "FoodOpsPage.js fetchData: setLoading(false) is only reached if no exception is thrown between allSettled and the end. Since allSettled itself never rejects and pick() is pure, this is safe today — but consider wrapping the whole body in try/finally so setLoading(false) is guaranteed even if a future setState throws.",
+    "InventoryPage.js fetchData lacks the toast.error call that FoodOpsPage has for failed sub-fetches. Silent partial-failure means ops won't know suppliers is broken. Consider adding the same toast pattern for parity.",
+    "run_regression.sh header still says '148 tests baseline' but suite is 152 tests + 1 skipped now that test_startup_validation.py is included via manual invocation. Update the echo string, or add tests/test_startup_validation.py to the TESTS array in scripts/run_regression.sh so pre-deploy hook actually runs the guard tests.",
+    "Consider adding tests/test_iter234_resilience_endpoints.py to the regression script so the real-endpoint smoke runs pre-deploy."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter234_resilience_endpoints.py (new)"
+  ],
+  "success_rate": {"backend": "100% (152/152 regression + 11/11 smoke)", "frontend": "100% (inventory + recipes render clean)"},
+  "test_credentials": "demo.agency@kora.com / Evoque2024! — used for real HTTP smoke + Playwright login",
+  "seed_data_creation": "test_proposal_auto_create_on_event creates one TEST_iter234_* event using an existing client, then attempts DELETE for cleanup (best-effort).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Regression suite is now 152 tests + 1 skip (P1 refactor 67, P2 purchase 26, P2 sections 19+1skip, P2 financials 20, P2 bugfix 16, startup 4). Iter234 adds 11 preview-smoke tests in test_iter234_resilience_endpoints.py — depends on live preview auth + at least one existing client. If preview is torn down, mark that file for skip. Resilience pattern to preserve in future edits: Promise.allSettled + `pick(res, fallback=[])` helper in FoodOpsPage.js and InventoryPage.js — do not revert to Promise.all.",
+  "rca of the issue": "Original user report 'error loading data' on production stems from stale prod code (proposal_number ImportError + inventory/suppliers URL mismatch). Preview already has the direct fix; iter234 adds a SECOND defensive layer so future single-endpoint regressions can no longer cascade into full-page failures. Verified by (a) source review of Promise.allSettled + pick() pattern, (b) live preview render of /inventory and /recipes without error banner, (c) all 10 real endpoints returning 200. Production relief requires redeploy — outside preview scope."
+}

@@ -274,25 +274,34 @@ function InventorySection() {
 
   const fetchData = useCallback(async () => {
     setLoading(true);
-    try {
-      const [itemsRes, suppliersRes, transactionsRes, categoriesRes, allergensRes] = await Promise.all([
-        axios.get(`${API}/api/inventory/ingredients`, { withCredentials: true }),
-        axios.get(`${API}/api/suppliers`, { withCredentials: true }),
-        axios.get(`${API}/api/inventory/transactions`, { withCredentials: true }),
-        axios.get(`${API}/api/settings/inventory-categories`, { withCredentials: true }),
-        axios.get(`${API}/api/allergens`, { withCredentials: true }).catch(() => ({ data: [] })),
-      ]);
-      // Filter only culinary inventory types (food and packaging)
-      const culinaryItems = (itemsRes.data || []).filter(item => 
-        ["food", "packaging"].includes(item.inventory_type)
-      );
-      setItems(culinaryItems);
-      setSuppliers(suppliersRes.data);
-      setTransactions(transactionsRes.data);
-      setCategories(categoriesRes.data || []);
-      setAllergensList(allergensRes.data || []);
-    } catch (error) {
-      toast.error("Error loading data");
+    // Resilient fetch: use allSettled so a single failing endpoint doesn't
+    // wipe the whole page (multi-tenant safety — a stale route in production
+    // shouldn't cascade into "Error loading data" for everything).
+    const [itemsR, suppliersR, transactionsR, categoriesR, allergensR] = await Promise.allSettled([
+      axios.get(`${API}/api/inventory/ingredients`, { withCredentials: true }),
+      axios.get(`${API}/api/suppliers`, { withCredentials: true }),
+      axios.get(`${API}/api/inventory/transactions`, { withCredentials: true }),
+      axios.get(`${API}/api/settings/inventory-categories`, { withCredentials: true }),
+      axios.get(`${API}/api/allergens`, { withCredentials: true }),
+    ]);
+    const pick = (res, fallback = []) => (res.status === "fulfilled" ? (res.value.data ?? fallback) : fallback);
+    const items = pick(itemsR, []);
+    const culinaryItems = items.filter(item => ["food", "packaging"].includes(item.inventory_type));
+    setItems(culinaryItems);
+    setSuppliers(pick(suppliersR, []));
+    setTransactions(pick(transactionsR, []));
+    setCategories(pick(categoriesR, []));
+    setAllergensList(pick(allergensR, []));
+    // Surface only the endpoints that actually failed (helps ops without
+    // dumping a scary red banner across the whole UI).
+    const failures = [
+      ["ingredients", itemsR], ["suppliers", suppliersR],
+      ["transactions", transactionsR], ["categories", categoriesR],
+      ["allergens", allergensR],
+    ].filter(([, r]) => r.status === "rejected");
+    if (failures.length) {
+      console.warn("FoodOpsPage partial load failure:", failures.map(([k, r]) => `${k}: ${r.reason?.message || r.reason}`));
+      toast.error(`No se pudo cargar: ${failures.map(([k]) => k).join(", ")}`);
     }
     setLoading(false);
   }, []);

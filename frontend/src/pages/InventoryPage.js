@@ -69,20 +69,24 @@ export default function InventoryPage() {
   }, []);
 
   const fetchData = async () => {
-    try {
-      const [ingredientsRes, suppliersRes, lowStockRes] = await Promise.all([
-        axios.get(`${API}/inventory/ingredients`, { withCredentials: true }),
-        axios.get(`${API}/suppliers`, { withCredentials: true }),
-        axios.get(`${API}/inventory/low-stock`, { withCredentials: true }),
-      ]);
-      setIngredients(ingredientsRes.data);
-      setSuppliers(suppliersRes.data);
-      setLowStock(lowStockRes.data);
-    } catch (error) {
-      console.error("Failed to fetch inventory:", error);
-    } finally {
-      setLoading(false);
+    // Resilient fetch (multi-tenant safety): one broken endpoint no longer
+    // blanks the whole page.
+    const [ingRes, supRes, lowRes] = await Promise.allSettled([
+      axios.get(`${API}/inventory/ingredients`, { withCredentials: true }),
+      axios.get(`${API}/suppliers`, { withCredentials: true }),
+      axios.get(`${API}/inventory/low-stock`, { withCredentials: true }),
+    ]);
+    const pick = (r, fallback = []) => (r.status === "fulfilled" ? (r.value.data ?? fallback) : fallback);
+    setIngredients(pick(ingRes));
+    setSuppliers(pick(supRes));
+    setLowStock(pick(lowRes));
+    const failures = [
+      ["ingredients", ingRes], ["suppliers", supRes], ["low-stock", lowRes],
+    ].filter(([, r]) => r.status === "rejected");
+    if (failures.length) {
+      console.warn("InventoryPage partial load failure:", failures.map(([k, r]) => `${k}: ${r.reason?.message || r.reason}`));
     }
+    setLoading(false);
   };
 
   const handleSubmitIngredient = async (e) => {
