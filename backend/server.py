@@ -85,7 +85,9 @@ from routers.launch import launch_router
 from routers.buffet_factors import buffet_factors_router, _resolve_buffet_factor, BuffetFactorCreate
 from routers.kitchen_beo import kitchen_beo_router
 from routers.suppliers import suppliers_router
-from routers.inventory import inventory_router, purchase_list_router
+from routers.inventory import inventory_router
+from routers.purchase_lists import purchase_list_router
+from models.purchase_lists import PurchaseList, PurchaseListCreate, PurchaseListItem
 from routers.events import events_router
 from routers.purchase_orders import purchase_orders_router
 from routers.proposals import proposals_router
@@ -684,32 +686,6 @@ class FeatureFlagsUpdate(BaseModel):
     is_base_recipes_enabled: Optional[bool] = None
 
 
-# ============== PURCHASE LIST MODELS ==============
-
-class PurchaseListItem(BaseModel):
-    inventory_item_id: str
-    item_name: str
-    unit: str
-    required_qty: float
-    in_stock_qty: float
-    to_purchase_qty: float
-    unit_cost: float = 0.0
-    total_cost: float = 0.0
-    status: str = "Short"  # InStock, Short, Unknown
-
-class PurchaseListCreate(BaseModel):
-    event_id: str
-    supplier_id: Optional[str] = None
-
-class PurchaseList(BaseModel):
-    purchase_list_id: str
-    company_id: str
-    event_id: str
-    supplier_id: Optional[str] = None
-    supplier_name: Optional[str] = None
-    items: List[PurchaseListItem] = []
-    total_cost: float = 0.0
-    status: str = "Draft"  # Draft, Ordered, Received
     created_at: datetime
     updated_at: datetime
 
