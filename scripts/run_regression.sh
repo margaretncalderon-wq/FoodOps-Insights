@@ -13,8 +13,10 @@ TESTS=(
   tests/test_p2_section_templates_extraction.py
   tests/test_p2_financials_cost_health_extraction.py
   tests/test_p2_bugfix_proposal_number.py
+  tests/test_startup_validation.py
+  tests/test_iter234_resilience_endpoints.py
 )
 
-echo "🧪 Running $((${#TESTS[@]})) regression suites (148 tests baseline)..."
+echo "🧪 Running $((${#TESTS[@]})) regression suites (163 tests baseline)..."
 python -m pytest "${TESTS[@]}" --tb=line -q --no-header
 echo "✅ All regression suites green."

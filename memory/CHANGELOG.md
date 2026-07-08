@@ -1,6 +1,29 @@
 # Kora OS - Changelog
 
 
+## February 2026 — Frontend Resilience Layer (Multi-Tenant Safety)
+
+### Problem
+User reported 'error loading data' in Culinary Intelligence, Inventario, Recetas and other modules on production. Root cause: FoodOpsPage and InventoryPage used `Promise.all` for parallel fetches — a single 404/500 on ANY endpoint (e.g. stale route in production) cascaded into a full-page failure with an empty grid.
+
+### Fix — 2 layers of defense
+1. **`FoodOpsPage.js`** — 5 parallel fetches (inventory/ingredients, suppliers, transactions, categories, allergens) converted from `Promise.all` to `Promise.allSettled` with a `pick(res, fallback=[])` helper. Failures logged to console.warn + shown in specific toast (`No se pudo cargar: suppliers, transactions`).
+2. **`InventoryPage.js`** — 3 parallel fetches (ingredients, suppliers, low-stock) converted to the same defensive pattern. Toast added for parity.
+3. **`scripts/run_regression.sh`** — updated to include `test_startup_validation.py` + `test_iter234_resilience_endpoints.py`. Baseline now **163 tests** in `run_regression.sh`.
+
+### Testing verification — `testing_agent_v3_fork` iteration 234
+- ✅ **163 regression tests + 11 smoke tests = 174 total PASSED (100%)**
+- ✅ Live preview: `/inventory` and `/recipes` render without any "error loading data" banner
+- ✅ Startup validation still active: `Startup validation passed: 11 cross-module helpers wired correctly`
+- ✅ Proposal auto-create end-to-end still working
+- ✅ All 10 endpoints consumed by FoodOpsPage/InventoryPage return 200
+- Zero backend/frontend issues
+
+### User action required
+- The user's original "error loading data" on production is caused by stale code — **redeploy from preview to production** to get: (1) proposal_number ImportError fix; (2) inventory/suppliers URL fix; (3) startup validation guard; (4) Promise.allSettled resilience. Once redeployed, even future breakages in single endpoints will not cascade into full-page failures.
+
+
+
 ## February 2026 — Multi-Tenant Startup Validation (Automation)
 
 ### Problem

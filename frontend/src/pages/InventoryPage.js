@@ -85,6 +85,7 @@ export default function InventoryPage() {
     ].filter(([, r]) => r.status === "rejected");
     if (failures.length) {
       console.warn("InventoryPage partial load failure:", failures.map(([k, r]) => `${k}: ${r.reason?.message || r.reason}`));
+      try { toast.error(`No se pudo cargar: ${failures.map(([k]) => k).join(", ")}`); } catch (_) {}
     }
     setLoading(false);
   };
