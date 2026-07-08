@@ -1,6 +1,39 @@
 # Kora OS - Changelog
 
 
+## February 2026 — Refactor: server.py Phase 8 (P2 — Section Templates split)
+
+### Extractions
+- **`routers/proposal_section_templates.py`** (new, 282 lines): 7 endpoints moved out of `routers/proposals.py` — list, POST create, PUT update, DELETE, GET `/check`, POST `/refresh`, POST `/{proposal_id}/apply-template`. File imports `proposals_router` from `routers.proposals` and attaches endpoints via decorators (sibling-router pattern, URLs unchanged).
+- **`routers/proposals.py`**: 2,117 → 1,858 lines (−259).
+- **`server.py`**: unchanged size; added `from routers import proposal_section_templates  # noqa: F401` right after `from routers.proposals import proposals_router` so decorator side-effects register.
+
+### Testing verification — `testing_agent_v3_fork` iteration 230
+- ✅ **112 tests PASSED + 1 skipped (100% pass rate)** — 67 P1 + 26 P2 purchase_lists + 19 P2 section_templates
+- Test file created: `/app/backend/tests/test_p2_section_templates_extraction.py`
+- Coverage:
+  - All 7 section-template endpoints verified (create/list/put/delete/check/refresh + apply-template)
+  - E2E test creates a template, applies it to a proposal, verifies order-item creation, cleans up
+  - Backend supervisor logs: clean startup, no ImportError, no circular import
+  - All 3 cumulative regression suites green (P1 + P2-purchase-lists + P2-section-templates)
+- Zero backend_issues, zero action_items
+
+### Cumulative refactor state (as of this session)
+- **server.py: 24,342 → 15,518 lines (−8,824 lines / −36.3%)**
+- **11 router files**: buffet_factors, kitchen_beo, plated_menus, recipes, suppliers, inventory, events (rewritten), purchase_orders, proposals, purchase_lists, **proposal_section_templates (NEW)**
+- **7 model files** (unchanged this session)
+- **1 utils** (unchanged)
+- **3 regression test suites** (112 tests total):
+  - `test_p1_refactor_verification.py` (67)
+  - `test_p2_purchase_lists_extraction.py` (26)
+  - `test_p2_section_templates_extraction.py` (19 + 1 skip)
+
+### Recommendations from testing agent (non-blocking, deferred)
+- `routers/proposals.py` at 1,858 lines still large — further extraction (financials, day-logistics, cost-health) possible in future.
+- Sibling-router import pattern (import router + decorate) is workable but couples files; consider using dedicated APIRouter + include_router for cleaner separation.
+
+
+
 ## February 2026 — Refactor: server.py Phase 7 (P2 - Purchase Lists split)
 
 ### Extractions
