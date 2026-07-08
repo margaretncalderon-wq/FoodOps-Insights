@@ -1,6 +1,32 @@
 # Kora OS - Changelog
 
 
+## February 2026 — Production Bug Fixes (Post-Refactor)
+
+### Bugs reported by user (from production deployment)
+1. **"Cotizaciones no me deja hacer nueva — no responde"** — creating a new quote didn't work.
+2. **"Inventory y recetas aparece en 0"** — Inventory + Recipes UI showed 0 items for all users.
+
+### Root causes (from testing_agent iteration 232)
+- **BUG-1**: `_generate_proposal_number` wrappers in `routers/proposals.py` and `routers/events.py` still had `from server import generate_proposal_number` — but that function had been moved to `routers/proposals.py` during the P1 refactor. Threw `ImportError` at request time, but ONLY on the code path where an event had no existing proposal yet (auto-create branch inside `GET /api/proposals/event/{id}`). All previous smoke tests only hit events with existing proposals, so this class of bug was never triggered.
+- **BUG-2**: `InventoryPage.js` called `${API}/inventory/suppliers` — an endpoint that never existed (correct URL is `${API}/suppliers`, served by `routers/suppliers.py`). One 404 rejected the entire `Promise.all` → ingredients + suppliers + lowStock all stayed empty.
+
+### Fixes applied
+- `routers/proposals.py`: `_generate_proposal_number` now delegates to the local same-module `generate_proposal_number` (defined at line 89) — no more cross-module import.
+- `routers/events.py`: `_generate_proposal_number` now imports `from routers.proposals import generate_proposal_number` (correct location).
+- `frontend/src/pages/InventoryPage.js`: `${API}/inventory/suppliers` → `${API}/suppliers` in both the GET (line 75) and POST (line 117) calls.
+
+### Testing verification — `testing_agent_v3_fork` iteration 232
+- ✅ **148/148 tests PASSED (100%)** — 132 prior + 16 new bug-fix tests
+- ✅ New regression suite: `/app/backend/tests/test_p2_bugfix_proposal_number.py` — 16 tests covering the exact real-user paths (fresh event → GET proposal auto-creates, duplicate event, /api/suppliers CRUD, inventory/recipes/allergens/plated-menus/purchase-lists list endpoints, cost-health overview).
+- ✅ Backend startup clean, no ImportError.
+- Zero backend_issues.
+
+### User action required
+- These fixes are in **preview only**. User must press **Deploy to Production** in Emergent to sync the fixes to `culinary-ops-10.emergent.host`.
+
+
+
 ## February 2026 — Refactor: server.py Phase 9 (P2 — Proposals Financials + Cost Health split)
 
 ### Extractions
