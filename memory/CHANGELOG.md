@@ -1,6 +1,36 @@
 # Kora OS - Changelog
 
 
+## February 2026 — Refactor: server.py Phase 9 (P2 — Proposals Financials + Cost Health split)
+
+### Extractions
+- **`routers/proposal_financials.py`** (new, 175 lines): 4 endpoints — PUT `/{id}/financials`, PUT/GET `/{id}/day-logistics`, PUT `/{id}/custom-fields`. Sibling-router pattern.
+- **`routers/proposal_cost_health.py`** (new, 662 lines): 5 endpoints + margin-guardrail helper functions — GET `/{id}/cost-staleness`, POST `/{id}/request-margin-approval`, POST `/{id}/refresh-costs`, GET `/cost-health/overview`, POST `/cost-health/refresh-all`. Sibling-router pattern.
+- **`routers/proposals.py`**: 1,858 → 1,078 lines (−780 in this session across both extractions).
+- **`server.py`**: added 2 more `from routers import proposal_financials` / `proposal_cost_health` (noqa F401) after existing section_templates registration.
+
+### Testing verification — `testing_agent_v3_fork` iteration 231
+- ✅ **132 tests PASSED + 1 skipped (100%)** across 4 cumulative regression suites:
+  - `test_p1_refactor_verification.py` (67)
+  - `test_p2_purchase_lists_extraction.py` (26)
+  - `test_p2_section_templates_extraction.py` (19 + 1 skip)
+  - `test_p2_financials_cost_health_extraction.py` (20 — NEW)
+- ✅ Backend supervisor logs: clean startup, no ImportError, no circular imports
+- ✅ Inventory + Recipes regression: still 100%
+- Zero backend_issues (critical), 1 informational note about a transient hot-reload NameError that self-healed
+
+### Cumulative refactor state
+- **server.py: 24,342 → 15,518 lines (−8,824 lines / −36.3%)**
+- **`routers/proposals.py`: 2,117 → 1,078 lines (−49% during P2)**
+- **13 router files**: buffet_factors, kitchen_beo, plated_menus, recipes, suppliers, inventory, events (rewritten), purchase_orders, proposals, purchase_lists, proposal_section_templates, **proposal_financials (NEW)**, **proposal_cost_health (NEW)**
+- **7 model files**, **1 utils**, **4 regression test suites (132 tests total)**
+
+### Recommendations from testing agent (deferred, non-blocking)
+- Move shared helpers (sanitize_float, _compute_item_discount, _generate_proposal_number, resolve_min_margin, get_margin_policy_doc) from `routers/proposals.py` to a `routers/proposal_helpers.py` to break the sibling coupling.
+- Consider migrating sibling files from decorator-attach pattern to independent APIRouter + include_router for cleaner architecture.
+
+
+
 ## February 2026 — Refactor: server.py Phase 8 (P2 — Section Templates split)
 
 ### Extractions
