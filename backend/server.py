@@ -91,6 +91,7 @@ from models.purchase_lists import PurchaseList, PurchaseListCreate, PurchaseList
 from routers.events import events_router
 from routers.purchase_orders import purchase_orders_router
 from routers.proposals import proposals_router
+from routers import proposal_section_templates  # noqa: F401 — registers section-template routes on proposals_router
 from models.proposals import (
     OrderItem,
     OrderItemCreate,
