@@ -103,32 +103,63 @@ async def get_ingredients(inventory_type: Optional[str] = None, user: User = Dep
     
     ingredients = await db.ingredients.find(query, {"_id": 0}).sort("name", 1).to_list(1000)
     
+    from datetime import datetime as _dt, timezone as _tz
+    safe_out = []
     for i in ingredients:
-        for field in ["created_at", "updated_at"]:
-            if i.get(field) and isinstance(i[field], str):
-                i[field] = datetime.fromisoformat(i[field])
-        
-        # Map legacy field names from migration to expected field names
-        if "unit_cost" in i and "cost_per_unit" not in i:
-            i["cost_per_unit"] = i.get("unit_cost", 0.0)
-        if "current_stock" in i and "stock_quantity" not in i:
-            i["stock_quantity"] = i.get("current_stock", 0.0)
-        if "min_stock" in i and "min_stock_level" not in i:
-            i["min_stock_level"] = i.get("min_stock", 0.0)
-        
-        # Ensure required fields have values
-        if "cost_per_unit" not in i:
-            i["cost_per_unit"] = 0.0
-        if "stock_quantity" not in i:
-            i["stock_quantity"] = 0.0
-        if "min_stock_level" not in i:
-            i["min_stock_level"] = 0.0
-        
-        # Set defaults for new fields
-        for field, default in [("inventory_type", "food"), ("par_level", 0.0), ("yield_waste_percent", 0.0), ("allergens", []), ("storage_location", "dry"), ("reorder_threshold", 0.0), ("alternate_supplier_ids", []), ("pack_size", 1.0), ("pack_unit", "unit"), ("average_cost", i.get("cost_per_unit", 0)), ("price_history", [])]:
-            if field not in i:
-                i[field] = default
-    return ingredients
+        try:
+            for field in ["created_at", "updated_at"]:
+                if i.get(field) and isinstance(i[field], str):
+                    try:
+                        i[field] = datetime.fromisoformat(i[field])
+                    except Exception:
+                        i[field] = _dt.now(_tz.utc)
+            
+            # Map legacy field names from migration to expected field names
+            if "unit_cost" in i and "cost_per_unit" not in i:
+                i["cost_per_unit"] = i.get("unit_cost", 0.0)
+            if "current_stock" in i and "stock_quantity" not in i:
+                i["stock_quantity"] = i.get("current_stock", 0.0)
+            if "min_stock" in i and "min_stock_level" not in i:
+                i["min_stock_level"] = i.get("min_stock", 0.0)
+            
+            # Defensive defaults for required fields — legacy data from tenants
+            # like Ciano may have gaps that would otherwise crash the whole
+            # response with a Pydantic validation error (500). We fill them in
+            # so a single dirty row cannot take down the entire ingredients list.
+            if not i.get("ingredient_id"):
+                i["ingredient_id"] = f"legacy_{i.get('name', 'unknown')[:20]}"
+            if not i.get("company_id"):
+                i["company_id"] = user.company_id
+            if not i.get("name"):
+                i["name"] = "(sin nombre)"
+            if not i.get("category"):
+                i["category"] = "Otros"
+            if not i.get("unit"):
+                i["unit"] = "unit"
+            if not i.get("created_at"):
+                i["created_at"] = _dt.now(_tz.utc)
+            
+            # Ensure required numeric fields have values
+            if "cost_per_unit" not in i or i["cost_per_unit"] is None:
+                i["cost_per_unit"] = 0.0
+            if "stock_quantity" not in i or i["stock_quantity"] is None:
+                i["stock_quantity"] = 0.0
+            if "min_stock_level" not in i or i["min_stock_level"] is None:
+                i["min_stock_level"] = 0.0
+            
+            # Set defaults for new fields
+            for field, default in [("inventory_type", "food"), ("par_level", 0.0), ("yield_waste_percent", 0.0), ("allergens", []), ("storage_location", "dry"), ("reorder_threshold", 0.0), ("alternate_supplier_ids", []), ("pack_size", 1.0), ("pack_unit", "unit"), ("average_cost", i.get("cost_per_unit", 0)), ("price_history", [])]:
+                if field not in i or i[field] is None:
+                    i[field] = default
+            safe_out.append(i)
+        except Exception as row_err:
+            # Skip a row that we still can't sanitize (never fail the entire list)
+            import logging
+            logging.getLogger(__name__).warning(
+                f"[ingredients] skipping malformed row for company {user.company_id}: {row_err} — row keys: {list(i.keys())[:10]}"
+            )
+            continue
+    return safe_out
 
 @inventory_router.post("/ingredients", response_model=Ingredient)
 async def create_ingredient(data: IngredientCreate, user: User = Depends(get_current_user)):

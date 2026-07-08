@@ -1769,15 +1769,20 @@ function RecipesSection() {
 
   const fetchData = useCallback(async () => {
     setLoading(true);
-    try {
-      const [recipesRes, ingredientsRes] = await Promise.all([
-        axios.get(`${API}/api/recipes`, { withCredentials: true }),
-        axios.get(`${API}/api/inventory/ingredients`, { withCredentials: true })
-      ]);
-      setRecipes(recipesRes.data);
-      setIngredients(ingredientsRes.data);
-    } catch (error) {
-      toast.error("Error loading data");
+    // Resilient fetch: use allSettled so if ingredients or recipes fails,
+    // the other still renders (avoids blank "Error loading data" page).
+    const [recipesR, ingredientsR] = await Promise.allSettled([
+      axios.get(`${API}/api/recipes`, { withCredentials: true }),
+      axios.get(`${API}/api/inventory/ingredients`, { withCredentials: true })
+    ]);
+    setRecipes(recipesR.status === "fulfilled" ? (recipesR.value.data ?? []) : []);
+    setIngredients(ingredientsR.status === "fulfilled" ? (ingredientsR.value.data ?? []) : []);
+    const failures = [
+      ["recetas", recipesR], ["ingredientes", ingredientsR]
+    ].filter(([, r]) => r.status === "rejected");
+    if (failures.length) {
+      console.warn("RecipesTab partial load failure:", failures.map(([k, r]) => `${k}: ${r.reason?.message || r.reason}`));
+      toast.error(`No se pudo cargar: ${failures.map(([k]) => k).join(", ")}`);
     }
     setLoading(false);
   }, []);
@@ -2219,41 +2224,48 @@ function PlatedMenusSection() {
 
   const fetchData = useCallback(async () => {
     setLoading(true);
-    try {
-      const [menusRes, recipesRes] = await Promise.all([
-        axios.get(`${API}/api/plated-menus`, { withCredentials: true }),
-        axios.get(`${API}/api/recipes`, { withCredentials: true })
-      ]);
-      setMenus(menusRes.data);
-      setRecipes(recipesRes.data);
-      // Fire staleness checks in parallel — non-blocking, best-effort
-      const stalenessChecks = await Promise.all(
-        (menusRes.data || []).map((m) =>
-          axios
-            .get(`${API}/api/plated-menus/${m.menu_id}/staleness`, { withCredentials: true })
-            .then((r) => [m.menu_id, r.data])
-            .catch(() => [m.menu_id, null])
-        )
-      );
-      const map = {};
-      stalenessChecks.forEach(([id, data]) => { if (data) map[id] = data; });
-      setStalenessByMenu(map);
-      // Fire projected-cost checks ONLY for buffet/cocktail menus (Feature 1)
-      const buffetMenus = (menusRes.data || []).filter((m) => ["buffet", "cocktail"].includes(m.menu_type));
-      const projChecks = await Promise.all(
-        buffetMenus.map((m) =>
-          axios
-            .get(`${API}/api/plated-menus/${m.menu_id}/projected-cost`, { withCredentials: true })
-            .then((r) => [m.menu_id, r.data])
-            .catch(() => [m.menu_id, null])
-        )
-      );
-      const pmap = {};
-      projChecks.forEach(([id, data]) => { if (data) pmap[id] = data; });
-      setProjectedByMenu(pmap);
-    } catch (error) {
-      toast.error("Error loading data");
+    // Resilient fetch: use allSettled so if plated-menus or recipes fails,
+    // the tab still renders (avoids blank "Error loading data" page).
+    const [menusR, recipesR] = await Promise.allSettled([
+      axios.get(`${API}/api/plated-menus`, { withCredentials: true }),
+      axios.get(`${API}/api/recipes`, { withCredentials: true })
+    ]);
+    const menusData = menusR.status === "fulfilled" ? (menusR.value.data ?? []) : [];
+    const recipesData = recipesR.status === "fulfilled" ? (recipesR.value.data ?? []) : [];
+    setMenus(menusData);
+    setRecipes(recipesData);
+    const failures = [
+      ["menús", menusR], ["recetas", recipesR]
+    ].filter(([, r]) => r.status === "rejected");
+    if (failures.length) {
+      console.warn("MenusTab partial load failure:", failures.map(([k, r]) => `${k}: ${r.reason?.message || r.reason}`));
+      toast.error(`No se pudo cargar: ${failures.map(([k]) => k).join(", ")}`);
     }
+    // Fire staleness checks in parallel — non-blocking, best-effort
+    const stalenessChecks = await Promise.all(
+      menusData.map((m) =>
+        axios
+          .get(`${API}/api/plated-menus/${m.menu_id}/staleness`, { withCredentials: true })
+          .then((r) => [m.menu_id, r.data])
+          .catch(() => [m.menu_id, null])
+      )
+    );
+    const map = {};
+    stalenessChecks.forEach(([id, data]) => { if (data) map[id] = data; });
+    setStalenessByMenu(map);
+    // Fire projected-cost checks ONLY for buffet/cocktail menus (Feature 1)
+    const buffetMenus = menusData.filter((m) => ["buffet", "cocktail"].includes(m.menu_type));
+    const projChecks = await Promise.all(
+      buffetMenus.map((m) =>
+        axios
+          .get(`${API}/api/plated-menus/${m.menu_id}/projected-cost`, { withCredentials: true })
+          .then((r) => [m.menu_id, r.data])
+          .catch(() => [m.menu_id, null])
+      )
+    );
+    const pmap = {};
+    projChecks.forEach(([id, data]) => { if (data) pmap[id] = data; });
+    setProjectedByMenu(pmap);
     setLoading(false);
   }, []);
 

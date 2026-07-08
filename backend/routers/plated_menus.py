@@ -52,7 +52,10 @@ async def get_plated_menus(menu_type: Optional[str] = None, user: User = Depends
     for m in menus:
         for field in ["created_at", "updated_at"]:
             if m.get(field) and isinstance(m[field], str):
-                m[field] = datetime.fromisoformat(m[field])
+                try:
+                    m[field] = datetime.fromisoformat(m[field])
+                except Exception:
+                    pass
     return menus
 
 

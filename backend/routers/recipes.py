@@ -57,26 +57,39 @@ async def get_recipes(recipe_type: Optional[str] = None, user: User = Depends(ge
     
     recipes = await db.recipes.find(query, {"_id": 0}).sort("name", 1).to_list(1000)
     
+    safe_out = []
     for r in recipes:
-        for field in ["created_at", "updated_at"]:
-            if r.get(field) and isinstance(r[field], str):
-                r[field] = datetime.fromisoformat(r[field])
-        for field, default in [("recipe_type", "final_dish"), ("yield_quantity", 1.0), ("yield_unit", "portion"), ("portion_size", 1.0), ("portion_unit", "serving"), ("labor_minutes", 0), ("cost_per_yield", r.get("cost_per_serving", 0)), ("cost_per_portion", r.get("cost_per_serving", 0)), ("sell_price", 0.0), ("food_cost_percent", 0.0)]:
-            if field not in r:
-                r[field] = default
-        # Ensure extended fields have defaults for old recipes
-        r.setdefault("allergens", [])
-        r.setdefault("work_category", None)
-        r.setdefault("recipe_code", None)
-        r.setdefault("verified_status", "Draft")
-        # Map old field names to new ones for backwards compatibility
-        r.setdefault("prep_time", r.get("prep_time_minutes", 0))
-        r.setdefault("cook_time", r.get("cook_time_minutes", 0))
-        r.setdefault("difficulty", "medium")
-        # Convert instructions array to string if needed
-        if isinstance(r.get("instructions"), list):
-            r["instructions"] = "\n".join(r["instructions"]) if r["instructions"] else ""
-    return recipes
+        try:
+            for field in ["created_at", "updated_at"]:
+                if r.get(field) and isinstance(r[field], str):
+                    try:
+                        r[field] = datetime.fromisoformat(r[field])
+                    except Exception:
+                        # Legacy tenants may have malformed datetime strings; keep as-is
+                        pass
+            for field, default in [("recipe_type", "final_dish"), ("yield_quantity", 1.0), ("yield_unit", "portion"), ("portion_size", 1.0), ("portion_unit", "serving"), ("labor_minutes", 0), ("cost_per_yield", r.get("cost_per_serving", 0)), ("cost_per_portion", r.get("cost_per_serving", 0)), ("sell_price", 0.0), ("food_cost_percent", 0.0)]:
+                if field not in r:
+                    r[field] = default
+            # Ensure extended fields have defaults for old recipes
+            r.setdefault("allergens", [])
+            r.setdefault("work_category", None)
+            r.setdefault("recipe_code", None)
+            r.setdefault("verified_status", "Draft")
+            # Map old field names to new ones for backwards compatibility
+            r.setdefault("prep_time", r.get("prep_time_minutes", 0))
+            r.setdefault("cook_time", r.get("cook_time_minutes", 0))
+            r.setdefault("difficulty", "medium")
+            # Convert instructions array to string if needed
+            if isinstance(r.get("instructions"), list):
+                r["instructions"] = "\n".join(r["instructions"]) if r["instructions"] else ""
+            safe_out.append(r)
+        except Exception as row_err:
+            import logging
+            logging.getLogger(__name__).warning(
+                f"[recipes] skipping malformed row for company {user.company_id}: {row_err}"
+            )
+            continue
+    return safe_out
 
 async def calculate_recipe_cost(ingredients: List[RecipeIngredient], sub_recipes: List[Dict] = None, company_id: str = "") -> tuple:
     """Calculate total cost for a recipe's ingredients and sub-recipes, with proper unit conversion.

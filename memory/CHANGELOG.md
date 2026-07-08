@@ -449,3 +449,33 @@ Tested via `testing_agent_v3_fork` iteration_193 — **100% backend (7/7) + 100%
 
 ## March 12, 2026
 ### Previous session fixes (auth, visibility, notifications, UI)
+
+## 2026-02-08 — Ciano Production Bug Fix (Culinary Intelligence loading errors)
+
+**Reported by:** User (Ciano tenant, production environment)
+**Symptoms:**
+- Inventory tab: "No se pudo cargar: ingredients" (Artículos = 0 despite having data)
+- Recipes tab: "Error loading data" (full tab broken)
+
+**Root causes:**
+1. `/api/inventory/ingredients` had strict Pydantic `response_model=List[Ingredient]`.
+   Legacy documents from Ciano's earlier migrations were missing required fields
+   like `created_at`, `name`, `category`, `unit` — a SINGLE bad row killed the
+   whole list with a 500 response.
+2. `FoodOpsPage.js` Recetas + Menús tabs still used `Promise.all` (crashes on any
+   single 500/404) instead of `Promise.allSettled`.
+
+**Fixes:**
+- `routers/inventory.py::get_ingredients` — defensive per-row sanitizer with
+  fallback defaults for every required field; malformed rows are skipped and
+  logged, never break the response.
+- `routers/recipes.py::get_recipes` — same pattern (skip + log malformed rows).
+- `routers/plated_menus.py::get_plated_menus` — try/except around
+  `datetime.fromisoformat` to survive malformed timestamps.
+- `FoodOpsPage.js` — Recetas & Menús fetchData migrated from `Promise.all` to
+  `Promise.allSettled`, with per-endpoint failure toasts.
+
+**Verification:** `run_regression.sh` → 163 passed / 1 skipped. Manual curl on
+ingredients/recipes/plated-menus all return 200 with counts.
+
+**Next action for user:** Deploy to production to push these fixes live.
