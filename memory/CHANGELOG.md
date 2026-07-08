@@ -1,6 +1,38 @@
 # Kora OS - Changelog
 
 
+## February 2026 — Refactor: server.py Phase 6 (Events residuals) — COMPLETE
+
+### Final extractions this session
+- Added to `routers/events.py`: financials (GET/PUT `/{id}/financials`), extended (PUT `/{id}/extended`), packing-list (GET/PUT `/{id}/packing-list`), packing-list-supplies (GET `/{id}/packing-list-supplies`) — **−186 more lines from server.py**.
+- Inline models `PackingListItem` + `PackingListUpdate` moved into `routers/events.py`.
+
+### Final state
+- **`server.py`: 24,342 → 15,542 lines (−8,800 lines / −36.2%)**
+- 9 new routers: buffet_factors, kitchen_beo, plated_menus, recipes, suppliers, inventory, events (rewritten), purchase_orders, proposals
+- 6 new model files: plated_menus, recipes, suppliers, inventory, purchase_orders, proposals
+- 1 new utils: legacy_units
+
+### Testing verification — `testing_agent_v3_fork` iteration 228 (backend-only)
+- **67/67 tests PASSED (100%)**
+- Test file created: `/app/backend/tests/test_p1_refactor_verification.py` (persistent regression suite)
+- Coverage:
+  - 22 smoke GETs across all extracted routers
+  - 7 ObjectId-leak checks (no `_id` leaking in responses)
+  - Full CRUD cycles for buffet-factors, suppliers, recipes, plated-menus, inventory (ingredients), events
+  - Helper re-imports verified: `_resolve_buffet_factor` (buffet-factors + kitchen-beo/batch + plated-menus/projected-cost), `calculate_recipe_cost` (recipes/cost-history + scale), `_recalc_recipes_using_ingredient` (inventory extended update)
+  - Bug fixes verified: recipes/duplicate no longer leaks ObjectId ✓, legacy `/events/purchase-orders*` routes removed ✓
+- Backend supervisor logs: clean startup, no import errors, no tracebacks
+- Zero backend_issues, zero frontend_issues, zero action_items
+
+### Recommendations from testing agent (non-blocking)
+- `routers/inventory.py` (1,999 lines) — split `purchase_list_router` into its own router file for consistency (future sprint).
+- `routers/proposals.py` (2,117 lines, largest new router) — could split proposal-items and proposal-templates into sub-routers.
+- `server.py` at 15,542 lines — further extraction possible (calendar, financials, tasks, documents, exports) in a follow-up sprint.
+- Pre-existing broken import in `culinary_digest.py` (`list_cost_variance` — silenced with try/except) — should be resolved when Cost Variance is properly re-introduced.
+
+
+
 ## February 2026 — Refactor: server.py Phase 5 (Purchase Orders + Proposals)
 
 ### Extractions (server.py: 18,420 → 15,728 lines, −2,692 in this slice / −35.4% cumulative from 24,342)
