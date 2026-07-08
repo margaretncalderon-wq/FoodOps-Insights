@@ -1,6 +1,38 @@
 # Kora OS - Changelog
 
 
+## February 2026 — Multi-Tenant Startup Validation (Automation)
+
+### Problem
+After the P1/P2 refactor, an ImportError-class bug (stale `from server import generate_proposal_number`) went undetected until a real tenant tried to create a new proposal. User: "recuerda que somos multi tenant no podemos estar haciendo refresh asi necesito que todo sea mas automático" — for a multi-tenant SaaS, requiring manual `pytest` runs is unacceptable. Every deploy has the potential to silently break traffic for ALL tenants.
+
+### Solution — 3 automation layers
+1. **`@app.on_event("startup")` handler `startup_validate_critical_helpers`** in `server.py`:
+   - Eagerly imports 11 cross-module helpers: `routers.proposals.generate_proposal_number`, `routers.recipes.calculate_recipe_cost`, `routers.buffet_factors._resolve_buffet_factor`, `routers.plated_menus.calculate_menu_cost`, `server.get_margin_policy_doc`, `server.check_usage_limit`, `server.increment_usage`, plus 4 late-import wrappers (`_generate_proposal_number` in proposals + events, `_check_usage_limit` + `_increment_usage` in events).
+   - If ANY is broken → raises `RuntimeError("Refusing to serve traffic — ...")` → pod crash-loops → Kubernetes/humans notice immediately.
+   - Overhead: **0.51ms** (well under 100ms budget).
+   - **Multi-tenant benefit**: converts silent 500s across all tenants → single loud boot failure.
+
+2. **`/app/scripts/run_regression.sh`** — executable shell script that runs all 5 regression suites (148 tests) in ~13 seconds. Exits non-zero on any failure. Ready to be wired into pre-deploy hooks.
+
+3. **`/app/backend/tests/test_startup_validation.py`** (new, 4 tests) — proves the failure path:
+   - Confirms live backend passes validation.
+   - Monkey-patches broken imports in subprocess → confirms RuntimeError raised.
+   - Guards against regressions in the guard itself.
+
+### Testing verification — `testing_agent_v3_fork` iteration 233
+- ✅ **6/6 AUTO scenarios pass, 0 issues**
+- ✅ Live boot logs: `✅ Startup validation passed: 11 cross-module helpers wired correctly`
+- ✅ Failure path proven: deleting `generate_proposal_number` or `check_usage_limit` → RuntimeError → pod refuses to start
+- ✅ 148-test regression battery still green
+- ✅ New baseline: **152 tests + 1 skip** (148 prior + 4 startup validation)
+
+### Recommendations from testing agent (deferred, non-blocking)
+- Migrate both `@app.on_event('startup')` handlers to FastAPI's newer `lifespan` context-manager pattern (deprecation warnings).
+- Consolidate the two startup handlers into a single lifespan to remove registration-order fragility.
+
+
+
 ## February 2026 — Production Bug Fixes (Post-Refactor)
 
 ### Bugs reported by user (from production deployment)
