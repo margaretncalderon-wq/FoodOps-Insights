@@ -2241,30 +2241,43 @@ function PlatedMenusSection() {
       console.warn("MenusTab partial load failure:", failures.map(([k, r]) => `${k}: ${r.reason?.message || r.reason}`));
       toast.error(`No se pudo cargar: ${failures.map(([k]) => k).join(", ")}`);
     }
-    // Fire staleness checks in parallel — non-blocking, best-effort
-    const stalenessChecks = await Promise.all(
+    // Fire staleness checks in parallel — non-blocking, best-effort.
+    // allSettled ensures a single failure never rejects the whole batch.
+    const stalenessSettled = await Promise.allSettled(
       menusData.map((m) =>
         axios
           .get(`${API}/api/plated-menus/${m.menu_id}/staleness`, { withCredentials: true })
           .then((r) => [m.menu_id, r.data])
-          .catch(() => [m.menu_id, null])
       )
     );
     const map = {};
-    stalenessChecks.forEach(([id, data]) => { if (data) map[id] = data; });
+    stalenessSettled.forEach((res, idx) => {
+      if (res.status === "fulfilled" && res.value) {
+        const [id, data] = res.value;
+        if (data) map[id] = data;
+      } else if (res.status === "rejected") {
+        console.warn(`[staleness] menu ${menusData[idx]?.menu_id} failed:`, res.reason?.message || res.reason);
+      }
+    });
     setStalenessByMenu(map);
     // Fire projected-cost checks ONLY for buffet/cocktail menus (Feature 1)
     const buffetMenus = menusData.filter((m) => ["buffet", "cocktail"].includes(m.menu_type));
-    const projChecks = await Promise.all(
+    const projSettled = await Promise.allSettled(
       buffetMenus.map((m) =>
         axios
           .get(`${API}/api/plated-menus/${m.menu_id}/projected-cost`, { withCredentials: true })
           .then((r) => [m.menu_id, r.data])
-          .catch(() => [m.menu_id, null])
       )
     );
     const pmap = {};
-    projChecks.forEach(([id, data]) => { if (data) pmap[id] = data; });
+    projSettled.forEach((res, idx) => {
+      if (res.status === "fulfilled" && res.value) {
+        const [id, data] = res.value;
+        if (data) pmap[id] = data;
+      } else if (res.status === "rejected") {
+        console.warn(`[projected-cost] menu ${buffetMenus[idx]?.menu_id} failed:`, res.reason?.message || res.reason);
+      }
+    });
     setProjectedByMenu(pmap);
     setLoading(false);
   }, []);
@@ -2631,15 +2644,20 @@ function PurchasesSection() {
 
   const fetchPurchaseList = async (eventId) => {
     setLoading(true);
-    try {
-      const [generateRes, savedRes] = await Promise.all([
-        axios.get(`${API}/api/purchase-lists/event/${eventId}/generate`, { withCredentials: true }),
-        axios.get(`${API}/api/purchase-lists?event_id=${eventId}`, { withCredentials: true })
-      ]);
-      setPurchaseData(generateRes.data);
-      setSavedLists(savedRes.data);
-    } catch (error) {
-      toast.error("Error loading purchase list");
+    // Resilient fetch: use allSettled so if the "generate" endpoint fails but
+    // "saved" lists exist (or vice versa), the user still sees what loaded.
+    const [generateR, savedR] = await Promise.allSettled([
+      axios.get(`${API}/api/purchase-lists/event/${eventId}/generate`, { withCredentials: true }),
+      axios.get(`${API}/api/purchase-lists?event_id=${eventId}`, { withCredentials: true })
+    ]);
+    setPurchaseData(generateR.status === "fulfilled" ? (generateR.value.data ?? null) : null);
+    setSavedLists(savedR.status === "fulfilled" ? (savedR.value.data ?? []) : []);
+    const failures = [
+      ["lista de compras", generateR], ["listas guardadas", savedR]
+    ].filter(([, r]) => r.status === "rejected");
+    if (failures.length) {
+      console.warn("fetchPurchaseList partial load failure:", failures.map(([k, r]) => `${k}: ${r.reason?.message || r.reason}`));
+      toast.error(`No se pudo cargar: ${failures.map(([k]) => k).join(", ")}`);
     }
     setLoading(false);
   };
