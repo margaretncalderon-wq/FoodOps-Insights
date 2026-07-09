@@ -73,6 +73,8 @@ def test_proposal_auto_create_on_event(session):
     created = session.post(f"{BASE_URL}/api/events", json=event_payload, timeout=30)
     if created.status_code == 404:
         pytest.skip("/api/events not exposed on this tenant — skipping regression")
+    if created.status_code == 403 and "límite" in created.text.lower():
+        pytest.skip(f"Tenant hit plan limit — skipping regression: {created.text[:200]}")
     assert created.status_code in (200, 201), f"create event failed: {created.status_code} {created.text[:300]}"
     event = created.json()
     event_id = event.get("id") or event.get("_id") or event.get("event_id")

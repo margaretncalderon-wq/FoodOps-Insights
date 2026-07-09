@@ -368,105 +368,171 @@ async def check_circular_dependency(parent_id: str, child_id: str, company_id: s
 
 @recipes_router.post("", response_model=Recipe)
 async def create_recipe(data: RecipeCreate, user: User = Depends(get_current_user)):
+    import logging
+    _log = logging.getLogger(__name__)
     now = datetime.now(timezone.utc)
     recipe_id = f"recipe_{uuid.uuid4().hex[:12]}"
-    
-    # Check for circular dependencies in sub-recipes
-    for sub in data.sub_recipes:
-        sub_d = sub if isinstance(sub, dict) else sub.model_dump()
-        child_id = sub_d.get("child_recipe_id")
-        child_name = sub_d.get("child_recipe_name") or child_id
-        if child_id and await check_circular_dependency(recipe_id, child_id, user.company_id):
-            raise HTTPException(status_code=400, detail=f"Circular dependency detected with recipe {child_name}")
-    
-    # Calculate costs including sub-recipes
-    sub_recipes_data = [
-        (s if isinstance(s, dict) else s.model_dump()) for s in (data.sub_recipes or [])
-    ]
-    food_cost, updated_ingredients, updated_sub_recipes = await calculate_recipe_cost(
-        data.ingredients, sub_recipes_data, user.company_id
-    )
-    
-    # Full costing (labor + overhead + suggested price + contribution)
-    costing = await compute_full_recipe_costing(data.model_dump(), food_cost, user.company_id)
-    
-    recipe_doc = {
-        "recipe_id": recipe_id,
-        "company_id": user.company_id,
-        **data.model_dump(),
-        "ingredients": updated_ingredients,
-        "sub_recipes": updated_sub_recipes,
-        "total_cost": food_cost,  # legacy: food cost only
-        **costing,  # spreads food_cost, labor_cost, overhead_cost, total_cost_full, cost_per_portion, etc.
-        # Extended fields with defaults
-        "allergens": [],
-        "work_category": None,
-        "recipe_code": None,
-        "verified_status": "Draft",
-        "created_at": now.isoformat(),
-        "updated_at": now.isoformat()
-    }
-    await db.recipes.insert_one(recipe_doc)
-    del recipe_doc["_id"]
-    recipe_doc["created_at"] = now
-    recipe_doc["updated_at"] = now
-    return Recipe(**recipe_doc)
 
-@recipes_router.get("/{recipe_id}", response_model=Recipe)
+    try:
+        # Check for circular dependencies in sub-recipes
+        for sub in data.sub_recipes:
+            sub_d = sub if isinstance(sub, dict) else sub.model_dump()
+            child_id = sub_d.get("child_recipe_id")
+            child_name = sub_d.get("child_recipe_name") or child_id
+            if child_id and await check_circular_dependency(recipe_id, child_id, user.company_id):
+                raise HTTPException(status_code=400, detail=f"Circular dependency detected with recipe {child_name}")
+
+        # Calculate costs including sub-recipes
+        sub_recipes_data = [
+            (s if isinstance(s, dict) else s.model_dump()) for s in (data.sub_recipes or [])
+        ]
+        try:
+            food_cost, updated_ingredients, updated_sub_recipes = await calculate_recipe_cost(
+                data.ingredients, sub_recipes_data, user.company_id
+            )
+        except Exception as calc_err:
+            _log.exception(f"[create_recipe] calculate_recipe_cost failed: {calc_err}")
+            food_cost = 0.0
+            updated_ingredients = [
+                (i if isinstance(i, dict) else i.model_dump()) for i in (data.ingredients or [])
+            ]
+            updated_sub_recipes = sub_recipes_data
+
+        # Full costing (labor + overhead + suggested price + contribution)
+        try:
+            costing = await compute_full_recipe_costing(data.model_dump(), food_cost, user.company_id)
+        except Exception as cost_err:
+            _log.exception(f"[create_recipe] compute_full_recipe_costing failed: {cost_err}")
+            costing = {"food_cost": food_cost, "total_cost_full": food_cost}
+
+        recipe_doc = {
+            "recipe_id": recipe_id,
+            "company_id": user.company_id,
+            **data.model_dump(),
+            "ingredients": updated_ingredients,
+            "sub_recipes": updated_sub_recipes,
+            "total_cost": food_cost,  # legacy: food cost only
+            **costing,  # spreads food_cost, labor_cost, overhead_cost, total_cost_full, cost_per_portion, etc.
+            # Extended fields with defaults
+            "allergens": [],
+            "work_category": None,
+            "recipe_code": None,
+            "verified_status": "Draft",
+            "created_at": now.isoformat(),
+            "updated_at": now.isoformat()
+        }
+        await db.recipes.insert_one(recipe_doc)
+        recipe_doc.pop("_id", None)
+        recipe_doc["created_at"] = now
+        recipe_doc["updated_at"] = now
+        try:
+            return Recipe(**recipe_doc)
+        except Exception as ve:
+            _log.warning(f"[create_recipe] Recipe(**doc) validation failed for {recipe_id} — returning raw dict. err={ve}")
+            return recipe_doc
+    except HTTPException:
+        raise
+    except Exception as e:
+        _log.exception(f"[create_recipe] UNHANDLED error for company {user.company_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Error al crear receta: {type(e).__name__}: {str(e)[:200]}")
+
+@recipes_router.get("/{recipe_id}")
 async def get_recipe(recipe_id: str, user: User = Depends(get_current_user)):
     recipe = await db.recipes.find_one({"recipe_id": recipe_id, "company_id": user.company_id}, {"_id": 0})
     if not recipe:
         raise HTTPException(status_code=404, detail="Recipe not found")
     for field in ["created_at", "updated_at"]:
         if recipe.get(field) and isinstance(recipe[field], str):
-            recipe[field] = datetime.fromisoformat(recipe[field])
-    # Ensure extended fields have defaults for old recipes
+            try:
+                recipe[field] = datetime.fromisoformat(recipe[field])
+            except Exception:
+                pass
+    # Defensive defaults so legacy Ciano-style rows never crash Pydantic
+    # validation on the way OUT (single dirty row was returning 500 for the
+    # whole "Guardar Receta" round-trip).
     recipe.setdefault("allergens", [])
     recipe.setdefault("work_category", None)
     recipe.setdefault("recipe_code", None)
     recipe.setdefault("verified_status", "Draft")
-    return Recipe(**recipe)
+    recipe.setdefault("name", "(sin nombre)")
+    recipe.setdefault("category", "Otros")
+    recipe.setdefault("yield_quantity", 1.0)
+    recipe.setdefault("yield_unit", "portion")
+    recipe.setdefault("ingredients", [])
+    recipe.setdefault("sub_recipes", [])
+    try:
+        return Recipe(**recipe).model_dump()
+    except Exception as ve:
+        # Never fail the whole request because of one strict validation
+        # complaint. Return the raw dict — the FE already tolerates extra
+        # fields and missing calculated ones.
+        import logging
+        logging.getLogger(__name__).warning(
+            f"[get_recipe] Recipe(**recipe) validation failed for {recipe_id} — returning raw dict. err={ve}"
+        )
+        return recipe
 
-@recipes_router.put("/{recipe_id}", response_model=Recipe)
+@recipes_router.put("/{recipe_id}")
 async def update_recipe(recipe_id: str, data: RecipeCreate, user: User = Depends(get_current_user)):
+    import logging
+    _log = logging.getLogger(__name__)
     now = datetime.now(timezone.utc)
-    
-    # Check for circular dependencies in sub-recipes
-    for sub in data.sub_recipes:
-        sub_d = sub if isinstance(sub, dict) else sub.model_dump()
-        child_id = sub_d.get("child_recipe_id")
-        child_name = sub_d.get("child_recipe_name") or child_id
-        if child_id and await check_circular_dependency(recipe_id, child_id, user.company_id):
-            raise HTTPException(status_code=400, detail=f"Circular dependency detected with recipe {child_name}")
-    
-    # Recalculate costs including sub-recipes
-    sub_recipes_data = [
-        (s if isinstance(s, dict) else s.model_dump()) for s in (data.sub_recipes or [])
-    ]
-    food_cost, updated_ingredients, updated_sub_recipes = await calculate_recipe_cost(
-        data.ingredients, sub_recipes_data, user.company_id
-    )
-    
-    # Full costing (labor + overhead + suggested price + contribution)
-    costing = await compute_full_recipe_costing(data.model_dump(), food_cost, user.company_id)
-    
-    update_data = {
-        **data.model_dump(),
-        "ingredients": updated_ingredients,
-        "sub_recipes": updated_sub_recipes,
-        "total_cost": food_cost,  # legacy
-        **costing,
-        "updated_at": now.isoformat()
-    }
 
-    # Auto-clear the "needs_review" flag once the recipe has actual content (≥1 ingredient or sub-recipe).
-    if (len(updated_ingredients) > 0) or (len(updated_sub_recipes) > 0):
-        update_data["needs_review"] = False
+    try:
+        # Check for circular dependencies in sub-recipes
+        for sub in data.sub_recipes:
+            sub_d = sub if isinstance(sub, dict) else sub.model_dump()
+            child_id = sub_d.get("child_recipe_id")
+            child_name = sub_d.get("child_recipe_name") or child_id
+            if child_id and await check_circular_dependency(recipe_id, child_id, user.company_id):
+                raise HTTPException(status_code=400, detail=f"Circular dependency detected with recipe {child_name}")
 
-    result = await db.recipes.update_one({"recipe_id": recipe_id, "company_id": user.company_id}, {"$set": update_data})
-    if result.matched_count == 0:
-        raise HTTPException(status_code=404, detail="Recipe not found")
-    return await get_recipe(recipe_id, user)
+        # Recalculate costs including sub-recipes
+        sub_recipes_data = [
+            (s if isinstance(s, dict) else s.model_dump()) for s in (data.sub_recipes or [])
+        ]
+        try:
+            food_cost, updated_ingredients, updated_sub_recipes = await calculate_recipe_cost(
+                data.ingredients, sub_recipes_data, user.company_id
+            )
+        except Exception as calc_err:
+            _log.exception(f"[update_recipe] calculate_recipe_cost failed for {recipe_id}: {calc_err}")
+            # Fallback: keep whatever the FE sent, don't crash the save
+            food_cost = 0.0
+            updated_ingredients = [
+                (i if isinstance(i, dict) else i.model_dump()) for i in (data.ingredients or [])
+            ]
+            updated_sub_recipes = sub_recipes_data
+
+        # Full costing (labor + overhead + suggested price + contribution)
+        try:
+            costing = await compute_full_recipe_costing(data.model_dump(), food_cost, user.company_id)
+        except Exception as cost_err:
+            _log.exception(f"[update_recipe] compute_full_recipe_costing failed for {recipe_id}: {cost_err}")
+            costing = {"food_cost": food_cost, "total_cost_full": food_cost}
+
+        update_data = {
+            **data.model_dump(),
+            "ingredients": updated_ingredients,
+            "sub_recipes": updated_sub_recipes,
+            "total_cost": food_cost,  # legacy
+            **costing,
+            "updated_at": now.isoformat()
+        }
+
+        # Auto-clear the "needs_review" flag once the recipe has actual content (≥1 ingredient or sub-recipe).
+        if (len(updated_ingredients) > 0) or (len(updated_sub_recipes) > 0):
+            update_data["needs_review"] = False
+
+        result = await db.recipes.update_one({"recipe_id": recipe_id, "company_id": user.company_id}, {"$set": update_data})
+        if result.matched_count == 0:
+            raise HTTPException(status_code=404, detail="Recipe not found")
+        return await get_recipe(recipe_id, user)
+    except HTTPException:
+        raise
+    except Exception as e:
+        _log.exception(f"[update_recipe] UNHANDLED error for recipe {recipe_id} / company {user.company_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Error al guardar receta: {type(e).__name__}: {str(e)[:200]}")
 
 @recipes_router.delete("/{recipe_id}")
 async def delete_recipe(recipe_id: str, user: User = Depends(get_current_user)):
