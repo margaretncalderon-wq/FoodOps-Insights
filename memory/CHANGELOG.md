@@ -504,3 +504,34 @@ ingredients/recipes/plated-menus all return 200 with counts.
 - ✅ Lint: 0 errors
 
 **Next action for user:** Redeploy to production so Ciano gets the fix.
+
+## 2026-02-09 — Auto-repair de datos legacy en cada deploy
+
+**Requested by:** User ("me gustaría que en cada actualización se reparen todas")
+
+**Implementación:**
+- Nuevo módulo `backend/utils/legacy_repair.py` con reparadores para 4 colecciones:
+  - `recipes`: rellena `name/category/yield_quantity/yield_unit/created_at/ingredients/sub_recipes/allergens/dietary_tags/verified_status/recipe_type`
+  - `ingredients`: migra campos legacy (`unit_cost→cost_per_unit`, `current_stock→stock_quantity`, `min_stock→min_stock_level`) + rellena `ingredient_id/name/category/unit/cost_per_unit/stock_quantity/min_stock_level/created_at/inventory_type/allergens/alternate_supplier_ids/price_history`
+  - `suppliers`: rellena `supplier_id/name/created_at/delivery_days/minimum_order/payment_terms/category`
+  - `plated_menus`: rellena `menu_id/name/created_at/courses`
+- Version gate: `REPAIR_VERSION` en el módulo. En startup, si `db.repair_state.legacy_repair_version < REPAIR_VERSION`, corre para TODOS los tenants; si no, skip. Bump `REPAIR_VERSION` para forzar re-corrida en próximo deploy.
+- Auditoría: cada corrida por tenant se guarda en `db.legacy_repair_history` con `run_at/version/summary` (incluyendo qué campos se rellenaron y cuántas veces).
+- Hook en `server.py` startup, encapsulado en try/except (nunca puede bloquear el arranque).
+
+**Endpoints admin nuevos:**
+- `POST /api/super-admin/legacy-repair/run` — Fuerza re-corrida ahora, ignorando la version gate. Útil cuando un tenant reporta crashes.
+- `GET /api/super-admin/legacy-repair/history?company_id=...&limit=50` — Devuelve historial + estado actual del version gate.
+
+**Primera corrida real (50 tenants):**
+- Recipes: 21/27 reparadas
+- Ingredients: 876/921 reparados
+- Suppliers: 8/165 reparados
+- Plated Menus: 0/6
+
+**Tests nuevos (`test_legacy_repair.py`):**
+- `test_repair_recipes_fills_missing_fields` — verifica rellenado + idempotencia
+- `test_repair_ingredients_migrates_legacy_field_names` — verifica mapeo legacy (bug capturado: la 2da condición sobrescribía la 1ra; corregido)
+- `test_version_gate_skips_when_already_current` — verifica el guard de versión
+
+**Regresión total: 166 tests passing ✅** (script actualizado con nuevo suite)

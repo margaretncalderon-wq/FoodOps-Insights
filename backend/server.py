@@ -8309,6 +8309,15 @@ async def startup_init_plans():
     # Multi-tenant self-healing migrations (idempotent, safe to run on every boot)
     await _migrate_reconcile_terminated_employees()
     await _migrate_deactivate_orphaned_users()
+    # Version-gated legacy data repair — runs once per REPAIR_VERSION bump.
+    # Sanitizes recipes/ingredients/suppliers/plated_menus so strict Pydantic
+    # response models can never crash reads for tenants with legacy rows.
+    try:
+        from utils.legacy_repair import run_legacy_repair_if_needed
+        await run_legacy_repair_if_needed(db)
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning(f"legacy_repair failed to run (non-fatal): {e}")
     # Start background scheduler (daily sales alerts cron)
     try:
         from scheduler import start_scheduler
@@ -10068,7 +10077,50 @@ async def reset_usage_meter(company_id: str, admin: User = Depends(get_super_adm
     return {"success": True, "period": current_period}
 
 
-# ---- Super Admin: Data Diagnostics & Repair ----
+# ---- Super Admin: Legacy Data Repair (manual trigger + history) ----
+
+@super_admin_router.post("/legacy-repair/run")
+async def super_admin_run_legacy_repair(admin: User = Depends(get_super_admin)):
+    """Force-run the legacy data repair NOW for all tenants, regardless of the
+    version gate. Useful when a specific tenant reports crashes and you don't
+    want to wait for the next deploy.
+    """
+    from utils.legacy_repair import _repair_one_company, REPAIR_VERSION
+    companies = await db.companies.find({}, {"_id": 0, "company_id": 1}).to_list(None)
+    totals = {"companies_processed": 0}
+    rollup = {"recipes": 0, "ingredients": 0, "suppliers": 0, "plated_menus": 0}
+    for c in companies:
+        cid = c.get("company_id")
+        if not cid:
+            continue
+        summary = await _repair_one_company(db, cid)
+        await db.legacy_repair_history.insert_one({
+            "company_id": cid,
+            "run_at": datetime.now(timezone.utc).isoformat(),
+            "version": REPAIR_VERSION,
+            "triggered_by": f"super_admin:{admin.user_id}",
+            "summary": summary,
+        })
+        for coll, res in summary.items():
+            if isinstance(res, dict) and "repaired" in res:
+                rollup[coll] = rollup.get(coll, 0) + res["repaired"]
+        totals["companies_processed"] += 1
+    await log_super_admin_action(admin.user_id, "legacy_repair_manual_run", None, {"totals": totals, "rollup": rollup})
+    return {"success": True, "totals": totals, "rollup": rollup, "version": REPAIR_VERSION}
+
+
+@super_admin_router.get("/legacy-repair/history")
+async def super_admin_get_legacy_repair_history(
+    company_id: str = None, limit: int = 50, admin: User = Depends(get_super_admin)
+):
+    """Return recent legacy-repair audit entries. If `company_id` is given,
+    filters to that tenant only.
+    """
+    query = {"company_id": company_id} if company_id else {}
+    docs = await db.legacy_repair_history.find(query, {"_id": 0}).sort("run_at", -1).to_list(limit)
+    state = await db.repair_state.find_one({"key": "legacy_repair_version"}, {"_id": 0})
+    return {"history": docs, "state": state or {}}
+
 
 @super_admin_router.get("/diagnostics")
 async def get_global_diagnostics(admin: User = Depends(get_super_admin)):
