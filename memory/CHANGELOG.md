@@ -535,3 +535,21 @@ ingredients/recipes/plated-menus all return 200 with counts.
 - `test_version_gate_skips_when_already_current` — verifica el guard de versión
 
 **Regresión total: 166 tests passing ✅** (script actualizado con nuevo suite)
+
+## 2026-02-11 — ProposalEditor: fix TZ dates, freeze on item_type change, cross-type drag
+
+**Bug 1 — "Invalid Date" y "día siguiente" en secciones de cotización:**
+- Root cause: `new Date("2026-02-15")` en UTC-4 (RD) daba UTC midnight = local Feb 14 20:00. `setDate(getDate()+1)` cruzaba la frontera UTC produciendo "el día siguiente". Además, event_date con formato no-ISO renderizaba "Invalid Date".
+- Fix: usa `parseDateOnly` + `toDateOnly` de `utils/dates.js` (parseo local a mediodía) en los 3 iteradores de días (`getEventDays`, `getEventDates`, availableDates dropdown) y los 2 renderizadores de chips de fecha. Fechas malformadas se ocultan silenciosamente en vez de mostrar "Invalid Date".
+
+**Bug 2 — Freeze al elegir item_type "Bebida":**
+- Root cause: `ITEM_TYPES` y `ORPHAN_TYPES` se recomputaban en CADA render (iterando `proposal.items` dos veces). Con 100+ ítems y cada onValueChange re-renderizando el árbol, el JS bloqueaba el thread.
+- Fix: `useMemo([itemTypes, proposal?.items])` para ambos → recomputa solo cuando cambian datos reales.
+
+**Feature — Arrastre entre CUALQUIER item_type (no solo dentro del mismo):**
+- Reestructurado el DnD: un solo `DndContext` global envuelve todos los `ITEM_TYPES.map`. Cada item_type mantiene su `SortableContext` interno.
+- IDs de sección ahora incluyen el item_type: `sectionhdr::<itype>::<title>` y `section::<itype>::<title>`.
+- `handleDragEnd` reescrito para detectar item_type destino desde el ID del target y hacer PATCH atómico `{ item_type, section_title, sort_order }`.
+- Reordenar secciones sigue funcionando solo dentro del mismo item_type (arrastre cross-type de secciones es no-op silencioso).
+
+**Testing:** 166/166 tests pasan. Smoke test frontend confirma compilación limpia.

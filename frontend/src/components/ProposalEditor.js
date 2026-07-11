@@ -1623,66 +1623,107 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
     persistSectionOrder(itype, newOrder);
   };
 
-  // Drag-and-drop handler scoped per item_type
-  const handleDragEndForType = async (itype, event) => {
+  // Drag-and-drop handler — works across ALL item_types (single global
+  // DndContext). Detects source & target item_type from the dragged/dropped
+  // IDs, so moving a "Snacks" item from Food to Service is a single drag.
+  //
+  // ID scheme:
+  //   - item rows:  <item_id>                       (globally unique)
+  //   - section body drop zone:  section::<itype>::<title>
+  //   - section header handle:  sectionhdr::<itype>::<title>
+  const parseSectionId = (id) => {
+    // Returns { kind: "hdr"|"body", itype, title } or null.
+    if (typeof id !== "string") return null;
+    if (id.startsWith("sectionhdr::")) {
+      const rest = id.slice("sectionhdr::".length);
+      const sep = rest.indexOf("::");
+      if (sep < 0) return { kind: "hdr", itype: null, title: rest }; // legacy fallback
+      return { kind: "hdr", itype: rest.slice(0, sep), title: rest.slice(sep + 2) };
+    }
+    if (id.startsWith("section::")) {
+      const rest = id.slice("section::".length);
+      const sep = rest.indexOf("::");
+      if (sep < 0) return { kind: "body", itype: null, title: rest }; // legacy fallback
+      return { kind: "body", itype: rest.slice(0, sep), title: rest.slice(sep + 2) };
+    }
+    return null;
+  };
+
+  const handleDragEnd = async (event) => {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
-    const typeItems = (proposal?.items || []).filter((i) => i.item_type === itype);
+    const allItems = proposal?.items || [];
 
-    // ---- Branch A: Section header dragged ----
-    if (typeof active.id === "string" && active.id.startsWith("sectionhdr::")) {
-      const activeSection = active.id.replace("sectionhdr::", "");
-      // Determine target section based on what we dropped on
-      let targetSection = null;
-      if (typeof over.id === "string" && over.id.startsWith("sectionhdr::")) {
-        targetSection = over.id.replace("sectionhdr::", "");
-      } else if (typeof over.id === "string" && over.id.startsWith("section::")) {
-        targetSection = over.id.replace("section::", "");
+    // ---- Branch A: Section header dragged (only reorders within same itype) ----
+    const activeSec = parseSectionId(active.id);
+    if (activeSec && activeSec.kind === "hdr") {
+      const activeItype = activeSec.itype;
+      const overSec = parseSectionId(over.id);
+      let targetItype = activeItype;
+      let targetTitle = null;
+      if (overSec) {
+        targetItype = overSec.itype;
+        targetTitle = overSec.title;
       } else {
-        // Dropped on an item row — use that item's section
-        const overItem = typeItems.find((i) => i.item_id === over.id);
+        // Dropped on an item row
+        const overItem = allItems.find((i) => i.item_id === over.id);
         if (!overItem) return;
-        targetSection = overItem.section_title || "";
+        targetItype = overItem.item_type || "Other";
+        targetTitle = overItem.section_title || "";
       }
-      if (activeSection === targetSection) return;
+      // Cross-type section drag not supported (would require moving all items) — silently no-op
+      if (activeItype && targetItype && activeItype !== targetItype) return;
+      if (activeSec.title === targetTitle) return;
 
-      // Build current section order for this item_type and persist the new order
-      const sections = groupBySections(typeItems, itype).map((s) => s.title || "");
-      const fromIdx = sections.indexOf(activeSection);
-      const toIdx = sections.indexOf(targetSection);
+      const typeItems = allItems.filter((i) => (i.item_type || "Other") === (activeItype || "Other"));
+      const sections = groupBySections(typeItems, activeItype).map((s) => s.title || "");
+      const fromIdx = sections.indexOf(activeSec.title);
+      const toIdx = sections.indexOf(targetTitle);
       if (fromIdx < 0 || toIdx < 0) return;
       const newOrder = [...sections];
       newOrder.splice(fromIdx, 1);
-      newOrder.splice(toIdx, 0, activeSection);
-      await persistSectionOrder(itype, newOrder);
+      newOrder.splice(toIdx, 0, activeSec.title);
+      await persistSectionOrder(activeItype, newOrder);
       return;
     }
 
-    // ---- Branch B: Item dragged (existing behavior) ----
-    const activeItem = typeItems.find((i) => i.item_id === active.id);
-    const overItem = typeItems.find((i) => i.item_id === over.id);
+    // ---- Branch B: Item dragged (can be cross-item_type) ----
+    const activeItem = allItems.find((i) => i.item_id === active.id);
     if (!activeItem) return;
-    // If dropping on a section header pseudo-id (e.g. "section::Title")
-    let targetSectionTitle;
-    if (typeof over.id === "string" && over.id.startsWith("section::")) {
-      targetSectionTitle = over.id.replace("section::", "");
-    } else if (typeof over.id === "string" && over.id.startsWith("sectionhdr::")) {
-      targetSectionTitle = over.id.replace("sectionhdr::", "");
-    } else if (overItem) {
-      targetSectionTitle = overItem.section_title || "";
+
+    // Determine target item_type + section_title from what we dropped on
+    let targetItype = activeItem.item_type || "Other";
+    let targetSectionTitle = activeItem.section_title || "";
+    const overSec = parseSectionId(over.id);
+    if (overSec) {
+      targetItype = overSec.itype || targetItype;
+      targetSectionTitle = overSec.title;
     } else {
-      return;
+      const overItem = allItems.find((i) => i.item_id === over.id);
+      if (overItem) {
+        targetItype = overItem.item_type || targetItype;
+        targetSectionTitle = overItem.section_title || "";
+      } else {
+        return;
+      }
     }
+
     const patch = {};
+    if ((activeItem.item_type || "") !== targetItype) {
+      patch.item_type = targetItype;
+    }
     if ((activeItem.section_title || "") !== targetSectionTitle) {
       patch.section_title = targetSectionTitle;
     }
-    // Compute new sort_order: place after overItem (or at end if dropped on header)
-    const sectionItems = typeItems
-      .filter((i) => (i.section_title || "") === targetSectionTitle && i.item_id !== activeItem.item_id)
+    // Compute new sort_order: place after overItem (or at end if dropped on header/body)
+    const sectionItems = allItems
+      .filter((i) => (i.item_type || "") === targetItype
+        && (i.section_title || "") === targetSectionTitle
+        && i.item_id !== activeItem.item_id)
       .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
     let newOrder;
-    if (overItem) {
+    const overItem = allItems.find((i) => i.item_id === over.id);
+    if (overItem && (overItem.item_type || "") === targetItype) {
       const idx = sectionItems.findIndex((i) => i.item_id === overItem.item_id);
       const prev = idx >= 0 ? sectionItems[idx].sort_order || 0 : 0;
       const next = sectionItems[idx + 1]?.sort_order ?? prev + 2;
@@ -1691,6 +1732,10 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
       newOrder = (sectionItems[sectionItems.length - 1]?.sort_order || 0) + 1;
     }
     patch.sort_order = Math.round(newOrder * 1000);
+
+    // If nothing actually changed, skip the round-trip
+    if (Object.keys(patch).length === 1 && patch.sort_order === (activeItem.sort_order || 0)) return;
+
     try {
       await updateItemSection(activeItem, patch);
       fetchProposal();
@@ -2214,7 +2259,14 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
             </details>
           )}
 
-          {/* Items by Type */}
+          {/* Items by Type — a SINGLE top-level DndContext so items can be
+              dragged ACROSS item_types (Food → Service etc.). Each item_type
+              still has its own SortableContext inside. */}
+          <DndContext
+            sensors={dndSensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+          >
           {ITEM_TYPES.map(itype => {
             const typeData = itemsByType[itype];
             if (typeData.items.length === 0) return null;
@@ -2286,23 +2338,19 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
                     {(() => {
                       const sections = groupBySections(typeData.items, itype);
                       // Build the full sortable id list: section headers + their items, in order.
-                      // This lets DnD detect section drags via the "sectionhdr::" prefix
-                      // while still allowing items to be reordered.
+                      // Section IDs are prefixed with the itype so the same title can exist across
+                      // types AND the top-level DnD handler can detect the target item_type from the
+                      // drop target when dragging an item across types (e.g. Food → Service).
                       const sortableIds = sections.flatMap((s) => [
-                        `sectionhdr::${s.title || ""}`,
+                        `sectionhdr::${itype}::${s.title || ""}`,
                         ...s.items.map((i) => i.item_id),
                       ]);
                       return (
-                        <DndContext
-                          sensors={dndSensors}
-                          collisionDetection={closestCenter}
-                          onDragEnd={(ev) => handleDragEndForType(itype, ev)}
-                        >
-                          <SortableContext items={sortableIds} strategy={verticalListSortingStrategy}>
+                        <SortableContext items={sortableIds} strategy={verticalListSortingStrategy}>
                           {sections.map((section, sectionIdx) => {
                             const sectionKey = `${itype}::${section.title || ""}`;
                             const isEditing = editingSectionKey === sectionKey;
-                            const sectionDragId = `sectionhdr::${section.title || ""}`;
+                            const sectionDragId = `sectionhdr::${itype}::${section.title || ""}`;
                             const canMoveUp = sectionIdx > 0;
                             const canMoveDown = sectionIdx < sections.length - 1;
                             return (
@@ -2533,7 +2581,7 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
                                   <div className="divide-y">
                                     {section.items.length === 0 ? (
                                       <EmptySectionDropzone
-                                        id={`section::${section.title || ""}`}
+                                        id={`section::${itype}::${section.title || ""}`}
                                         label={language === "es"
                                           ? "Arrastra ítems aquí o crea uno nuevo"
                                           : "Drag items here or add a new one"}
@@ -2686,8 +2734,7 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
                               </SortableSectionWrapper>
                             );
                           })}
-                          </SortableContext>
-                        </DndContext>
+                        </SortableContext>
                       );
                     })()}
 
@@ -2734,6 +2781,7 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
               </Card>
             );
           })}
+          </DndContext>
 
           {/* Empty State */}
           {(!proposal?.items || proposal.items.length === 0) && (
