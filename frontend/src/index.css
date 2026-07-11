@@ -94,16 +94,90 @@
   background: hsl(var(--primary) / 0.5);
 }
 
-/* Print styles for documents */
+/* Print styles for documents — designed so the printed PDF/paper matches
+ * the on-screen preview exactly. Historically the Layout's sidebar (256px)
+ * and mobile header (64px) were left visible in print, which pushed the
+ * document off the first page and shrunk everything to fit the remaining
+ * width. Now we neutralise the app chrome entirely on paper.
+ */
+@page {
+  size: A4;
+  margin: 12mm 10mm;
+}
+
 @media print {
-  .no-print {
+  /* Force white background + preserve custom colors from CSS variables
+     (Chrome/Edge/Safari otherwise flatten backgrounds to save toner). */
+  html, body {
+    background: white !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    color-adjust: exact !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Anything explicitly marked no-print (nav, buttons, back link, floating widgets) */
+  .no-print,
+  .no-print * {
     display: none !important;
   }
+
+  /* Hide the Layout chrome: desktop sidebar (aside), mobile header, mobile menu overlay */
+  aside,
+  header,
+  nav[role="navigation"],
+  .mobile-menu {
+    display: none !important;
+  }
+
+  /* Reset Layout's main wrapper — remove sidebar margin + padding so the
+     document content occupies the FULL paper width, matching the preview. */
+  main {
+    margin: 0 !important;
+    padding: 0 !important;
+    padding-top: 0 !important;
+    min-height: 0 !important;
+  }
+  main > div {
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  /* The DocumentPreview centered card: strip shadows/borders, take full width */
+  .document-print-root {
+    box-shadow: none !important;
+    border: 0 !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Page breaks — explicit + automatic */
   .print-break {
     page-break-before: always;
+    break-before: page;
   }
-  body {
-    background: white;
+  .print-avoid-break {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+  /* Tables and their rows should try to stay together on one page */
+  table, tr, thead, tfoot {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  /* Headings shouldn't sit at the very bottom of a page */
+  h1, h2, h3 {
+    break-after: avoid-page;
+    page-break-after: avoid;
+  }
+
+  /* Toaster/sonner and any fixed overlays are noise on paper */
+  [data-sonner-toaster],
+  [role="alertdialog"] {
+    display: none !important;
   }
 }
 

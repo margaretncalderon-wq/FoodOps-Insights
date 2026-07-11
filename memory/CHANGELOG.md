@@ -553,3 +553,23 @@ ingredients/recipes/plated-menus all return 200 with counts.
 - Reordenar secciones sigue funcionando solo dentro del mismo item_type (arrastre cross-type de secciones es no-op silencioso).
 
 **Testing:** 166/166 tests pasan. Smoke test frontend confirma compilación limpia.
+
+## 2026-02-11 — Fix print/PDF: preview vs printed size mismatch, blank first page
+
+**Reported by:** User ("cuando doy a generar documento se ve todo super bien tamaño perfecto pero cuando imprimo... el tamaño cambia y la primera pagina solo me muestra el cuadro de fecha etc")
+
+**Root cause:**
+- `Layout.js` has a **desktop sidebar (`<aside>`, 256px wide)** and a **mobile header (`<header>`, 64px tall)** that were NOT hidden on `@media print`. So when printing, the browser included them → document was squeezed to ~50% of paper width AND pushed down by the header.
+- The existing print CSS in `index.css` only hid `.no-print` and set the body background. No `@page`, no reset of Layout's `main` margin/padding, no `-webkit-print-color-adjust`, no orphan/widow controls.
+
+**Fix (`src/index.css`):**
+- `@page { size: A4; margin: 12mm 10mm }` — consistent paper size regardless of printer default.
+- Hide `aside`, `header`, mobile menu overlay, sonner toast, and any element with `.no-print`.
+- Reset `main` margin/padding to 0 so the document occupies FULL paper width.
+- `-webkit-print-color-adjust: exact` / `print-color-adjust: exact` so brand colors don't get flattened by browsers trying to save toner.
+- `break-inside: avoid` on tables, rows, cards, and headings so item lists don't split awkwardly.
+- Added `.document-print-root` class to `DocumentPreview`'s main card → strips shadows/borders/max-width for print.
+
+**Testing:** 166/166 tests pass. Lint clean. Visual verification requires user redeploy since print is not testable in Preview iframe.
+
+**Next action for user:** Redeploy + try "Imprimir" → "Guardar como PDF" en Ciano.

@@ -172,7 +172,7 @@ export default function DocumentPreview() {
       </div>
 
       {/* Document Content */}
-      <div className="bg-white shadow-md max-w-[210mm] mx-auto p-12 border-t-4 border-primary my-8 print:shadow-none print:border-0" style={{ borderColor: company.primary_color || "#3A4D3F" }}>
+      <div className="bg-white shadow-md max-w-[210mm] mx-auto p-12 border-t-4 border-primary my-8 print:shadow-none print:border-0 document-print-root" style={{ borderColor: company.primary_color || "#3A4D3F" }}>
         {/* Company Header */}
         <div className="flex items-start justify-between mb-8 pb-8 border-b">
           <div className="flex gap-4 items-start">
