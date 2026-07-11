@@ -573,3 +573,19 @@ ingredients/recipes/plated-menus all return 200 with counts.
 **Testing:** 166/166 tests pass. Lint clean. Visual verification requires user redeploy since print is not testable in Preview iframe.
 
 **Next action for user:** Redeploy + try "Imprimir" → "Guardar como PDF" en Ciano.
+
+## 2026-02-11 — Fix: mover ítem no reordena secciones inesperadamente
+
+**Reported by:** User ("cuando yo mueva un elemento de sección no se vaya toda la sección arriba, que mantenga el orden en el cual la tengo a menos que sea yo quien la mueva")
+
+**Root cause:** `handleDragEnd` calculaba `newOrder` sólo con los ítems de la sección destino. Si la sección destino estaba VACÍA (draft section) o tenía sort_orders muy bajos, el nuevo ítem heredaba un sort_order pequeño (`0 + 1 = 1`), y como el orden de secciones se determina por el `sort_order` del PRIMER ítem, la sección destino saltaba automáticamente a la parte SUPERIOR de la lista.
+
+**Fix (`handleDragEnd` en `ProposalEditor.js`):**
+Calculo el `newOrder` respetando el ORDEN VISUAL de las secciones:
+1. **Sección destino con ítems y over-item en la misma sección**: sandwich `(prev+next)/2` — reorden interno preciso.
+2. **Sección destino con ítems** (dropped en header/body): apéndase al final de esa sección con `max+1`.
+3. **Sección destino VACÍA**: se ancla el `newOrder` entre el `max` de la sección anterior y el `min` de la sección siguiente (según el orden visual actual + `draftSectionTitles`). Así la sección queda EXACTAMENTE donde estaba, sin saltar arriba.
+
+Además, ahora el dropping sobre un item de OTRA sección (dentro del mismo item_type) apéndese al FINAL de la sección destino (semántica más intuitiva) en vez de intentar sandwich entre items de secciones distintas.
+
+**Testing:** 166/166 tests pasan. Lint clean (solo 2 warnings pre-existentes no relacionados).

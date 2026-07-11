@@ -1715,21 +1715,73 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
     if ((activeItem.section_title || "") !== targetSectionTitle) {
       patch.section_title = targetSectionTitle;
     }
-    // Compute new sort_order: place after overItem (or at end if dropped on header/body)
-    const sectionItems = allItems
-      .filter((i) => (i.item_type || "") === targetItype
-        && (i.section_title || "") === targetSectionTitle
-        && i.item_id !== activeItem.item_id)
+    // Compute new sort_order.
+    // Design: sections are ordered by the sort_order of their FIRST item, so
+    // if we naively pick `0 + 1 = 1` when dropping into an empty section, that
+    // section would jump to the top of the list. To keep the user's chosen
+    // section order intact, we anchor new sort_orders inside the SAFE RANGE
+    // defined by the target section's neighbours in the current UI order.
+    const targetTypeItems = allItems
+      .filter((i) => (i.item_type || "") === targetItype && i.item_id !== activeItem.item_id)
       .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+    // Build the current per-section min/max map (from what the user is seeing).
+    const sectionsInOrder = [];
+    const sectionRange = new Map(); // title -> { min, max }
+    for (const it of targetTypeItems) {
+      const t = it.section_title || "";
+      if (!sectionRange.has(t)) {
+        sectionsInOrder.push(t);
+        sectionRange.set(t, { min: it.sort_order || 0, max: it.sort_order || 0 });
+      } else {
+        sectionRange.get(t).max = Math.max(sectionRange.get(t).max, it.sort_order || 0);
+      }
+    }
+    // Also honour draft (empty) sections that only exist in local state, keeping
+    // their user-chosen position after any items already grouped.
+    (draftSectionTitles[targetItype] || []).forEach((t) => {
+      if (!sectionsInOrder.includes(t)) sectionsInOrder.push(t);
+    });
+
+    const sectionItems = targetTypeItems.filter((i) => (i.section_title || "") === targetSectionTitle);
+
     let newOrder;
     const overItem = allItems.find((i) => i.item_id === over.id);
-    if (overItem && (overItem.item_type || "") === targetItype) {
+    if (overItem && (overItem.item_type || "") === targetItype && (overItem.section_title || "") === targetSectionTitle) {
+      // Dropped on a specific item within the target section — position relative to it
       const idx = sectionItems.findIndex((i) => i.item_id === overItem.item_id);
       const prev = idx >= 0 ? sectionItems[idx].sort_order || 0 : 0;
       const next = sectionItems[idx + 1]?.sort_order ?? prev + 2;
       newOrder = (prev + next) / 2;
+    } else if (sectionItems.length > 0) {
+      // Dropped on the section header/body (not a specific item) — append at end
+      newOrder = (sectionItems[sectionItems.length - 1].sort_order || 0) + 1;
     } else {
-      newOrder = (sectionItems[sectionItems.length - 1]?.sort_order || 0) + 1;
+      // Target section is EMPTY. Anchor the new sort_order between the
+      // previous section's max and the next section's min so the section
+      // stays exactly where the user placed it in the layout.
+      const idx = sectionsInOrder.indexOf(targetSectionTitle);
+      let anchorLow = 0;
+      let anchorHigh = null;
+      if (idx > 0) {
+        // Sum up: the last populated section BEFORE our target
+        for (let k = idx - 1; k >= 0; k--) {
+          const r = sectionRange.get(sectionsInOrder[k]);
+          if (r) { anchorLow = r.max; break; }
+        }
+      }
+      if (idx >= 0) {
+        for (let k = idx + 1; k < sectionsInOrder.length; k++) {
+          const r = sectionRange.get(sectionsInOrder[k]);
+          if (r) { anchorHigh = r.min; break; }
+        }
+      }
+      if (anchorHigh === null) {
+        // No section after → append at the very end
+        const globalMax = targetTypeItems.reduce((m, i) => Math.max(m, i.sort_order || 0), 0);
+        newOrder = globalMax + 1;
+      } else {
+        newOrder = (anchorLow + anchorHigh) / 2;
+      }
     }
     patch.sort_order = Math.round(newOrder * 1000);
 
