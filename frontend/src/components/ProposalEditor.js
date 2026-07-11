@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { API } from "../utils/api";
 import axios from "axios";
 import { parseDateOnly, toDateOnly } from "../utils/dates";
@@ -264,7 +264,11 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
   
   // Customizable item types from company settings (deduped by type_key)
   const [itemTypes, setItemTypes] = useState([]);
-  const ITEM_TYPES = (() => {
+  // Memoized: recomputing on every keystroke inside the AddItem dialog was
+  // scanning proposal.items twice (ITEM_TYPES + ORPHAN_TYPES) and repainting
+  // every SelectItem — felt like a "freeze" for tenants with 100+ items when
+  // selecting a non-default type like "Bebida".
+  const ITEM_TYPES = useMemo(() => {
     const seen = new Set();
     const out = [];
     if (itemTypes.length === 0) {
@@ -296,9 +300,9 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
       out.push("Other");
     }
     return out;
-  })();
+  }, [itemTypes, proposal?.items]);
 
-  const ORPHAN_TYPES = (() => {
+  const ORPHAN_TYPES = useMemo(() => {
     const configured = new Set();
     if (itemTypes.length === 0) {
       ITEM_TYPES_DEFAULT.forEach((k) => configured.add(k));
@@ -314,7 +318,7 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
     });
     if (hasUntyped && !configured.has("Other")) out.add("Other");
     return out;
-  })();
+  }, [itemTypes, proposal?.items]);
   
   // Invoice dialog state
   const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false);
