@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { API } from "../utils/api";
 import axios from "axios";
+import { parseDateOnly, toDateOnly } from "../utils/dates";
 import { useLanguage } from "../contexts/LanguageContext";
 import { useTerminology } from "../hooks/useTerminology";
 import DocumentPreview from "./DocumentPreview";
@@ -649,11 +650,15 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
       return event.event_dates.map((d) => String(d).slice(0, 10));
     }
     if (event?.event_date && event?.end_date && event.event_date !== event.end_date) {
+      // TZ-safe day iteration: parse at local noon so setDate(+1) never rolls
+      // across a UTC boundary (was showing the "day after" in DR / UTC-4).
       const out = [];
-      const start = new Date(event.event_date);
-      const end = new Date(event.end_date);
-      for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-        out.push(d.toISOString().split("T")[0]);
+      const start = parseDateOnly(event.event_date);
+      const end = parseDateOnly(event.end_date);
+      if (start && end) {
+        for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+          out.push(toDateOnly(d));
+        }
       }
       return out;
     }
@@ -897,10 +902,13 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
   const getEventDays = () => {
     if (!isMultidayEvent) return [];
     const days = [];
-    const start = new Date(event.event_date);
-    const end = new Date(event.end_date);
+    // TZ-safe: parseDateOnly returns a local-noon Date so setDate(+1) never
+    // crosses a UTC boundary (fixes "day after" off-by-one in UTC-4).
+    const start = parseDateOnly(event.event_date);
+    const end = parseDateOnly(event.end_date);
+    if (!start || !end) return [];
     for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-      days.push(d.toISOString().split('T')[0]);
+      days.push(toDateOnly(d));
     }
     return days;
   };
@@ -2399,7 +2407,11 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
                                         return (
                                           <div className="flex flex-wrap items-center gap-1" data-testid={`section-date-chips-${section.title || "default"}`}>
                                             {distinctDates.map((d) => {
-                                              const dt = new Date(d + "T12:00:00");
+                                              // parseDateOnly returns null for malformed inputs → skip the chip
+                                              // instead of rendering "Invalid Date". Legacy items in Ciano-style
+                                              // tenants sometimes have non-ISO event_date strings.
+                                              const dt = parseDateOnly(d);
+                                              if (!dt) return null;
                                               const label = dt.toLocaleDateString(language === "es" ? "es" : "en", { month: "short", day: "numeric" });
                                               return (
                                                 <span key={d} className="inline-flex items-center text-[10px] bg-primary/10 text-primary border border-primary/20 rounded-full px-2 py-[1px]">
@@ -3941,10 +3953,13 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
                   } else if (Array.isArray(event?.event_dates) && event.event_dates.length > 0) {
                     availableDates = event.event_dates.map((d) => String(d).slice(0, 10));
                   } else if (event?.event_date && event?.end_date && event.event_date !== event.end_date) {
-                    const start = new Date(event.event_date);
-                    const end = new Date(event.end_date);
-                    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-                      availableDates.push(d.toISOString().split("T")[0]);
+                    // TZ-safe day iteration (same fix as getEventDays).
+                    const start = parseDateOnly(event.event_date);
+                    const end = parseDateOnly(event.end_date);
+                    if (start && end) {
+                      for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+                        availableDates.push(toDateOnly(d));
+                      }
                     }
                   }
                   const isMulti = availableDates.length > 1;
@@ -3961,7 +3976,9 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
                           {language === "es" ? `Todos los días (${availableDates.length})` : `All days (${availableDates.length})`}
                         </SelectItem>
                         {availableDates.map((dateStr) => {
-                          const d = new Date(dateStr + "T12:00:00");
+                          // Safe TZ-aware parse; skip malformed to avoid "Invalid Date" in the dropdown
+                          const d = parseDateOnly(dateStr);
+                          if (!d) return null;
                           const label = d.toLocaleDateString(language === "es" ? "es" : "en", {
                             weekday: "short",
                             month: "short",
