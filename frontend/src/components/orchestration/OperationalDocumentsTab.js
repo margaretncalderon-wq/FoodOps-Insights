@@ -12,7 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "../ui/dialog";
-import PackingListEditor from "./PackingListEditor";
+import { EventPackingSection } from "../operations/EventPackingSection";
 
 import { API_BASE as API } from "../../utils/api";
 import { formatDateOnly } from "../../utils/dates";
@@ -127,9 +127,9 @@ export default function OperationalDocumentsTab({ eventId, isLocked, language })
           </TabsTrigger>
         </TabsList>
 
-        {/* Packing List Editor Tab */}
+        {/* Packing List — unified with Resource Management */}
         <TabsContent value="packing">
-          <PackingListEditor eventId={eventId} language={language} />
+          <EventPackingSection eventId={eventId} embedded />
         </TabsContent>
 
         {/* Generated Documents Tab */}

@@ -4,7 +4,6 @@ import { useParams, Link, useNavigate } from "react-router-dom";
 import axios from "axios";
 import { Layout } from "../components/Layout";
 import ProposalEditor from "../components/ProposalEditor";
-import EventPurchaseList from "../components/EventPurchaseList";
 import EventPayments from "../components/EventPayments";
 import { useLanguage } from "../contexts/LanguageContext";
 import { formatDateOnly, parseDateOnly } from "../utils/dates";
@@ -234,17 +233,6 @@ export default function EventDetails() {
     inProgress: "bg-warning/10 text-warning",
     completed: "bg-primary/10 text-primary",
     cancelled: "bg-destructive/10 text-destructive",
-  };
-
-  const docTypeLabels = {
-    contract: { en: "Contract", es: "Contrato" },
-    proposal: { en: "Proposal", es: "Propuesta" },
-    invoice: { en: "Invoice", es: "Factura" },
-    beo: { en: "Banquet Event Order", es: "Orden de Evento" },
-    kitchen_sheet: { en: "Kitchen Sheet", es: "Hoja de Cocina" },
-    packing_list: { en: "Packing/Setup List", es: "Lista de Montaje" },
-    menu: { en: "Menu", es: "Menú" },
-    mise_en_place: { en: "Mise en Place", es: "Mise en Place" },
   };
 
   const getDuration = () => {

@@ -55,6 +55,20 @@ export default function ProductionAssetsTab({ eventId }) {
     name: "", category: "equipment", quantity: 1, status: "pending", source: "", notes: ""
   });
   const [newChecklistItem, setNewChecklistItem] = useState({ name: "", category: "general" });
+  const [inventoryItems, setInventoryItems] = useState([]);
+  const [linkPickerOpen, setLinkPickerOpen] = useState(null); // asset_id being linked
+  const [linkSearch, setLinkSearch] = useState("");
+
+  const fetchInventory = useCallback(async () => {
+    try {
+      const res = await axios.get(`${API}/api/inventory/ingredients`, { withCredentials: true });
+      // Restrict to equipment/event_supply — those are what shows on an event
+      const opsItems = (res.data || []).filter((i) =>
+        ["equipment", "event_supply", "disposable"].includes(i.inventory_type)
+      );
+      setInventoryItems(opsItems);
+    } catch (_) { setInventoryItems([]); }
+  }, []);
 
   const fetchProduction = useCallback(async () => {
     try {
@@ -66,7 +80,42 @@ export default function ProductionAssetsTab({ eventId }) {
     setLoading(false);
   }, [eventId]);
 
-  useEffect(() => { fetchProduction(); }, [fetchProduction]);
+  useEffect(() => { fetchProduction(); fetchInventory(); }, [fetchProduction, fetchInventory]);
+
+  // Link / unlink an asset row to an inventory item. When linked we pull name +
+  // qty defaults + cost from inventory so the Cost-of-Resources card stays honest.
+  const linkAssetToInventory = (assetId, invItem) => {
+    setProduction((p) => ({
+      ...p,
+      assets: p.assets.map((a) => {
+        if (a.asset_id !== assetId) return a;
+        return {
+          ...a,
+          inventory_item_id: invItem.ingredient_id,
+          linked_name: invItem.name,
+          linked_cost_per_unit: invItem.cost_per_unit || 0,
+          linked_origin: invItem.origin || "Propio",
+          linked_unit: invItem.unit || "unit",
+          // If the row was originally created empty, backfill display name
+          name: a.name || invItem.name,
+        };
+      }),
+    }));
+    setLinkPickerOpen(null);
+    setLinkSearch("");
+    toast.success(isEs ? "Vinculado al inventario" : "Linked to inventory");
+  };
+
+  const unlinkAsset = (assetId) => {
+    setProduction((p) => ({
+      ...p,
+      assets: p.assets.map((a) => {
+        if (a.asset_id !== assetId) return a;
+        const { inventory_item_id, linked_name, linked_cost_per_unit, linked_origin, linked_unit, ...rest } = a;
+        return rest;
+      }),
+    }));
+  };
 
   const handleSave = async () => {
     setSaving(true);
@@ -227,21 +276,70 @@ export default function ProductionAssetsTab({ eventId }) {
               {production.assets.map((asset) => {
                 const statusInfo = ASSET_STATUSES.find(s => s.value === asset.status) || ASSET_STATUSES[0];
                 const categoryInfo = ASSET_CATEGORIES.find(c => c.value === asset.category);
+                const isLinked = !!asset.inventory_item_id;
                 return (
-                  <div key={asset.asset_id} className="flex items-center justify-between p-3 border rounded-lg">
+                  <div
+                    key={asset.asset_id}
+                    className={`flex items-center justify-between p-3 border rounded-lg ${isLinked ? "bg-blue-50/40 border-blue-200" : ""}`}
+                    data-testid={`asset-row-${asset.asset_id}`}
+                  >
                     <div className="flex items-center gap-3">
-                      <Package className="w-5 h-5 text-muted-foreground" />
+                      <Package className={`w-5 h-5 ${isLinked ? "text-blue-500" : "text-muted-foreground"}`} />
                       <div>
-                        <p className="font-medium">{asset.name}</p>
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium">{asset.name}</p>
+                          {isLinked && (
+                            <Badge
+                              variant="outline"
+                              className="bg-blue-100 text-blue-700 border-blue-200 text-xs gap-1"
+                              data-testid={`asset-linked-${asset.asset_id}`}
+                            >
+                              <Box className="w-3 h-3" />
+                              {isEs ? "Inventario" : "Inventory"}
+                            </Badge>
+                          )}
+                        </div>
                         <div className="flex items-center gap-2 text-xs text-muted-foreground">
                           <span>{isEs ? categoryInfo?.labelEs : categoryInfo?.label}</span>
                           <span>•</span>
                           <span>{isEs ? "Cantidad" : "Qty"}: {asset.quantity}</span>
-                          {asset.source && <><span>•</span><span>{asset.source}</span></>}
+                          {isLinked && asset.linked_cost_per_unit > 0 && (
+                            <>
+                              <span>•</span>
+                              <span className="text-blue-700">
+                                ${(asset.linked_cost_per_unit || 0).toFixed(2)}/{asset.linked_unit || "u"}
+                              </span>
+                            </>
+                          )}
+                          {asset.source && !isLinked && <><span>•</span><span>{asset.source}</span></>}
+                          {isLinked && asset.linked_origin && (
+                            <><span>•</span><span>{asset.linked_origin}</span></>
+                          )}
                         </div>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
+                      {isLinked ? (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => unlinkAsset(asset.asset_id)}
+                          title={isEs ? "Desvincular" : "Unlink"}
+                          data-testid={`asset-unlink-${asset.asset_id}`}
+                        >
+                          {isEs ? "Desvincular" : "Unlink"}
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setLinkPickerOpen(asset.asset_id)}
+                          data-testid={`asset-link-${asset.asset_id}`}
+                        >
+                          <Box className="w-3 h-3 mr-1" />
+                          {isEs ? "Vincular a Inventario" : "Link to Inventory"}
+                        </Button>
+                      )}
                       <Select value={asset.status} onValueChange={(v) => updateAssetStatus(asset.asset_id, v)}>
                         <SelectTrigger className="w-28">
                           <SelectValue />
@@ -428,6 +526,78 @@ export default function ProductionAssetsTab({ eventId }) {
               {isEs ? "Cancelar" : "Cancel"}
             </Button>
             <Button onClick={addChecklistItem}>{isEs ? "Agregar" : "Add"}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Link to Inventory picker */}
+      <Dialog open={!!linkPickerOpen} onOpenChange={(open) => !open && setLinkPickerOpen(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Box className="w-5 h-5" />
+              {isEs ? "Vincular Activo a Inventario" : "Link Asset to Inventory"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <Input
+              autoFocus
+              placeholder={isEs ? "Buscar item de inventario…" : "Search inventory item…"}
+              value={linkSearch}
+              onChange={(e) => setLinkSearch(e.target.value)}
+              data-testid="asset-link-search"
+            />
+            <div className="border rounded-lg max-h-96 overflow-y-auto divide-y">
+              {inventoryItems.length === 0 && (
+                <div className="p-4 text-sm text-muted-foreground text-center">
+                  {isEs ? "No hay items de inventario cargados" : "No inventory items yet"}
+                </div>
+              )}
+              {inventoryItems
+                .filter((i) => {
+                  if (!linkSearch) return true;
+                  const q = linkSearch.toLowerCase();
+                  return (i.name || "").toLowerCase().includes(q) ||
+                         (i.category || "").toLowerCase().includes(q);
+                })
+                .slice(0, 100)
+                .map((i) => (
+                  <button
+                    key={i.ingredient_id}
+                    type="button"
+                    className="w-full text-left px-3 py-2 hover:bg-blue-50 transition flex items-center justify-between gap-2"
+                    onClick={() => linkAssetToInventory(linkPickerOpen, i)}
+                    data-testid={`link-option-${i.ingredient_id}`}
+                  >
+                    <div className="min-w-0">
+                      <p className="font-medium truncate">{i.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {i.category || "—"} · {i.stock_quantity || 0} {i.unit || ""}
+                        {i.origin === "Alquilado" && (
+                          <span className="ml-2 text-purple-600">· {isEs ? "Alquilado" : "Rental"}</span>
+                        )}
+                      </p>
+                    </div>
+                    <div className="text-right text-sm">
+                      {i.cost_per_unit > 0 ? (
+                        <span className="text-blue-700 font-medium">${i.cost_per_unit.toFixed(2)}</span>
+                      ) : (
+                        <span className="text-amber-600 text-xs">{isEs ? "sin costo" : "no cost"}</span>
+                      )}
+                    </div>
+                  </button>
+                ))}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {isEs
+                ? "Al vincular, el costo del item aparecerá automáticamente en el resumen del evento."
+                : "Once linked, the item cost will flow into the event's resource cost summary."}
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setLinkPickerOpen(null); setLinkSearch(""); }}>
+              {isEs ? "Cerrar" : "Close"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

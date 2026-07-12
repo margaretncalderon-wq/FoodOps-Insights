@@ -27,20 +27,25 @@ import { fmtNum } from "../../utils/format";
 
 /**
  * Event Packing List — one screen to:
- *   1. Pick an event
+ *   1. Pick an event (or receive one via prop when embedded)
  *   2. See only the items reserved for that event
  *   3. Check them off as they're packed
  *   4. When 100% packed → single click generates the outbound conduce
+ *
+ * Props:
+ *   eventId  – if provided, the event selector is hidden and this event
+ *              is used directly (used when embedded inside Event Orchestration).
+ *   embedded – tighter layout for embedding inside another tab.
  */
-export function EventPackingSection() {
+export function EventPackingSection({ eventId: eventIdProp = null, embedded = false } = {}) {
   const { language } = useLanguage();
   const isEs = language === "es";
   const t = (es, en) => (isEs ? es : en);
 
   const [events, setEvents] = useState([]);
-  const [selectedEventId, setSelectedEventId] = useState("");
+  const [selectedEventId, setSelectedEventId] = useState(eventIdProp || "");
   const [packingData, setPackingData] = useState(null);
-  const [loadingEvents, setLoadingEvents] = useState(true);
+  const [loadingEvents, setLoadingEvents] = useState(!eventIdProp);
   const [loadingPacking, setLoadingPacking] = useState(false);
   const [saving, setSaving] = useState({});
 
@@ -52,8 +57,15 @@ export function EventPackingSection() {
   });
 
   useEffect(() => {
-    fetchEvents();
-  }, []);
+    if (!eventIdProp) fetchEvents();
+  }, [eventIdProp]);
+
+  // Keep internal state in sync if the parent switches events.
+  useEffect(() => {
+    if (eventIdProp && eventIdProp !== selectedEventId) {
+      setSelectedEventId(eventIdProp);
+    }
+  }, [eventIdProp, selectedEventId]);
 
   useEffect(() => {
     if (selectedEventId) fetchPacking(selectedEventId);
@@ -191,8 +203,9 @@ export function EventPackingSection() {
   const conduceAlreadyGenerated = packingData?.conduce_generated;
 
   return (
-    <div className="space-y-6" data-testid="event-packing-section">
-      {/* Header + event selector */}
+    <div className={embedded ? "space-y-4" : "space-y-6"} data-testid="event-packing-section">
+      {/* Header + event selector (hidden when embedded with fixed event) */}
+      {!eventIdProp && (
       <Card>
         <CardHeader>
           <div className="flex items-start justify-between gap-4">
@@ -238,6 +251,7 @@ export function EventPackingSection() {
           </div>
         </CardContent>
       </Card>
+      )}
 
       {/* Detail view when event picked */}
       {selectedEventId && (
@@ -333,15 +347,23 @@ export function EventPackingSection() {
               {loadingPacking ? (
                 <div className="py-8 text-center text-muted-foreground">{t("Cargando…", "Loading…")}</div>
               ) : !packingData?.items?.length ? (
-                <div className="py-12 text-center space-y-2">
+                <div className="py-12 text-center space-y-3">
                   <Package className="w-10 h-10 mx-auto text-slate-400" />
                   <p className="font-medium">{t("Aún no hay items reservados", "No items reserved yet")}</p>
                   <p className="text-sm text-muted-foreground max-w-md mx-auto">
                     {t(
-                      "Reserva inventario para este evento desde el menú/receta o desde Inventario → Reservar. Aquí aparecerán para empacar.",
-                      "Reserve inventory for this event from the menu/recipe screen or Inventory → Reserve. They'll show up here to pack."
+                      "Reserva inventario para este evento desde el menú/receta o desde Gestión de Recursos → Compras. Aquí aparecerán para empacar.",
+                      "Reserve inventory for this event from the menu/recipe screen or Resource Management → Purchasing. They'll show up here to pack."
                     )}
                   </p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => window.open("/ops-supplies/purchasing", embedded ? "_blank" : "_self")}
+                    data-testid="btn-open-purchasing"
+                  >
+                    {t("Ir a Compras / Reservar", "Go to Purchasing / Reserve")}
+                  </Button>
                 </div>
               ) : (
                 <div className="border rounded-lg overflow-hidden">

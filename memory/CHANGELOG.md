@@ -1,6 +1,40 @@
 # Kora OS - Changelog
 
 
+## February 2026 — Event Orchestration ⇄ Resource Management Consolidation
+
+### Motivation
+Post Sprint A/B/C/D audit surfaced 3+ duplicated views around packing lists, purchase lists and assets between Program Orchestration and Resource Management. Each duplicate had its own storage and its own "generate delivery note" button — data drift and confusion guaranteed. This pass unifies them.
+
+### P1 — Packing List unified
+- `EventPackingSection` now accepts optional `eventId` + `embedded` props so it can be dropped into any parent that already knows the event.
+- `orchestration/OperationalDocumentsTab.js` "Packing List / Setup" subtab now renders `<EventPackingSection eventId embedded />` instead of the old `PackingListEditor`. Same view everywhere, driven by real reservations.
+- Empty state on the embed now shows a "Go to Purchasing / Reserve" CTA (opens `/ops-supplies/purchasing` in a new tab when embedded, in-place when standalone).
+- `PackingListEditor.js` deleted.
+
+### P2 — Production Assets ⇄ Inventory link
+- Each row on `ProductionAssetsTab` now shows a `[Vincular a Inventario]` button. Opening it launches a search-driven picker over `/api/inventory/ingredients` (equipment/event_supply/disposable only).
+- Once linked, the asset carries `inventory_item_id`, `linked_cost_per_unit`, `linked_origin`, `linked_unit`; the row shows an "Inventario" badge, the unit cost, and origin. Users can unlink from the same row.
+- Unlinked assets keep the free-form behavior (backwards compatible).
+
+### P3 — Single Conduce entrypoint
+- The old "Create Delivery Note" button in the deprecated `PackingListEditor` is gone (file deleted).
+- Two paths remain: (1) Event Packing List when 100% packed → auto-generate, (2) manual create from Resource Management → Conduces for ad-hoc cases.
+
+### P4 — Dead code cleanup
+- Removed unused `EventPurchaseList` import from `EventDetails.js`.
+- Removed unused `docTypeLabels` block from `EventDetails.js` (never referenced).
+- Deleted `components/EventPurchaseList.js` (redundant with `ConsolidatedPurchaseSection`).
+- Deleted `components/orchestration/PackingListEditor.js` (replaced by embed).
+
+### Verification
+- Regression: 178/178 backend tests green (same as pre-consolidation — no schema changes).
+- Preview smoke: `/event-orchestration/{event_id}` → Documents → Packing List / Setup renders the embedded section with 4 summary cards, empty-state CTA, and correct progress tracking; Production Assets tab shows the new Link button.
+- Lint: all touched files pass (no ESLint issues on frontend, no new Python lint errors on backend).
+
+
+
+
 ## February 2026 — Event Ops Bundle: Sprints A/B/C/D
 
 ### Sprint A — Overdue Delivery-Note Alerts

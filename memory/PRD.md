@@ -1,5 +1,23 @@
 # Kora OS — Product Requirements Document
 
+## Consolidación Event Orchestration ⇄ Resource Management (Feb 12, 2026)
+
+**Estado:** ✅ Implementado + smoke test en preview + 178/178 regresiones.
+
+### Auditoría detectada
+3 packing lists distintos, 3 puntos de creación de conduce, 1 lista de compras redundante, y assets libres desconectados del inventario maestro.
+
+### Acciones
+- **P1 · Packing List unificado**: `EventPackingSection` ahora acepta `eventId` + `embedded`. Se monta en `OperationalDocumentsTab > Packing List / Setup`. `PackingListEditor.js` eliminado.
+- **P2 · Production Assets ⇄ Inventory**: cada asset puede vincularse a un item de inventario vía picker. Cuando está vinculado el costo del item aparece en el resumen del evento; badge visual "Inventario".
+- **P3 · Un solo entrypoint de conduce**: solo desde EventPackingSection (auto) o CheckInOutSection (manual).
+- **P4 · Cleanup**: eliminados `EventPurchaseList.js`, `PackingListEditor.js`, y bloque `docTypeLabels` no usado en `EventDetails.js`.
+
+### Impacto
+Ahora **Resource Management es la única fuente de verdad** para inventario, reservas, packing y conduces. Event Orchestration muestra las mismas vistas embebidas.
+
+
+
 ## Event Ops Bundle — Sprints A/B/C/D (Feb 12, 2026)
 
 **Estado:** ✅ Implementado + probado (178/178 regresiones + testing_agent_v3_fork iteration 236: 18/20 pytest passing, 2 skipped por seed data).
