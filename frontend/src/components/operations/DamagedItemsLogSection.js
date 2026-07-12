@@ -5,10 +5,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table";
-import { AlertTriangle, XCircle, DollarSign, ChevronDown, ChevronUp, RefreshCw, Image as ImageIcon } from "lucide-react";
+import { AlertTriangle, XCircle, DollarSign, ChevronDown, ChevronUp, RefreshCw, Image as ImageIcon, Receipt, CheckCircle } from "lucide-react";
 import { API_BASE as API } from "../../utils/api";
 import { formatDateOnly } from "../../utils/dates";
 import { fmtNum } from "../../utils/format";
+import { toast } from "sonner";
 
 /**
  * Damaged / Missing Items Log — feeds off `damaged_items_log`.
@@ -47,6 +48,19 @@ export function DamagedItemsLogSection({ year, month }) {
   };
 
   useEffect(() => { fetchData(); }, [year, month]);
+
+  const billDamage = async (logId) => {
+    try {
+      const res = await axios.post(`${API}/api/damaged-items-log/${logId}/bill`, {}, { withCredentials: true });
+      toast.success(t(
+        `Cargado a ${res.data.invoice_number} (nuevo total $${fmtNum(res.data.new_total)})`,
+        `Billed to ${res.data.invoice_number} (new total $${fmtNum(res.data.new_total)})`
+      ));
+      fetchData();
+    } catch (e) {
+      toast.error(e.response?.data?.detail || t("No se pudo cobrar", "Bill failed"));
+    }
+  };
 
   const totals = data?.totals || {};
   const entries = data?.entries || [];
@@ -119,6 +133,7 @@ export function DamagedItemsLogSection({ year, month }) {
                     <TableHead>{t("Evento", "Event")}</TableHead>
                     <TableHead>{t("Conduce", "Note")}</TableHead>
                     <TableHead className="text-right">{t("Costo Reposición", "Replacement Cost")}</TableHead>
+                    <TableHead>{t("Cobro", "Billing")}</TableHead>
                     <TableHead>{t("Nota / Foto", "Note / Photo")}</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -152,6 +167,26 @@ export function DamagedItemsLogSection({ year, month }) {
                           </span>
                         ) : (
                           <span className="text-slate-400">—</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {e.billed_invoice_id ? (
+                          <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100 text-xs">
+                            <CheckCircle className="w-3 h-3 mr-1" />
+                            {t("Facturado", "Billed")} {e.billed_invoice_number}
+                          </Badge>
+                        ) : e.total_cost > 0 && e.event_id ? (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => billDamage(e.log_id)}
+                            data-testid={`bill-damage-${e.log_id}`}
+                          >
+                            <Receipt className="w-3 h-3 mr-1" />
+                            {t("Cobrar", "Bill")}
+                          </Button>
+                        ) : (
+                          <span className="text-xs text-slate-400">—</span>
                         )}
                       </TableCell>
                       <TableCell className="max-w-[220px]">

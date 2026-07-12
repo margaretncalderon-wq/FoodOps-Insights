@@ -18,7 +18,7 @@ import {
 } from "../ui/table";
 import {
   PackageCheck, Truck, AlertTriangle, Calendar, Users, DollarSign,
-  Package, CheckCircle2, RefreshCw, Info,
+  Package, CheckCircle2, RefreshCw, Info, LayoutTemplate,
 } from "lucide-react";
 import { toast } from "sonner";
 import { API_BASE as API } from "../../utils/api";
@@ -55,6 +55,20 @@ export function EventPackingSection({ eventId: eventIdProp = null, embedded = fa
     expected_return_date: "",
     notes: "",
   });
+
+  // Template application (Sprint F)
+  const [templates, setTemplates] = useState([]);
+  const [applyDialogOpen, setApplyDialogOpen] = useState(false);
+  const [selectedTemplateId, setSelectedTemplateId] = useState("");
+  const [previewItems, setPreviewItems] = useState([]);
+  const [applying, setApplying] = useState(false);
+
+  useEffect(() => {
+    // Load templates once, so the "Aplicar plantilla" button can enable itself
+    axios.get(`${API}/api/packing-templates`, { withCredentials: true })
+      .then((r) => setTemplates(r.data || []))
+      .catch(() => setTemplates([]));
+  }, []);
 
   useEffect(() => {
     if (!eventIdProp) fetchEvents();
@@ -159,6 +173,56 @@ export function EventPackingSection({ eventId: eventIdProp = null, embedded = fa
     } catch (e) {
       toast.error(e.response?.data?.detail || t("Error al generar conduce", "Generate failed"));
     }
+  };
+
+  const openApplyTemplate = async () => {
+    setSelectedTemplateId("");
+    setPreviewItems([]);
+    setApplyDialogOpen(true);
+  };
+
+  const runPreview = async (templateId) => {
+    if (!templateId) { setPreviewItems([]); return; }
+    try {
+      const r = await axios.post(
+        `${API}/api/packing-templates/${templateId}/preview`,
+        { event_id: selectedEventId },
+        { withCredentials: true }
+      );
+      setPreviewItems(r.data.items || []);
+    } catch (e) {
+      toast.error(e.response?.data?.detail || t("Error en previsualización", "Preview failed"));
+      setPreviewItems([]);
+    }
+  };
+
+  const applyTemplate = async () => {
+    if (!selectedTemplateId) return;
+    setApplying(true);
+    try {
+      const res = await axios.post(
+        `${API}/api/packing-templates/${selectedTemplateId}/apply`,
+        { event_id: selectedEventId, allow_overbook: false },
+        { withCredentials: true }
+      );
+      const reserved = res.data.reservations?.length || 0;
+      const failed = res.data.failures?.length || 0;
+      if (failed > 0) {
+        toast.warning(
+          t(
+            `${reserved} reservados · ${failed} rechazados por conflicto/stock`,
+            `${reserved} reserved · ${failed} rejected due to conflict/stock`
+          )
+        );
+      } else {
+        toast.success(t(`${reserved} items reservados`, `${reserved} items reserved`));
+      }
+      setApplyDialogOpen(false);
+      await fetchPacking(selectedEventId);
+    } catch (e) {
+      toast.error(e.response?.data?.detail || t("Error al aplicar plantilla", "Apply failed"));
+    }
+    setApplying(false);
   };
 
   const eventCostSummary = useMemo(() => {
@@ -321,6 +385,17 @@ export function EventPackingSection({ eventId: eventIdProp = null, embedded = fa
                   {t("Items reservados", "Reserved items")}
                 </CardTitle>
                 <div className="flex items-center gap-2">
+                  {templates.length > 0 && !conduceAlreadyGenerated && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={openApplyTemplate}
+                      data-testid="btn-apply-template"
+                    >
+                      <LayoutTemplate className="w-4 h-4 mr-1" />
+                      {t("Aplicar plantilla", "Apply template")}
+                    </Button>
+                  )}
                   {conduceAlreadyGenerated ? (
                     <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
                       <Truck className="w-3 h-3 mr-1" />
@@ -493,6 +568,92 @@ export function EventPackingSection({ eventId: eventIdProp = null, embedded = fa
             </Button>
             <Button onClick={handleGenerateConduce} data-testid="btn-confirm-generate-conduce">
               {t("Generar", "Generate")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      {/* Apply Template Dialog (Sprint F) */}
+      <Dialog open={applyDialogOpen} onOpenChange={setApplyDialogOpen}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <LayoutTemplate className="w-5 h-5" />
+              {t("Aplicar plantilla al evento", "Apply template to event")}
+            </DialogTitle>
+            <DialogDescription>
+              {t(
+                "Escoge una plantilla y el sistema calcula las cantidades usando los invitados del evento.",
+                "Pick a template; the system computes quantities using the event's guest count."
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <Label>{t("Plantilla", "Template")}</Label>
+              <Select
+                value={selectedTemplateId}
+                onValueChange={(v) => { setSelectedTemplateId(v); runPreview(v); }}
+              >
+                <SelectTrigger data-testid="template-select"><SelectValue placeholder={t("Selecciona una plantilla…", "Select a template…")} /></SelectTrigger>
+                <SelectContent>
+                  {templates.map((tpl) => (
+                    <SelectItem key={tpl.template_id} value={tpl.template_id}>
+                      {tpl.name} · {(tpl.items || []).length} {t("items", "items")}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            {previewItems.length > 0 && (
+              <div className="border rounded-lg overflow-hidden">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>{t("Item", "Item")}</TableHead>
+                      <TableHead className="text-right">{t("Sugerido", "Suggested")}</TableHead>
+                      <TableHead className="text-right">{t("Disponible", "Available")}</TableHead>
+                      <TableHead>{t("Estado", "Status")}</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {previewItems.map((pi) => (
+                      <TableRow key={pi.inventory_item_id} data-testid={`preview-row-${pi.inventory_item_id}`}>
+                        <TableCell className="font-medium">{pi.item_name}</TableCell>
+                        <TableCell className="text-right font-mono">{fmtNum(pi.suggested_qty)} {pi.unit}</TableCell>
+                        <TableCell className="text-right font-mono">{fmtNum(pi.available)}</TableCell>
+                        <TableCell>
+                          {pi.inventory_item_id?.startsWith("unmatched:") ? (
+                            <Badge className="bg-slate-100 text-slate-700 text-xs">
+                              {t("sin vincular", "unlinked")}
+                            </Badge>
+                          ) : pi.would_overbook ? (
+                            <Badge className="bg-amber-100 text-amber-800 text-xs">
+                              <AlertTriangle className="w-3 h-3 mr-1" />
+                              {t("Excede stock", "Exceeds stock")}
+                            </Badge>
+                          ) : (
+                            <Badge className="bg-emerald-100 text-emerald-800 text-xs">
+                              {t("OK", "OK")}
+                            </Badge>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setApplyDialogOpen(false)}>
+              {t("Cancelar", "Cancel")}
+            </Button>
+            <Button
+              onClick={applyTemplate}
+              disabled={!selectedTemplateId || applying}
+              data-testid="btn-confirm-apply-template"
+            >
+              {applying ? t("Aplicando…", "Applying…") : t("Aplicar y reservar", "Apply & reserve")}
             </Button>
           </DialogFooter>
         </DialogContent>

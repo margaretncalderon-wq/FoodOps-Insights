@@ -18,6 +18,8 @@ TESTS=(
   tests/test_legacy_repair.py
   tests/test_pending_returns.py
   tests/test_delivery_notes_condition.py
+  tests/test_sprint_e_conflicts.py
+  tests/test_sprints_fghij.py
 )
 
 echo "🧪 Running $((${#TESTS[@]})) regression suites (166 tests baseline)..."

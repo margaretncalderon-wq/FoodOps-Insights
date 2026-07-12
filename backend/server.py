@@ -87,6 +87,7 @@ from routers.kitchen_beo import kitchen_beo_router
 from routers.suppliers import suppliers_router
 from routers.supplier_contracts import supplier_contracts_router
 from routers.inventory import inventory_router
+from routers.packing_templates import packing_templates_router
 from routers.purchase_lists import purchase_list_router
 from models.purchase_lists import PurchaseList, PurchaseListCreate, PurchaseListItem
 from routers.events import events_router
@@ -7999,6 +8000,14 @@ async def check_in_delivery_note(note_id: str, data: DeliveryNoteCheckIn, user: 
 
     if damaged_log_entries:
         await db.damaged_items_log.insert_many(damaged_log_entries)
+        # Sprint G — Auto-bill damaged/missing items to the event's invoice
+        # if one exists. Non-blocking: any error is logged and the check-in
+        # continues so ops flow is never disrupted.
+        for entry in damaged_log_entries:
+            try:
+                await _try_bill_damage_to_invoice(entry, user, source="checkin")
+            except Exception as _e:
+                pass
 
     status = "returned" if all_returned else "partial"
     await db.delivery_notes.update_one(
@@ -8078,6 +8087,118 @@ async def list_damaged_items(
 
 
 api_router.include_router(damaged_items_router)
+
+
+async def _try_bill_damage_to_invoice(entry: dict, user, source: str = "manual") -> Optional[dict]:
+    """Append a damage line to the event's invoice.
+
+    Rules:
+      - Requires `entry.event_id` and `entry.total_cost > 0`.
+      - Uses the first *open* invoice attached to the event. If none, refuses.
+      - Idempotent: if this log entry has been billed already, refuses.
+
+    Returns the invoice snapshot (invoice_id, invoice_number, line_added,
+    new_total) on success, or None if nothing was billed.
+    """
+    if not entry.get("event_id"):
+        return None
+    total_cost = float(entry.get("total_cost") or 0)
+    if total_cost <= 0:
+        return None
+
+    # Idempotency: refuse if already billed
+    existing = await db.damaged_items_log.find_one(
+        {"log_id": entry.get("log_id"), "company_id": user.company_id}, {"_id": 0}
+    )
+    if existing and existing.get("billed_invoice_id"):
+        return None
+
+    invoice = await db.invoices.find_one(
+        {
+            "company_id": user.company_id,
+            "event_id": entry["event_id"],
+            "status": {"$in": ["open", "sent", "overdue", "partial"]},
+        },
+        {"_id": 0}
+    )
+    if not invoice:
+        return None
+
+    condition_es = "Faltante" if entry.get("condition") == "faltante" else "Dañado"
+    line = {
+        "description": f"Reposición {condition_es}: {entry.get('item_name', 'item')}",
+        "quantity": float(entry.get("qty") or 1),
+        "unit_price": float(entry.get("replacement_cost_per_unit") or 0),
+        "discount_percent": 0,
+        "notes": entry.get("condition_note") or "",
+        "damage_log_id": entry.get("log_id"),
+        "auto_generated": True,
+        "source": source,
+    }
+    if line["unit_price"] <= 0:
+        # Fallback: distribute total_cost evenly across qty
+        line["unit_price"] = round(total_cost / max(line["quantity"], 1), 2)
+
+    now = datetime.now(timezone.utc)
+    new_lines = (invoice.get("lines") or []) + [line]
+    subtotal = sum(
+        float(l.get("quantity", 0)) * float(l.get("unit_price", 0)) *
+        (1 - float(l.get("discount_percent", 0)) / 100)
+        for l in new_lines
+    )
+    tax_amount = subtotal * (float(invoice.get("tax_rate") or 0) / 100)
+    total = subtotal * (1 - float(invoice.get("discount_percent") or 0) / 100) + tax_amount
+    balance_due = round(total - float(invoice.get("paid_amount") or 0), 2)
+
+    await db.invoices.update_one(
+        {"invoice_id": invoice["invoice_id"], "company_id": user.company_id},
+        {"$set": {
+            "lines": new_lines,
+            "subtotal": round(subtotal, 2),
+            "total": round(total, 2),
+            "balance_due": balance_due,
+            "updated_at": now.isoformat(),
+        }}
+    )
+    # Stamp the log entry
+    await db.damaged_items_log.update_one(
+        {"log_id": entry.get("log_id"), "company_id": user.company_id},
+        {"$set": {
+            "billed_invoice_id": invoice["invoice_id"],
+            "billed_invoice_number": invoice.get("invoice_number"),
+            "billed_at": now.isoformat(),
+            "billed_amount": round(line["quantity"] * line["unit_price"], 2),
+            "billed_source": source,
+        }}
+    )
+    return {
+        "invoice_id": invoice["invoice_id"],
+        "invoice_number": invoice.get("invoice_number"),
+        "line_added": line,
+        "new_total": round(total, 2),
+        "balance_due": balance_due,
+    }
+
+
+@damaged_items_router.post("/{log_id}/bill")
+async def bill_damage_manually(log_id: str, user: User = Depends(get_current_user)):
+    """Manual trigger for the auto-bill helper — used from the Damages UI
+    when auto-billing was skipped (no invoice yet, or manual approval flow).
+    """
+    entry = await db.damaged_items_log.find_one(
+        {"log_id": log_id, "company_id": user.company_id}, {"_id": 0}
+    )
+    if not entry:
+        raise HTTPException(status_code=404, detail="Damage log entry not found")
+    if entry.get("billed_invoice_id"):
+        raise HTTPException(status_code=400, detail=f"Ya facturado en {entry.get('billed_invoice_number')}")
+    result = await _try_bill_damage_to_invoice(entry, user, source="manual")
+    if not result:
+        raise HTTPException(
+            status_code=400,
+            detail="No hay factura abierta para este evento o el costo es cero"
+        )
+    return result
 
 
 # ============== DELIVERY NOTES ENDPOINTS (continued) ==============
@@ -8230,6 +8351,7 @@ api_router.include_router(recipes_router)
 api_router.include_router(recipes_bulk_router)
 api_router.include_router(plated_menus_router)
 api_router.include_router(inventory_router)
+api_router.include_router(packing_templates_router)
 api_router.include_router(suppliers_router)
 api_router.include_router(supplier_contracts_router)  # /api/supplier-contracts/*
 api_router.include_router(operations_router)

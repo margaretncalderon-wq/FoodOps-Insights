@@ -1,6 +1,60 @@
 # Kora OS - Changelog
 
 
+## February 2026 — Sprints E/F/G/H/I/J (Resource Management deep dive)
+
+Consolidated 6-sprint push to close the loop on the user's 7-item audit:
+
+### Sprint E — Date-scope reservation guard
+- `/api/inventory/reserve` now enforces per-event date-overlap conflicts (kind=`date_conflict` in `failures[]`), not just global stock. `allow_overbook` opt-in for legacy migrations.
+- New `GET /api/inventory/over-reserved` returns items where `reserved_quantity > stock_quantity`, enriched with the events pulling them.
+- `PendingReturnsPanel` gained an "Sobre-reservado" chip + detail section that flags each offender and the events touching it. Accent turns red as soon as any item is over-reserved.
+
+### Sprint F — Packing Templates by event type
+- New router `routers/packing_templates.py` with full CRUD + `/preview` (computes `ceil(guest_count/per_guests)` with `minimum_qty` floor) + `/apply` (chains through `/reserve` so Sprint E guards fire) + `/seed-defaults` (idempotent, creates Buffet / Brunch Box / Picadera / Brand Moment).
+- New collection `packing_templates` with `items[].{inventory_item_id, per_guests, minimum_qty, notes}`. Seed items match inventory by name (case-insensitive); unmatched items ship with `inventory_item_id="unmatched:<name>"` and a badge.
+- FE: `PackingTemplatesSection.js` under `/ops-supplies/packing-templates` for CRUD, and an "Aplicar plantilla" button inside `EventPackingSection` that opens a preview dialog with `would_overbook` warnings before reserving.
+
+### Sprint G — Auto-bill damages to the event invoice
+- New helper `_try_bill_damage_to_invoice` in `server.py`: on check-in, if a damaged/lost item has `event_id` + `total_cost > 0` and the event has an open invoice, appends a `Reposición Dañado/Faltante: {item}` line and updates subtotal/total/balance_due atomically. Idempotent via `billed_invoice_id` stamp on the damage log entry.
+- Manual endpoint `POST /api/damaged-items-log/{log_id}/bill` for cases where the auto-bill was skipped.
+- FE: `DamagedItemsLogSection.js` shows a `Cobrar` button per row and a `Facturado {INV-XXX}` badge once billed.
+
+### Sprint H — Upcoming Commitments (next 7/14/30 days)
+- New endpoint `GET /api/inventory/upcoming-commitments?days=N` returns `events` (with reserved items lite) + `stock_pressure` (items where combined future demand > current stock).
+- FE: new `UpcomingCommitmentsSection` at `/ops-supplies/upcoming` with horizon selector, event timeline cards, and a red "Presión de stock" alert card when any item is at risk.
+
+### Sprint I — Utilization Report
+- New endpoint `GET /api/inventory/utilization-report?days=N` aggregates over delivery notes to return:
+  - `top_used` (most times out + highest total qty)
+  - `never_moved` (0 uses in window)
+  - `always_rented` (`origin=Alquilado` used ≥3× → buy candidates, with `est_spend`)
+- FE: `UtilizationReportSection` at `/ops-supplies/utilization` with 3 tabs and a rolling window selector (30/90/180/365).
+
+### Sprint J — QR codes for physical counting
+- Added `qrcode==8.2` + `pillow` to requirements. New endpoints:
+  - `GET /api/inventory/qr/{id}` → PNG of the item URL (Content-Type: image/png).
+  - `GET /api/inventory/qr-sheet?inventory_type=equipment` → printable HTML with all QRs in a 3-column grid + `window.print()` button.
+  - `POST /api/inventory/scan/{id}/count` → writes to `inventory_scan_log` and updates stock (spot-check).
+- FE: `Imprimir QRs` button in `InventoryPage` header. New `/inventory-scan/:id` page renders on scan — mobile-first card with big count input + Save.
+
+### Testing
+- Backend regression: **191/191** tests green (up from 178). New coverage:
+  - `test_pending_returns.py` (5 tests, +scan-overdue)
+  - `test_delivery_notes_condition.py` (7)
+  - `test_sprint_e_conflicts.py` (3)
+  - `test_sprints_fghij.py` (10 — templates preview, seed idempotency, upcoming shape, utilization shape, QR PNG magic bytes, QR sheet HTML, scan-count update, bill 404 guard)
+- Preview smoke: `packing-templates`, `upcoming`, `utilization` all render with the correct empty states + data on the demo tenant.
+
+### User Actions
+- Deploy to production to expose E→J.
+- On login: click "Sembrar plantillas base" once → 4 templates ready.
+- Enter `cost_per_unit` on inventory to unlock accurate event cost + damage bill amounts.
+- Print QR sheet from Inventory → paste on physical boxes.
+
+
+
+
 ## February 2026 — Event Orchestration ⇄ Resource Management Consolidation
 
 ### Motivation

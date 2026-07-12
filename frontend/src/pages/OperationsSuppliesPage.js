@@ -6,7 +6,7 @@ import { Layout } from "../components/Layout";
 import { Badge } from "../components/ui/badge";
 import { 
   Package, ShoppingCart, Truck, Boxes, FileText, Image, Archive,
-  Briefcase, Users, Clock, FolderOpen, PackageCheck
+  Briefcase, Users, Clock, FolderOpen, PackageCheck, LayoutTemplate, CalendarClock, BarChart3
 } from "lucide-react";
 
 // Import all operations components
@@ -17,6 +17,9 @@ import { AssetCountSection } from "../components/operations/AssetCountSection";
 import { AgreementsSection } from "../components/operations/AgreementsSection";
 import { GallerySection } from "../components/operations/GallerySection";
 import { EventPackingSection } from "../components/operations/EventPackingSection";
+import { PackingTemplatesSection } from "../components/operations/PackingTemplatesSection";
+import { UpcomingCommitmentsSection } from "../components/operations/UpcomingCommitmentsSection";
+import { UtilizationReportSection } from "../components/operations/UtilizationReportSection";
 
 export default function OperationsSuppliesPage() {
   const { language } = useLanguage();
@@ -79,6 +82,27 @@ export default function OperationsSuppliesPage() {
       path: "/ops-supplies/event-packing", 
       label: isEs ? "Packing List" : "Packing List", 
       icon: PackageCheck,
+      industries: ["all"]
+    },
+    { 
+      id: "packing-templates", 
+      path: "/ops-supplies/packing-templates", 
+      label: isEs ? "Plantillas" : "Templates", 
+      icon: LayoutTemplate,
+      industries: ["all"]
+    },
+    { 
+      id: "upcoming", 
+      path: "/ops-supplies/upcoming", 
+      label: isEs ? "Próximos 14d" : "Next 14d", 
+      icon: CalendarClock,
+      industries: ["all"]
+    },
+    { 
+      id: "utilization", 
+      path: "/ops-supplies/utilization", 
+      label: isEs ? "Utilización" : "Utilization", 
+      icon: BarChart3,
       industries: ["all"]
     },
     { 
@@ -175,6 +199,9 @@ export default function OperationsSuppliesPage() {
           <Route path="/purchasing" element={<PurchasingSection />} />
           <Route path="/checkin" element={<CheckInOutSection />} />
           <Route path="/event-packing" element={<EventPackingSection />} />
+          <Route path="/packing-templates" element={<PackingTemplatesSection />} />
+          <Route path="/upcoming" element={<UpcomingCommitmentsSection />} />
+          <Route path="/utilization" element={<UtilizationReportSection />} />
           <Route path="/asset-count" element={<AssetCountSection />} />
           <Route path="/agreements" element={<AgreementsSection />} />
           <Route path="/gallery" element={<GallerySection />} />

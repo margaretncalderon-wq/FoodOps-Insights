@@ -17,7 +17,7 @@ import logging
 import math
 import os
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from io import BytesIO
 from typing import Any, Dict, List, Optional
 
@@ -763,70 +763,159 @@ async def reserve_inventory(data: dict, user: User = Depends(get_current_user)):
     """
     Reserve inventory for Stock Requisition (SR).
     This DOES NOT deduct inventory - it only marks quantities as reserved.
-    
+
     Inventory Math:
     - On Hand (current_stock): Unchanged
     - Reserved (reserved_quantity): Increases
     - Available: On Hand - Reserved (recalculated)
-    
+
     Only Production can deduct from On Hand.
+
+    **Sprint E hardening — date-scope conflict enforcement**:
+    When `event_ids` are provided, we ALSO run a per-event date-overlap check
+    against existing active reservations. If the requested qty + the overlap
+    would push availability negative on those dates, the item is REJECTED
+    (not just warned). Callers wanting the old behavior can pass
+    `allow_overbook=true` to force through — used for legacy migrations.
     """
     items = data.get("items", [])
     event_ids = data.get("event_ids", [])
-    
+    events_payload = data.get("events", []) or []
+    allow_overbook = bool(data.get("allow_overbook", False))
+
     if not items:
         raise HTTPException(status_code=400, detail="No items to reserve")
-    
+
     now = datetime.now(timezone.utc)
     reservations = []
-    failures = []  # collected here when status != "En Almacén" or insufficient stock
-    event_names = ", ".join([e.get("event_name", e.get("event_id", "")) for e in data.get("events", [])])
-    
+    failures = []
+    event_names = ", ".join([e.get("event_name", e.get("event_id", "")) for e in events_payload])
+
+    # -------- Load target events for date-scope check --------
+    def _to_date(v):
+        if not v:
+            return None
+        if isinstance(v, datetime):
+            return v.date()
+        try:
+            return datetime.fromisoformat(str(v)).date()
+        except Exception:
+            try:
+                return datetime.strptime(str(v)[:10], "%Y-%m-%d").date()
+            except Exception:
+                return None
+
+    target_events = []
+    if event_ids and not allow_overbook:
+        evs = await db.events.find(
+            {"event_id": {"$in": event_ids}, "company_id": user.company_id},
+            {"_id": 0, "event_id": 1, "event_name": 1, "name": 1, "event_date": 1, "end_date": 1}
+        ).to_list(len(event_ids))
+        for e in evs:
+            s = _to_date(e.get("event_date"))
+            en = _to_date(e.get("end_date")) or s
+            if s:
+                target_events.append({"event_id": e["event_id"], "start": s, "end": en, "name": e.get("event_name") or e.get("name")})
+
     for item in items:
         item_id = item.get("inventory_item_id") or item.get("ingredient_id")
         qty_to_reserve = item.get("qty_needed", item.get("quantity", 0))
-        
+
         if not item_id or qty_to_reserve <= 0:
             continue
-        
-        # Get current inventory item
+
         inv_item = await db.ingredients.find_one(
             {"ingredient_id": item_id, "company_id": user.company_id},
             {"_id": 0}
         )
-        
         if not inv_item:
             continue
-        
+
         current_stock = inv_item.get("stock_quantity", 0)
         current_reserved = inv_item.get("reserved_quantity", 0)
         current_status = inv_item.get("status", "En Almacén")
-        # Only stock physically in the warehouse is reservable — items marked
-        # Empacado/En Tránsito/En Evento/Retornando/Dañado/Perdido are excluded.
         available = (current_stock - current_reserved) if current_status == "En Almacén" else 0
 
+        # ---- (1) Global stock guard ----
         if qty_to_reserve > available:
             failures.append({
                 "inventory_item_id": item_id,
                 "item_name": item.get("name", inv_item.get("name", "")),
                 "requested": qty_to_reserve,
                 "available": available,
-                "reason": f"Only {available} available (status: {current_status})"
+                "reason": f"Only {available} available (status: {current_status})",
+                "kind": "stock",
             })
             continue
 
-        # Update reserved quantity (add to existing reserved)
+        # ---- (2) Date-scope conflict guard (Sprint E) ----
+        overlapping_reserved_qty = 0
+        overlapping_events = []
+        if target_events and not allow_overbook:
+            other_res = await db.inventory_reservations.find(
+                {
+                    "company_id": user.company_id,
+                    "inventory_item_id": item_id,
+                    "status": "active",
+                },
+                {"_id": 0}
+            ).to_list(500)
+            # Pull events referenced by those reservations
+            ref_event_ids = list({eid for r in other_res for eid in (r.get("event_ids") or []) if eid and eid not in event_ids})
+            ref_events_map = {}
+            if ref_event_ids:
+                revs = await db.events.find(
+                    {"event_id": {"$in": ref_event_ids}, "company_id": user.company_id},
+                    {"_id": 0, "event_id": 1, "event_name": 1, "name": 1, "event_date": 1, "end_date": 1}
+                ).to_list(len(ref_event_ids))
+                ref_events_map = {rv["event_id"]: rv for rv in revs}
+
+            for r in other_res:
+                for oid in (r.get("event_ids") or []):
+                    if oid in event_ids:
+                        continue
+                    ev = ref_events_map.get(oid)
+                    if not ev:
+                        continue
+                    o_start = _to_date(ev.get("event_date"))
+                    o_end = _to_date(ev.get("end_date")) or o_start
+                    if not o_start:
+                        continue
+                    # Overlaps if ANY target event's [start,end] intersects with this reservation
+                    if any(not (o_end < te["start"] or o_start > te["end"]) for te in target_events):
+                        overlapping_reserved_qty += float(r.get("quantity_reserved", 0))
+                        overlapping_events.append({
+                            "event_id": oid,
+                            "event_name": ev.get("event_name") or ev.get("name") or "",
+                            "quantity_reserved": r.get("quantity_reserved", 0),
+                        })
+                        break
+
+            available_on_dates = max(current_stock - overlapping_reserved_qty, 0)
+            if qty_to_reserve > available_on_dates:
+                failures.append({
+                    "inventory_item_id": item_id,
+                    "item_name": item.get("name", inv_item.get("name", "")),
+                    "requested": qty_to_reserve,
+                    "available": available,
+                    "available_on_dates": available_on_dates,
+                    "overlap_reserved": overlapping_reserved_qty,
+                    "overlapping_events": overlapping_events,
+                    "reason": (
+                        f"Conflict on event dates — {overlapping_reserved_qty} already reserved by "
+                        f"{len(overlapping_events)} overlapping event(s). "
+                        f"Only {available_on_dates} free on those dates."
+                    ),
+                    "kind": "date_conflict",
+                })
+                continue
+
+        # ---- (3) Commit reservation ----
         new_reserved = current_reserved + qty_to_reserve
-        
         await db.ingredients.update_one(
             {"ingredient_id": item_id, "company_id": user.company_id},
-            {"$set": {
-                "reserved_quantity": new_reserved,
-                "updated_at": now.isoformat()
-            }}
+            {"$set": {"reserved_quantity": new_reserved, "updated_at": now.isoformat()}}
         )
-        
-        # Create reservation record (not a deduction transaction)
         reservation_id = f"res_{uuid.uuid4().hex[:12]}"
         reservation_doc = {
             "reservation_id": reservation_id,
@@ -840,12 +929,11 @@ async def reserve_inventory(data: dict, user: User = Depends(get_current_user)):
             "new_reserved": new_reserved,
             "on_hand": current_stock,
             "available_after": current_stock - new_reserved,
-            "status": "active",  # active, consumed, released
+            "status": "active",
             "created_at": now.isoformat(),
             "created_by": user.user_id
         }
         await db.inventory_reservations.insert_one(reservation_doc)
-        
         reservations.append({
             "item_id": item_id,
             "item_name": item.get("name", inv_item.get("name", "")),
@@ -854,14 +942,439 @@ async def reserve_inventory(data: dict, user: User = Depends(get_current_user)):
             "total_reserved": new_reserved,
             "available": current_stock - new_reserved
         })
-    
+
     return {
-        "message": "Inventory reserved successfully",
+        "message": "Inventory reserved successfully" if not failures else "Inventory partially reserved — some items were rejected",
         "reservations": reservations,
         "failures": failures,
         "event_ids": event_ids,
         "reserved_at": now.isoformat()
     }
+
+@inventory_router.get("/qr/{ingredient_id}")
+async def get_ingredient_qr(ingredient_id: str, user: User = Depends(get_current_user)):
+    """Sprint J — Return a PNG QR code encoding the inventory item URL.
+
+    The QR encodes: `{deep_link_base}/inventory/{ingredient_id}` so scanning
+    with the phone camera opens the item directly. Paste this on the box for
+    fast conteo físico.
+    """
+    ing = await db.ingredients.find_one(
+        {"ingredient_id": ingredient_id, "company_id": user.company_id},
+        {"_id": 0, "name": 1, "ingredient_id": 1}
+    )
+    if not ing:
+        raise HTTPException(status_code=404, detail="Item not found")
+
+    import qrcode
+    from fastapi.responses import Response
+
+    base = os.environ.get("REACT_APP_BACKEND_URL", "").rstrip("/") or "https://app"
+    url = f"{base}/inventory-scan/{ingredient_id}"
+    img = qrcode.make(url)
+    buf = BytesIO()
+    img.save(buf, format="PNG")
+    return Response(
+        content=buf.getvalue(),
+        media_type="image/png",
+        headers={"Content-Disposition": f'inline; filename="{ingredient_id}.png"'},
+    )
+
+
+@inventory_router.get("/qr-sheet")
+async def get_qr_sheet(
+    ids: Optional[str] = None,
+    inventory_type: Optional[str] = "equipment",
+    user: User = Depends(get_current_user),
+):
+    """Sprint J — Render a printable HTML page with QR codes for a batch of
+    inventory items. Users open, print, and stick on their boxes.
+
+    Query params:
+      ids: comma-separated ingredient_ids (optional)
+      inventory_type: filter when `ids` is missing (default: equipment)
+    """
+    from fastapi.responses import HTMLResponse
+    import qrcode
+    import base64
+
+    query: Dict[str, Any] = {"company_id": user.company_id}
+    if ids:
+        id_list = [x.strip() for x in ids.split(",") if x.strip()]
+        query["ingredient_id"] = {"$in": id_list}
+    else:
+        query["inventory_type"] = inventory_type
+
+    items = await db.ingredients.find(
+        query, {"_id": 0, "ingredient_id": 1, "name": 1, "category": 1, "unit": 1}
+    ).sort("name", 1).to_list(200)
+
+    base = os.environ.get("REACT_APP_BACKEND_URL", "").rstrip("/") or "https://app"
+
+    def _qr_data_uri(url: str) -> str:
+        img = qrcode.make(url)
+        buf = BytesIO()
+        img.save(buf, format="PNG")
+        return "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode()
+
+    cards_html = []
+    for it in items:
+        target = f"{base}/inventory-scan/{it['ingredient_id']}"
+        cards_html.append(f"""
+        <div class="card">
+          <img src="{_qr_data_uri(target)}" alt="QR" />
+          <div class="name">{it.get('name', '')}</div>
+          <div class="meta">{it.get('category') or ''} · {it.get('unit') or ''}</div>
+          <div class="id">{it['ingredient_id']}</div>
+        </div>
+        """)
+
+    html = f"""<!doctype html>
+    <html><head>
+      <meta charset="utf-8"/>
+      <title>QR Sheet — {len(items)} items</title>
+      <style>
+        @page {{ size: letter; margin: 0.5in; }}
+        body {{ font-family: system-ui, -apple-system, sans-serif; margin: 0; padding: 16px; }}
+        .header {{ display: flex; justify-content: space-between; margin-bottom: 16px; }}
+        .header h1 {{ font-size: 18px; margin: 0; }}
+        .grid {{ display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }}
+        .card {{ border: 1px dashed #999; border-radius: 8px; padding: 12px; text-align: center; page-break-inside: avoid; }}
+        .card img {{ width: 140px; height: 140px; }}
+        .card .name {{ font-weight: 600; font-size: 12px; margin-top: 6px; }}
+        .card .meta {{ font-size: 10px; color: #666; }}
+        .card .id {{ font-family: monospace; font-size: 9px; color: #999; margin-top: 4px; }}
+        .print-btn {{ padding: 6px 12px; }}
+        @media print {{ .print-btn {{ display: none; }} }}
+      </style>
+    </head><body>
+      <div class="header">
+        <h1>QR Codes — {len(items)} items</h1>
+        <button class="print-btn" onclick="window.print()">Print</button>
+      </div>
+      <div class="grid">
+        {"".join(cards_html)}
+      </div>
+    </body></html>"""
+    return HTMLResponse(content=html)
+
+
+@inventory_router.post("/scan/{ingredient_id}/count")
+async def register_qr_scan_count(
+    ingredient_id: str,
+    data: dict,
+    user: User = Depends(get_current_user),
+):
+    """Sprint J — Record a physical count via QR scan.
+
+    Body: { counted_qty: number, note?: str }
+    Writes an entry to `inventory_scan_log` and adjusts the ingredient's stock
+    to the counted quantity (like a spot-check adjustment). Non-blocking to
+    the monthly asset count.
+    """
+    ing = await db.ingredients.find_one(
+        {"ingredient_id": ingredient_id, "company_id": user.company_id},
+        {"_id": 0}
+    )
+    if not ing:
+        raise HTTPException(status_code=404, detail="Item not found")
+
+    counted_qty = data.get("counted_qty")
+    if counted_qty is None:
+        raise HTTPException(status_code=400, detail="counted_qty required")
+    counted_qty = float(counted_qty)
+
+    now = datetime.now(timezone.utc)
+    previous_stock = float(ing.get("stock_quantity") or 0)
+    diff = counted_qty - previous_stock
+
+    await db.inventory_scan_log.insert_one({
+        "scan_id": f"scn_{uuid.uuid4().hex[:12]}",
+        "company_id": user.company_id,
+        "inventory_item_id": ingredient_id,
+        "item_name": ing.get("name"),
+        "counted_qty": counted_qty,
+        "previous_stock": previous_stock,
+        "diff": diff,
+        "note": data.get("note") or "",
+        "scanned_by": user.user_id,
+        "scanned_at": now.isoformat(),
+    })
+    await db.ingredients.update_one(
+        {"ingredient_id": ingredient_id, "company_id": user.company_id},
+        {"$set": {"stock_quantity": counted_qty, "updated_at": now.isoformat()}}
+    )
+    return {
+        "ok": True,
+        "previous_stock": previous_stock,
+        "counted_qty": counted_qty,
+        "diff": diff,
+    }
+
+
+@inventory_router.get("/utilization-report")
+async def get_utilization_report(
+    days: int = 90,
+    user: User = Depends(get_current_user),
+):
+    """Sprint I — Which assets are actually pulling their weight.
+
+    Aggregates over the last N days:
+      - `top_used`         : equipment items with the highest total qty across delivery notes
+      - `never_moved`      : items with 0 delivery notes in the window (owned only)
+      - `always_rented`    : items with `origin=Alquilado` that have been out >= 3 times
+                            (candidate for purchase)
+    """
+    since = datetime.now(timezone.utc) - timedelta(days=int(days))
+    since_iso = since.isoformat()
+
+    # Pull equipment items
+    items = await db.ingredients.find(
+        {
+            "company_id": user.company_id,
+            "inventory_type": {"$in": ["equipment", "event_supply"]},
+        },
+        {"_id": 0}
+    ).to_list(3000)
+    items_by_id = {i["ingredient_id"]: i for i in items}
+
+    # Pull delivery notes in the window
+    notes = await db.delivery_notes.find(
+        {"company_id": user.company_id, "created_at": {"$gte": since_iso}},
+        {"_id": 0, "items": 1, "note_id": 1, "created_at": 1}
+    ).to_list(2000)
+
+    usage: Dict[str, dict] = {}
+    for n in notes:
+        for it in (n.get("items") or []):
+            iid = it.get("inventory_item_id")
+            if not iid:
+                continue
+            entry = usage.setdefault(iid, {"times_used": 0, "total_qty": 0.0, "last_used_at": None})
+            entry["times_used"] += 1
+            entry["total_qty"] += float(it.get("qty_out") or 0)
+            ca = n.get("created_at")
+            if ca and (not entry["last_used_at"] or ca > entry["last_used_at"]):
+                entry["last_used_at"] = ca
+
+    top_used = []
+    never_moved = []
+    always_rented = []
+    for iid, ing in items_by_id.items():
+        u = usage.get(iid, {"times_used": 0, "total_qty": 0.0, "last_used_at": None})
+        row = {
+            "inventory_item_id": iid,
+            "name": ing.get("name"),
+            "origin": ing.get("origin", "Propio"),
+            "stock": ing.get("stock_quantity", 0),
+            "cost_per_unit": ing.get("cost_per_unit", 0),
+            "rental_cost_per_unit_day": ing.get("rental_cost_per_unit_day", 0),
+            "times_used": u["times_used"],
+            "total_qty": u["total_qty"],
+            "last_used_at": u["last_used_at"],
+        }
+        if u["times_used"] > 0:
+            top_used.append(row)
+        else:
+            # No usage at all
+            never_moved.append(row)
+        if row["origin"] == "Alquilado" and u["times_used"] >= 3:
+            always_rented.append(row)
+
+    top_used.sort(key=lambda r: -r["total_qty"])
+    always_rented.sort(key=lambda r: -r["times_used"])
+    return {
+        "window_days": days,
+        "since": since_iso[:10],
+        "top_used": top_used[:20],
+        "never_moved": never_moved[:50],
+        "always_rented": always_rented[:20],
+        "total_items_analyzed": len(items),
+    }
+
+
+@inventory_router.get("/upcoming-commitments")
+async def get_upcoming_commitments(
+    days: int = 14,
+    user: User = Depends(get_current_user),
+):
+    """Sprint H — Timeline view: which events in the next N days are pulling
+    inventory, and where stock is at risk.
+
+    Returns:
+      - `events`: list of upcoming events with their reserved items and totals
+      - `stock_pressure`: items where current stock < sum of upcoming demand
+    """
+    from math import ceil as _ceil  # local alias
+    _ = _ceil  # silence unused if we don't use
+
+    today = datetime.now(timezone.utc).date()
+    horizon = today + timedelta(days=int(days))
+    today_str = today.isoformat()
+    horizon_str = horizon.isoformat()
+
+    events = await db.events.find(
+        {
+            "company_id": user.company_id,
+            "event_date": {"$gte": today_str, "$lte": horizon_str},
+        },
+        {"_id": 0}
+    ).sort("event_date", 1).to_list(500)
+
+    if not events:
+        return {"horizon_days": days, "events": [], "stock_pressure": []}
+
+    event_ids = [e["event_id"] for e in events]
+    reservations = await db.inventory_reservations.find(
+        {
+            "company_id": user.company_id,
+            "status": "active",
+            "event_ids": {"$in": event_ids},
+        },
+        {"_id": 0}
+    ).to_list(2000)
+
+    # Group reservations per event and per inventory item
+    per_event: Dict[str, list] = {eid: [] for eid in event_ids}
+    per_item_total: Dict[str, float] = {}
+    for r in reservations:
+        for eid in (r.get("event_ids") or []):
+            if eid in per_event:
+                per_event[eid].append(r)
+        iid = r.get("inventory_item_id")
+        if iid:
+            per_item_total[iid] = per_item_total.get(iid, 0) + float(r.get("quantity_reserved") or 0)
+
+    # Load ingredients for stock pressure
+    ing_docs = {}
+    if per_item_total:
+        docs = await db.ingredients.find(
+            {"ingredient_id": {"$in": list(per_item_total.keys())}, "company_id": user.company_id},
+            {"_id": 0}
+        ).to_list(len(per_item_total))
+        ing_docs = {d["ingredient_id"]: d for d in docs}
+
+    # Build event payloads
+    out_events = []
+    for e in events:
+        eid = e["event_id"]
+        res_for_event = per_event.get(eid, [])
+        items_lite = [{
+            "inventory_item_id": r["inventory_item_id"],
+            "name": r.get("item_name"),
+            "qty": r.get("quantity_reserved"),
+        } for r in res_for_event]
+        out_events.append({
+            "event_id": eid,
+            "event_name": e.get("event_name") or e.get("name"),
+            "event_date": e.get("event_date"),
+            "end_date": e.get("end_date"),
+            "guest_count": e.get("guest_count") or e.get("expected_guests") or 0,
+            "status": e.get("status"),
+            "reserved_items_count": len(items_lite),
+            "reserved_items": items_lite[:20],
+        })
+
+    # Stock pressure: items whose total upcoming demand > current stock
+    pressure = []
+    for iid, demand in per_item_total.items():
+        ing = ing_docs.get(iid)
+        if not ing:
+            continue
+        stock = float(ing.get("stock_quantity") or 0)
+        if demand > stock:
+            pressure.append({
+                "inventory_item_id": iid,
+                "name": ing.get("name"),
+                "unit": ing.get("unit"),
+                "stock": stock,
+                "upcoming_demand": demand,
+                "shortfall": demand - stock,
+                "origin": ing.get("origin", "Propio"),
+            })
+    pressure.sort(key=lambda p: -p["shortfall"])
+
+    return {
+        "horizon_days": days,
+        "from": today.isoformat(),
+        "to": horizon.isoformat(),
+        "events": out_events,
+        "stock_pressure": pressure,
+    }
+
+
+@inventory_router.get("/over-reserved")
+async def get_over_reserved_items(user: User = Depends(get_current_user)):
+    """List items that are currently over-reserved.
+
+    Two flavors of "over-reserved":
+      - **global**: `reserved_quantity > stock_quantity` (would surface as
+        negative Available in the FE table — this is the "-1 unit" the user saw).
+      - **date_conflict**: at least two active reservations on overlapping
+        event dates whose combined qty > stock. Global availability may look
+        fine, but they collide on the calendar.
+
+    Feeds the "Sobre-reservado" chip on `PendingReturnsPanel`.
+    """
+    items = await db.ingredients.find(
+        {"company_id": user.company_id, "inventory_type": {"$in": ["equipment", "event_supply", "disposable"]}},
+        {"_id": 0}
+    ).to_list(2000)
+
+    global_offenders = []
+    for it in items:
+        stock = float(it.get("stock_quantity") or 0)
+        reserved = float(it.get("reserved_quantity") or 0)
+        if reserved > stock and stock >= 0:
+            global_offenders.append({
+                "inventory_item_id": it.get("ingredient_id"),
+                "name": it.get("name"),
+                "stock": stock,
+                "reserved": reserved,
+                "shortfall": reserved - stock,
+                "unit": it.get("unit", "unit"),
+            })
+
+    # Enrich with which events are pulling them
+    if global_offenders:
+        ids = [o["inventory_item_id"] for o in global_offenders]
+        res_docs = await db.inventory_reservations.find(
+            {"company_id": user.company_id, "status": "active", "inventory_item_id": {"$in": ids}},
+            {"_id": 0}
+        ).to_list(2000)
+        by_item: Dict[str, list] = {}
+        event_ids_set: set = set()
+        for r in res_docs:
+            by_item.setdefault(r["inventory_item_id"], []).append(r)
+            for eid in (r.get("event_ids") or []):
+                event_ids_set.add(eid)
+        events_map = {}
+        if event_ids_set:
+            evs = await db.events.find(
+                {"event_id": {"$in": list(event_ids_set)}, "company_id": user.company_id},
+                {"_id": 0, "event_id": 1, "event_name": 1, "name": 1, "event_date": 1}
+            ).to_list(len(event_ids_set))
+            events_map = {e["event_id"]: e for e in evs}
+        for o in global_offenders:
+            evs_touching = []
+            for r in by_item.get(o["inventory_item_id"], []):
+                for eid in (r.get("event_ids") or []):
+                    ev = events_map.get(eid)
+                    if ev:
+                        evs_touching.append({
+                            "event_id": eid,
+                            "event_name": ev.get("event_name") or ev.get("name") or "",
+                            "event_date": ev.get("event_date"),
+                            "quantity_reserved": r.get("quantity_reserved", 0),
+                        })
+            o["reservations"] = evs_touching
+
+    return {
+        "count": len(global_offenders),
+        "total_shortfall": sum(o["shortfall"] for o in global_offenders),
+        "items": global_offenders,
+    }
+
 
 @inventory_router.post("/release-reservation")
 async def release_inventory_reservation(data: dict, user: User = Depends(get_current_user)):

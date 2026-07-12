@@ -1,5 +1,48 @@
 # Kora OS — Product Requirements Document
 
+## Sprints E→J · Resource Management Deep Dive (Feb 12, 2026)
+
+**Estado:** ✅ Implementado + probado. **191/191** backend regressions ✅. Smoke UI OK.
+
+### Sprint E — Guard de conflictos por fecha
+- `/api/inventory/reserve` ahora rechaza (no solo advierte) reservas que causan solapamiento de fechas por evento. Opt-in `allow_overbook` para casos legacy.
+- Nuevo `GET /api/inventory/over-reserved` — items con `reserved > stock` (el "-1 unit" del usuario).
+- `PendingReturnsPanel` incluye chip y sección "Sobre-reservado" con eventos que jalan cada item.
+
+### Sprint F — Plantillas de Packing List
+- Nueva colección + router `packing_templates` con CRUD + `/preview` + `/apply` + `/seed-defaults`.
+- Seed: **Buffet Francés, Brunch Box, Picadera, Brand Moment** (auto-match por nombre; los no-matched llevan badge `unmatched`).
+- UI CRUD en `/ops-supplies/packing-templates` + botón "Aplicar plantilla" dentro de EventPackingSection con dialog de preview.
+
+### Sprint G — Cargo automático de daños a factura
+- Helper `_try_bill_damage_to_invoice` corre en cada check-in de conduce. Idempotente vía `billed_invoice_id`.
+- Endpoint manual `POST /api/damaged-items-log/{log_id}/bill` para casos sin factura al momento del check-in.
+- UI: botón `Cobrar` + badge `Facturado INV-XXX` en la tabla de Daños y Faltantes.
+
+### Sprint H — Próximos 7/14/30 días
+- `GET /api/inventory/upcoming-commitments?days=N` con eventos entrantes + presión de stock.
+- Nueva tab `/ops-supplies/upcoming` con timeline + alerta roja "Presión de stock".
+
+### Sprint I — Reporte de Utilización
+- `GET /api/inventory/utilization-report?days=N` con `top_used`, `never_moved`, `always_rented` (candidatos a comprar).
+- Nueva tab `/ops-supplies/utilization` con 3 tabs.
+
+### Sprint J — QR codes
+- `qrcode==8.2` instalado. Endpoints:
+  - `GET /api/inventory/qr/{id}` → PNG
+  - `GET /api/inventory/qr-sheet` → HTML imprimible con grid 3-col
+  - `POST /api/inventory/scan/{id}/count` → registra conteo físico y actualiza stock
+- Nueva página `/inventory-scan/:id` (mobile-first) para escanear con la cámara del celular. Botón "Imprimir QRs" en Inventory header.
+
+### Resumen de nuevos assets
+- **Routers backend**: `packing_templates.py`
+- **Endpoints**: `/inventory/over-reserved`, `/inventory/upcoming-commitments`, `/inventory/utilization-report`, `/inventory/qr/{id}`, `/inventory/qr-sheet`, `/inventory/scan/{id}/count`, `/packing-templates/*`, `/damaged-items-log/{id}/bill`
+- **Colecciones nuevas**: `packing_templates`, `event_packing_state`, `damaged_items_log`, `overdue_notes_log`, `inventory_scan_log`
+- **Componentes frontend**: `PackingTemplatesSection`, `UpcomingCommitmentsSection`, `UtilizationReportSection`, `InventoryScanPage`, `PendingReturnsPanel` (extendido)
+- **Tests nuevos**: `test_sprint_e_conflicts.py`, `test_sprints_fghij.py`
+
+
+
 ## Consolidación Event Orchestration ⇄ Resource Management (Feb 12, 2026)
 
 **Estado:** ✅ Implementado + smoke test en preview + 178/178 regresiones.

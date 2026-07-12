@@ -24,7 +24,7 @@ import {
   SelectValue,
 } from "../components/ui/select";
 import { toast } from "sonner";
-import { Plus, Search, Package, AlertTriangle, Truck, MoreHorizontal, Trash2, Edit } from "lucide-react";
+import { Plus, Search, Package, AlertTriangle, Truck, MoreHorizontal, Trash2, Edit, QrCode } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -249,6 +249,15 @@ export default function InventoryPage() {
             </p>
           </div>
           <div className="flex gap-2">
+            <Button
+              variant="outline"
+              className="gap-2"
+              onClick={() => window.open(`${API}/api/inventory/qr-sheet?inventory_type=equipment`, "_blank")}
+              data-testid="print-qr-sheet-btn"
+            >
+              <QrCode className="w-4 h-4" />
+              {language === "es" ? "Imprimir QRs" : "Print QRs"}
+            </Button>
             <Dialog open={supplierDialogOpen} onOpenChange={setSupplierDialogOpen}>
               <DialogTrigger asChild>
                 <Button variant="outline" className="gap-2">
