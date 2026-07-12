@@ -79,7 +79,7 @@ export default function OperationsSuppliesPage() {
       path: "/ops-supplies/event-packing", 
       label: isEs ? "Packing List" : "Packing List", 
       icon: PackageCheck,
-      industries: ["events", "events_hospitality", "generic"]
+      industries: ["all"]
     },
     { 
       id: "asset-count", 

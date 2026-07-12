@@ -1,6 +1,44 @@
 # Kora OS - Changelog
 
 
+## February 2026 — Event Ops Bundle: Sprints A/B/C/D
+
+### Sprint A — Overdue Delivery-Note Alerts
+- New APScheduler cron (daily 08:15 local) `_send_overdue_delivery_note_alerts` scans `delivery_notes` with `status ∈ {pending, partial}` and `expected_return_date < today`, then calls `notify_org_admins` with a high-priority in-app notification and a `link` deeplink to the Check-in view.
+- Idempotent per (company_id, note_id, day) via new `overdue_notes_log` collection — no re-spamming within the same day.
+- Manual trigger endpoint `POST /api/delivery-notes/scan-overdue` for on-demand refresh from ops.
+
+### Sprint B — Event Packing List + Date-Overlap Conflict Check
+- **`GET /api/events/{event_id}/packing-list-live`** returns live packing status: reservations enriched with ingredient metadata (unit, cost, image, origin, rental cost) + per-item `packed`/`packed_at`/`packed_by` from new `event_packing_state` collection.
+- **`POST /api/events/{event_id}/pack-item`** toggles a single item's packed flag; auto-transitions equipment status ("Empacado" ↔ "En Almacén").
+- **`POST /api/events/{event_id}/generate-outbound-conduce`** creates a real delivery note (`direction=outbound`, `generated_from_packing=true`) from packed items, moves those items to "En Evento", and stores a link on the packing state (idempotent: refuses re-generation).
+- **`POST /api/inventory/check-reservation-conflicts`** pre-validates a reservation attempt by date-overlap. Returns per-item `overlapping_events` so ops sees WHY they conflict — before hitting `/reserve`. Fallback uses `event_date + end_date` (1-day window if no end).
+- FE: new `EventPackingSection` mounted at `/ops-supplies/event-packing`. Four summary cards (Fecha, Invitados, Progreso, Costo de Recursos). Checkbox toggles per item, "Generar Conduce de Salida" button appears when 100% packed. `ConsolidatedPurchaseSection` now runs the conflict check BEFORE calling `/reserve` and surfaces overlapping events in a confirm dialog.
+
+### Sprint C — Direction + Return Condition + Damages/Missing Registry
+- `delivery_notes.direction` field added (`outbound` | `return`). Legacy notes are backfilled to `outbound` on list.
+- **Check-in endpoint upgraded** — each returned item may include `condition ∈ {bueno, dañado, faltante}` + optional `condition_note` + `photo_url`. Legacy aliases (good/damaged/missing/lost/ok) are normalized server-side.
+- Auto inventory status transitions on check-in: `bueno` → "En Almacén" (+ stock back), `dañado` → "Dañado" (kept out of sellable stock), `faltante` → "Perdido".
+- New collection `damaged_items_log` + endpoint `GET /api/damaged-items-log?condition=&event_id=&year=&month=` with filters and enriched event context.
+- FE: check-in dialog gained a `Condición` selector column with inline `Nota` + file upload appearing only when `dañado`/`faltante`. Delivery-notes table shows a new `Dir.` column with Outbound/Retorno badge. Asset Count page now has a `Damages & Missing` card (`data-testid=damaged-items-log`) as its top section.
+
+### Sprint D — Item Cost Visibility + Event Resource Cost
+- Inventory table now shows an amber "sin costo" warning (`data-testid=no-cost-<id>`) instead of "$0.00/unit" so ops sees which items still need a cost entered.
+- The Event Packing view exposes a live "Costo de Recursos" card = Σ(items propios × cost_per_unit) + Σ(items alquilados × rental_cost_per_unit_day × days), with the breakdown as a sub-label.
+
+### Testing
+- Backend regression baseline: 178 tests (was 170), all green. New coverage:
+  - `test_pending_returns.py::test_scan_overdue_endpoint`
+  - `test_delivery_notes_condition.py` (7 tests): direction backfill, damaged log shape + filters, packing list live shape, conflict check shape, conflict check 404.
+- Testing agent (iteration 236) verified 18/20 pytest + full FE flow (Packing List, Check-in with Dañado, Damages log, Inventory cost warning) end-to-end. 2 skipped were "no reserved items yet on demo tenant" (not a defect).
+
+### User Actions Available
+- Deploy to production to expose all four sprints live.
+- Enter `cost_per_unit` on inventory items to eliminate "sin costo" warnings and get accurate event totals.
+
+
+
+
 ## February 2026 — Pending Returns Dashboard (P0)
 
 ### Problem

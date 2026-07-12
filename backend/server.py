@@ -7967,14 +7967,23 @@ async def check_in_delivery_note(note_id: str, data: DeliveryNoteCheckIn, user: 
 
                     # --- Damaged/Lost registry entry ---
                     if condition in ("dañado", "faltante"):
+                        # Fall back to note-side identifiers so the log is never
+                        # blank (edge case when FE forgets to send inventory_item_id).
+                        log_item_id = item_id or note_item.get("inventory_item_id") or ""
+                        log_item_name = (
+                            note_item.get("name")
+                            or incoming_item.get("name")
+                            or log_item_id
+                            or "Unknown item"
+                        )
                         damaged_log_entries.append({
                             "log_id": f"dlog_{uuid.uuid4().hex[:12]}",
                             "company_id": user.company_id,
                             "note_id": note_id,
                             "note_number": note.get("note_number"),
                             "event_id": note.get("event_id"),
-                            "inventory_item_id": item_id,
-                            "item_name": note_item.get("name"),
+                            "inventory_item_id": log_item_id,
+                            "item_name": log_item_name,
                             "condition": condition,
                             "qty": qty_lost if condition == "faltante" else max(qty_out - qty_returned, 0) or qty_out,
                             "replacement_cost_per_unit": replacement_cost,

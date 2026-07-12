@@ -1,5 +1,46 @@
 # Kora OS — Product Requirements Document
 
+## Event Ops Bundle — Sprints A/B/C/D (Feb 12, 2026)
+
+**Estado:** ✅ Implementado + probado (178/178 regresiones + testing_agent_v3_fork iteration 236: 18/20 pytest passing, 2 skipped por seed data).
+
+### Objetivo del bundle
+Cerrar el loop operativo de eventos: alertar automáticamente sobre conduces vencidos, dar una vista única de Packing List por evento con generación directa de conduce, agregar dirección + condición al retorno de items, y exponer costos reales por evento.
+
+### A · Alertas automáticas de conduce vencido
+- APScheduler diario (08:15 local) — nueva job `overdue_delivery_notes_dispatcher`.
+- Idempotente por `(company_id, note_id, day)` vía nueva colección `overdue_notes_log`.
+- Endpoint manual `POST /api/delivery-notes/scan-overdue` (per-tenant).
+- Notificación in-app con `link` deeplink al Check-in.
+
+### B · Packing List por Evento + conflicto de reservas por fecha
+- `GET /api/events/{id}/packing-list-live` — reservas activas enriquecidas + estado de empacado.
+- `POST /api/events/{id}/pack-item` — toggle empacado + auto-status "Empacado" en equipo.
+- `POST /api/events/{id}/generate-outbound-conduce` — crea el DN, mueve items a "En Evento", idempotente.
+- `POST /api/inventory/check-reservation-conflicts` — pre-check con overlapping_events (ventana `event_date`+`end_date`, fallback 1 día).
+- FE: nueva página `/ops-supplies/event-packing` (tab siempre visible, `industries=["all"]`), 4 summary cards + tabla con checkboxes + botón "Generar Conduce" al 100%.
+- FE: `ConsolidatedPurchaseSection.handleProcessSR` corre pre-check antes de `/reserve` y muestra `window.confirm` con la lista de eventos que chocan.
+
+### C · Dirección + Condición + Registro de Daños/Faltantes
+- Campo `direction: "outbound"|"return"` en `delivery_notes`, con backfill legacy en list.
+- Check-in acepta `condition: bueno|dañado|faltante` + `condition_note` + `photo_url` por item; normaliza sinónimos (good/damaged/missing).
+- Transiciones de inventario: `bueno`→"En Almacén", `dañado`→"Dañado", `faltante`→"Perdido".
+- Nueva colección `damaged_items_log` + endpoint `GET /api/damaged-items-log?condition=&event_id=&year=&month=`, enriquecido con nombre de evento.
+- FE: dialog de check-in con columna Condición + nota + upload de foto (via `/api/upload`). Tabla de conduces con columna `Dir.` (Outbound/Retorno). Asset Count muestra card "Damages & Missing" al tope.
+
+### D · Costo por item + Costo de recursos del evento
+- Warning ámbar "sin costo" en Inventory Page cuando `cost_per_unit=0` (data-testid `no-cost-<id>`).
+- Card "Costo de Recursos" en la vista de Packing:  
+  `Σ(propios × cost_per_unit) + Σ(alquilados × rental_cost_per_unit_day × días)`  
+  con desglose corto (propios / alquiler / días).
+
+### Tests
+- `backend/tests/test_pending_returns.py` — 5 tests (+1 nuevo: scan-overdue).
+- `backend/tests/test_delivery_notes_condition.py` — 7 tests (direction, damaged log filters, packing live, conflict check).
+- Regression `run_regression.sh`: **178 tests** (era 170).
+
+
+
 ## Pending Returns Dashboard (Feb 12, 2026)
 
 **Status:** ✅ Implementado + probado (170/170 regresiones + smoke UI).
