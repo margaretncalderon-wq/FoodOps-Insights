@@ -167,7 +167,7 @@ Campos relevantes: `event_id`, `company_id`, `name`, `client_id`, `client_name`,
 | **Inventario general** | ✅ Maduro | `Ingredient` | `db.ingredients` | Modelo principal. También `db.inventory_items` legacy paralelo (a migrar) |
 | **Conduces (Delivery Notes)** | ✅ Funcional | inline en `server.py` | `db.delivery_notes` | Modelo aún NO extraído a `models/`. Ítems apuntan a `inventory_item_id` (soft FK) |
 | **Conteo de Activos** | ❌ NO existe | — | — | Cerca hay: `inventory_type=equipment` + `delivery_notes.qty_returned/qty_lost` |
-| **Contratos de Proveedores** | ❌ NO existe | — | — | Cerca hay: `db.suppliers` con `payment_terms/credit_limit` + `db.supplier_items` con precios |
+| **Contratos de Proveedores** | ✅ **YA EXISTE** (implementado 2026-02-11) | `SupplierContract` en `models/supplier_contracts.py` | `db.supplier_contracts` | CRUD + adjuntos + rollup de facturas linkadas por `expenses.contract_id`. Enlaza a Partners y contabilidad. |
 | **Eventos ligados a Inventario** | ✅ Robusto | `Event` + `inventory_reservations` | `db.events`, `db.inventory_reservations` | Auto-release en cancelación/borrado ya implementado |
 
 ### Recomendaciones antes de agregar nuevos features

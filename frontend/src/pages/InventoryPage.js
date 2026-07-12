@@ -55,7 +55,16 @@ export default function InventoryPage() {
     stock_quantity: 0,
     min_stock_level: 0,
     supplier_id: "",
+    origin: "Propio",
+    rental_supplier_id: "",
+    rental_contract_id: "",
+    rental_cost_per_unit_day: "",
+    rental_pickup_date: "",
+    rental_return_deadline: "",
+    rental_return_status: "pending",
+    rental_notes: "",
   });
+  const [supplierContracts, setSupplierContracts] = useState([]);
   const [supplierForm, setSupplierForm] = useState({
     name: "",
     contact_name: "",
@@ -71,17 +80,19 @@ export default function InventoryPage() {
   const fetchData = async () => {
     // Resilient fetch (multi-tenant safety): one broken endpoint no longer
     // blanks the whole page.
-    const [ingRes, supRes, lowRes] = await Promise.allSettled([
+    const [ingRes, supRes, lowRes, contractsRes] = await Promise.allSettled([
       axios.get(`${API}/inventory/ingredients`, { withCredentials: true }),
       axios.get(`${API}/suppliers`, { withCredentials: true }),
       axios.get(`${API}/inventory/low-stock`, { withCredentials: true }),
+      axios.get(`${API}/supplier-contracts?status=Active`, { withCredentials: true }),
     ]);
     const pick = (r, fallback = []) => (r.status === "fulfilled" ? (r.value.data ?? fallback) : fallback);
     setIngredients(pick(ingRes));
     setSuppliers(pick(supRes));
     setLowStock(pick(lowRes));
+    setSupplierContracts(pick(contractsRes));
     const failures = [
-      ["ingredients", ingRes], ["suppliers", supRes], ["low-stock", lowRes],
+      ["ingredients", ingRes], ["suppliers", supRes], ["low-stock", lowRes], ["supplier-contracts", contractsRes],
     ].filter(([, r]) => r.status === "rejected");
     if (failures.length) {
       console.warn("InventoryPage partial load failure:", failures.map(([k, r]) => `${k}: ${r.reason?.message || r.reason}`));
@@ -99,6 +110,18 @@ export default function InventoryPage() {
         stock_quantity: parseFloat(ingredientForm.stock_quantity) || 0,
         min_stock_level: parseFloat(ingredientForm.min_stock_level) || 0,
       };
+      // Only send rental_* fields if origin is Alquilado (keep Propio clean)
+      if (ingredientForm.origin !== "Alquilado") {
+        delete payload.rental_supplier_id;
+        delete payload.rental_contract_id;
+        delete payload.rental_cost_per_unit_day;
+        delete payload.rental_pickup_date;
+        delete payload.rental_return_deadline;
+        delete payload.rental_return_status;
+        delete payload.rental_notes;
+      } else {
+        payload.rental_cost_per_unit_day = parseFloat(ingredientForm.rental_cost_per_unit_day) || 0;
+      }
       if (editingIngredient) {
         await axios.put(`${API}/inventory/ingredients/${editingIngredient.ingredient_id}`, payload, {
           withCredentials: true,
@@ -150,6 +173,14 @@ export default function InventoryPage() {
       stock_quantity: ingredient.stock_quantity,
       min_stock_level: ingredient.min_stock_level,
       supplier_id: ingredient.supplier_id || "",
+      origin: ingredient.origin || "Propio",
+      rental_supplier_id: ingredient.rental_supplier_id || "",
+      rental_contract_id: ingredient.rental_contract_id || "",
+      rental_cost_per_unit_day: ingredient.rental_cost_per_unit_day ?? "",
+      rental_pickup_date: ingredient.rental_pickup_date || "",
+      rental_return_deadline: ingredient.rental_return_deadline || "",
+      rental_return_status: ingredient.rental_return_status || "pending",
+      rental_notes: ingredient.rental_notes || "",
     });
     setIngredientDialogOpen(true);
   };
@@ -164,6 +195,14 @@ export default function InventoryPage() {
       stock_quantity: 0,
       min_stock_level: 0,
       supplier_id: "",
+      origin: "Propio",
+      rental_supplier_id: "",
+      rental_contract_id: "",
+      rental_cost_per_unit_day: "",
+      rental_pickup_date: "",
+      rental_return_deadline: "",
+      rental_return_status: "pending",
+      rental_notes: "",
     });
   };
 
@@ -359,6 +398,115 @@ export default function InventoryPage() {
                       </SelectContent>
                     </Select>
                   </div>
+
+                  {/* === Origen — Propio vs Alquilado === */}
+                  <div className="space-y-2 pt-4 border-t">
+                    <Label>Origen</Label>
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        variant={ingredientForm.origin === "Propio" ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setIngredientForm({ ...ingredientForm, origin: "Propio" })}
+                        data-testid="origin-btn-propio"
+                      >
+                        Propio
+                      </Button>
+                      <Button
+                        type="button"
+                        variant={ingredientForm.origin === "Alquilado" ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setIngredientForm({ ...ingredientForm, origin: "Alquilado" })}
+                        data-testid="origin-btn-alquilado"
+                      >
+                        Alquilado
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {ingredientForm.origin === "Alquilado"
+                        ? "Se llevará un control de la devolución del ítem."
+                        : "Item propiedad de la empresa — comportamiento normal."}
+                    </p>
+                  </div>
+
+                  {ingredientForm.origin === "Alquilado" && (
+                    <div className="space-y-4 p-4 rounded-lg bg-muted/40 border border-dashed" data-testid="rental-fields-block">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label>Contrato de Proveedor</Label>
+                          <Select
+                            value={ingredientForm.rental_contract_id}
+                            onValueChange={(value) => {
+                              const contract = supplierContracts.find((c) => c.contract_id === value);
+                              setIngredientForm({
+                                ...ingredientForm,
+                                rental_contract_id: value,
+                                rental_supplier_id: contract?.supplier_id || ingredientForm.rental_supplier_id,
+                              });
+                            }}
+                          >
+                            <SelectTrigger data-testid="rental-contract-select">
+                              <SelectValue placeholder={supplierContracts.length ? "Seleccionar contrato..." : "No hay contratos activos"} />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {supplierContracts.map((c) => (
+                                <SelectItem key={c.contract_id} value={c.contract_id}>
+                                  {c.contract_number} — {c.supplier_name || c.title}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Costo de alquiler / unidad·día</Label>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            value={ingredientForm.rental_cost_per_unit_day}
+                            onChange={(e) => setIngredientForm({ ...ingredientForm, rental_cost_per_unit_day: e.target.value })}
+                            placeholder="0.00"
+                            data-testid="rental-cost-input"
+                          />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label>Fecha de retiro</Label>
+                          <Input
+                            type="date"
+                            value={ingredientForm.rental_pickup_date}
+                            onChange={(e) => setIngredientForm({ ...ingredientForm, rental_pickup_date: e.target.value })}
+                            data-testid="rental-pickup-input"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Fecha límite de devolución</Label>
+                          <Input
+                            type="date"
+                            value={ingredientForm.rental_return_deadline}
+                            onChange={(e) => setIngredientForm({ ...ingredientForm, rental_return_deadline: e.target.value })}
+                            data-testid="rental-return-input"
+                          />
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Estado de devolución</Label>
+                        <Select
+                          value={ingredientForm.rental_return_status}
+                          onValueChange={(value) => setIngredientForm({ ...ingredientForm, rental_return_status: value })}
+                        >
+                          <SelectTrigger data-testid="rental-status-select">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="pending">Pendiente</SelectItem>
+                            <SelectItem value="returned">Devuelto</SelectItem>
+                            <SelectItem value="overdue">Atrasado</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  )}
                   <div className="flex justify-end gap-3">
                     <Button type="button" variant="outline" onClick={() => setIngredientDialogOpen(false)}>
                       {t("cancel")}
@@ -414,6 +562,7 @@ export default function InventoryPage() {
                       <tr className="border-b bg-muted/50">
                         <th className="text-left p-4 font-medium">{t("name")}</th>
                         <th className="text-left p-4 font-medium">{t("category")}</th>
+                        <th className="text-left p-4 font-medium" data-testid="col-origin">Origen</th>
                         <th className="text-right p-4 font-medium">{t("stockQuantity")}</th>
                         <th className="text-right p-4 font-medium">{t("costPerUnit")}</th>
                         <th className="text-right p-4 font-medium">{t("actions")}</th>
@@ -423,7 +572,11 @@ export default function InventoryPage() {
                       {filteredIngredients.map((ing) => (
                         <tr
                           key={ing.ingredient_id}
-                          className="border-b hover:bg-muted/30 transition-colors"
+                          className={
+                            ing.origin === "Alquilado" && ing.rental_return_status === "overdue"
+                              ? "border-b bg-destructive/5 hover:bg-destructive/10 transition-colors"
+                              : "border-b hover:bg-muted/30 transition-colors"
+                          }
                           data-testid={`ingredient-row-${ing.ingredient_id}`}
                         >
                           <td className="p-4">
@@ -431,13 +584,34 @@ export default function InventoryPage() {
                               <div className="w-10 h-10 rounded-lg bg-secondary flex items-center justify-center">
                                 <Package className="w-5 h-5 text-secondary-foreground" />
                               </div>
-                              <span className="font-medium">{ing.name}</span>
+                              <div className="flex flex-col">
+                                <span className="font-medium">{ing.name}</span>
+                                {ing.origin === "Alquilado" && ing.rental_return_status === "overdue" && ing.rental_return_deadline && (
+                                  <span className="text-[11px] text-destructive font-medium" data-testid={`rental-overdue-${ing.ingredient_id}`}>
+                                    Devolución vencida: {String(ing.rental_return_deadline).slice(0, 10)}
+                                  </span>
+                                )}
+                              </div>
                             </div>
                           </td>
                           <td className="p-4">
                             <Badge variant="outline" className="capitalize">
                               {ing.category.replace("_", " ")}
                             </Badge>
+                          </td>
+                          <td className="p-4">
+                            {ing.origin === "Alquilado" ? (
+                              <Badge
+                                variant={ing.rental_return_status === "overdue" ? "destructive" : "secondary"}
+                                className="gap-1"
+                                data-testid={`origin-badge-${ing.ingredient_id}`}
+                              >
+                                {ing.rental_return_status === "overdue" && <AlertTriangle className="w-3 h-3" />}
+                                Alquilado
+                              </Badge>
+                            ) : (
+                              <Badge variant="outline" data-testid={`origin-badge-${ing.ingredient_id}`}>Propio</Badge>
+                            )}
                           </td>
                           <td className="p-4 text-right">
                             <span

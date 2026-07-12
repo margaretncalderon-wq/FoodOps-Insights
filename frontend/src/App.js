@@ -65,6 +65,7 @@ const CalendarPage = lazy(() => import("./pages/CalendarPage"));
 const RecipesPage = lazy(() => import("./pages/RecipesPage"));
 const RecipeBuilder = lazy(() => import("./pages/RecipeBuilder"));
 const InventoryPage = lazy(() => import("./pages/InventoryPage"));
+const SupplierContractsPage = lazy(() => import("./pages/SupplierContractsPage"));
 const FoodOpsPage = lazy(() => import("./pages/FoodOpsPage"));
 const DocumentPreview = lazy(() => import("./pages/DocumentPreview"));
 const SettingsPage = lazy(() => import("./pages/SettingsPage"));
@@ -380,6 +381,7 @@ function AppRouter() {
       <Route path="/recipes/new" element={<ProtectedRoute><RecipeBuilder /></ProtectedRoute>} />
       <Route path="/recipes/:recipeId" element={<ProtectedRoute><RecipeBuilder /></ProtectedRoute>} />
       <Route path="/inventory" element={<ProtectedRoute><InventoryPage /></ProtectedRoute>} />
+      <Route path="/supplier-contracts" element={<ProtectedRoute><SupplierContractsPage /></ProtectedRoute>} />
       <Route path="/food-ops/*" element={<ModuleProtectedRoute modulePath="/food-ops"><FoodOpsPage /></ModuleProtectedRoute>} />
       <Route path="/ops-supplies/*" element={<ModuleProtectedRoute modulePath="/ops-supplies"><OperationsSuppliesPage /></ModuleProtectedRoute>} />
       <Route path="/business-clarity/*" element={<ModuleProtectedRoute modulePath="/business-clarity"><BusinessClarityPage /></ModuleProtectedRoute>} />

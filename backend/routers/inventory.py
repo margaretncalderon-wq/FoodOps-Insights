@@ -151,6 +151,28 @@ async def get_ingredients(inventory_type: Optional[str] = None, user: User = Dep
             for field, default in [("inventory_type", "food"), ("par_level", 0.0), ("yield_waste_percent", 0.0), ("allergens", []), ("storage_location", "dry"), ("reorder_threshold", 0.0), ("alternate_supplier_ids", []), ("pack_size", 1.0), ("pack_unit", "unit"), ("average_cost", i.get("cost_per_unit", 0)), ("price_history", [])]:
                 if field not in i or i[field] is None:
                     i[field] = default
+
+            # === Origen: default to "Propio" so pre-existing rows keep working
+            # exactly as before. Only touch rental_* fields when origin=Alquilado.
+            i.setdefault("origin", "Propio")
+            if i.get("origin") == "Alquilado":
+                # Auto-flip rental_return_status to "overdue" if the deadline
+                # has passed and it's still pending. Non-destructive: we only
+                # override "pending", never "returned".
+                deadline = i.get("rental_return_deadline")
+                status_now = (i.get("rental_return_status") or "pending").lower()
+                if deadline and status_now == "pending":
+                    try:
+                        # Accept either "YYYY-MM-DD" or ISO datetime
+                        dl_str = str(deadline)[:10]
+                        dl_dt = datetime.strptime(dl_str, "%Y-%m-%d").date()
+                        today = datetime.now(_tz.utc).date()
+                        if dl_dt < today:
+                            i["rental_return_status"] = "overdue"
+                    except Exception:
+                        pass
+                # Ensure the label is set for the FE even for freshly-marked-as-Alquilado items
+                i.setdefault("rental_return_status", "pending")
             safe_out.append(i)
         except Exception as row_err:
             # Skip a row that we still can't sanitize (never fail the entire list)

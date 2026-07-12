@@ -643,3 +643,41 @@ Ideal para casos como "3 tipos de canapé con misma cantidad" o "misma sección/
 Tooltip en español: "Duplicar (edita antes de guardar)".
 
 **Testing:** 166/166 tests pasan. Lint clean. Smoke test frontend OK.
+
+## 2026-02-11 — Módulo Contratos de Proveedor + campo "Origen" en Inventario
+
+### 1. Contratos de Proveedor (nuevo módulo completo)
+
+**Backend:**
+- Modelo `SupplierContract` en `models/supplier_contracts.py` con `contract_id, supplier_id, contract_number (auto CT-YYYY-####), title, start/end_date, total_value, currency, payment_terms, credit_limit, partner_id (link Partners), cost_center, status (Draft/Active/Expired/Cancelled/Renewed), auto_renew, attachments[], notes`.
+- Router `routers/supplier_contracts.py` con CRUD completo + upload/delete de adjuntos (PDF/imágenes) + endpoint `/{id}/expenses` que lista bills linkados por `contract_id`.
+- Rollup automático de `invoiced_to_date`, `paid_to_date`, `balance_remaining` desde `db.expenses.contract_id`.
+- Enlazado a Partners module: `partner_id` opcional resolve el `partner_name` al listar.
+- Enlazado a contabilidad: cuando se crea un expense/bill con `contract_id`, se agrega automáticamente al rollup del contrato (uso: al registrar factura del proveedor).
+
+**Frontend:**
+- Nueva página `/supplier-contracts` (`pages/SupplierContractsPage.js`) — tarjetas con nº contrato, estado, montos (total/facturado/restante), fechas, términos de pago, adjuntos con enlaces directos, botón para subir PDF.
+- Modal de creación/edición con selectores de proveedor + partner + moneda + estado + términos.
+
+### 2. Campo "Origen" en cada ítem de Inventario
+
+**Backend (`models/inventory.py`):**
+- `Ingredient.origin: "Propio" | "Alquilado"` (default "Propio")
+- Cuando `origin=Alquilado`: `rental_supplier_id`, `rental_contract_id`, `rental_cost_per_unit_day`, `rental_pickup_date`, `rental_return_deadline`, `rental_return_status` (pending/returned/overdue), `rental_returned_at`, `rental_notes`.
+- Auto-flip a `"overdue"` en `GET /inventory/ingredients`: si `origin=Alquilado`, `status=pending` y `rental_return_deadline < hoy`.
+- Ítems `origin=Propio` no reciben ningún cambio de comportamiento — funcionan exactamente igual que antes.
+
+**Frontend (`pages/InventoryPage.js`):**
+- Nueva columna "Origen" en la tabla, badge outline "Propio" o badge destructive "Alquilado + AlertTriangle" cuando overdue.
+- Filas Alquilado overdue tienen fondo `bg-destructive/5` (rojo suave) — similar patrón visual al de Stock Bajo actual.
+- Subtitle rojo bajo el nombre del ítem: "Devolución vencida: YYYY-MM-DD" solo cuando overdue.
+- Formulario extendido con toggle Propio/Alquilado. Cuando Alquilado: aparecen 5 campos (contrato → auto-completa supplier, costo/unidad·día, fecha retiro, fecha límite, estado).
+- Fetch de contratos activos hecho con `Promise.allSettled` — 1 endpoint fallando no rompe la página.
+
+### Testing
+- ✅ `run_regression.sh` → **166/166 tests pasando**
+- ✅ Curl real: crear contrato → 200 con contract_number auto (CT-2026-0001), rollup calculado
+- ✅ Curl real: crear ingrediente `origin=Alquilado` con deadline pasado → auto-flip a `rental_return_status=overdue`
+- ✅ Crear ingrediente `origin=Propio` → sin cambios de comportamiento
+- ✅ Lint clean (backend + frontend)
+- ✅ Smoke test frontend: compila y carga

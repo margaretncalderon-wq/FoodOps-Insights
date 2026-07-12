@@ -85,6 +85,7 @@ from routers.launch import launch_router
 from routers.buffet_factors import buffet_factors_router, _resolve_buffet_factor, BuffetFactorCreate
 from routers.kitchen_beo import kitchen_beo_router
 from routers.suppliers import suppliers_router
+from routers.supplier_contracts import supplier_contracts_router
 from routers.inventory import inventory_router
 from routers.purchase_lists import purchase_list_router
 from models.purchase_lists import PurchaseList, PurchaseListCreate, PurchaseListItem
@@ -7872,6 +7873,7 @@ api_router.include_router(recipes_bulk_router)
 api_router.include_router(plated_menus_router)
 api_router.include_router(inventory_router)
 api_router.include_router(suppliers_router)
+api_router.include_router(supplier_contracts_router)  # /api/supplier-contracts/*
 api_router.include_router(operations_router)
 api_router.include_router(purchase_list_router)
 api_router.include_router(documents_router)

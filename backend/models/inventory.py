@@ -45,6 +45,18 @@ class IngredientCreate(BaseModel):
     description: Optional[str] = None  # Long description for product card / catalog
     image_url: Optional[str] = None    # Product photo
     non_yieldable: Optional[bool] = None  # True = merma no aprovechable (cannot be reused)
+    # === Origen field (2026-02-11) ===
+    # "Propio" (default — item owned by the company) or "Alquilado" (rented).
+    # When Alquilado, the rental_* fields below track the rental agreement.
+    origin: str = "Propio"
+    rental_supplier_id: Optional[str] = None      # FK to db.suppliers when Alquilado
+    rental_contract_id: Optional[str] = None      # FK to db.supplier_contracts (optional)
+    rental_cost_per_unit_day: Optional[float] = None
+    rental_pickup_date: Optional[str] = None      # ISO YYYY-MM-DD — when we took the item
+    rental_return_deadline: Optional[str] = None  # ISO YYYY-MM-DD — must return by
+    rental_return_status: Optional[str] = None    # "pending" | "returned" | "overdue"
+    rental_returned_at: Optional[str] = None      # timestamp when actually returned
+    rental_notes: Optional[str] = None
 
 
 class Ingredient(BaseModel):
@@ -92,6 +104,16 @@ class Ingredient(BaseModel):
     description: Optional[str] = None
     image_url: Optional[str] = None
     non_yieldable: Optional[bool] = None
+    # === Origen field (2026-02-11) — mirror of the Create model ===
+    origin: str = "Propio"                        # "Propio" | "Alquilado"
+    rental_supplier_id: Optional[str] = None
+    rental_contract_id: Optional[str] = None
+    rental_cost_per_unit_day: Optional[float] = None
+    rental_pickup_date: Optional[str] = None
+    rental_return_deadline: Optional[str] = None
+    rental_return_status: Optional[str] = None    # "pending" | "returned" | "overdue"
+    rental_returned_at: Optional[str] = None
+    rental_notes: Optional[str] = None
     created_at: datetime
 
 
