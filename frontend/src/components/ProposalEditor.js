@@ -772,6 +772,34 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
     setAddItemOpen(true);
   };
 
+  // Opens the AddItem dialog pre-filled with `item`'s values but WITHOUT
+  // `editingItemId`, so submitting creates a NEW item instead of overwriting.
+  // The user can then swap the recipe/inventory reference or tweak quantity
+  // before saving — great for "3 kinds of canapé, same qty" workflows.
+  const handleDuplicateItem = (item) => {
+    setEditingItemId(null);
+    setNewItem({
+      item_type: item.item_type || "Service",
+      description: item.description || "",
+      long_description: item.long_description || "",
+      category_id: item.category_id || "",
+      quantity: item.quantity || 1,
+      unit_price: item.unit_price || 0,
+      internal_cost: item.internal_cost ?? null,
+      discount_type: item.discount_type || "percentage",
+      discount_value: item.discount_value != null ? item.discount_value : (item.discount_pct || 0),
+      tax_exempt: !!item.tax_exempt,
+      reference_id: item.reference_id || "",
+      internal_notes: item.internal_notes || "",
+      event_date: item.event_date || "",
+      section_title: item.section_title || "",
+      section_time: item.section_time || "",
+      _recipe_allergens: [],
+      _portion_format_name: null,
+    });
+    setAddItemOpen(true);
+  };
+
   const resetNewItem = () => {
     // Default the date to the first day-logistics entry (or the event's main date) so
     // newly-added items inherit a date by default. The user can still change it.
@@ -2813,6 +2841,16 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
                                                 <Button
                                                   variant="ghost"
                                                   size="icon"
+                                                  className="text-muted-foreground hover:text-primary"
+                                                  onClick={() => handleDuplicateItem(item)}
+                                                  data-testid={`duplicate-item-${item.item_id}`}
+                                                  title={language === "es" ? "Duplicar (edita antes de guardar)" : "Duplicate (edit before save)"}
+                                                >
+                                                  <Copy className="w-4 h-4" />
+                                                </Button>
+                                                <Button
+                                                  variant="ghost"
+                                                  size="icon"
                                                   className="text-destructive hover:text-destructive"
                                                   onClick={() => handleDeleteItem(item.item_id)}
                                                 >
@@ -2837,6 +2875,12 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
                                                       <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-foreground"
                                                         onClick={() => handleEditItem(ch)} title={language === "es" ? "Editar" : "Edit"}>
                                                         <Edit className="w-3 h-3" />
+                                                      </Button>
+                                                      <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-primary"
+                                                        onClick={() => handleDuplicateItem(ch)}
+                                                        data-testid={`duplicate-item-${ch.item_id}`}
+                                                        title={language === "es" ? "Duplicar" : "Duplicate"}>
+                                                        <Copy className="w-3 h-3" />
                                                       </Button>
                                                       <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive"
                                                         onClick={() => handleDeleteItem(ch.item_id)}>

@@ -628,3 +628,18 @@ Ahora al arrastrar un ítem:
 - `data-testid="drag-overlay-preview"` para tests
 
 **Testing:** 166/166 tests pasan. Lint clean. Smoke test frontend: compila sin errores.
+
+## 2026-02-11 — Feature: Duplicar ítem con editor pre-poblado
+
+Nuevo botón "⧉ Copy" entre Editar y Borrar (fila principal Y filas hijas) que:
+- Pre-llena TODOS los campos del formulario "Nuevo Ítem" con los valores del ítem original (nombre, cantidad, precio, reference_id, categoría, sección, fecha, descuentos, etc.)
+- Deja el editor ABIERTO — el usuario puede cambiar el `reference_id` (jalar de otra receta o item de inventario), ajustar cantidad, o modificar cualquier campo
+- Al guardar → crea un ítem NUEVO (no sobrescribe el original)
+
+**Diferencia con "Editar"**: Edit setea `editingItemId` → save hace PUT. Duplicate NO setea `editingItemId` → save hace POST.
+
+Ideal para casos como "3 tipos de canapé con misma cantidad" o "misma sección/fecha pero receta distinta".
+
+Tooltip en español: "Duplicar (edita antes de guardar)".
+
+**Testing:** 166/166 tests pasan. Lint clean. Smoke test frontend OK.
