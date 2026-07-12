@@ -1,5 +1,32 @@
 # Kora OS — Product Requirements Document
 
+## Pending Returns Dashboard (Feb 12, 2026)
+
+**Status:** ✅ Implementado + probado (170/170 regresiones + smoke UI).
+
+### Objetivo
+Dar a Operaciones una sola vista para responder *"¿qué equipos y alquileres siguen fuera del almacén?"*. Antes, un item vencido solo se detectaba fila por fila en la tabla de Conduces, y los alquileres a proveedor no tenían agregación de vencimientos.
+
+### Backend
+- **Nuevo endpoint** `GET /api/delivery-notes/pending-returns` (en `server.py` sobre `delivery_notes_router`, registrado ANTES del catch-all `{note_id}`).
+- Devuelve dos secciones bucketed por urgencia — `overdue`, `due_soon` (≤2 días), `upcoming`, `no_date`:
+  - **`delivery_notes`**: notas con `status ∈ {pending, partial}`, clasificadas por `expected_return_date`. Enriquecido con `event_name`, `pending_items_count`, `days_diff`.
+  - **`rentals`**: `ingredients` con `origin=Alquilado` y `rental_return_status ∈ {pending, overdue}`, clasificados por `rental_return_deadline`. Enriquecido con `rental_supplier_name`.
+- `summary` expone counts por bucket + `total_pending`. Consistencia validada por test.
+
+### Frontend
+- **Componente nuevo** `frontend/src/components/operations/PendingReturnsPanel.js`.
+- Se monta al tope de `CheckInOutSection` (Resource Management → Check-In tab).
+- Card con color de acento (rojo si hay vencidos, ámbar si hay próximos, gris si todo en rango).
+- Chips resumen + lista detallada expandible con botón inline **Check-in** que abre el diálogo existente (busca la nota completa en el estado del padre — sin fetch extra).
+- Estado vacío verde "Todo en orden" cuando no hay pendientes.
+
+### Tests
+- `backend/tests/test_pending_returns.py` (4 casos): shape del payload, consistencia de `total_pending`, campos accionables por fila, guard de auth.
+- Agregado a `scripts/run_regression.sh`. Baseline sube de 166 → **170** tests.
+
+
+
 ## OT Nocturna: Recargos Apilados 35%+15%=50% (Feb 4, 2026)
 
 **Status:** ✅ Verificado end-to-end. Regresión 12/12 PASS.

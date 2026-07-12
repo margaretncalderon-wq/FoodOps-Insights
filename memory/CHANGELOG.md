@@ -1,6 +1,37 @@
 # Kora OS - Changelog
 
 
+## February 2026 — Pending Returns Dashboard (P0)
+
+### Problem
+User feedback: after building the Inventory + Delivery Notes state machine, there was no single view to answer *"what equipment / rentals still haven't come back?"*. Overdue items were only discoverable by scrolling the Delivery Notes table row-by-row, and supplier rentals had no aggregated overdue view at all.
+
+### Implementation
+1. **Backend** — new `GET /api/delivery-notes/pending-returns` (in `server.py`, registered on `delivery_notes_router` before the `{note_id}` catch-all). Returns:
+   - `summary` with per-bucket counts (`notes_overdue|due_soon|upcoming|no_date`, `rentals_overdue|due_soon|upcoming`, `total_pending`).
+   - `delivery_notes` bucketed by urgency: any note with `status in [pending, partial]` classified against `expected_return_date` (overdue, ≤2d, >2d, no_date). Event names hydrated in one query.
+   - `rentals` bucketed by urgency: `ingredients` with `origin=Alquilado` and `rental_return_status in [pending, overdue]` classified against `rental_return_deadline`. Supplier names hydrated in one query.
+   - `today` (ISO date) for FE parity.
+2. **Frontend** — new `components/operations/PendingReturnsPanel.js`. Adaptive card with:
+   - Color accent based on worst urgency (red / amber / slate).
+   - 4 count chips (Vencidos / Próximos ≤2d / En rango / Sin fecha).
+   - Expandable detail lists showing each note with urgency-tinted "in Xd / hace Xd" label and an inline **Check-in** button that opens the existing Check-In dialog by looking up the full note from parent state (no extra fetch).
+   - Supplier rental rows with supplier name + return deadline label.
+   - Empty state ("Todo en orden") when `total_pending === 0`.
+3. **Mount point** — top of `CheckInOutSection` (Resource Management → Inventory → Check-In tab), so the dashboard is the first thing operations sees.
+4. **Tests** — new `tests/test_pending_returns.py` (4 cases): shape, total-pending consistency, row actionable fields, auth guard. Added to `scripts/run_regression.sh`.
+
+### Testing verification
+- ✅ `run_regression.sh` — **170 passed** (was 166; +4 for the new endpoint).
+- ✅ Manual API check: `/api/delivery-notes/pending-returns` returns the correct bucketed shape for the demo tenant (1 note in `no_date`).
+- ✅ Preview smoke test: panel renders with chips, detail list, and working Check-in button on `/ops-supplies/checkin`.
+
+### User action
+User can deploy to production to expose the dashboard live.
+
+
+
+
 ## February 2026 — Frontend Resilience Layer (Multi-Tenant Safety)
 
 ### Problem

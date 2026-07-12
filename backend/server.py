@@ -7645,6 +7645,154 @@ async def create_delivery_note(data: DeliveryNoteCreate, user: User = Depends(ge
     
     return {"note_id": note_id, "note_number": note_number, "message": "Delivery note created"}
 
+
+@delivery_notes_router.get("/pending-returns")
+async def get_pending_returns(user: User = Depends(get_current_user)):
+    """Aggregated dashboard: delivery notes still out AND supplier rentals still out.
+
+    Buckets each item by urgency based on the expected return date vs. today:
+      - overdue    : deadline has already passed
+      - due_soon   : deadline is today or within the next 2 days
+      - upcoming   : deadline is 3+ days away
+      - no_date    : no expected return date was recorded (delivery notes only)
+    """
+    today = datetime.now(timezone.utc).date()
+
+    def _bucket(deadline_str: Optional[str]) -> str:
+        if not deadline_str:
+            return "no_date"
+        try:
+            dl = datetime.strptime(str(deadline_str)[:10], "%Y-%m-%d").date()
+        except Exception:
+            return "no_date"
+        delta = (dl - today).days
+        if delta < 0:
+            return "overdue"
+        if delta <= 2:
+            return "due_soon"
+        return "upcoming"
+
+    # ---- Delivery notes still out (pending or partial) ----
+    notes_cursor = db.delivery_notes.find(
+        {
+            "company_id": user.company_id,
+            "status": {"$in": ["pending", "partial"]},
+        },
+        {"_id": 0},
+    ).sort("expected_return_date", 1)
+    notes = await notes_cursor.to_list(500)
+
+    # Preload event names for context
+    event_ids = list({n.get("event_id") for n in notes if n.get("event_id")})
+    events_map: Dict[str, str] = {}
+    if event_ids:
+        events = await db.events.find(
+            {"event_id": {"$in": event_ids}, "company_id": user.company_id},
+            {"_id": 0, "event_id": 1, "event_name": 1, "name": 1, "event_date": 1},
+        ).to_list(len(event_ids))
+        for ev in events:
+            events_map[ev["event_id"]] = ev.get("event_name") or ev.get("name") or ""
+
+    notes_buckets: Dict[str, list] = {"overdue": [], "due_soon": [], "upcoming": [], "no_date": []}
+    for n in notes:
+        equipment_items = [i for i in (n.get("items") or []) if i.get("inventory_type") == "equipment"]
+        pending_equipment = [i for i in equipment_items if (i.get("status") or "pending") in ("pending", "partial")]
+        if not pending_equipment and n.get("status") != "pending":
+            # If nothing left to return, skip.
+            continue
+        bucket = _bucket(n.get("expected_return_date"))
+        try:
+            days_diff = (
+                datetime.strptime(str(n["expected_return_date"])[:10], "%Y-%m-%d").date() - today
+            ).days if n.get("expected_return_date") else None
+        except Exception:
+            days_diff = None
+        notes_buckets[bucket].append({
+            "note_id": n.get("note_id"),
+            "note_number": n.get("note_number"),
+            "event_id": n.get("event_id"),
+            "event_name": events_map.get(n.get("event_id") or "", ""),
+            "checkout_date": n.get("checkout_date"),
+            "expected_return_date": n.get("expected_return_date"),
+            "status": n.get("status"),
+            "pending_items_count": len(pending_equipment) or len(equipment_items),
+            "total_items_count": len(equipment_items) or len(n.get("items") or []),
+            "days_diff": days_diff,
+        })
+
+    # ---- Supplier rentals still out ----
+    rentals_cursor = db.ingredients.find(
+        {
+            "company_id": user.company_id,
+            "origin": "Alquilado",
+            "$or": [
+                {"rental_return_status": {"$in": ["pending", "overdue"]}},
+                {"rental_return_status": {"$exists": False}},
+            ],
+        },
+        {"_id": 0},
+    )
+    rentals = await rentals_cursor.to_list(500)
+
+    supplier_ids = list({r.get("rental_supplier_id") for r in rentals if r.get("rental_supplier_id")})
+    suppliers_map: Dict[str, str] = {}
+    if supplier_ids:
+        sups = await db.suppliers.find(
+            {"supplier_id": {"$in": supplier_ids}, "company_id": user.company_id},
+            {"_id": 0, "supplier_id": 1, "name": 1},
+        ).to_list(len(supplier_ids))
+        for s in sups:
+            suppliers_map[s["supplier_id"]] = s.get("name", "")
+
+    rentals_buckets: Dict[str, list] = {"overdue": [], "due_soon": [], "upcoming": [], "no_date": []}
+    for r in rentals:
+        deadline = r.get("rental_return_deadline")
+        bucket = _bucket(deadline)
+        try:
+            days_diff = (
+                datetime.strptime(str(deadline)[:10], "%Y-%m-%d").date() - today
+            ).days if deadline else None
+        except Exception:
+            days_diff = None
+        rentals_buckets[bucket].append({
+            "ingredient_id": r.get("ingredient_id"),
+            "name": r.get("name"),
+            "stock_quantity": r.get("stock_quantity", 0),
+            "unit": r.get("unit"),
+            "rental_supplier_id": r.get("rental_supplier_id"),
+            "rental_supplier_name": suppliers_map.get(r.get("rental_supplier_id") or "", ""),
+            "rental_pickup_date": r.get("rental_pickup_date"),
+            "rental_return_deadline": deadline,
+            "rental_cost_per_unit_day": r.get("rental_cost_per_unit_day"),
+            "status": r.get("status"),
+            "days_diff": days_diff,
+        })
+
+    return {
+        "summary": {
+            "notes_overdue": len(notes_buckets["overdue"]),
+            "notes_due_soon": len(notes_buckets["due_soon"]),
+            "notes_upcoming": len(notes_buckets["upcoming"]),
+            "notes_no_date": len(notes_buckets["no_date"]),
+            "rentals_overdue": len(rentals_buckets["overdue"]),
+            "rentals_due_soon": len(rentals_buckets["due_soon"]),
+            "rentals_upcoming": len(rentals_buckets["upcoming"]),
+            "total_pending": (
+                len(notes_buckets["overdue"])
+                + len(notes_buckets["due_soon"])
+                + len(notes_buckets["upcoming"])
+                + len(notes_buckets["no_date"])
+                + len(rentals_buckets["overdue"])
+                + len(rentals_buckets["due_soon"])
+                + len(rentals_buckets["upcoming"])
+            ),
+        },
+        "delivery_notes": notes_buckets,
+        "rentals": rentals_buckets,
+        "today": today.isoformat(),
+    }
+
+
 @delivery_notes_router.get("/{note_id}")
 async def get_delivery_note(note_id: str, user: User = Depends(get_current_user)):
     """Get a specific delivery note"""

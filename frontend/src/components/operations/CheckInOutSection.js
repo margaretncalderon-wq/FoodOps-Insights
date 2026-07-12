@@ -18,6 +18,7 @@ import {
 import { API_BASE as API } from "../../utils/api";
 import { formatDateOnly } from "../../utils/dates";
 import { fmtNum } from "../../utils/format";
+import { PendingReturnsPanel } from "./PendingReturnsPanel";
 
 export function CheckInOutSection() {
   const { language } = useLanguage();
@@ -417,6 +418,15 @@ export function CheckInOutSection() {
 
   return (
     <div className="space-y-6">
+      {/* Pending Returns Dashboard */}
+      <PendingReturnsPanel
+        refreshKey={deliveryNotes.length}
+        onOpenNote={(lite) => {
+          const full = deliveryNotes.find((n) => n.note_id === lite.note_id);
+          if (full) handleCheckIn(full);
+        }}
+      />
+
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
