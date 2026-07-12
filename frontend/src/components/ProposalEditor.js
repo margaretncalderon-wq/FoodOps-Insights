@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useMemo } from "react";
+import React, { useEffect, useState, useCallback, useMemo, createContext, useContext } from "react";
 import { API } from "../utils/api";
 import axios from "axios";
 import { parseDateOnly, toDateOnly } from "../utils/dates";
@@ -98,16 +98,32 @@ const STATUS_COLORS = {
   Rejected: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
 };
 
+// Live indicator (Notion/Linear-style) rendered while dragging: a thin coloured
+// line ABOVE or BELOW the row the user is currently hovering, so it's always
+// clear where the item will land before releasing the mouse.
+const DropIndicatorContext = createContext({ overId: null, insertAbove: false });
+
 // Sortable wrapper for a single line item — uses @dnd-kit/sortable
 const SortableItemRow = ({ id, children }) => {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+  const dropInfo = useContext(DropIndicatorContext);
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.5 : 1,
+    position: "relative",
   };
+  const showIndicator = dropInfo.overId === id;
+  const indicator = showIndicator ? (
+    <div
+      aria-hidden="true"
+      className={`absolute left-0 right-0 h-[3px] bg-primary rounded-full pointer-events-none ${dropInfo.insertAbove ? "-top-[2px]" : "-bottom-[2px]"}`}
+      data-testid={`drop-indicator-${dropInfo.insertAbove ? "above" : "below"}-${id}`}
+    />
+  ) : null;
   return (
     <div ref={setNodeRef} style={style} className="bg-background">
+      {indicator}
       <div className="flex items-stretch">
         <button
           type="button"
@@ -176,6 +192,8 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
   const clientLabel = term("events", "client");
   
   const [proposal, setProposal] = useState(null);
+  // Live drop indicator (Notion/Linear-style) — set by onDragOver, rendered by SortableItemRow.
+  const [dropIndicator, setDropIndicator] = useState({ overId: null, insertAbove: false });
   const [staleness, setStaleness] = useState(null); // { is_stale, stale_count, can_refresh, stale_items }
   const [refreshingCosts, setRefreshingCosts] = useState(false);
   const [categories, setCategories] = useState([]);
@@ -1649,7 +1667,33 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
     return null;
   };
 
+  // Live-updates the drop indicator (thin coloured line above/below the row
+  // being hovered) so the user knows exactly where the item will land.
+  const handleDragOver = (event) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) {
+      setDropIndicator((prev) => (prev.overId ? { overId: null, insertAbove: false } : prev));
+      return;
+    }
+    const overId = over.id;
+    // Only draw the indicator on item rows (skip section headers / droppable zones).
+    if (typeof overId === "string" && (overId.startsWith("sectionhdr::") || overId.startsWith("section::"))) {
+      setDropIndicator((prev) => (prev.overId ? { overId: null, insertAbove: false } : prev));
+      return;
+    }
+    const overRect = over?.rect;
+    const draggedRect = active?.rect?.current?.translated;
+    let insertAbove = false;
+    if (draggedRect && overRect) {
+      const dragCenterY = draggedRect.top + draggedRect.height / 2;
+      const overCenterY = overRect.top + overRect.height / 2;
+      insertAbove = dragCenterY <= overCenterY;
+    }
+    setDropIndicator((prev) => (prev.overId === overId && prev.insertAbove === insertAbove ? prev : { overId, insertAbove }));
+  };
+
   const handleDragEnd = async (event) => {
+    setDropIndicator({ overId: null, insertAbove: false });
     const { active, over } = event;
     if (!over || active.id === over.id) return;
     const allItems = proposal?.items || [];
@@ -2330,10 +2374,13 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
           {/* Items by Type — a SINGLE top-level DndContext so items can be
               dragged ACROSS item_types (Food → Service etc.). Each item_type
               still has its own SortableContext inside. */}
+          <DropIndicatorContext.Provider value={dropIndicator}>
           <DndContext
             sensors={dndSensors}
             collisionDetection={closestCenter}
+            onDragOver={handleDragOver}
             onDragEnd={handleDragEnd}
+            onDragCancel={() => setDropIndicator({ overId: null, insertAbove: false })}
           >
           {ITEM_TYPES.map(itype => {
             const typeData = itemsByType[itype];
@@ -2850,6 +2897,7 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
             );
           })}
           </DndContext>
+          </DropIndicatorContext.Provider>
 
           {/* Empty State */}
           {(!proposal?.items || proposal.items.length === 0) && (

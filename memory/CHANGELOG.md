@@ -600,3 +600,16 @@ Ahora: comparo el centro Y del item arrastrado con el centro Y del item destino:
 Implementado en `handleDragEnd` usando `over.rect` + `active.rect.current.translated` (~15 líneas). Fallback a "insertar después" si dnd-kit no provee rects.
 
 **Testing:** 166/166 tests pasan. Lint clean.
+
+## 2026-02-11 — Drop indicator (Notion/Linear-style) al arrastrar ítems
+
+Al arrastrar un ítem, ahora aparece una **línea horizontal de color primario (3px)** ARRIBA o ABAJO del ítem destino, en tiempo real, indicando exactamente dónde caerá al soltar.
+
+**Implementación:**
+- Nuevo state `dropIndicator = { overId, insertAbove }` en `ProposalEditor`
+- Handler `onDragOver` computa `insertAbove` con `active.rect.current.translated` vs `over.rect` (mismo cálculo del insert-position del cambio anterior)
+- Nuevo `DropIndicatorContext` provee el estado a todos los `SortableItemRow`
+- `SortableItemRow` renderiza un `<div>` absolutamente posicionado `-top-[2px]` o `-bottom-[2px]` cuando su `id === overId`
+- Cleanup en `onDragEnd` y `onDragCancel` para que la línea desaparezca
+
+**Testing:** 166/166 tests pasan. Lint clean.
