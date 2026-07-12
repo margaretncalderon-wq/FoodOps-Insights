@@ -57,6 +57,7 @@ class IngredientCreate(BaseModel):
     rental_return_status: Optional[str] = None    # "pending" | "returned" | "overdue"
     rental_returned_at: Optional[str] = None      # timestamp when actually returned
     rental_notes: Optional[str] = None
+    status: Optional[str] = "En Almacén"
 
 
 class Ingredient(BaseModel):
@@ -114,6 +115,9 @@ class Ingredient(BaseModel):
     rental_return_status: Optional[str] = None    # "pending" | "returned" | "overdue"
     rental_returned_at: Optional[str] = None
     rental_notes: Optional[str] = None
+    status: Optional[str] = "En Almacén"
+    # Computed at read-time (not persisted). Populated by GET /inventory/ingredients.
+    available_quantity: Optional[float] = None
     created_at: datetime
 
 

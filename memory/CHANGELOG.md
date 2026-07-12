@@ -702,3 +702,28 @@ Tooltip en español: "Duplicar (edita antes de guardar)".
 3. Consultar contrato → `invoiced_to_date=15000, balance_remaining=85000, linked_expenses_count=1` ✅
 
 **Testing:** 166/166 tests. Lint 0 errores. E2E manual OK.
+
+## 2026-02-11 — Campo "Estado" operacional + cómputo automático de "Disponible"
+
+**7 estados** en cada ítem de Inventario:
+`En Almacén` (default), `Empacado`, `En Tránsito`, `En Evento`, `Retornando`, `Dañado`, `Perdido`.
+
+**Backend (`models/inventory.py` + `routers/inventory.py`):**
+- `Ingredient.status: Optional[str] = "En Almacén"` (nuevos y legacy)
+- `Ingredient.available_quantity: Optional[float]` — computado en `GET`:
+    - `status == "En Almacén"` → `stock_quantity - reserved_quantity`
+    - cualquier otro estado → `0`
+- Endpoint `POST /api/inventory/reserve` ahora valida estado + stock disponible. Si intenta reservar más del disponible (incluso por estado ≠ En Almacén), añade a `failures[]` con razón: `"Only {N} available (status: {estado})"`. NO tumba la request — retorna éxitos parciales + fallas.
+
+**Frontend (`pages/InventoryPage.js`):**
+- Nuevas columnas: **Estado** (badge con 7 colores distintos: emerald/blue/amber/violet/cyan/orange/red) y **Disponible**.
+- Colores de estado en `STATUS_COLORS` constant.
+- Celda Disponible: en negrita cuando > 0, en `italic muted` cuando estado ≠ En Almacén, en rojo cuando ≤ 0.
+- Select del campo Estado agregado al modal de creación/edición.
+
+**Testing (E2E curl real):**
+1. Crear ítem stock=10 status=En Almacén → `available=10` ✅
+2. Cambiar a status=En Tránsito → `available=0` ✅ (automático)
+3. Intentar reservar 5 → `failures[0].reason="Only 0 available (status: En Tránsito)"` ✅
+
+**Regresión:** 166/166 tests · Lint frontend: solo warnings pre-existentes · Compila.

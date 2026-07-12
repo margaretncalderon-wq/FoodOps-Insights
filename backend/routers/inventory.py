@@ -173,6 +173,18 @@ async def get_ingredients(inventory_type: Optional[str] = None, user: User = Dep
                         pass
                 # Ensure the label is set for the FE even for freshly-marked-as-Alquilado items
                 i.setdefault("rental_return_status", "pending")
+            # === Operational status (2026-02-11) — default "En Almacén" so legacy
+            # rows keep behaving the same. Only "En Almacén" counts as available.
+            i.setdefault("status", "En Almacén")
+            # Computed field: available for new reservations.
+            # If status != "En Almacén", the whole stock is currently unavailable
+            # (packed / in transit / at event / returning / damaged / lost).
+            reserved = float(i.get("reserved_quantity") or 0)
+            stock_q = float(i.get("stock_quantity") or 0)
+            if i.get("status") == "En Almacén":
+                i["available_quantity"] = max(stock_q - reserved, 0)
+            else:
+                i["available_quantity"] = 0
             safe_out.append(i)
         except Exception as row_err:
             # Skip a row that we still can't sanitize (never fail the entire list)
@@ -627,6 +639,7 @@ async def reserve_inventory(data: dict, user: User = Depends(get_current_user)):
     
     now = datetime.now(timezone.utc)
     reservations = []
+    failures = []  # collected here when status != "En Almacén" or insufficient stock
     event_names = ", ".join([e.get("event_name", e.get("event_id", "")) for e in data.get("events", [])])
     
     for item in items:
@@ -647,8 +660,21 @@ async def reserve_inventory(data: dict, user: User = Depends(get_current_user)):
         
         current_stock = inv_item.get("stock_quantity", 0)
         current_reserved = inv_item.get("reserved_quantity", 0)
-        available = current_stock - current_reserved
-        
+        current_status = inv_item.get("status", "En Almacén")
+        # Only stock physically in the warehouse is reservable — items marked
+        # Empacado/En Tránsito/En Evento/Retornando/Dañado/Perdido are excluded.
+        available = (current_stock - current_reserved) if current_status == "En Almacén" else 0
+
+        if qty_to_reserve > available:
+            failures.append({
+                "inventory_item_id": item_id,
+                "item_name": item.get("name", inv_item.get("name", "")),
+                "requested": qty_to_reserve,
+                "available": available,
+                "reason": f"Only {available} available (status: {current_status})"
+            })
+            continue
+
         # Update reserved quantity (add to existing reserved)
         new_reserved = current_reserved + qty_to_reserve
         
@@ -692,6 +718,7 @@ async def reserve_inventory(data: dict, user: User = Depends(get_current_user)):
     return {
         "message": "Inventory reserved successfully",
         "reservations": reservations,
+        "failures": failures,
         "event_ids": event_ids,
         "reserved_at": now.isoformat()
     }

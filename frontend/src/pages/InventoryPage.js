@@ -37,6 +37,28 @@ import { fmtNum } from "../utils/format";
 const CATEGORIES = ["produce", "meat", "dairy", "dry_goods", "spices", "beverages", "other"];
 const UNITS = ["kg", "g", "lb", "oz", "l", "ml", "unit", "dozen", "bunch"];
 
+// Operational status values + their badge colors (tailwind classes). Order in
+// this array = order shown in the Select dropdown.
+const INVENTORY_STATUSES = [
+  "En Almacén",
+  "Empacado",
+  "En Tránsito",
+  "En Evento",
+  "Retornando",
+  "Dañado",
+  "Perdido",
+];
+const STATUS_COLORS = {
+  "En Almacén": "bg-emerald-100 text-emerald-800",
+  "Empacado": "bg-blue-100 text-blue-800",
+  "En Tránsito": "bg-amber-100 text-amber-800",
+  "En Evento": "bg-violet-100 text-violet-800",
+  "Retornando": "bg-cyan-100 text-cyan-800",
+  "Dañado": "bg-orange-100 text-orange-800",
+  "Perdido": "bg-red-100 text-red-800",
+  default: "bg-slate-100 text-slate-700",
+};
+
 export default function InventoryPage() {
   const { t, language } = useLanguage();
   const [ingredients, setIngredients] = useState([]);
@@ -56,6 +78,7 @@ export default function InventoryPage() {
     min_stock_level: 0,
     supplier_id: "",
     origin: "Propio",
+    status: "En Almacén",
     rental_supplier_id: "",
     rental_contract_id: "",
     rental_cost_per_unit_day: "",
@@ -174,6 +197,7 @@ export default function InventoryPage() {
       min_stock_level: ingredient.min_stock_level,
       supplier_id: ingredient.supplier_id || "",
       origin: ingredient.origin || "Propio",
+      status: ingredient.status || "En Almacén",
       rental_supplier_id: ingredient.rental_supplier_id || "",
       rental_contract_id: ingredient.rental_contract_id || "",
       rental_cost_per_unit_day: ingredient.rental_cost_per_unit_day ?? "",
@@ -196,6 +220,7 @@ export default function InventoryPage() {
       min_stock_level: 0,
       supplier_id: "",
       origin: "Propio",
+      status: "En Almacén",
       rental_supplier_id: "",
       rental_contract_id: "",
       rental_cost_per_unit_day: "",
@@ -399,6 +424,27 @@ export default function InventoryPage() {
                     </Select>
                   </div>
 
+                  {/* === Estado operacional === */}
+                  <div className="space-y-2 pt-2 border-t">
+                    <Label>Estado</Label>
+                    <Select
+                      value={ingredientForm.status}
+                      onValueChange={(v) => setIngredientForm({ ...ingredientForm, status: v })}
+                    >
+                      <SelectTrigger data-testid="status-select">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {INVENTORY_STATUSES.map((s) => (
+                          <SelectItem key={s} value={s}>{s}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      Solo los ítems en "En Almacén" cuentan como Disponibles para reservar en eventos nuevos.
+                    </p>
+                  </div>
+
                   {/* === Origen — Propio vs Alquilado === */}
                   <div className="space-y-2 pt-4 border-t">
                     <Label>Origen</Label>
@@ -563,7 +609,9 @@ export default function InventoryPage() {
                         <th className="text-left p-4 font-medium">{t("name")}</th>
                         <th className="text-left p-4 font-medium">{t("category")}</th>
                         <th className="text-left p-4 font-medium" data-testid="col-origin">Origen</th>
+                        <th className="text-left p-4 font-medium" data-testid="col-status">Estado</th>
                         <th className="text-right p-4 font-medium">{t("stockQuantity")}</th>
+                        <th className="text-right p-4 font-medium" data-testid="col-available">Disponible</th>
                         <th className="text-right p-4 font-medium">{t("costPerUnit")}</th>
                         <th className="text-right p-4 font-medium">{t("actions")}</th>
                       </tr>
@@ -613,6 +661,14 @@ export default function InventoryPage() {
                               <Badge variant="outline" data-testid={`origin-badge-${ing.ingredient_id}`}>Propio</Badge>
                             )}
                           </td>
+                          <td className="p-4">
+                            <Badge
+                              className={`${STATUS_COLORS[ing.status] || STATUS_COLORS.default} border-0`}
+                              data-testid={`status-badge-${ing.ingredient_id}`}
+                            >
+                              {ing.status || "En Almacén"}
+                            </Badge>
+                          </td>
                           <td className="p-4 text-right">
                             <span
                               className={
@@ -626,6 +682,19 @@ export default function InventoryPage() {
                             {ing.stock_quantity <= ing.min_stock_level && (
                               <AlertTriangle className="w-4 h-4 text-warning inline ml-2" />
                             )}
+                          </td>
+                          <td className="p-4 text-right" data-testid={`available-cell-${ing.ingredient_id}`}>
+                            <span
+                              className={
+                                ing.status !== "En Almacén"
+                                  ? "text-muted-foreground italic"
+                                  : ing.available_quantity <= 0
+                                  ? "text-destructive font-medium"
+                                  : "font-medium"
+                              }
+                            >
+                              {ing.available_quantity ?? 0} {ing.unit}
+                            </span>
                           </td>
                           <td className="p-4 text-right font-mono">
                             ${fmtNum(ing.cost_per_unit)}/{ing.unit}
