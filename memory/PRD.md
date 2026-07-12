@@ -1,5 +1,39 @@
 # Kora OS — Product Requirements Document
 
+## Sprint K · Smart Recommendations con IA (Feb 12, 2026)
+
+**Estado:** ✅ Implementado + probado con LLM real.
+
+### Endpoints
+- `POST /api/inventory/recommendations` → agrega utilización 90d + próximos 14d + over-reserved + rentals + últimos 20 daños. Envía a **Claude Sonnet 4.6** vía `emergentintegrations` con `EMERGENT_LLM_KEY`. Devuelve JSON parseado con 3-6 recomendaciones.
+- `GET /api/inventory/recommendations` → última snapshot cached en colección `smart_recommendations`.
+
+### Shape de una recomendación
+```json
+{
+  "title": "≤80 chars",
+  "reason": "1-3 oraciones con datos concretos",
+  "priority": "high|medium|low",
+  "estimated_impact_usd": 0,
+  "action_hint": "imperativo corto",
+  "related_item_ids": []
+}
+```
+
+### UI
+- Tab `/ops-supplies/recommendations` (etiquetada "Recomendaciones AI").
+- Card hero indigo con Sparkles icon + resumen (# recomendaciones · # alta prioridad · $ impacto estimado · fecha).
+- Cards con acento rojo (High) / ámbar (Medium) / slate (Low), razonamiento y action_hint.
+
+### Test real
+Con la demo tenant, el modelo detectó automáticamente:
+- Patrón de 2 daños de Silla Chiavari en 6 segundos ($400 impacto — alta prioridad)
+- Registro de daño sin item_name (data hygiene)
+- Comparación buy-vs-rent bloqueada por falta de historia
+- Capacidad ociosa próximas 2 semanas
+
+
+
 ## Sprints E→J · Resource Management Deep Dive (Feb 12, 2026)
 
 **Estado:** ✅ Implementado + probado. **191/191** backend regressions ✅. Smoke UI OK.

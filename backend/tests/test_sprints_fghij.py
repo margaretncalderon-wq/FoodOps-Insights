@@ -128,6 +128,22 @@ class TestQRCode:
         assert "diff" in d
 
 
+class TestSmartRecommendations:
+    """Sprint K — cached endpoint always returns a valid shape."""
+
+    def test_cached_endpoint_shape(self, auth_session):
+        r = auth_session.get(f"{BASE_URL}/api/inventory/recommendations")
+        assert r.status_code == 200
+        d = r.json()
+        assert "generated_at" in d
+        assert "recommendations" in d
+        assert isinstance(d["recommendations"], list)
+        for rec in d["recommendations"]:
+            for k in ("title", "reason", "priority", "estimated_impact_usd", "action_hint"):
+                assert k in rec
+            assert rec["priority"] in ("high", "medium", "low")
+
+
 class TestDamageBilling:
     """Sprint G — manual bill trigger endpoint shape."""
 

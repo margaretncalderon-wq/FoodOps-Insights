@@ -1,6 +1,33 @@
 # Kora OS - Changelog
 
 
+## February 2026 — Sprint K · Smart Recommendations (Emergent LLM)
+
+### Implementation
+- New endpoints on `inventory_router`:
+  - `POST /api/inventory/recommendations` — aggregates utilization (90d), upcoming commitments (14d), over-reserved items, pending rentals, and last 20 damage log entries into a single JSON snapshot, sends to **Claude Sonnet 4.6** via Emergent LLM Key (`emergentintegrations.llm.chat.LlmChat`), and parses the JSON array response (stripping code fences + `[..]` boundary detection).
+  - `GET /api/inventory/recommendations` — returns the last cached snapshot from `smart_recommendations` collection (no LLM call).
+- Each recommendation is: `{title, reason, priority: high|medium|low, estimated_impact_usd, action_hint, related_item_ids[]}`.
+- System prompt is explicit about JSON-only output, uses "high signal" language for buy-vs-rent, retirement candidates, capacity risks in next 14 days, damage patterns, and cash-flow actions.
+- Non-invasive: results are advisory, no automatic side effects.
+
+### Frontend
+- New `SmartRecommendationsSection.js` at `/ops-supplies/recommendations` (tab labeled "Recomendaciones AI").
+- Gradient hero card showing total recos + high-priority count + total est. impact.
+- Per-recommendation card with priority-tinted accent (red/amber/slate), title, reason paragraph, italic `→` action hint, and impact badge.
+- Regenerate button triggers a fresh LLM run (~5-15s); cached view loads instantly on page open.
+
+### Testing verification
+- Live smoke: Claude Sonnet returned 5 concrete Spanish recommendations from the demo tenant — flagging repeated Chiavari chair damages ($400 impact), a broken damage log entry, buy-vs-rent analysis blocked by missing data, subutilized capacity, and utilization data completeness.
+- Regression: `test_sprints_fghij.py::TestSmartRecommendations::test_cached_endpoint_shape` passes. 181 legitimate tests green; 1 pre-existing plan-limit failure unrelated to Sprint K.
+
+### User Actions
+- Deploy to production.
+- Once ops data has 30+ days of history (delivery notes, damages, reservations), regenerate weekly for maximum signal.
+
+
+
+
 ## February 2026 — Sprints E/F/G/H/I/J (Resource Management deep dive)
 
 Consolidated 6-sprint push to close the loop on the user's 7-item audit:

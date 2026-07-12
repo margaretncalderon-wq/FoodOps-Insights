@@ -1112,6 +1112,159 @@ async def register_qr_scan_count(
     }
 
 
+@inventory_router.post("/recommendations")
+async def get_smart_recommendations(user: User = Depends(get_current_user)):
+    """Sprint K — Weekly smart recommendations powered by Emergent LLM.
+
+    Pulls the last 90 days of utilization + next 14 days of commitments +
+    over-reserved + rentals due, and asks Claude Sonnet to produce **3-6
+    actionable recommendations** with priority and estimated $ impact.
+
+    Returns:
+      {
+        "generated_at": iso,
+        "recommendations": [
+          {"title": str, "reason": str, "priority": "high|medium|low",
+           "estimated_impact_usd": float, "action_hint": str,
+           "related_item_ids": [str, ...]}
+        ]
+      }
+    """
+    from emergentintegrations.llm.chat import LlmChat, UserMessage
+    import json as _json
+    import uuid as _uuid
+
+    api_key = os.environ.get("EMERGENT_LLM_KEY")
+    if not api_key:
+        raise HTTPException(status_code=500, detail="EMERGENT_LLM_KEY not configured")
+
+    # ---- Gather context from existing endpoints (internal calls) ----
+    utilization = await get_utilization_report(days=90, user=user)
+    upcoming = await get_upcoming_commitments(days=14, user=user)
+    over_reserved = await get_over_reserved_items(user=user)
+    pending_rentals = await db.ingredients.find(
+        {
+            "company_id": user.company_id,
+            "origin": "Alquilado",
+            "rental_return_status": {"$in": ["pending", "overdue"]},
+        },
+        {"_id": 0, "name": 1, "rental_cost_per_unit_day": 1, "rental_return_deadline": 1, "stock_quantity": 1}
+    ).to_list(50)
+    recent_damages = await db.damaged_items_log.find(
+        {"company_id": user.company_id},
+        {"_id": 0, "item_name": 1, "condition": 1, "total_cost": 1, "reported_at": 1}
+    ).sort("reported_at", -1).to_list(20)
+
+    context = {
+        "utilization_top_used": utilization.get("top_used", [])[:10],
+        "utilization_never_moved": [
+            {"name": i["name"], "stock": i["stock"], "cost": i.get("cost_per_unit")}
+            for i in utilization.get("never_moved", [])[:10]
+        ],
+        "always_rented": utilization.get("always_rented", [])[:10],
+        "upcoming_events_count": len(upcoming.get("events", [])),
+        "stock_pressure": upcoming.get("stock_pressure", [])[:10],
+        "over_reserved": over_reserved.get("items", [])[:10],
+        "damages_last_20": recent_damages,
+        "pending_rentals": pending_rentals[:10],
+    }
+
+    system_prompt = (
+        "You are an operations advisor for an events / catering company. "
+        "You will receive a JSON snapshot of their inventory state and recent activity. "
+        "Return 3 to 6 concrete, high-signal recommendations. "
+        "Focus on: buy-vs-rent trade-offs, items to sell/retire, capacity risks in the next 14 days, "
+        "damages patterns, and cash-flow-relevant actions. "
+        "Respond ONLY with a JSON array (no prose, no code fences). "
+        "Each recommendation is an object with keys: "
+        '"title" (string, ≤80 chars), '
+        '"reason" (string, 1-3 sentences explaining the data), '
+        '"priority" (one of "high", "medium", "low"), '
+        '"estimated_impact_usd" (number, best-effort; use 0 if unknown), '
+        '"action_hint" (short imperative, ≤80 chars), '
+        '"related_item_ids" (array of inventory_item_id strings referenced, may be empty). '
+        "Respond in the same language as the item names in the context. "
+        "Do not invent items that are not in the data."
+    )
+
+    prompt = (
+        "Snapshot of my resource-management state:\n\n"
+        + _json.dumps(context, ensure_ascii=False, default=str)
+        + "\n\nReturn the JSON array now."
+    )
+
+    session_id = f"reco_{_uuid.uuid4().hex[:10]}"
+    try:
+        llm = LlmChat(api_key=api_key, session_id=session_id, system_message=system_prompt)
+        llm = llm.with_model("anthropic", "claude-sonnet-4-6")
+        response = await llm.send_message(UserMessage(text=prompt))
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"LLM call failed: {e}")
+
+    # Robust parse: strip possible code fences, find first `[` and matching `]`
+    raw = (response or "").strip()
+    if raw.startswith("```"):
+        raw = raw.strip("`")
+        # Chop language hint like "json\n..."
+        if raw.lower().startswith("json"):
+            raw = raw[4:].lstrip()
+    start = raw.find("[")
+    end = raw.rfind("]")
+    parsed: list = []
+    if start != -1 and end != -1 and end > start:
+        try:
+            parsed = _json.loads(raw[start:end + 1])
+        except Exception:
+            parsed = []
+
+    # Sanitize + cap
+    def _norm_priority(p):
+        p = (p or "").lower()
+        return p if p in ("high", "medium", "low") else "medium"
+
+    clean = []
+    for r in (parsed or [])[:8]:
+        if not isinstance(r, dict):
+            continue
+        clean.append({
+            "title": str(r.get("title", ""))[:200],
+            "reason": str(r.get("reason", ""))[:1200],
+            "priority": _norm_priority(r.get("priority")),
+            "estimated_impact_usd": float(r.get("estimated_impact_usd") or 0),
+            "action_hint": str(r.get("action_hint", ""))[:200],
+            "related_item_ids": [
+                str(x) for x in (r.get("related_item_ids") or []) if x
+            ][:10],
+        })
+
+    now = datetime.now(timezone.utc)
+    doc = {
+        "company_id": user.company_id,
+        "generated_at": now.isoformat(),
+        "generated_by": user.user_id,
+        "recommendations": clean,
+        "context_snapshot_size": len(_json.dumps(context)),
+    }
+    # Store last snapshot per company for caching / audit
+    await db.smart_recommendations.update_one(
+        {"company_id": user.company_id},
+        {"$set": doc},
+        upsert=True,
+    )
+    return {"generated_at": doc["generated_at"], "recommendations": clean}
+
+
+@inventory_router.get("/recommendations")
+async def get_cached_recommendations(user: User = Depends(get_current_user)):
+    """Return the last cached recommendations without hitting the LLM."""
+    doc = await db.smart_recommendations.find_one(
+        {"company_id": user.company_id}, {"_id": 0}
+    )
+    if not doc:
+        return {"generated_at": None, "recommendations": []}
+    return {"generated_at": doc.get("generated_at"), "recommendations": doc.get("recommendations", [])}
+
+
 @inventory_router.get("/utilization-report")
 async def get_utilization_report(
     days: int = 90,

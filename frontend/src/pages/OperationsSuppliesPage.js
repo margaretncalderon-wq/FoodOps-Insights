@@ -6,7 +6,7 @@ import { Layout } from "../components/Layout";
 import { Badge } from "../components/ui/badge";
 import { 
   Package, ShoppingCart, Truck, Boxes, FileText, Image, Archive,
-  Briefcase, Users, Clock, FolderOpen, PackageCheck, LayoutTemplate, CalendarClock, BarChart3
+  Briefcase, Users, Clock, FolderOpen, PackageCheck, LayoutTemplate, CalendarClock, BarChart3, Sparkles
 } from "lucide-react";
 
 // Import all operations components
@@ -20,6 +20,7 @@ import { EventPackingSection } from "../components/operations/EventPackingSectio
 import { PackingTemplatesSection } from "../components/operations/PackingTemplatesSection";
 import { UpcomingCommitmentsSection } from "../components/operations/UpcomingCommitmentsSection";
 import { UtilizationReportSection } from "../components/operations/UtilizationReportSection";
+import { SmartRecommendationsSection } from "../components/operations/SmartRecommendationsSection";
 
 export default function OperationsSuppliesPage() {
   const { language } = useLanguage();
@@ -103,6 +104,13 @@ export default function OperationsSuppliesPage() {
       path: "/ops-supplies/utilization", 
       label: isEs ? "Utilización" : "Utilization", 
       icon: BarChart3,
+      industries: ["all"]
+    },
+    { 
+      id: "recommendations", 
+      path: "/ops-supplies/recommendations", 
+      label: isEs ? "Recomendaciones AI" : "AI Recommendations", 
+      icon: Sparkles,
       industries: ["all"]
     },
     { 
@@ -202,6 +210,7 @@ export default function OperationsSuppliesPage() {
           <Route path="/packing-templates" element={<PackingTemplatesSection />} />
           <Route path="/upcoming" element={<UpcomingCommitmentsSection />} />
           <Route path="/utilization" element={<UtilizationReportSection />} />
+          <Route path="/recommendations" element={<SmartRecommendationsSection />} />
           <Route path="/asset-count" element={<AssetCountSection />} />
           <Route path="/agreements" element={<AgreementsSection />} />
           <Route path="/gallery" element={<GallerySection />} />
