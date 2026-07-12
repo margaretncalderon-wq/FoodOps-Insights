@@ -1747,10 +1747,26 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
     let newOrder;
     const overItem = allItems.find((i) => i.item_id === over.id);
     if (overItem && (overItem.item_type || "") === targetItype && (overItem.section_title || "") === targetSectionTitle) {
-      // Dropped on a specific item within the target section — position relative to it
+      // Dropped on a specific item within the target section — position relative to it.
+      // Detect whether the user dropped ABOVE or BELOW the midline of the target row
+      // so "drag to top of section" actually lands on top (previously always inserted after).
+      const overRect = over?.rect;
+      const draggedRect = active?.rect?.current?.translated;
+      let insertAfter = true;
+      if (draggedRect && overRect) {
+        const dragCenterY = draggedRect.top + draggedRect.height / 2;
+        const overCenterY = overRect.top + overRect.height / 2;
+        insertAfter = dragCenterY > overCenterY;
+      }
       const idx = sectionItems.findIndex((i) => i.item_id === overItem.item_id);
-      const prev = idx >= 0 ? sectionItems[idx].sort_order || 0 : 0;
-      const next = sectionItems[idx + 1]?.sort_order ?? prev + 2;
+      let prev, next;
+      if (insertAfter) {
+        prev = idx >= 0 ? (sectionItems[idx].sort_order || 0) : 0;
+        next = sectionItems[idx + 1]?.sort_order ?? prev + 2;
+      } else {
+        next = idx >= 0 ? (sectionItems[idx].sort_order || 0) : 0;
+        prev = idx > 0 ? (sectionItems[idx - 1].sort_order || 0) : (next - 2);
+      }
       newOrder = (prev + next) / 2;
     } else if (sectionItems.length > 0) {
       // Dropped on the section header/body (not a specific item) — append at end

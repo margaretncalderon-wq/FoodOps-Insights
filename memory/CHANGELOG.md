@@ -589,3 +589,14 @@ Calculo el `newOrder` respetando el ORDEN VISUAL de las secciones:
 Además, ahora el dropping sobre un item de OTRA sección (dentro del mismo item_type) apéndese al FINAL de la sección destino (semántica más intuitiva) en vez de intentar sandwich entre items de secciones distintas.
 
 **Testing:** 166/166 tests pasan. Lint clean (solo 2 warnings pre-existentes no relacionados).
+
+## 2026-02-11 — Feature: DnD detecta insertar ARRIBA vs ABAJO del item destino
+
+Antes: al hacer drop sobre un item, siempre se insertaba DESPUÉS de él (impossible dropear "encima" del primer item de una sección).
+Ahora: comparo el centro Y del item arrastrado con el centro Y del item destino:
+- Cursor arriba del midline → insertar ANTES del over-item
+- Cursor abajo del midline → insertar DESPUÉS del over-item
+
+Implementado en `handleDragEnd` usando `over.rect` + `active.rect.current.translated` (~15 líneas). Fallback a "insertar después" si dnd-kit no provee rects.
+
+**Testing:** 166/166 tests pasan. Lint clean.
