@@ -135,14 +135,53 @@ export default function ConsolidatedPurchaseSection() {
       toast.error(language === "es" ? "No hay items para asignar" : "No items to allocate");
       return;
     }
-    
+
     setProcessingSR(true);
     try {
-      // Reserve inventory items for these events
-      // This increases reserved_quantity but does NOT decrease stock_quantity
-      // Actual deduction happens during production posting
       const eventIds = purchaseData.events?.map(e => e.event_id) || [];
-      
+      const items = purchaseData.stock_requisition.map(item => ({
+        inventory_item_id: item.inventory_item_id,
+        quantity: item.in_stock || item.total_required || 0,
+      }));
+
+      // Pre-flight: check date-overlap conflicts across all target events.
+      // If two events collide on the same item on the same day, surface it
+      // BEFORE we write anything to inventory_reservations.
+      const conflictsByEvent = [];
+      for (const evId of eventIds) {
+        try {
+          const chk = await axios.post(`${API}/api/inventory/check-reservation-conflicts`, {
+            event_id: evId,
+            items,
+          }, { withCredentials: true });
+          if (chk.data?.has_conflicts) {
+            const ev = purchaseData.events.find(e => e.event_id === evId);
+            conflictsByEvent.push({
+              event_id: evId,
+              event_name: ev?.event_name || ev?.name || evId,
+              conflicts: chk.data.conflicts,
+            });
+          }
+        } catch (_) { /* non-blocking — fall through to /reserve which also validates */ }
+      }
+      if (conflictsByEvent.length > 0) {
+        const details = conflictsByEvent.slice(0, 3).map(c =>
+          `• ${c.event_name}: ${c.conflicts.slice(0, 3).map(x =>
+            `${x.name} (pide ${x.requested}, quedan ${x.available_on_dates} en esas fechas${x.overlapping_events?.length ? ` — choca con ${x.overlapping_events.map(o => o.event_name).join(', ')}` : ''})`
+          ).join('; ')}`
+        ).join('\n');
+        const proceed = window.confirm(
+          (language === "es"
+            ? `⚠️ CONFLICTOS DE RESERVA EN FECHAS DEL EVENTO:\n\n${details}\n\n¿Reservar de todos modos? (los items en conflicto NO se reservarán)`
+            : `⚠️ RESERVATION CONFLICTS ON EVENT DATES:\n\n${details}\n\nReserve anyway? (conflicting items will NOT be reserved)`)
+        );
+        if (!proceed) {
+          setProcessingSR(false);
+          return;
+        }
+      }
+
+      // Actual reservation — /reserve still enforces global stock as final guard.
       await axios.post(`${API}/api/inventory/reserve`, {
         event_ids: eventIds,
         events: purchaseData.events,
@@ -151,12 +190,12 @@ export default function ConsolidatedPurchaseSection() {
           qty_needed: item.in_stock || item.total_required || 0,
         }))
       }, { withCredentials: true });
-      
-      toast.success(language === "es" 
-        ? "Inventario reservado - Se deducirá durante producción" 
+
+      toast.success(language === "es"
+        ? "Inventario reservado - Se deducirá durante producción"
         : "Inventory reserved - Will be deducted during production");
       setSrDialogOpen(false);
-      
+
       // Mark events as having SR processed
       setSrProcessed(true);
     } catch (error) {

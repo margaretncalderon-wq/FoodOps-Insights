@@ -7570,6 +7570,7 @@ class DeliveryNoteCreate(BaseModel):
     notes: Optional[str] = None
     checkout_date: Optional[str] = None
     expected_return_date: Optional[str] = None
+    direction: Optional[str] = "outbound"  # Sprint C: "outbound" | "return"
 
 class DeliveryNoteCheckIn(BaseModel):
     items: List[dict]  # [{inventory_item_id, qty_returned, notes}]
@@ -7581,6 +7582,9 @@ async def get_delivery_notes(user: User = Depends(get_current_user)):
         {"company_id": user.company_id},
         {"_id": 0}
     ).sort("created_at", -1).to_list(500)
+    # Backfill legacy notes with direction="outbound" so FE never sees a null.
+    for n in notes:
+        n.setdefault("direction", "outbound")
     return notes
 
 @delivery_notes_router.post("")
@@ -7615,6 +7619,7 @@ async def create_delivery_note(data: DeliveryNoteCreate, user: User = Depends(ge
         "note_number": note_number,
         "company_id": user.company_id,
         "event_id": data.event_id,
+        "direction": data.direction or "outbound",
         "items": processed_items,
         "status": "pending",
         "checkout_date": data.checkout_date or now.isoformat(),
@@ -7644,6 +7649,73 @@ async def create_delivery_note(data: DeliveryNoteCreate, user: User = Depends(ge
         )
     
     return {"note_id": note_id, "note_number": note_number, "message": "Delivery note created"}
+
+
+@delivery_notes_router.post("/scan-overdue")
+async def trigger_overdue_scan(user: User = Depends(get_current_user)):
+    """Manual trigger for the daily overdue scan. Useful for testing and for
+    ops to force-refresh alerts without waiting for the 08:15 cron.
+
+    Scoped to the caller's company_id (unlike the cron, which is global).
+    """
+    from scheduler import _send_overdue_delivery_note_alerts  # noqa: E402
+    # For a per-tenant manual run we replicate the essential logic scoped by company.
+    from routers.notifications import notify_org_admins  # noqa: E402
+    today = datetime.now(timezone.utc).date()
+    today_key = today.isoformat()
+    today_str = today.strftime("%Y-%m-%d")
+
+    sent = 0
+    cursor = db.delivery_notes.find(
+        {
+            "company_id": user.company_id,
+            "status": {"$in": ["pending", "partial"]},
+            "expected_return_date": {"$lt": today_str, "$ne": None},
+        },
+        {"_id": 0},
+    )
+    async for note in cursor:
+        already = await db.overdue_notes_log.find_one({
+            "company_id": user.company_id,
+            "note_id": note["note_id"],
+            "day": today_key,
+        })
+        if already:
+            continue
+        try:
+            dl = datetime.strptime(str(note["expected_return_date"])[:10], "%Y-%m-%d").date()
+            days_overdue = (today - dl).days
+        except Exception:
+            days_overdue = None
+        event_name = ""
+        if note.get("event_id"):
+            ev = await db.events.find_one({"event_id": note["event_id"], "company_id": user.company_id}, {"_id": 0, "event_name": 1, "name": 1})
+            if ev:
+                event_name = ev.get("event_name") or ev.get("name") or ""
+        note_number = note.get("note_number") or note["note_id"][-8:]
+        msg = f"Retorno esperado {note['expected_return_date']}"
+        if days_overdue and days_overdue > 0:
+            msg += f" · hace {days_overdue}d"
+        if event_name:
+            msg += f" · {event_name}"
+        await notify_org_admins(
+            org_id=user.company_id,
+            notification_type="delivery_note_overdue",
+            title=f"⏰ Conduce vencido: {note_number}",
+            message=msg,
+            link=f"/ops-supplies/checkin?note_id={note['note_id']}",
+            metadata={"note_id": note["note_id"], "days_overdue": days_overdue},
+            priority="high",
+        )
+        await db.overdue_notes_log.insert_one({
+            "company_id": user.company_id,
+            "note_id": note["note_id"],
+            "day": today_key,
+            "days_overdue": days_overdue,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        })
+        sent += 1
+    return {"notifications_sent": sent, "checked_at": datetime.now(timezone.utc).isoformat()}
 
 
 @delivery_notes_router.get("/pending-returns")
@@ -7806,88 +7878,200 @@ async def get_delivery_note(note_id: str, user: User = Depends(get_current_user)
 
 @delivery_notes_router.put("/{note_id}/check-in")
 async def check_in_delivery_note(note_id: str, data: DeliveryNoteCheckIn, user: User = Depends(get_current_user)):
-    """Record check-in (return) of items from a delivery note"""
+    """Record check-in (return) of items from a delivery note.
+
+    Each incoming item may include:
+      - qty_returned    : int
+      - condition       : "bueno" | "dañado" | "faltante"   (Sprint C)
+      - condition_note  : optional operator note
+      - photo_url       : optional URL (uploaded via /api/uploads/*)
+    Items marked dañado/faltante are also logged into ``damaged_items_log``
+    for the Asset Count "Daños y Faltantes" tab. Bueno items go back to
+    "En Almacén" (unchanged legacy behavior).
+    """
     note = await db.delivery_notes.find_one(
         {"note_id": note_id, "company_id": user.company_id},
         {"_id": 0}
     )
     if not note:
         raise HTTPException(status_code=404, detail="Delivery note not found")
-    
+
     now = datetime.now(timezone.utc)
     total_loss_cost = 0
     all_returned = True
-    
-    updated_items = []
+    damaged_log_entries = []
+
     for incoming_item in data.items:
         item_id = incoming_item.get("inventory_item_id")
-        
-        # Find matching item in note
+        raw_condition = (incoming_item.get("condition") or "").strip().lower()
+        # Normalize legacy synonyms so the FE can send either language
+        if raw_condition in ("good", "ok", "bien"):
+            raw_condition = "bueno"
+        elif raw_condition in ("damaged", "broken"):
+            raw_condition = "dañado"
+        elif raw_condition in ("missing", "lost"):
+            raw_condition = "faltante"
+        condition = raw_condition or "bueno"
+        cond_note = incoming_item.get("condition_note") or incoming_item.get("note")
+        photo_url = incoming_item.get("photo_url")
+
         for note_item in note["items"]:
             if note_item.get("inventory_item_id") == item_id or note_item.get("name") == incoming_item.get("name"):
-                # Only equipment requires return
                 if note_item["inventory_type"] == "equipment":
                     qty_returned = incoming_item.get("qty_returned", 0)
                     qty_out = note_item["qty_out"]
                     qty_lost = max(0, qty_out - qty_returned)
-                    loss_cost = qty_lost * note_item.get("replacement_cost", 0)
-                    
+                    replacement_cost = note_item.get("replacement_cost", 0) or 0
+                    loss_cost = qty_lost * replacement_cost
+
                     note_item["qty_returned"] = qty_returned
                     note_item["qty_lost"] = qty_lost
                     note_item["loss_cost"] = loss_cost
-                    note_item["status"] = "returned" if qty_lost == 0 else "partial"
-                    
+                    note_item["condition"] = condition
+                    if cond_note:
+                        note_item["condition_note"] = cond_note
+                    if photo_url:
+                        note_item["photo_url"] = photo_url
+                    if qty_lost == 0 and condition == "bueno":
+                        note_item["status"] = "returned"
+                    elif qty_lost == 0 and condition in ("dañado",):
+                        # Physically returned but damaged — still counts as returned
+                        note_item["status"] = "returned_damaged"
+                    else:
+                        note_item["status"] = "partial"
+
                     total_loss_cost += loss_cost
-                    
-                    if qty_lost > 0:
+                    if qty_lost > 0 or condition in ("dañado", "faltante"):
                         all_returned = False
-                    
-                    # Return items to inventory and transition status.
-                    #  - qty_returned > 0 → the returned portion goes back to
-                    #    stock and the equipment is again "En Almacén".
-                    #  - qty_returned == 0 and qty_lost > 0 → 100% lost →
-                    #    mark as "Perdido" (so it's excluded from reservations
-                    #    even though stock is 0 — for audit visibility).
-                    if item_id and qty_returned > 0:
-                        await db.ingredients.update_one(
-                            {"ingredient_id": item_id},
-                            {"$inc": {"stock_quantity": qty_returned},
-                             "$set": {"status": "En Almacén", "updated_at": now.isoformat()}}
-                        )
-                    elif item_id and qty_lost > 0 and qty_returned == 0:
-                        await db.ingredients.update_one(
-                            {"ingredient_id": item_id},
-                            {"$set": {"status": "Perdido", "updated_at": now.isoformat()}}
-                        )
+
+                    # --- Inventory transitions (Sprint C aware) ---
+                    if item_id:
+                        if condition == "bueno" and qty_returned > 0:
+                            await db.ingredients.update_one(
+                                {"ingredient_id": item_id},
+                                {"$inc": {"stock_quantity": qty_returned},
+                                 "$set": {"status": "En Almacén", "updated_at": now.isoformat()}}
+                            )
+                        elif condition == "dañado":
+                            # Mark item unit as Dañado — we don't return the qty to
+                            # sellable stock because it needs repair/replacement.
+                            await db.ingredients.update_one(
+                                {"ingredient_id": item_id},
+                                {"$set": {"status": "Dañado", "updated_at": now.isoformat()}}
+                            )
+                        elif condition == "faltante" or (qty_lost > 0 and qty_returned == 0):
+                            await db.ingredients.update_one(
+                                {"ingredient_id": item_id},
+                                {"$set": {"status": "Perdido", "updated_at": now.isoformat()}}
+                            )
+
+                    # --- Damaged/Lost registry entry ---
+                    if condition in ("dañado", "faltante"):
+                        damaged_log_entries.append({
+                            "log_id": f"dlog_{uuid.uuid4().hex[:12]}",
+                            "company_id": user.company_id,
+                            "note_id": note_id,
+                            "note_number": note.get("note_number"),
+                            "event_id": note.get("event_id"),
+                            "inventory_item_id": item_id,
+                            "item_name": note_item.get("name"),
+                            "condition": condition,
+                            "qty": qty_lost if condition == "faltante" else max(qty_out - qty_returned, 0) or qty_out,
+                            "replacement_cost_per_unit": replacement_cost,
+                            "total_cost": (qty_lost if condition == "faltante" else max(qty_out - qty_returned, 0) or qty_out) * replacement_cost,
+                            "condition_note": cond_note,
+                            "photo_url": photo_url,
+                            "reported_by": user.user_id,
+                            "reported_at": now.isoformat(),
+                        })
                 else:
-                    # Disposables don't return
                     note_item["status"] = "consumed"
-                
                 break
-        
-        updated_items.append(note_item)
-    
-    # Update note status
+
+    if damaged_log_entries:
+        await db.damaged_items_log.insert_many(damaged_log_entries)
+
     status = "returned" if all_returned else "partial"
-    
     await db.delivery_notes.update_one(
         {"note_id": note_id},
         {"$set": {
             "items": note["items"],
             "status": status,
+            "direction": note.get("direction", "outbound"),  # ensure field is set
             "checkin_date": now.isoformat(),
             "total_loss_cost": total_loss_cost,
             "updated_at": now.isoformat()
         }}
     )
-    
     return {
         "message": "Check-in recorded",
         "status": status,
-        "total_loss_cost": total_loss_cost
+        "total_loss_cost": total_loss_cost,
+        "damaged_items_logged": len(damaged_log_entries),
     }
 
 # Edit Delivery Note (before check-in)
+# ============== DAMAGED / MISSING ITEMS LOG (Sprint C) ==============
+damaged_items_router = APIRouter(prefix="/damaged-items-log", tags=["Damaged Items Log"])
+
+
+@damaged_items_router.get("")
+async def list_damaged_items(
+    condition: Optional[str] = None,     # bueno | dañado | faltante
+    event_id: Optional[str] = None,
+    year: Optional[int] = None,
+    month: Optional[int] = None,
+    user: User = Depends(get_current_user),
+):
+    """Registry of items reported as damaged or missing on delivery-note check-in.
+
+    Feeds the "Daños y Faltantes" tab of Conteo de Activos. Supports filters
+    by condition, event, and year+month (based on reported_at).
+    """
+    query: Dict[str, Any] = {"company_id": user.company_id}
+    if condition and condition in ("dañado", "faltante", "danado"):
+        # accept ascii "danado" as legacy alias
+        query["condition"] = "dañado" if condition in ("dañado", "danado") else condition
+    if event_id:
+        query["event_id"] = event_id
+    if year and month:
+        # Date-range filter on reported_at (iso string starts with YYYY-MM)
+        month_str = f"{year:04d}-{month:02d}"
+        query["reported_at"] = {"$regex": f"^{month_str}"}
+    entries = await db.damaged_items_log.find(query, {"_id": 0}).sort("reported_at", -1).to_list(1000)
+    # Enrich with event name
+    event_ids = list({e.get("event_id") for e in entries if e.get("event_id")})
+    events_map = {}
+    if event_ids:
+        evs = await db.events.find(
+            {"event_id": {"$in": event_ids}, "company_id": user.company_id},
+            {"_id": 0, "event_id": 1, "event_name": 1, "name": 1, "event_date": 1}
+        ).to_list(len(event_ids))
+        events_map = {ev["event_id"]: ev for ev in evs}
+    for e in entries:
+        ev = events_map.get(e.get("event_id") or "")
+        e["event_name"] = (ev.get("event_name") or ev.get("name") or "") if ev else ""
+        e["event_date"] = ev.get("event_date") if ev else None
+
+    # Totals for the FE
+    total_cost = sum(float(e.get("total_cost") or 0) for e in entries)
+    damaged_count = sum(1 for e in entries if e.get("condition") == "dañado")
+    missing_count = sum(1 for e in entries if e.get("condition") == "faltante")
+    return {
+        "entries": entries,
+        "totals": {
+            "count": len(entries),
+            "damaged": damaged_count,
+            "missing": missing_count,
+            "total_replacement_cost": total_cost,
+        },
+    }
+
+
+api_router.include_router(damaged_items_router)
+
+
+# ============== DELIVERY NOTES ENDPOINTS (continued) ==============
 class DeliveryNoteUpdate(BaseModel):
     items: List[dict] = []  # Updated items list
     notes: Optional[str] = None

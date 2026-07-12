@@ -6,7 +6,7 @@ import { Layout } from "../components/Layout";
 import { Badge } from "../components/ui/badge";
 import { 
   Package, ShoppingCart, Truck, Boxes, FileText, Image, Archive,
-  Briefcase, Users, Clock, FolderOpen
+  Briefcase, Users, Clock, FolderOpen, PackageCheck
 } from "lucide-react";
 
 // Import all operations components
@@ -16,6 +16,7 @@ import { CheckInOutSection } from "../components/operations/CheckInOutSection";
 import { AssetCountSection } from "../components/operations/AssetCountSection";
 import { AgreementsSection } from "../components/operations/AgreementsSection";
 import { GallerySection } from "../components/operations/GallerySection";
+import { EventPackingSection } from "../components/operations/EventPackingSection";
 
 export default function OperationsSuppliesPage() {
   const { language } = useLanguage();
@@ -72,6 +73,13 @@ export default function OperationsSuppliesPage() {
       label: isEs ? "Conduces" : "Delivery Notes", 
       icon: Truck,
       industries: ["events", "events_hospitality", "generic"] // Not for pure services
+    },
+    { 
+      id: "event-packing", 
+      path: "/ops-supplies/event-packing", 
+      label: isEs ? "Packing List" : "Packing List", 
+      icon: PackageCheck,
+      industries: ["events", "events_hospitality", "generic"]
     },
     { 
       id: "asset-count", 
@@ -166,6 +174,7 @@ export default function OperationsSuppliesPage() {
           <Route path="/inventory" element={<InventorySection />} />
           <Route path="/purchasing" element={<PurchasingSection />} />
           <Route path="/checkin" element={<CheckInOutSection />} />
+          <Route path="/event-packing" element={<EventPackingSection />} />
           <Route path="/asset-count" element={<AssetCountSection />} />
           <Route path="/agreements" element={<AgreementsSection />} />
           <Route path="/gallery" element={<GallerySection />} />

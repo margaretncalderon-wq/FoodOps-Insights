@@ -264,8 +264,17 @@ export function CheckInOutSection() {
     if (!viewingNote) return;
 
     try {
+      // Send only the fields Sprint C accepts
+      const items = viewingNote.items.map((i) => ({
+        inventory_item_id: i.inventory_item_id,
+        name: i.name,
+        qty_returned: i.qty_returned || 0,
+        condition: i.condition || "bueno",
+        condition_note: i.condition_note || "",
+        photo_url: i.photo_url || null,
+      }));
       await axios.put(`${API}/api/delivery-notes/${viewingNote.note_id}/check-in`, {
-        items: viewingNote.items
+        items,
       }, { withCredentials: true });
 
       toast.success(language === "es" ? "Check-in guardado" : "Check-in saved");
@@ -274,6 +283,22 @@ export function CheckInOutSection() {
       fetchData();
     } catch (error) {
       toast.error(error.response?.data?.detail || "Error saving check-in");
+    }
+  };
+
+  const uploadConditionPhoto = async (index, file) => {
+    if (!file) return;
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await axios.post(`${API}/api/upload`, fd, {
+        withCredentials: true,
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      updateCheckInItem(index, "photo_url", res.data.url || res.data.file_url);
+      toast.success(language === "es" ? "Foto subida" : "Photo uploaded");
+    } catch (e) {
+      toast.error(language === "es" ? "Error subiendo foto" : "Photo upload failed");
     }
   };
 
@@ -502,6 +527,7 @@ export function CheckInOutSection() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>{language === "es" ? "# Conduce" : "Note #"}</TableHead>
+                    <TableHead>{language === "es" ? "Dir." : "Dir."}</TableHead>
                     <TableHead>{language === "es" ? "Evento" : "Event"}</TableHead>
                     <TableHead>{language === "es" ? "Salida" : "Out"}</TableHead>
                     <TableHead>{language === "es" ? "Retorno" : "Return"}</TableHead>
@@ -519,6 +545,17 @@ export function CheckInOutSection() {
                     return (
                       <TableRow key={note.note_id} className={isOverdue ? "bg-red-50" : ""}>
                         <TableCell className="font-mono">{note.note_number || note.note_id?.slice(-8)}</TableCell>
+                        <TableCell>
+                          {note.direction === "return" ? (
+                            <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">
+                              {language === "es" ? "Retorno" : "Return"}
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                              {language === "es" ? "Salida" : "Outbound"}
+                            </Badge>
+                          )}
+                        </TableCell>
                         <TableCell className="font-medium">{getEventName(note.event_id)}</TableCell>
                         <TableCell>
                           <div className="flex items-center gap-1">
@@ -743,7 +780,7 @@ export function CheckInOutSection() {
                       <TableHead>{language === "es" ? "Tipo" : "Type"}</TableHead>
                       <TableHead className="text-center">{language === "es" ? "Salió" : "Out"}</TableHead>
                       <TableHead className="text-center">{language === "es" ? "Devuelto" : "Returned"}</TableHead>
-                      <TableHead className="text-center">{language === "es" ? "Perdido" : "Lost"}</TableHead>
+                      <TableHead>{language === "es" ? "Condición" : "Condition"}</TableHead>
                       <TableHead className="text-right">{language === "es" ? "Costo Pérdida" : "Loss Cost"}</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -751,16 +788,26 @@ export function CheckInOutSection() {
                     {viewingNote.items?.map((item, idx) => {
                       const isEquipment = item.inventory_type === "equipment";
                       const qtyLost = Math.max(0, (item.qty_out || 0) - (item.qty_returned || 0));
-                      const lossCost = isEquipment ? qtyLost * (item.replacement_cost || 0) : 0;
-                      
+                      const condition = item.condition || "bueno";
+                      // Loss cost applies if faltante, or if dañado (reposición), or missing qty
+                      const chargeLoss = qtyLost > 0 || condition === "dañado" || condition === "faltante";
+                      const chargeQty = condition === "dañado"
+                        ? (item.qty_out || 0)
+                        : qtyLost;
+                      const lossCost = isEquipment && chargeLoss ? chargeQty * (item.replacement_cost || 0) : 0;
+
                       return (
-                        <TableRow key={idx} className={!isEquipment ? "bg-gray-50" : ""}>
+                        <TableRow
+                          key={idx}
+                          className={!isEquipment ? "bg-gray-50" : condition === "dañado" ? "bg-orange-50" : condition === "faltante" ? "bg-red-50" : ""}
+                          data-testid={`checkin-row-${idx}`}
+                        >
                           <TableCell className="font-medium">{item.name}</TableCell>
                           <TableCell>
                             <Badge variant={isEquipment ? "default" : "secondary"}>
-                              {isEquipment 
-                                ? (language === "es" ? "Equipo ↩️" : "Equipment ↩️")
-                                : (language === "es" ? "Desechable 🚫" : "Disposable 🚫")}
+                              {isEquipment
+                                ? (language === "es" ? "Equipo" : "Equipment")
+                                : (language === "es" ? "Desechable" : "Disposable")}
                             </Badge>
                           </TableCell>
                           <TableCell className="text-center font-mono">{item.qty_out}</TableCell>
@@ -772,16 +819,57 @@ export function CheckInOutSection() {
                                 onChange={(e) => updateCheckInItem(idx, "qty_returned", parseInt(e.target.value) || 0)}
                                 className="w-20 h-8 text-center mx-auto"
                                 max={item.qty_out}
+                                data-testid={`checkin-qty-returned-${idx}`}
                               />
                             ) : (
                               <span className="text-muted-foreground">N/A</span>
                             )}
                           </TableCell>
-                          <TableCell className="text-center">
+                          <TableCell>
                             {isEquipment ? (
-                              <span className={qtyLost > 0 ? "text-red-600 font-bold" : "text-green-600"}>
-                                {qtyLost}
-                              </span>
+                              <div className="space-y-1">
+                                <Select
+                                  value={condition}
+                                  onValueChange={(v) => updateCheckInItem(idx, "condition", v)}
+                                >
+                                  <SelectTrigger
+                                    className={`w-36 h-8 ${condition === "dañado" ? "border-orange-400" : condition === "faltante" ? "border-red-400" : ""}`}
+                                    data-testid={`checkin-condition-${idx}`}
+                                  >
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="bueno">{language === "es" ? "Bueno" : "Good"}</SelectItem>
+                                    <SelectItem value="dañado">{language === "es" ? "Dañado" : "Damaged"}</SelectItem>
+                                    <SelectItem value="faltante">{language === "es" ? "Faltante" : "Missing"}</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                                {(condition === "dañado" || condition === "faltante") && (
+                                  <div className="space-y-1 pt-1">
+                                    <Input
+                                      value={item.condition_note || ""}
+                                      onChange={(e) => updateCheckInItem(idx, "condition_note", e.target.value)}
+                                      placeholder={language === "es" ? "Nota (opcional)" : "Note (optional)"}
+                                      className="h-7 text-xs"
+                                      data-testid={`checkin-note-${idx}`}
+                                    />
+                                    <div className="flex items-center gap-2">
+                                      <Input
+                                        type="file"
+                                        accept="image/*"
+                                        className="h-7 text-xs file:mr-2 file:text-xs"
+                                        onChange={(e) => uploadConditionPhoto(idx, e.target.files?.[0])}
+                                        data-testid={`checkin-photo-${idx}`}
+                                      />
+                                      {item.photo_url && (
+                                        <a href={item.photo_url} target="_blank" rel="noreferrer" className="text-xs text-blue-600 hover:underline">
+                                          {language === "es" ? "Ver foto" : "View photo"}
+                                        </a>
+                                      )}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
                             ) : (
                               <span className="text-muted-foreground">-</span>
                             )}

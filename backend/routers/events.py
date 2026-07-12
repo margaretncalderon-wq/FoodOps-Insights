@@ -1032,6 +1032,254 @@ async def update_event_extended(event_id: str, data: EventExtendedUpdate, user: 
     return await db.events.find_one({"event_id": event_id}, {"_id": 0})
 
 
+@events_router.get("/{event_id}/packing-list-live")
+async def get_event_packing_list_live(event_id: str, user: User = Depends(get_current_user)):
+    """Live packing list for an event, derived from active inventory reservations.
+
+    Merges each reservation with the per-event packing state (packed / packed_at
+    / packed_by) so the FE can render checkboxes and know progress.
+    """
+    event = await db.events.find_one(
+        {"event_id": event_id, "company_id": user.company_id},
+        {"_id": 0}
+    )
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+
+    reservations = await db.inventory_reservations.find(
+        {
+            "company_id": user.company_id,
+            "status": "active",
+            "event_ids": event_id,
+        },
+        {"_id": 0}
+    ).to_list(500)
+
+    packing_state = await db.event_packing_state.find_one(
+        {"event_id": event_id, "company_id": user.company_id},
+        {"_id": 0}
+    ) or {"packed_items": {}}
+    packed_map = packing_state.get("packed_items") or {}
+
+    # Enrich each item with ingredient metadata (unit, cost, image, category)
+    item_ids = [r["inventory_item_id"] for r in reservations if r.get("inventory_item_id")]
+    ing_docs: Dict[str, Dict[str, Any]] = {}
+    if item_ids:
+        docs = await db.ingredients.find(
+            {"ingredient_id": {"$in": item_ids}, "company_id": user.company_id},
+            {"_id": 0}
+        ).to_list(len(item_ids))
+        ing_docs = {d["ingredient_id"]: d for d in docs}
+
+    items = []
+    for r in reservations:
+        item_id = r["inventory_item_id"]
+        ing = ing_docs.get(item_id, {})
+        packed_info = packed_map.get(item_id) or {}
+        items.append({
+            "reservation_id": r["reservation_id"],
+            "inventory_item_id": item_id,
+            "name": r.get("item_name") or ing.get("name", ""),
+            "category": ing.get("category"),
+            "inventory_type": ing.get("inventory_type", "equipment"),
+            "unit": ing.get("unit", "unit"),
+            "quantity_reserved": r["quantity_reserved"],
+            "image_url": ing.get("image_url"),
+            "cost_per_unit": ing.get("cost_per_unit", 0),
+            "origin": ing.get("origin", "Propio"),
+            "rental_cost_per_unit_day": ing.get("rental_cost_per_unit_day", 0),
+            "replacement_cost": ing.get("cost_per_unit", 0),
+            "packed": bool(packed_info.get("packed")),
+            "packed_at": packed_info.get("packed_at"),
+            "packed_by": packed_info.get("packed_by"),
+        })
+
+    packed_count = sum(1 for i in items if i["packed"])
+    return {
+        "event_id": event_id,
+        "event_name": event.get("event_name") or event.get("name") or "",
+        "event_date": event.get("event_date"),
+        "end_date": event.get("end_date"),
+        "guest_count": event.get("guest_count", 0),
+        "items": items,
+        "total_items": len(items),
+        "packed_items": packed_count,
+        "fully_packed": len(items) > 0 and packed_count == len(items),
+        "conduce_generated": bool(packing_state.get("conduce_note_id")),
+        "conduce_note_id": packing_state.get("conduce_note_id"),
+    }
+
+
+class PackItemInput(BaseModel):
+    inventory_item_id: str
+    packed: bool
+
+
+@events_router.post("/{event_id}/pack-item")
+async def toggle_pack_item(event_id: str, data: PackItemInput, user: User = Depends(get_current_user)):
+    """Toggle a single item's packed state for an event's packing list."""
+    event = await db.events.find_one({"event_id": event_id, "company_id": user.company_id}, {"_id": 0})
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+    now = datetime.now(timezone.utc)
+    entry = {
+        "packed": bool(data.packed),
+        "packed_at": now.isoformat() if data.packed else None,
+        "packed_by": user.user_id if data.packed else None,
+    }
+    await db.event_packing_state.update_one(
+        {"event_id": event_id, "company_id": user.company_id},
+        {"$set": {
+            f"packed_items.{data.inventory_item_id}": entry,
+            "updated_at": now.isoformat(),
+        }, "$setOnInsert": {
+            "event_id": event_id,
+            "company_id": user.company_id,
+            "created_at": now.isoformat(),
+        }},
+        upsert=True,
+    )
+
+    # Auto-transition inventory status: when packed -> "Empacado", when unpacked
+    # -> "En Almacén". Only for equipment (consumables stay put).
+    ing = await db.ingredients.find_one(
+        {"ingredient_id": data.inventory_item_id, "company_id": user.company_id},
+        {"_id": 0, "inventory_type": 1}
+    )
+    if ing and ing.get("inventory_type") == "equipment":
+        new_status = "Empacado" if data.packed else "En Almacén"
+        await db.ingredients.update_one(
+            {"ingredient_id": data.inventory_item_id, "company_id": user.company_id},
+            {"$set": {"status": new_status, "updated_at": now.isoformat()}}
+        )
+    return {"ok": True, "packed": bool(data.packed)}
+
+
+class GenerateConduceInput(BaseModel):
+    expected_return_date: Optional[str] = None
+    notes: Optional[str] = None
+    checkout_date: Optional[str] = None
+
+
+@events_router.post("/{event_id}/generate-outbound-conduce")
+async def generate_outbound_conduce_from_packing(
+    event_id: str,
+    data: GenerateConduceInput,
+    user: User = Depends(get_current_user),
+):
+    """Turn a fully-packed event into an outbound delivery note (conduce de salida).
+
+    Guardrails:
+      - Event must exist and have at least one packed item.
+      - Refuses to re-generate if a conduce already exists for this event's
+        packing state (idempotency).
+    """
+    event = await db.events.find_one({"event_id": event_id, "company_id": user.company_id}, {"_id": 0})
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+
+    state = await db.event_packing_state.find_one(
+        {"event_id": event_id, "company_id": user.company_id},
+        {"_id": 0}
+    )
+    if state and state.get("conduce_note_id"):
+        raise HTTPException(status_code=400, detail=f"Conduce ya generado: {state['conduce_note_id']}")
+
+    packed_map = (state or {}).get("packed_items", {}) or {}
+    packed_ids = [iid for iid, info in packed_map.items() if info.get("packed")]
+    if not packed_ids:
+        raise HTTPException(status_code=400, detail="No hay items empacados")
+
+    # Load reservations for packed items only
+    reservations = await db.inventory_reservations.find(
+        {
+            "company_id": user.company_id,
+            "status": "active",
+            "event_ids": event_id,
+            "inventory_item_id": {"$in": packed_ids},
+        },
+        {"_id": 0}
+    ).to_list(500)
+    if not reservations:
+        raise HTTPException(status_code=400, detail="Reservas no encontradas para items empacados")
+
+    # Load ingredient metadata
+    ing_docs = await db.ingredients.find(
+        {"ingredient_id": {"$in": packed_ids}, "company_id": user.company_id},
+        {"_id": 0}
+    ).to_list(len(packed_ids))
+    ing_map = {d["ingredient_id"]: d for d in ing_docs}
+
+    now = datetime.now(timezone.utc)
+    count = await db.delivery_notes.count_documents({"company_id": user.company_id})
+    note_number = f"DN-{count + 1:04d}"
+    note_id = f"dn_{uuid.uuid4().hex[:12]}"
+
+    processed_items = []
+    for r in reservations:
+        iid = r["inventory_item_id"]
+        ing = ing_map.get(iid, {})
+        processed_items.append({
+            "inventory_item_id": iid,
+            "name": r.get("item_name") or ing.get("name", ""),
+            "inventory_type": ing.get("inventory_type", "equipment"),
+            "qty_out": r["quantity_reserved"],
+            "qty_returned": 0,
+            "qty_lost": 0,
+            "replacement_cost": ing.get("cost_per_unit", 0) if ing.get("inventory_type") == "equipment" else 0,
+            "loss_cost": 0,
+            "unit": ing.get("unit", "unit"),
+            "status": "pending",
+        })
+
+    delivery_note = {
+        "note_id": note_id,
+        "note_number": note_number,
+        "company_id": user.company_id,
+        "event_id": event_id,
+        "direction": "outbound",  # Sprint C — explicit direction
+        "items": processed_items,
+        "status": "pending",
+        "checkout_date": data.checkout_date or now.isoformat(),
+        "expected_return_date": data.expected_return_date,
+        "checkin_date": None,
+        "total_loss_cost": 0,
+        "notes": data.notes or f"Generado desde packing list del evento {event.get('event_name') or event.get('name', '')}",
+        "created_by": user.user_id,
+        "generated_from_packing": True,
+        "created_at": now.isoformat(),
+        "updated_at": now.isoformat(),
+    }
+    await db.delivery_notes.insert_one(delivery_note)
+
+    # Move equipment items to "En Evento"
+    for item in processed_items:
+        if item.get("inventory_type") == "equipment":
+            await db.ingredients.update_one(
+                {"ingredient_id": item["inventory_item_id"], "company_id": user.company_id},
+                {"$set": {"status": "En Evento", "updated_at": now.isoformat()}}
+            )
+
+    # Save conduce link on packing state (idempotency guard)
+    await db.event_packing_state.update_one(
+        {"event_id": event_id, "company_id": user.company_id},
+        {"$set": {
+            "conduce_note_id": note_id,
+            "conduce_generated_at": now.isoformat(),
+            "conduce_generated_by": user.user_id,
+            "updated_at": now.isoformat(),
+        }},
+        upsert=True,
+    )
+
+    return {
+        "note_id": note_id,
+        "note_number": note_number,
+        "items_count": len(processed_items),
+        "message": "Conduce de salida generado",
+    }
+
+
 @events_router.get("/{event_id}/packing-list")
 async def get_event_packing_list(event_id: str, user: User = Depends(get_current_user)):
     """Get packing list items for an event"""

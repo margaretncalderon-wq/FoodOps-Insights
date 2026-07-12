@@ -618,6 +618,146 @@ async def get_inventory_transactions(
             t["created_at"] = datetime.fromisoformat(t["created_at"])
     return transactions
 
+@inventory_router.post("/check-reservation-conflicts")
+async def check_reservation_conflicts(data: dict, user: User = Depends(get_current_user)):
+    """Pre-validate a reservation attempt BEFORE saving.
+
+    Returns per-item conflicts based on **date-overlap** with existing active
+    reservations. Two events reserving the same item on the same day/date-range
+    surface here as a conflict — even if global stock looks fine — so ops can
+    resolve BEFORE hitting `/inventory/reserve`.
+
+    Body:
+      {
+        "event_id": str,             # target event (source of truth for dates)
+        "items": [{inventory_item_id, quantity}]
+      }
+    """
+    event_id = data.get("event_id")
+    items = data.get("items", [])
+    if not event_id or not items:
+        raise HTTPException(status_code=400, detail="event_id and items are required")
+
+    event = await db.events.find_one(
+        {"event_id": event_id, "company_id": user.company_id},
+        {"_id": 0}
+    )
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+
+    def _to_date(v):
+        if not v:
+            return None
+        if isinstance(v, datetime):
+            return v.date()
+        try:
+            return datetime.fromisoformat(str(v)).date()
+        except Exception:
+            try:
+                return datetime.strptime(str(v)[:10], "%Y-%m-%d").date()
+            except Exception:
+                return None
+
+    target_start = _to_date(event.get("event_date"))
+    target_end = _to_date(event.get("end_date")) or target_start
+    if not target_start:
+        # No date on the event → we can't check overlap; fall back to global stock only.
+        target_start = target_end = None
+
+    def _overlaps(other_start, other_end) -> bool:
+        if target_start is None:
+            return False  # cannot compare, treat as non-overlapping
+        s = other_start
+        e = other_end or s
+        if not s:
+            return False
+        return not (e < target_start or s > target_end)
+
+    item_ids = [i.get("inventory_item_id") for i in items if i.get("inventory_item_id")]
+    ing_docs = await db.ingredients.find(
+        {"ingredient_id": {"$in": item_ids}, "company_id": user.company_id},
+        {"_id": 0}
+    ).to_list(len(item_ids))
+    ing_map = {d["ingredient_id"]: d for d in ing_docs}
+
+    # Load all active reservations for these items in one shot
+    all_res = await db.inventory_reservations.find(
+        {
+            "company_id": user.company_id,
+            "status": "active",
+            "inventory_item_id": {"$in": item_ids},
+        },
+        {"_id": 0}
+    ).to_list(2000)
+
+    # Group reservations by (item_id, event_id) — pull each event's dates
+    other_event_ids = {ev for r in all_res for ev in (r.get("event_ids") or []) if ev and ev != event_id}
+    events_map = {}
+    if other_event_ids:
+        evs = await db.events.find(
+            {"event_id": {"$in": list(other_event_ids)}, "company_id": user.company_id},
+            {"_id": 0, "event_id": 1, "event_name": 1, "name": 1, "event_date": 1, "end_date": 1}
+        ).to_list(len(other_event_ids))
+        events_map = {e["event_id"]: e for e in evs}
+
+    conflicts = []
+    for req in items:
+        iid = req.get("inventory_item_id")
+        qty = float(req.get("quantity") or 0)
+        if not iid or qty <= 0:
+            continue
+        ing = ing_map.get(iid, {})
+        stock = float(ing.get("stock_quantity") or 0)
+
+        # Overlapping reservations (from other events)
+        overlaps = []
+        overlap_reserved = 0.0
+        for r in all_res:
+            if r["inventory_item_id"] != iid:
+                continue
+            r_events = r.get("event_ids") or []
+            # a reservation may span multiple events — take the widest overlap
+            for other_id in r_events:
+                if other_id == event_id:
+                    continue
+                ev = events_map.get(other_id)
+                if not ev:
+                    continue
+                o_start = _to_date(ev.get("event_date"))
+                o_end = _to_date(ev.get("end_date")) or o_start
+                if _overlaps(o_start, o_end):
+                    overlaps.append({
+                        "event_id": other_id,
+                        "event_name": ev.get("event_name") or ev.get("name") or "",
+                        "event_date": ev.get("event_date"),
+                        "end_date": ev.get("end_date"),
+                        "quantity_reserved": r["quantity_reserved"],
+                    })
+                    overlap_reserved += float(r["quantity_reserved"])
+                    break  # only count each reservation once
+
+        available_on_dates = max(stock - overlap_reserved, 0)
+        if qty > available_on_dates:
+            conflicts.append({
+                "inventory_item_id": iid,
+                "name": ing.get("name", ""),
+                "requested": qty,
+                "stock": stock,
+                "overlap_reserved": overlap_reserved,
+                "available_on_dates": available_on_dates,
+                "overlapping_events": overlaps,
+                "unit": ing.get("unit", "unit"),
+            })
+
+    return {
+        "event_id": event_id,
+        "target_start": target_start.isoformat() if target_start else None,
+        "target_end": target_end.isoformat() if target_end else None,
+        "has_conflicts": len(conflicts) > 0,
+        "conflicts": conflicts,
+    }
+
+
 @inventory_router.post("/reserve")
 async def reserve_inventory(data: dict, user: User = Depends(get_current_user)):
     """

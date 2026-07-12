@@ -94,3 +94,12 @@ class TestPendingReturnsEndpoint:
         assert r.status_code in (401, 403), (
             f"Expected 401/403 without auth, got {r.status_code}"
         )
+
+    def test_scan_overdue_endpoint(self, auth_session):
+        """Manual trigger of the overdue-notes scan should always return a count."""
+        r = auth_session.post(f"{BASE_URL}/api/delivery-notes/scan-overdue")
+        assert r.status_code == 200, r.text
+        data = r.json()
+        assert "notifications_sent" in data
+        assert isinstance(data["notifications_sent"], int)
+        assert "checked_at" in data

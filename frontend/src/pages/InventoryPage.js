@@ -697,7 +697,18 @@ export default function InventoryPage() {
                             </span>
                           </td>
                           <td className="p-4 text-right font-mono">
-                            ${fmtNum(ing.cost_per_unit)}/{ing.unit}
+                            {ing.cost_per_unit > 0 ? (
+                              <span>${fmtNum(ing.cost_per_unit)}/{ing.unit}</span>
+                            ) : (
+                              <span
+                                className="text-amber-600 text-xs inline-flex items-center gap-1"
+                                title={language === "es" ? "Sin costo cargado — el costo de eventos y las pérdidas serán $0" : "No cost set — event cost & losses will be $0"}
+                                data-testid={`no-cost-${ing.ingredient_id}`}
+                              >
+                                <AlertTriangle className="w-3 h-3" />
+                                {language === "es" ? "sin costo" : "no cost"}
+                              </span>
+                            )}
                           </td>
                           <td className="p-4 text-right">
                             <DropdownMenu>

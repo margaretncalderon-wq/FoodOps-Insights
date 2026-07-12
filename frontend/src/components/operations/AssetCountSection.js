@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 
 import { API_BASE as API } from "../../utils/api";
+import { DamagedItemsLogSection } from "./DamagedItemsLogSection";
 const formatCurrency = (amount) => `$${(amount || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 export function AssetCountSection() {
@@ -355,6 +356,9 @@ export function AssetCountSection() {
           </div>
         </div>
       </div>
+
+      {/* Damaged / Missing items registry — feeds off check-in condition tags */}
+      <DamagedItemsLogSection year={selectedYear} month={selectedMonth} />
 
       {/* Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-6 gap-4">

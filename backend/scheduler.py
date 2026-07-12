@@ -317,6 +317,97 @@ async def _send_overtime_digests():
         logger.exception(f"[scheduler] OT digests dispatch failed: {e}")
 
 
+async def _send_overdue_delivery_note_alerts():
+    """Daily 08:15 local: notify org admins about delivery notes that just crossed
+    into overdue (expected_return_date < today AND status still pending/partial).
+
+    Idempotent per (company_id, note_id, day) via `overdue_notes_log` collection —
+    an admin won't get spammed the same alert multiple times per day, but they'll
+    get re-notified the next day if the note is still out. Keeps ops accountable
+    without noise.
+    """
+    from routers.notifications import notify_org_admins  # late import
+
+    try:
+        today = datetime.now(timezone.utc).date()
+        today_key = today.isoformat()
+        today_str = today.strftime("%Y-%m-%d")
+
+        # Find delivery notes still out with a return date already in the past.
+        # We only scan pending/partial — returned notes are done.
+        overdue_cursor = db.delivery_notes.find(
+            {
+                "status": {"$in": ["pending", "partial"]},
+                "expected_return_date": {"$lt": today_str, "$ne": None},
+            },
+            {"_id": 0},
+        )
+        total_sent = 0
+        async for note in overdue_cursor:
+            company_id = note.get("company_id")
+            note_id = note.get("note_id")
+            if not company_id or not note_id:
+                continue
+
+            # Idempotency guard: one alert per (company, note, day)
+            already = await db.overdue_notes_log.find_one({
+                "company_id": company_id,
+                "note_id": note_id,
+                "day": today_key,
+            })
+            if already:
+                continue
+
+            # Days overdue for a more actionable message
+            try:
+                dl = datetime.strptime(str(note["expected_return_date"])[:10], "%Y-%m-%d").date()
+                days_overdue = (today - dl).days
+            except Exception:
+                days_overdue = None
+
+            # Enrich with event name for context
+            event_name = ""
+            if note.get("event_id"):
+                ev = await db.events.find_one(
+                    {"event_id": note["event_id"], "company_id": company_id},
+                    {"_id": 0, "event_name": 1, "name": 1},
+                )
+                if ev:
+                    event_name = ev.get("event_name") or ev.get("name") or ""
+
+            note_number = note.get("note_number") or note_id[-8:]
+            title = f"⏰ Conduce vencido: {note_number}"
+            msg_parts = [f"Retorno esperado {note['expected_return_date']}"]
+            if days_overdue and days_overdue > 0:
+                msg_parts.append(f"hace {days_overdue}d")
+            if event_name:
+                msg_parts.append(f"· {event_name}")
+            message = " · ".join(msg_parts)
+
+            await notify_org_admins(
+                org_id=company_id,
+                notification_type="delivery_note_overdue",
+                title=title,
+                message=message,
+                link=f"/ops-supplies/checkin?note_id={note_id}",
+                metadata={"note_id": note_id, "days_overdue": days_overdue},
+                priority="high",
+            )
+
+            await db.overdue_notes_log.insert_one({
+                "company_id": company_id,
+                "note_id": note_id,
+                "day": today_key,
+                "days_overdue": days_overdue,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+            })
+            total_sent += 1
+
+        logger.info(f"[scheduler] overdue-delivery-notes tick: sent={total_sent}")
+    except Exception as e:
+        logger.exception(f"[scheduler] overdue-delivery-notes failed: {e}")
+
+
 def start_scheduler():
     """Initialize and start the global scheduler (idempotent)."""
     global _scheduler
@@ -370,6 +461,14 @@ def start_scheduler():
         id="vacation_anniversary_reset",
         replace_existing=True,
         misfire_grace_time=6 * 3600,
+    )
+    # Daily 08:15 local — Overdue Delivery Notes alerts (Resource Management)
+    _scheduler.add_job(
+        _send_overdue_delivery_note_alerts,
+        trigger=CronTrigger(hour=8, minute=15),
+        id="overdue_delivery_notes_dispatcher",
+        replace_existing=True,
+        misfire_grace_time=3600,
     )
     _scheduler.start()
     logger.info(f"[scheduler] started in tz={tz} — jobs: {[j.id for j in _scheduler.get_jobs()]}")
