@@ -613,3 +613,18 @@ Al arrastrar un ítem, ahora aparece una **línea horizontal de color primario (
 - Cleanup en `onDragEnd` y `onDragCancel` para que la línea desaparezca
 
 **Testing:** 166/166 tests pasan. Lint clean.
+
+## 2026-02-11 — DragOverlay (Trello/Linear-style) para ítems arrastrados
+
+Ahora al arrastrar un ítem:
+- La fila original se queda al 50% de opacidad en su lugar (placeholder)
+- Un card "flotante" con **borde primary + shadow-2xl + ring** sigue al cursor mostrando: nombre del ítem, sección origen, quantity × unit_price y el **total en verde primary**
+- Animación de "landing" al soltar (cubic-bezier bounce, 180ms)
+
+**Implementación:**
+- Import `DragOverlay` de `@dnd-kit/core`
+- Nuevo state `activeDragId` setteado en `onDragStart`, limpiado en `onDragEnd`/`onDragCancel`
+- Render de `<DragOverlay>` con IIFE que resuelve el ítem por `activeDragId` y muestra un chip formateado con `Number.toLocaleString(currency)`
+- `data-testid="drag-overlay-preview"` para tests
+
+**Testing:** 166/166 tests pasan. Lint clean. Smoke test frontend: compila sin errores.

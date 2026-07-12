@@ -66,6 +66,7 @@ import {
   useSensor,
   useSensors,
   useDroppable,
+  DragOverlay,
 } from "@dnd-kit/core";
 import {
   SortableContext,
@@ -194,6 +195,9 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
   const [proposal, setProposal] = useState(null);
   // Live drop indicator (Notion/Linear-style) — set by onDragOver, rendered by SortableItemRow.
   const [dropIndicator, setDropIndicator] = useState({ overId: null, insertAbove: false });
+  // ID of the row currently being dragged — used to render a floating <DragOverlay>
+  // preview that follows the cursor (like Trello/Linear).
+  const [activeDragId, setActiveDragId] = useState(null);
   const [staleness, setStaleness] = useState(null); // { is_stale, stale_count, can_refresh, stale_items }
   const [refreshingCosts, setRefreshingCosts] = useState(false);
   const [categories, setCategories] = useState([]);
@@ -1694,6 +1698,7 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
 
   const handleDragEnd = async (event) => {
     setDropIndicator({ overId: null, insertAbove: false });
+    setActiveDragId(null);
     const { active, over } = event;
     if (!over || active.id === over.id) return;
     const allItems = proposal?.items || [];
@@ -2378,9 +2383,13 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
           <DndContext
             sensors={dndSensors}
             collisionDetection={closestCenter}
+            onDragStart={(ev) => setActiveDragId(ev?.active?.id ?? null)}
             onDragOver={handleDragOver}
             onDragEnd={handleDragEnd}
-            onDragCancel={() => setDropIndicator({ overId: null, insertAbove: false })}
+            onDragCancel={() => {
+              setDropIndicator({ overId: null, insertAbove: false });
+              setActiveDragId(null);
+            }}
           >
           {ITEM_TYPES.map(itype => {
             const typeData = itemsByType[itype];
@@ -2896,6 +2905,33 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
               </Card>
             );
           })}
+          {/* Floating preview of the currently-dragged item (Trello/Linear-style).
+              Renders OUTSIDE the source row — the row you grabbed stays at 50%
+              opacity in place while a vivid copy follows the cursor. */}
+          <DragOverlay dropAnimation={{ duration: 180, easing: "cubic-bezier(0.18, 0.67, 0.6, 1.22)" }}>
+            {(() => {
+              if (!activeDragId) return null;
+              const draggedItem = (proposal?.items || []).find((it) => it.item_id === activeDragId);
+              if (!draggedItem) return null;
+              const money = (n) => Number(n || 0).toLocaleString(language === "es" ? "es" : "en", { style: "currency", currency: proposal?.currency_code || "USD" });
+              return (
+                <div className="flex items-center gap-3 px-4 py-2 rounded-lg border border-primary/40 bg-white shadow-2xl ring-2 ring-primary/20 max-w-[520px] cursor-grabbing" data-testid="drag-overlay-preview">
+                  <GripVertical className="w-4 h-4 text-muted-foreground shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium truncate">{draggedItem.name || "(sin nombre)"}</div>
+                    <div className="text-xs text-muted-foreground truncate">
+                      {draggedItem.section_title ? `${draggedItem.section_title} · ` : ""}
+                      {draggedItem.quantity ? `${draggedItem.quantity} × ` : ""}
+                      {money(draggedItem.unit_price)}
+                    </div>
+                  </div>
+                  <div className="text-sm font-semibold text-primary shrink-0">
+                    {money((draggedItem.quantity || 0) * (draggedItem.unit_price || 0))}
+                  </div>
+                </div>
+              );
+            })()}
+          </DragOverlay>
           </DndContext>
           </DropIndicatorContext.Provider>
 
