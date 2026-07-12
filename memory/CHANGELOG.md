@@ -727,3 +727,27 @@ Tooltip en español: "Duplicar (edita antes de guardar)".
 3. Intentar reservar 5 → `failures[0].reason="Only 0 available (status: En Tránsito)"` ✅
 
 **Regresión:** 166/166 tests · Lint frontend: solo warnings pre-existentes · Compila.
+
+## 2026-02-11 — Transiciones automáticas de estado via Delivery Notes (Conduces)
+
+**Objetivo:** El equipo ya no tiene que editar manualmente el estado de un ítem cuando lo saca/regresa para un evento — el flujo del conduce lo hace automáticamente.
+
+**Backend (`server.py::create_delivery_note` + `check_in_delivery_note`):**
+
+- **Al crear un conduce (check-out)** con ítems de `inventory_type=equipment`:
+  → `status` = **"En Evento"** (además del `stock_quantity -= qty_out` ya existente)
+  → El ítem deja de estar disponible para reservar en OTRO evento simultáneo (available_quantity = 0)
+  → Consumibles/desechables no cambian status (siempre fueron unidireccionales)
+
+- **Al hacer check-in (return)**:
+  - Si `qty_returned > 0` → `status` = **"En Almacén"** + `stock_quantity += qty_returned`
+  - Si `qty_returned == 0` y `qty_lost > 0` (100% perdido) → `status` = **"Perdido"** para trazabilidad
+
+**Flow E2E verificado (curl real):**
+1. Equipment `stock=5, status=En Almacén, available=5` ✅
+2. Create delivery note qty_out=4 → `status=En Evento, stock=1, available=0` ✅
+3. Check-in qty_returned=3 → `status=En Almacén, stock=4, available=4` ✅
+
+**Regresión:** 166/166 tests
+
+**Nota:** Estados intermedios (`Empacado`, `En Tránsito`, `Retornando`) siguen siendo manuales por ahora — el conduce solo tiene 2 puntos naturales de transición (checkout/checkin). Si en el futuro añades workflow multi-etapa al conduce (ej: preparación → envío → entrega), esas transiciones se pueden agregar aquí.

@@ -7629,13 +7629,19 @@ async def create_delivery_note(data: DeliveryNoteCreate, user: User = Depends(ge
     
     await db.delivery_notes.insert_one(delivery_note)
     
-    # Deduct from inventory (check-out)
+    # Deduct from inventory (check-out) + auto-transition status.
+    # Equipment items go to "En Evento" so they're not double-booked while out;
+    # consumables/disposables have no reversible status, so we leave them.
     for item in processed_items:
-        if item["inventory_item_id"]:
-            await db.ingredients.update_one(
-                {"ingredient_id": item["inventory_item_id"]},
-                {"$inc": {"stock_quantity": -item["qty_out"]}}
-            )
+        if not item["inventory_item_id"]:
+            continue
+        update = {"$inc": {"stock_quantity": -item["qty_out"]}}
+        if item.get("inventory_type") == "equipment":
+            update["$set"] = {"status": "En Evento", "updated_at": now.isoformat()}
+        await db.ingredients.update_one(
+            {"ingredient_id": item["inventory_item_id"]},
+            update
+        )
     
     return {"note_id": note_id, "note_number": note_number, "message": "Delivery note created"}
 
@@ -7688,11 +7694,22 @@ async def check_in_delivery_note(note_id: str, data: DeliveryNoteCheckIn, user: 
                     if qty_lost > 0:
                         all_returned = False
                     
-                    # Return items to inventory
+                    # Return items to inventory and transition status.
+                    #  - qty_returned > 0 → the returned portion goes back to
+                    #    stock and the equipment is again "En Almacén".
+                    #  - qty_returned == 0 and qty_lost > 0 → 100% lost →
+                    #    mark as "Perdido" (so it's excluded from reservations
+                    #    even though stock is 0 — for audit visibility).
                     if item_id and qty_returned > 0:
                         await db.ingredients.update_one(
                             {"ingredient_id": item_id},
-                            {"$inc": {"stock_quantity": qty_returned}}
+                            {"$inc": {"stock_quantity": qty_returned},
+                             "$set": {"status": "En Almacén", "updated_at": now.isoformat()}}
+                        )
+                    elif item_id and qty_lost > 0 and qty_returned == 0:
+                        await db.ingredients.update_one(
+                            {"ingredient_id": item_id},
+                            {"$set": {"status": "Perdido", "updated_at": now.isoformat()}}
                         )
                 else:
                     # Disposables don't return
