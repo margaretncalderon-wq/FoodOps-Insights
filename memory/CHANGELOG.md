@@ -681,3 +681,24 @@ Tooltip en español: "Duplicar (edita antes de guardar)".
 - ✅ Crear ingrediente `origin=Propio` → sin cambios de comportamiento
 - ✅ Lint clean (backend + frontend)
 - ✅ Smoke test frontend: compila y carga
+
+## 2026-02-11 — Enlace bidireccional: Factura ↔ Contrato de Proveedor
+
+**Backend:**
+- `CreateSupplierPayableRequest.contract_id: Optional[str]` — el endpoint `POST /api/business-clarity/supplier-payables` ahora acepta y persiste `contract_id`.
+- `_hydrate_contract` en `supplier_contracts.py` ahora agrega datos de AMBAS colecciones (`db.supplier_payables` + `db.expenses`) — flexible ante ambos flujos de gasto.
+- Endpoint `GET /api/supplier-contracts/{id}/expenses` devuelve ambos arrays separados (`payables` + `expenses`) con totales unificados.
+
+**Frontend (`PayablesSection.js`):**
+- `fetchData` ahora hace `Promise.all` con `/api/supplier-contracts?status=Active` (fallback a `[]` si falla — no bloquea la sección).
+- Nuevo `newExpense.contract_id` en el form (default `""`).
+- **Selector de contrato condicional**: solo aparece cuando (1) se seleccionó un vendor Y (2) ese vendor tiene ≥1 contrato activo. Muestra `contract_number · title (restante: $X)` para que el usuario sepa cuánto queda del acuerdo.
+- Hint en el modal: "Este gasto sumará al 'Facturado' del contrato elegido."
+- Payload incluye `contract_id: null | "ct_..."`.
+
+**Flow E2E verificado con curl:**
+1. Crear contrato con `total_value=100000` → OK
+2. Registrar payable de `$15000` linkado al contrato → 200
+3. Consultar contrato → `invoiced_to_date=15000, balance_remaining=85000, linked_expenses_count=1` ✅
+
+**Testing:** 166/166 tests. Lint 0 errores. E2E manual OK.

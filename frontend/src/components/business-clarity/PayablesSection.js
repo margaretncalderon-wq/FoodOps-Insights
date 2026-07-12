@@ -42,6 +42,7 @@ export function PayablesSection() {
   const [submitting, setSubmitting] = useState(false);
   const [newExpense, setNewExpense] = useState({
     vendor_id: "",
+    contract_id: "",
     description: "",
     amount: "",
     invoice_number: "",
@@ -51,6 +52,7 @@ export function PayablesSection() {
     fixed_cost_category_id: "",
     cost_center_id: ""
   });
+  const [supplierContracts, setSupplierContracts] = useState([]);
   
   // New vendor dialog
   const [newVendorDialogOpen, setNewVendorDialogOpen] = useState(false);
@@ -93,18 +95,20 @@ export function PayablesSection() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [payablesRes, eventsRes, categoriesRes, vendorsRes, costCentersRes] = await Promise.all([
+      const [payablesRes, eventsRes, categoriesRes, vendorsRes, costCentersRes, contractsRes] = await Promise.all([
         axios.get(`${API}/api/business-clarity/accounts-payable`, { withCredentials: true }),
         axios.get(`${API}/api/events`, { withCredentials: true }),
         axios.get(`${API}/api/business-clarity/fixed-costs/categories`, { withCredentials: true }),
         axios.get(`${API}/api/business-clarity/vendors`, { withCredentials: true }).catch(() => ({ data: { vendors: [] } })),
-        axios.get(`${API}/api/business-clarity/cost-centers`, { withCredentials: true }).catch(() => ({ data: [] }))
+        axios.get(`${API}/api/business-clarity/cost-centers`, { withCredentials: true }).catch(() => ({ data: [] })),
+        axios.get(`${API}/api/supplier-contracts?status=Active`, { withCredentials: true }).catch(() => ({ data: [] }))
       ]);
       setData(payablesRes.data);
       setEvents(eventsRes.data || []);
       setFixedCostCategories(categoriesRes.data || []);
       setSuppliers(vendorsRes.data.vendors || []);
       setCostCenters(costCentersRes.data || []);
+      setSupplierContracts(contractsRes.data || []);
     } catch (err) {
       console.error(err);
     }
@@ -165,6 +169,7 @@ export function PayablesSection() {
       const payload = {
         supplier_id: newExpense.vendor_id,
         supplier_name: selectedVendor?.name || null,
+        contract_id: newExpense.contract_id || null,
         description: newExpense.description,
         amount: parseFloat(newExpense.amount),
         invoice_number: newExpense.invoice_number || null,
@@ -179,6 +184,7 @@ export function PayablesSection() {
       setNewExpenseDialogOpen(false);
       setNewExpense({
         vendor_id: "",
+        contract_id: "",
         description: "",
         amount: "",
         invoice_number: "",
@@ -663,6 +669,39 @@ export function PayablesSection() {
                   : "Unified vendors from Partners and Suppliers"}
               </p>
             </div>
+
+            {/* Contract selector — only show when vendor is picked AND has active contracts */}
+            {(() => {
+              const filtered = supplierContracts.filter((c) => c.supplier_id === newExpense.vendor_id);
+              if (!newExpense.vendor_id || filtered.length === 0) return null;
+              return (
+                <div className="space-y-2" data-testid="contract-link-block">
+                  <Label>{isEs ? "Enlazar a Contrato (opcional)" : "Link to Contract (optional)"}</Label>
+                  <Select
+                    value={newExpense.contract_id || "__none__"}
+                    onValueChange={(v) => setNewExpense({ ...newExpense, contract_id: v === "__none__" ? "" : v })}
+                  >
+                    <SelectTrigger data-testid="expense-contract-select">
+                      <SelectValue placeholder={isEs ? "Sin contrato" : "No contract"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">— {isEs ? "Sin contrato" : "No contract"} —</SelectItem>
+                      {filtered.map((c) => (
+                        <SelectItem key={c.contract_id} value={c.contract_id}>
+                          {c.contract_number} · {c.title}
+                          {c.balance_remaining != null ? ` (${isEs ? "restante" : "remaining"}: ${c.balance_remaining.toLocaleString("es", { style: "currency", currency: c.currency || "USD" })})` : ""}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    {isEs
+                      ? "Este gasto sumará al 'Facturado' del contrato elegido."
+                      : "This expense will add to the selected contract's 'Invoiced' rollup."}
+                  </p>
+                </div>
+              );
+            })()}
             
             {/* Description */}
             <div className="space-y-2">

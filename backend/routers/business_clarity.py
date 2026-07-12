@@ -1814,6 +1814,7 @@ async def get_payable_payments(
 class CreateSupplierPayableRequest(BaseModel):
     supplier_id: Optional[str] = None
     supplier_name: Optional[str] = None
+    contract_id: Optional[str] = None  # Optional link to a Supplier Contract
     description: str
     amount: float
     due_date: Optional[str] = None
@@ -1863,6 +1864,7 @@ async def create_supplier_payable(
         "company_id": user.company_id,
         "supplier_id": data.supplier_id,
         "supplier_name": supplier_name,
+        "contract_id": data.contract_id,  # optional link to SupplierContract for rollup
         "description": data.description,
         "amount": round(data.amount, 2),
         "paid_amount": 0,

@@ -60,17 +60,25 @@ async def _hydrate_contract(doc: dict) -> dict:
         partner = await db.partners.find_one({"partner_id": doc["partner_id"]}, {"_id": 0, "name": 1})
         doc["partner_name"] = partner.get("name") if partner else None
 
-    # Rollup — expenses linked back to this contract
-    linked = await db.expenses.find(
+    # Rollup — payables/expenses linked back to this contract via `contract_id`.
+    # We aggregate from BOTH `db.supplier_payables` (the AP flow) and `db.expenses`
+    # (legacy/direct expense flow) so both entry points feed the same total.
+    payables = await db.supplier_payables.find(
+        {"company_id": doc["company_id"], "contract_id": doc["contract_id"]},
+        {"_id": 0, "amount": 1, "paid_amount": 1, "status": 1}
+    ).to_list(2000)
+    legacy_expenses = await db.expenses.find(
         {"company_id": doc["company_id"], "contract_id": doc["contract_id"]},
         {"_id": 0, "amount": 1, "payment_status": 1}
     ).to_list(2000)
-    invoiced = sum(float(e.get("amount", 0) or 0) for e in linked)
-    paid = sum(float(e.get("amount", 0) or 0) for e in linked if e.get("payment_status") == "Paid")
+    invoiced = sum(float(p.get("amount", 0) or 0) for p in payables) \
+        + sum(float(e.get("amount", 0) or 0) for e in legacy_expenses)
+    paid = sum(float(p.get("paid_amount", 0) or 0) for p in payables) \
+        + sum(float(e.get("amount", 0) or 0) for e in legacy_expenses if e.get("payment_status") == "Paid")
     doc["invoiced_to_date"] = round(invoiced, 2)
     doc["paid_to_date"] = round(paid, 2)
     doc["balance_remaining"] = round((doc.get("total_value") or 0) - invoiced, 2)
-    doc["linked_expenses_count"] = len(linked)
+    doc["linked_expenses_count"] = len(payables) + len(legacy_expenses)
 
     doc.setdefault("attachments", [])
     doc.setdefault("tags", [])
@@ -240,20 +248,26 @@ async def delete_contract_attachment(
 
 @supplier_contracts_router.get("/{contract_id}/expenses")
 async def get_contract_expenses(contract_id: str, user: User = Depends(get_current_user)):
-    """Return all expenses/bills recorded against this contract with running totals."""
+    """Return all payables/expenses/bills recorded against this contract with totals."""
     doc = await db.supplier_contracts.find_one(
         {"contract_id": contract_id, "company_id": user.company_id}, {"_id": 0}
     )
     if not doc:
         raise HTTPException(status_code=404, detail="Contract not found")
-    expenses = await db.expenses.find(
+    payables = await db.supplier_payables.find(
+        {"company_id": user.company_id, "contract_id": contract_id}, {"_id": 0}
+    ).sort("created_at", -1).to_list(1000)
+    legacy_expenses = await db.expenses.find(
         {"company_id": user.company_id, "contract_id": contract_id}, {"_id": 0}
     ).sort("expense_date", -1).to_list(1000)
-    invoiced = sum(float(e.get("amount", 0) or 0) for e in expenses)
-    paid = sum(float(e.get("amount", 0) or 0) for e in expenses if e.get("payment_status") == "Paid")
+    invoiced = sum(float(p.get("amount", 0) or 0) for p in payables) \
+        + sum(float(e.get("amount", 0) or 0) for e in legacy_expenses)
+    paid = sum(float(p.get("paid_amount", 0) or 0) for p in payables) \
+        + sum(float(e.get("amount", 0) or 0) for e in legacy_expenses if e.get("payment_status") == "Paid")
     return {
         "contract_id": contract_id,
-        "expenses": expenses,
+        "payables": payables,
+        "expenses": legacy_expenses,
         "invoiced_to_date": round(invoiced, 2),
         "paid_to_date": round(paid, 2),
         "balance_remaining": round((doc.get("total_value") or 0) - invoiced, 2),
