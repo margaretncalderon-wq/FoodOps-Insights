@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { Button } from "../ui/button";
 import { 
   Bold, Italic, Underline, Strikethrough, List, ListOrdered, 
-  Link2, Highlighter, CheckSquare, Paperclip, AtSign, Smile, Type
+  Link2, Highlighter, CheckSquare, Paperclip, AtSign, Smile, Type, ChevronDown
 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
 
@@ -33,6 +33,16 @@ const TEXT_COLORS = [
   { color: "remove", label: "Quitar" },
 ];
 
+const FONT_SIZES = [
+  { px: 12, label: "XS" },
+  { px: 14, label: "S" },
+  { px: 16, label: "M" },
+  { px: 18, label: "L" },
+  { px: 22, label: "XL" },
+  { px: 28, label: "2XL" },
+  { px: 36, label: "3XL" },
+];
+
 export default function RichTextEditor({ 
   value, 
   onChange, 
@@ -44,6 +54,7 @@ export default function RichTextEditor({
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showHighlightPicker, setShowHighlightPicker] = useState(false);
   const [showTextColorPicker, setShowTextColorPicker] = useState(false);
+  const [showFontSizePicker, setShowFontSizePicker] = useState(false);
   const isInitialized = useRef(false);
 
   useEffect(() => {
@@ -137,6 +148,44 @@ export default function RichTextEditor({
       execCommand('foreColor', color);
     }
     setShowTextColorPicker(false);
+  };
+
+  // Wraps the current selection (or caret position) with a `<span style="font-size: Xpx">`
+  // so users can pick an exact px value from the toolbar. Works for both:
+  //  - a real selection → wraps the extracted contents
+  //  - collapsed caret   → inserts an empty span with a zero-width space so
+  //                         subsequent typing inherits the chosen size.
+  const applyFontSize = (px) => {
+    const editor = editorRef.current;
+    if (!editor) return;
+    editor.focus();
+    const sel = window.getSelection();
+    if (!sel || sel.rangeCount === 0) {
+      setShowFontSizePicker(false);
+      return;
+    }
+    const range = sel.getRangeAt(0);
+    const span = document.createElement('span');
+    span.style.fontSize = `${px}px`;
+    if (range.collapsed) {
+      span.appendChild(document.createTextNode('\u200B'));
+      range.insertNode(span);
+      range.setStart(span.firstChild, 1);
+      range.setEnd(span.firstChild, 1);
+    } else {
+      try {
+        range.surroundContents(span);
+      } catch (_e) {
+        // Selection crosses element boundaries — fall back to extract + wrap
+        const contents = range.extractContents();
+        span.appendChild(contents);
+        range.insertNode(span);
+      }
+    }
+    sel.removeAllRanges();
+    sel.addRange(range);
+    if (onChange) onChange(editor.innerHTML);
+    setShowFontSizePicker(false);
   };
 
   const insertChecklist = () => {
@@ -255,6 +304,40 @@ export default function RichTextEditor({
                     {tc.color === 'remove' ? '✕' : 'A'}
                   </span>
                   <span className="text-[10px] leading-none">{tc.label}</span>
+                </button>
+              ))}
+            </div>
+          </PopoverContent>
+        </Popover>
+
+        {/* Font size picker */}
+        <Popover open={showFontSizePicker} onOpenChange={setShowFontSizePicker}>
+          <PopoverTrigger asChild>
+            <Button
+              type="button" variant="ghost" size="sm"
+              className="h-7 px-1.5 gap-0.5"
+              title="Tamaño de letra"
+              data-testid="rte-font-size"
+            >
+              <span className="text-[10px] font-semibold leading-none">A</span>
+              <span className="text-[13px] font-semibold leading-none">A</span>
+              <ChevronDown className="w-2.5 h-2.5" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-1" align="start" side="bottom">
+            <p className="text-[10px] font-medium text-muted-foreground mb-1 px-2 pt-1">Tamaño</p>
+            <div className="flex flex-col min-w-[110px]">
+              {FONT_SIZES.map(fs => (
+                <button
+                  key={fs.px}
+                  type="button"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => applyFontSize(fs.px)}
+                  data-testid={`rte-font-size-${fs.px}`}
+                  className="flex items-baseline justify-between gap-3 px-2 py-1 rounded hover:bg-muted/60 text-left"
+                >
+                  <span style={{ fontSize: `${Math.min(fs.px, 22)}px` }}>{fs.label}</span>
+                  <span className="text-[10px] text-muted-foreground tabular-nums">{fs.px}px</span>
                 </button>
               ))}
             </div>
