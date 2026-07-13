@@ -8,6 +8,7 @@ import { EntityPresenceBar, PresenceAvatarStack } from "../../components/Presenc
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
+import { ContentTextarea } from "../../components/shared/ContentTextarea";
 import { Badge } from "../../components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs";
 import {
@@ -3361,11 +3362,13 @@ export default function SocialMediaPage() {
             
             <div>
               <label className="text-sm font-medium">Caption</label>
-              <textarea
-                className="w-full min-h-[100px] p-2 border rounded-md text-sm"
+              <ContentTextarea
                 value={postForm.caption}
                 onChange={e => setPostForm({...postForm, caption: e.target.value})}
                 placeholder={isEs ? "Texto del post..." : "Post caption..."}
+                minHeight={140}
+                storageKey="post-caption"
+                data-testid="post-caption-editor"
               />
             </div>
             
@@ -3900,11 +3903,12 @@ export default function SocialMediaPage() {
             </div>
             <div>
               <label className="text-sm font-medium">{isEs ? "Descripción" : "Description"}</label>
-              <textarea
-                className="w-full min-h-[80px] p-2 border rounded-md text-sm"
+              <ContentTextarea
                 value={ideaForm.description}
                 onChange={e => setIdeaForm({...ideaForm, description: e.target.value})}
                 placeholder={isEs ? "Descripción o notas..." : "Description or notes..."}
+                minHeight={120}
+                storageKey="idea-description"
               />
             </div>
             <div>
@@ -4323,8 +4327,14 @@ export default function SocialMediaPage() {
             </div>
             <div>
               <label className="text-sm font-medium">{isEs ? "Texto / Caption" : "Caption"}</label>
-              <textarea value={recurForm.caption} onChange={e => setRecurForm({...recurForm, caption: e.target.value})} rows={3}
-                placeholder={isEs ? "Texto del post recurrente..." : "Recurring post text..."} className="w-full text-sm px-3 py-2 rounded-md border bg-background resize-none focus:outline-none focus:ring-1 focus:ring-ring" data-testid="recur-caption" />
+              <ContentTextarea
+                value={recurForm.caption}
+                onChange={e => setRecurForm({...recurForm, caption: e.target.value})}
+                placeholder={isEs ? "Texto del post recurrente..." : "Recurring post text..."}
+                minHeight={110}
+                storageKey="recur-caption"
+                data-testid="recur-caption"
+              />
             </div>
 
             {/* Format + Status */}

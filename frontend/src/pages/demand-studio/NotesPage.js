@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/ca
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { Textarea } from "../../components/ui/textarea";
+import { ContentTextarea } from "../../components/shared/ContentTextarea";
 import { Badge } from "../../components/ui/badge";
 import { Label } from "../../components/ui/label";
 import {
@@ -487,11 +488,13 @@ export default function NotesPage() {
                   </Button>
                 </div>
               </div>
-              <Textarea
+              <ContentTextarea
                 value={formData.content}
                 onChange={(e) => setFormData(prev => ({ ...prev, content: e.target.value }))}
                 placeholder={isEs ? "Escribe tu nota aquí..." : "Write your note here..."}
-                className="min-h-[200px]"
+                minHeight={220}
+                storageKey="notes-content"
+                data-testid="notes-content-editor"
               />
             </div>
 
