@@ -37,11 +37,14 @@ export default function AdminLoginPage() {
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="w-16 h-16 rounded-2xl bg-red-500/20 flex items-center justify-center mx-auto mb-4">
-            <Shield className="w-8 h-8 text-red-500" />
+          <div className="w-16 h-16 rounded-2xl bg-[#192332] flex items-center justify-center mx-auto mb-4 overflow-hidden ring-2 ring-red-500/40">
+            <img src="/kora-icon.png" alt="Kora OS" className="w-full h-full object-contain" />
           </div>
           <h1 className="font-heading text-3xl font-bold text-white">Kora OS</h1>
-          <p className="text-slate-400 mt-2">Panel de Administración</p>
+          <p className="text-slate-400 mt-2 flex items-center justify-center gap-2">
+            <Shield className="w-4 h-4 text-red-500" />
+            Panel de Administración
+          </p>
         </div>
 
         <Card className="bg-slate-800/50 border-slate-700">

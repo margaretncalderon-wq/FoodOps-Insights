@@ -1,6 +1,25 @@
 # Kora OS - Changelog
 
 
+## February 2026 — Brand Consistency · Unified Kora Logo
+
+### Motivation
+User feedback: "el logo debe ser consistente con el nuevo en todos lados incluyendo landing page". The new Kora OS wordmark was in use on the Landing page, but the sidebar, Login, Register, and Admin flows still shipped the older "K-node" icon. Result was visual dissonance between marketing and product surfaces.
+
+### Implementation
+- **Icon extracted** — programmatically isolated the "K" glyph from `kora-logo.png` (green on `#192332` navy) and generated `kora-icon.png` (1024px) plus `favicon-16/32/64/192.png` and refreshed `favicon.png`/`favicon-v2.png` under `/app/frontend/public/`.
+- **Layout.js sidebar + mobile header** — replaced old K-node with the new K icon inside a rounded navy tile, keeping the "Kora OS" label + "Designed for clarity" tagline.
+- **LoginPage.js** — updated three logo instances (form header, mock dashboard header, hero accent pill) to use the new icon on the brand navy background.
+- **RegisterPage.js** — same two logo blocks updated for step-1 header and mock dashboard preview.
+- **AdminLoginPage.js** — replaced generic Shield-in-red-tile with the Kora K icon (Shield preserved as a subtle inline badge on the sub-label).
+- **OnboardingPage.js** — added the missing brand mark above the "Configura tu espacio de trabajo" heading.
+- **index.html** — switched `theme-color` to the new brand navy `#192332`, added explicit 32/192 favicon sizes with `?v=3` cache-buster.
+
+### Testing
+- Visual verification via screenshots on `/login`, `/`, `/dashboard` — icon renders correctly in every surface, sidebar shows the new mark, landing navbar unchanged (already on new logo).
+
+
+
 ## February 2026 — Sprint M · Nav Group Badges
 
 ### Motivation

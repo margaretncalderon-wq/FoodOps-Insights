@@ -186,6 +186,9 @@ export default function OnboardingPage() {
       <div className="max-w-4xl mx-auto">
         {/* Logo */}
         <div className="text-center mb-8">
+          <div className="w-16 h-16 rounded-2xl bg-[#192332] flex items-center justify-center mx-auto mb-4 overflow-hidden shadow-md">
+            <img src="/kora-icon.png" alt="Kora OS" className="w-full h-full object-contain" />
+          </div>
           <h1 className="text-3xl font-bold text-primary">Kora OS</h1>
           <p className="text-muted-foreground">
             {isEs ? "Configura tu espacio de trabajo" : "Set up your workspace"}

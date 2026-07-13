@@ -265,8 +265,8 @@ export default function RegisterPage() {
         <div className="w-full max-w-md mx-auto">
           {/* Logo */}
           <Link to="/" className="inline-flex items-center gap-2 mb-8">
-            <div className="w-8 h-8 rounded-lg overflow-hidden bg-[#2A2F3A] flex items-center justify-center">
-              <img src="/favicon-v2.png" alt="Kora" className="w-6 h-6" />
+            <div className="w-8 h-8 rounded-lg overflow-hidden bg-[#192332] flex items-center justify-center">
+              <img src="/kora-icon.png" alt="Kora OS" className="w-full h-full object-contain" />
             </div>
             <span className="font-heading text-lg font-semibold text-[#1F2937]">Kora OS</span>
           </Link>
@@ -787,8 +787,8 @@ export default function RegisterPage() {
         <div className="relative z-10 bg-white rounded-2xl shadow-2xl p-6 w-full max-w-md transform rotate-[2deg]">
           {/* Mock dashboard header */}
           <div className="flex items-center gap-3 mb-6">
-            <div className="w-10 h-10 bg-[#2A2F3A] rounded-lg flex items-center justify-center">
-              <img src="/favicon-v2.png" alt="Kora" className="w-6 h-6" />
+            <div className="w-10 h-10 bg-[#192332] rounded-lg overflow-hidden flex items-center justify-center">
+              <img src="/kora-icon.png" alt="Kora OS" className="w-full h-full object-contain" />
             </div>
             <div>
               <p className="font-semibold text-[#1F2937] text-sm">Kora OS</p>
