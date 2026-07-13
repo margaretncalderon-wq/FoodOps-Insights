@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useLanguage } from "../contexts/LanguageContext";
-import { Routes, Route, NavLink, Navigate, useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import { Routes, Route, Navigate, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import axios from "axios";
 import { toast } from "sonner";
 import { Layout } from "../components/Layout";
@@ -37,7 +37,8 @@ import CulinaryDigestDialog from "../components/CulinaryDigestDialog";
 import RecipeImportDialog from "../components/RecipeImportDialog";
 
 // Icons
-import { Package, Plus, Search, AlertTriangle, Truck, Edit, Trash2, ArrowUpDown, DollarSign, Archive, ShoppingCart, ChefHat, UtensilsCrossed, RefreshCw, Copy, BookOpen, Layers, Beaker, Utensils, Menu as MenuIcon, ArrowLeft, History, Printer, CheckCircle, Factory, ClipboardList, FileUp, Sparkles, Wand2, Sliders, TrendingUp, FileText, Mail } from "lucide-react";
+import { Package, Plus, Search, AlertTriangle, Truck, Edit, Trash2, ArrowUpDown, DollarSign, Archive, ShoppingCart, ChefHat, UtensilsCrossed, RefreshCw, Copy, BookOpen, Layers, Beaker, Utensils, Menu as MenuIcon, ArrowLeft, History, Printer, CheckCircle, Factory, ClipboardList, FileUp, Sparkles, Wand2, Sliders, TrendingUp, FileText, Mail, ChevronDown } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../components/ui/dropdown-menu";
 
 import { KoraLoader } from "../components/KoraLoader";
 import { API_BASE as API } from "../utils/api"; // Dynamic API URL
@@ -2880,18 +2881,27 @@ export default function FoodOpsPage() {
   const location = useLocation();
   const navigate = useNavigate();
   
-  // Culinary Intelligence - Navigation tabs
-  const navTabs = [
-    { path: "/food-ops/inventory", label: isEs ? "Inventario" : "Inventory", icon: Package },
-    { path: "/food-ops/recipes", label: isEs ? "Recetas" : "Recipes", icon: ChefHat },
-    { path: "/food-ops/menus", label: isEs ? "Menús" : "Menus", icon: BookOpen },
-    { path: "/food-ops/production", label: isEs ? "Producción" : "Production", icon: Factory },
-    { path: "/food-ops/consolidated", label: isEs ? "Costos" : "Costs", icon: Layers },
-    { path: "/food-ops/purchase-orders", label: isEs ? "Órdenes" : "Orders", icon: Truck },
-    { path: "/food-ops/physical-count", label: isEs ? "Conteo Físico" : "Physical Count", icon: ClipboardList },
-    { path: "/food-ops/kitchen-sheets", label: isEs ? "Hojas de Cocina" : "Kitchen Sheets", icon: Printer },
-    { path: "/food-ops/import-export", label: isEs ? "Importar/Exportar" : "Import/Export", icon: FileUp },
+  // Culinary Intelligence — grouped navigation to prevent overflow (9 tabs → 4 groups)
+  const tabs = {
+    inventory: { path: "/food-ops/inventory", label: isEs ? "Inventario" : "Inventory", icon: Package },
+    recipes: { path: "/food-ops/recipes", label: isEs ? "Recetas" : "Recipes", icon: ChefHat },
+    menus: { path: "/food-ops/menus", label: isEs ? "Menús" : "Menus", icon: BookOpen },
+    production: { path: "/food-ops/production", label: isEs ? "Producción" : "Production", icon: Factory },
+    consolidated: { path: "/food-ops/consolidated", label: isEs ? "Costos" : "Costs", icon: Layers },
+    purchase_orders: { path: "/food-ops/purchase-orders", label: isEs ? "Órdenes" : "Orders", icon: Truck },
+    physical_count: { path: "/food-ops/physical-count", label: isEs ? "Conteo Físico" : "Physical Count", icon: ClipboardList },
+    kitchen_sheets: { path: "/food-ops/kitchen-sheets", label: isEs ? "Hojas de Cocina" : "Kitchen Sheets", icon: Printer },
+    import_export: { path: "/food-ops/import-export", label: isEs ? "Importar/Exportar" : "Import/Export", icon: FileUp },
+  };
+
+  const navGroups = [
+    { id: "catalog", label: isEs ? "Catálogo" : "Catalog", items: [tabs.inventory, tabs.recipes, tabs.menus] },
+    { id: "kitchen", label: isEs ? "Cocina" : "Kitchen", items: [tabs.production, tabs.kitchen_sheets, tabs.physical_count] },
+    { id: "purchasing", label: isEs ? "Compras" : "Purchasing", items: [tabs.consolidated, tabs.purchase_orders] },
+    { id: "data", label: isEs ? "Datos" : "Data", items: [tabs.import_export] },
   ];
+
+  const activeGroupId = navGroups.find(g => g.items.some(t => location.pathname.startsWith(t.path)))?.id;
 
   return (
     <Layout>
@@ -2909,25 +2919,70 @@ export default function FoodOpsPage() {
           </div>
         </div>
 
-        {/* Navigation Tabs */}
+        {/* Navigation — grouped to keep the bar clean at any screen size */}
         <div className="border-b">
-          <nav className="flex gap-1 overflow-x-auto pb-px">
-            {navTabs.map((tab) => (
-              <NavLink
-                key={tab.path}
-                to={tab.path}
-                className={({ isActive }) =>
-                  `flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
-                    isActive
-                      ? "border-orange-600 text-orange-600"
-                      : "border-transparent text-muted-foreground hover:text-foreground hover:border-muted"
-                  }`
-                }
-              >
-                <tab.icon className="w-4 h-4" />
-                {tab.label}
-              </NavLink>
-            ))}
+          <nav className="flex gap-1 flex-wrap pb-px" data-testid="foodops-nav">
+            {navGroups.map(group => {
+              // Single-item groups render as a plain tab
+              if (group.items.length === 1) {
+                const tab = group.items[0];
+                const isActive = location.pathname.startsWith(tab.path);
+                return (
+                  <button
+                    key={tab.path}
+                    onClick={() => navigate(tab.path)}
+                    data-testid={`foodops-tab-${group.id}`}
+                    className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+                      isActive
+                        ? "border-orange-600 text-orange-600"
+                        : "border-transparent text-muted-foreground hover:text-foreground hover:border-muted"
+                    }`}
+                  >
+                    <tab.icon className="w-4 h-4" />
+                    {tab.label}
+                  </button>
+                );
+              }
+              // Multi-item groups render as dropdown
+              const isActive = activeGroupId === group.id;
+              const activeChild = group.items.find(t => location.pathname.startsWith(t.path));
+              return (
+                <DropdownMenu key={group.id}>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      data-testid={`foodops-group-${group.id}`}
+                      className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+                        isActive
+                          ? "border-orange-600 text-orange-600"
+                          : "border-transparent text-muted-foreground hover:text-foreground hover:border-muted"
+                      }`}
+                    >
+                      <span>{group.label}</span>
+                      {activeChild && (
+                        <span className="text-xs opacity-70">· {activeChild.label}</span>
+                      )}
+                      <ChevronDown className="w-3.5 h-3.5" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="min-w-[220px]">
+                    {group.items.map(tab => {
+                      const active = location.pathname.startsWith(tab.path);
+                      return (
+                        <DropdownMenuItem
+                          key={tab.path}
+                          onClick={() => navigate(tab.path)}
+                          data-testid={`foodops-tab-${tab.path.split('/').pop()}`}
+                          className={active ? "bg-orange-50 text-orange-700 focus:bg-orange-50 focus:text-orange-700" : ""}
+                        >
+                          <tab.icon className="w-4 h-4 mr-2" />
+                          <span className="flex-1">{tab.label}</span>
+                        </DropdownMenuItem>
+                      );
+                    })}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              );
+            })}
           </nav>
         </div>
 

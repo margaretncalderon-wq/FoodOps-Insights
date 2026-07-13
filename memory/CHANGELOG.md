@@ -1,6 +1,28 @@
 # Kora OS - Changelog
 
 
+## February 2026 — Sidebar Cleanup + Logo Fidelity + FoodOps Grouped Nav
+
+### Feedback trío
+1. "Esos números que salen en el main sidebar no se, no me gusta no se sabe de que son"
+2. Culinary Intelligence tabs overflow — same pain that Resource Management had
+3. Logo se ve distorsionado en el Landing y otros lugares (SVG reconstruido no coincidía con el PNG oficial)
+
+### Fixes
+- **Sidebar badges removed** (`Layout.js`) — eliminated the `useEffect` fetching `/api/nav/global-badges` and the pill rendering in both desktop + mobile nav. The `/api/nav/global-badges` endpoint stays live (defensive backend, may be reused later with clearer labeling), but the sidebar is now visually clean.
+- **KoraLogo → PNG for static, SVG for animated** (`components/KoraLogo.js`) — split into two branches: `animated=false` (default) renders `<img src="/kora-icon.png">` directly (pixel-perfect brand match, zero distortion), while `animated=true` still uses the SVG rebuild (needed for per-node control in `KoraLoader`).
+- **FoodOps grouped navigation** (`pages/FoodOpsPage.js`) — replaced the flat `NavLink` row (9 items, horizontally overflowing) with 4 dropdown groups mirroring the Resource Management pattern:
+  - Catalog: Inventory, Recipes, Menus
+  - Kitchen: Production, Kitchen Sheets, Physical Count
+  - Purchasing: Costs, Orders
+  - Data: Import/Export (single-tab, rendered as plain button)
+  - Group triggers show the active child inline (`Catalog · Recipes`).
+
+### Testing
+- Screenshots on `/` (Landing), `/login`, `/dashboard` confirm: logo is now pixel-perfect PNG, sidebar has no numeric badges.
+- Lint clean on `Layout.js`, `FoodOpsPage.js`, `KoraLogo.js`.
+
+
 ## February 2026 — Brand Loading: KoraLoader Rollout
 
 ### Motivation
