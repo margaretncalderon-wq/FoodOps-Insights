@@ -1,0 +1,50 @@
+{
+  "summary": "Regression testing for the 3 production bugs. BUG 1 (drag-and-drop) confirmed in iter 238 — not re-run. BUG 3 (Overtime save) — backend POST /api/people-ops/overtime/periods returns 200 with correct payload; frontend validation message added (Días incompletos ...) in OvertimePeriodDialog.js line 447. BUG 2 (Recalcular Costos) — endpoint POST /api/recipes/recalculate-all works (13 pytest tests, 11 pass); HOWEVER a CRITICAL side-effect was uncovered: the fix persists labor_cost=NaN / total_cost_full=NaN for any recipe that had prep_time stored as the string 'nan'. Once NaN is persisted, GET /api/recipes returns 500 ('Out of range float values are not JSON compliant') for the entire company. This blocks pame/margaret (Ciano Gourmet, company_98d8b4725822) from seeing ANY recipe in FoodOps.",
+  "backend_issues": {
+    "critical": [
+      {
+        "endpoint": "GET /api/recipes",
+        "issue": "Returns 500 for company_98d8b4725822 (pamemey27@gmail.com, margaret.n.calderon@gmail.com). 6 of 19 recipes have labor_cost=NaN and total_cost_full=NaN in Mongo. Root cause: recipes have prep_time stored as the string 'nan' (from a legacy migration). In routers/recipes.py compute_full_recipe_costing line 251: `prep_min = float(recipe_data.get('prep_time_minutes') or recipe_data.get('prep_time') or 0)` — 'nan' is truthy so float('nan')=NaN, propagates to labor_cost and total_cost_full, gets persisted by recalculate-all (POST /api/recipes/recalculate-all persists **full_costing verbatim). Subsequent GET tries to JSON-serialize NaN and FastAPI raises 'Out of range float values are not JSON compliant'.",
+        "priority": "CRITICAL"
+      },
+      {
+        "endpoint": "POST /api/recipes/recalculate-all",
+        "issue": "Silently poisons the DB with NaN values for any recipe whose prep_time / cook_time / labor_minutes / yield_quantity is a stringified 'nan' or otherwise non-numeric. Should sanitize with a safe_float() helper that maps NaN/Inf/'nan'/'' to 0.",
+        "priority": "CRITICAL"
+      }
+    ],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "FoodOps → Recipes tab", "issue": "For company_98d8b4725822 the recipes list cannot load at all because GET /api/recipes → 500. User sees an empty/error state and the 'Recalcular Costos' button is likely unreachable. Confirmed via API directly; UI walk-through skipped because tenant is broken.", "selector": "data-testid=recalculate-all-recipes-btn", "priority": "CRITICAL"}
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_recalculate_all_recipes.py",
+    "/app/test_reports/pytest/recalc_iter239.xml"
+  ],
+  "action_items": [
+    "URGENT: In /app/backend/routers/recipes.py `compute_full_recipe_costing` add a safe_float(x, default=0) helper that returns default when x is None, ''/whitespace, 'nan'/'inf', or a NaN/Inf float. Apply to prep_time_minutes, prep_time, cook_time_minutes, cook_time, labor_minutes, yield_quantity, portions_per_yield, sell_price. Also sanitize output dict before returning (any NaN/Inf → 0).",
+    "URGENT: Add a one-shot data-repair endpoint (or migration script) that finds recipes where labor_cost/total_cost_full/overhead_cost is NaN or where prep_time/cook_time is a non-numeric string, and coerces them to 0. Otherwise pame's tenant remains broken until every affected recipe is opened + saved manually.",
+    "Also sanitize inputs in routers/recipes.py `update_recipe` and `create_recipe` so we never re-store 'nan' strings on save.",
+    "Optional hardening: in routers/recipes.py `get_recipes` (line 52) wrap the response with a JSON-safe serializer (replace NaN/Inf with None) so a poisoned row degrades gracefully instead of nuking the whole list.",
+    "BUG 3 (Overtime): validation copy is correctly wired ('Días incompletos ...') and backend POST returns 200 with computed hours_35/night/holiday. No further action.",
+    "BUG 1 (Drag-and-drop): already validated in iter 238. No action."
+  ],
+  "critical_code_review_comments": [
+    "ProposalEditor.js remains 4965 lines — should be split (still applicable from iter 238).",
+    "recipes.py compute_full_recipe_costing does not defend against NaN/Inf/stringified-nan inputs — this is the root cause of the current production breakage.",
+    "recalculate-all endpoint persists computed values with **full_costing spread; there is no post-compute sanitation before hitting Mongo. One bad legacy row can now break the entire GET list for the tenant."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "11/13 (85%) recalculate-all endpoint tests; but 2 regression tests failed uncovering a CRITICAL tenant-wide 500 on GET /api/recipes", "frontend": "not exercised — tenant blocked at API layer"},
+  "test_credentials": "pamemey27@gmail.com / Evoque2024! (BROKEN tenant), margaret.n.calderon@gmail.com / Evoque2024! (same broken tenant company_98d8b4725822), demo.agency@kora.com / Evoque2024! (works, 3 recipes 1 zero-cost)",
+  "seed_data_creation": "test_recipe_crud_intact creates+deletes 'TEST_Recalc_Regression_Recipe' — cleaned up. test_dry_run_false_persists_changes persisted new costs across margaret's company and also persisted NaN values on the 6 poisoned rows (see critical bug above).",
+  "retest_needed": true,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Once main agent lands safe_float() + data-repair, re-run pytest tests/test_recalculate_all_recipes.py -v. Verify GET /api/recipes returns 200 for pamemey27@gmail.com and none of the 19 recipes has NaN in labor_cost/total_cost_full. Then run the frontend UI check: log in as pame, go to FoodOps → Recipes, click 'Recalcular Costos' (data-testid=recalculate-all-recipes-btn if present), confirm dry-run modal opens, apply, refresh, ensure previously-zero recipes now show a cost > 0 (only for those that actually have priced ingredients). BUG 3 UI check: log in as demo.agency, People Ops → Overtime, open OvertimePeriodDialog, add row with only time_in, click Guardar — expect toast 'Días incompletos ...'; complete row and Guardar again — expect POST 200 and reload persistence.",
+  "rca of the issue": "compute_full_recipe_costing does `prep_min = float(recipe_data.get('prep_time_minutes') or recipe_data.get('prep_time') or 0)`. For 6 recipes in company_98d8b4725822, prep_time is the string 'nan' (truthy) → float('nan')=NaN → labor_cost=NaN → total_cost_full=NaN. recalculate-all spreads **full_costing into $set, persisting NaN to Mongo. FastAPI's JSON encoder then refuses to serialize NaN, so GET /api/recipes 500s for the whole tenant. Verified by direct Mongo inspection: 6 rows returned with labor_cost=nan (e.g. recipe_94e1d61151fe 'Ensalada de Pasta Estilo Italiana'). Fix path: (1) sanitize inputs with safe_float, (2) sanitize outputs, (3) repair the already-poisoned rows in company_98d8b4725822."
+}
