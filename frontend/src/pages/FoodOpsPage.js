@@ -126,6 +126,153 @@ function PriceEquivalenceBreakdown({ baseUnit, costPerBase, language }) {
   );
 }
 
+// ==================== OUTLIER FIX PANEL ====================
+// Renders the top items whose `stock × cost_per_unit` explodes the total.
+// The user can review each row, override the suggested cost, and save inline.
+// Once saved, `onUpdate` refetches the parent's data so the Total Value drops
+// immediately — no page reload needed.
+function OutlierFixPanel({ items, language, onUpdate }) {
+  const isEs = language === "es";
+  const [edits, setEdits] = useState({});   // { ingredient_id: newCost }
+  const [savingId, setSavingId] = useState(null);
+  const [dismissed, setDismissed] = useState({});
+
+  // Suggest a corrected cost per unit. Priority:
+  //  1. purchase_cost / purchase_quantity_per_unit  (v2 normalized)
+  //  2. cost_per_base_unit (if smaller than current cost_per_unit)
+  //  3. current / pack_size (if pack_size > 1)
+  //  4. current / 10 (last-resort heuristic)
+  const suggestFor = (item) => {
+    const cost = Number(item.cost_per_unit) || 0;
+    if (item.purchase_cost && item.purchase_quantity_per_unit && item.purchase_quantity_per_unit > 0) {
+      return Number((item.purchase_cost / item.purchase_quantity_per_unit).toFixed(4));
+    }
+    if (item.cost_per_base_unit && item.cost_per_base_unit < cost) {
+      return Number(item.cost_per_base_unit.toFixed(4));
+    }
+    if (item.pack_size && item.pack_size > 1) {
+      return Number((cost / item.pack_size).toFixed(4));
+    }
+    return Number((cost / 10).toFixed(4));
+  };
+
+  const applyOne = async (row) => {
+    const id = row.item.ingredient_id;
+    const newCost = Number(edits[id] ?? suggestFor(row.item));
+    if (!Number.isFinite(newCost) || newCost < 0) {
+      toast.error(isEs ? "Costo inválido" : "Invalid cost");
+      return;
+    }
+    try {
+      setSavingId(id);
+      await axios.put(
+        `${API}/api/inventory/ingredients/${id}`,
+        { cost_per_unit: newCost },
+        { withCredentials: true }
+      );
+      toast.success(isEs ? `Actualizado: ${row.item.name}` : `Updated: ${row.item.name}`);
+      setDismissed((d) => ({ ...d, [id]: true }));
+      onUpdate?.();
+    } catch (_e) {
+      toast.error(isEs ? "Error al guardar" : "Failed to save");
+    } finally {
+      setSavingId(null);
+    }
+  };
+
+  const visible = items.filter((r) => !dismissed[r.item.ingredient_id]);
+  if (visible.length === 0) return null;
+
+  return (
+    <Card className="border-amber-200 bg-amber-50/40" data-testid="outlier-fix-panel">
+      <CardHeader className="py-3">
+        <CardTitle className="text-base flex items-center gap-2">
+          <AlertTriangle className="w-4 h-4 text-amber-600" />
+          {isEs ? "Corregir ítems inflando el total" : "Fix items inflating the total"}
+        </CardTitle>
+        <CardDescription className="text-xs">
+          {isEs
+            ? "Estos ítems tienen valor > 10× la mediana. Suele deberse a que el 'costo unitario' contiene el precio del saco/caja completo. Ajusta y guarda para que el total baje al valor real."
+            : "These items are worth > 10× the median. Usually the 'unit cost' still holds the full pack/case price. Adjust and save so the total reflects reality."}
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="pt-0">
+        <div className="border rounded-md bg-white overflow-hidden">
+          <table className="w-full text-sm">
+            <thead className="bg-slate-50 text-xs text-slate-600">
+              <tr>
+                <th className="text-left px-3 py-2 font-medium">{isEs ? "Ítem" : "Item"}</th>
+                <th className="text-right px-2 py-2 font-medium">{isEs ? "Stock" : "Stock"}</th>
+                <th className="text-right px-2 py-2 font-medium">{isEs ? "Costo actual" : "Current cost"}</th>
+                <th className="text-right px-2 py-2 font-medium">= {isEs ? "Valor" : "Value"}</th>
+                <th className="text-right px-2 py-2 font-medium">{isEs ? "Nuevo costo" : "New cost"}</th>
+                <th className="text-right px-2 py-2 font-medium">= {isEs ? "Nuevo valor" : "New value"}</th>
+                <th className="px-2 py-2"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {visible.map((row) => {
+                const id = row.item.ingredient_id;
+                const suggested = suggestFor(row.item);
+                const proposed = edits[id] ?? suggested;
+                const newValue = (Number(row.item.stock_quantity) || 0) * (Number(proposed) || 0);
+                return (
+                  <tr key={id} className="border-t hover:bg-slate-50">
+                    <td className="px-3 py-2">
+                      <div className="font-medium leading-tight">{row.item.name}</div>
+                      <div className="text-[10px] text-muted-foreground">
+                        {row.item.inventory_type} · {row.item.unit}
+                        {row.item.purchase_unit && row.item.purchase_quantity_per_unit
+                          ? ` · pack: ${row.item.purchase_quantity_per_unit} ${row.item.purchase_unit} @ $${row.item.purchase_cost}`
+                          : ""}
+                      </div>
+                    </td>
+                    <td className="text-right px-2 py-2 tabular-nums">{row.item.stock_quantity}</td>
+                    <td className="text-right px-2 py-2 tabular-nums">${Number(row.item.cost_per_unit || 0).toFixed(4)}</td>
+                    <td className="text-right px-2 py-2 tabular-nums text-red-600 font-medium">
+                      ${row.value.toFixed(2)}
+                    </td>
+                    <td className="text-right px-2 py-2">
+                      <Input
+                        type="number" step="0.0001" min="0"
+                        value={proposed}
+                        onChange={(e) => setEdits((prev) => ({ ...prev, [id]: e.target.value }))}
+                        className="w-28 h-8 text-right text-sm tabular-nums"
+                        data-testid={`outlier-cost-${id}`}
+                      />
+                    </td>
+                    <td className="text-right px-2 py-2 tabular-nums text-emerald-600 font-medium">
+                      ${newValue.toFixed(2)}
+                    </td>
+                    <td className="px-2 py-2 text-right">
+                      <Button
+                        size="sm"
+                        onClick={() => applyOne(row)}
+                        disabled={savingId === id}
+                        data-testid={`outlier-save-${id}`}
+                      >
+                        {savingId === id
+                          ? (isEs ? "Guardando..." : "Saving...")
+                          : (isEs ? "Aplicar" : "Apply")}
+                      </Button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        <p className="text-[10px] text-muted-foreground mt-2 leading-relaxed">
+          {isEs
+            ? "Sugerencia: si el ítem tiene 'compra' definida (pack/saco), Kora te propone `precio_pack / cantidad_por_pack`. Puedes sobrescribir el número si sabes el precio real por unidad base."
+            : "Hint: if the item has 'purchase' defined (pack/case), Kora suggests `pack_price / qty_per_pack`. You can override the value if you know the actual per-base-unit price."}
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
+
+
 // ==================== INVENTORY SECTION ====================
 function InventorySection() {
   const { language } = useLanguage();
@@ -632,8 +779,8 @@ function InventorySection() {
                     <AlertTriangle className="w-3 h-3 text-amber-600 shrink-0 mt-0.5" />
                     <span className="text-[10px] text-amber-700 leading-tight">
                       {language === "es"
-                        ? `${inventoryOutliers.length} ítem(s) con valor inusual — revisar unidad vs. cantidad`
-                        : `${inventoryOutliers.length} item(s) with unusual value — check unit vs. quantity`}
+                        ? `${inventoryOutliers.length} ítem(s) con valor inusual — corregir abajo ↓`
+                        : `${inventoryOutliers.length} item(s) with unusual value — fix below ↓`}
                     </span>
                   </div>
                 )}
@@ -642,6 +789,19 @@ function InventorySection() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Interactive outlier-fix panel — surfaces the specific items that
+          inflate the Total Value so the user can correct them in one click.
+          A conservative suggested cost is precomputed as `purchase_cost /
+          purchase_quantity_per_unit`, or line_value / (pack_size * stock)
+          fallback. User can override the number before saving. */}
+      {inventoryOutliers.length > 0 && (
+        <OutlierFixPanel
+          items={inventoryOutliers}
+          language={language}
+          onUpdate={fetchData}
+        />
+      )}
       
       {/* Value by Type - Collapsible Summary */}
       <Card>
