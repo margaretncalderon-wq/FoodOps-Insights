@@ -1,6 +1,39 @@
 # Kora OS - Changelog
 
 
+## February 2026 — People Ops · HR Alerts & Key Dates
+
+### Feature
+"Fechas Clave" widget on the People Ops directory page — a single glance-view of every HR-relevant date coming up in the next 90 days.
+
+### Signals surfaced
+- **Birthdays** — yearly, from `employees.date_of_birth`
+- **Work anniversaries** — yearly, from `employees.hire_date` (skips year 0)
+- **Probation end** — `hire_date + 3 months`, one-time, keeps showing 3 days after so the manager doesn't miss it
+- **Contract / document expirations** — from `documents.expiry_date` (contract type promoted to red severity)
+- **Vacation returns** — day after `time_off_requests.end_date` for approved leaves
+- **TSS deadlines** — auto-computed: 25th of current month (prep) + 3rd business day of next month (filing)
+- **Custom manager events** — free-form, with recurrence (once / yearly / monthly)
+
+### Backend (`routers/hr_alerts.py`)
+- `GET /api/people-ops/key-dates?days_ahead=90` — aggregated events, sorted by proximity, bucketed into `overdue / today / this_week / this_month / later`, with `severity` (danger / warning / info) and bilingual titles.
+- `GET/PUT /api/people-ops/alert-preferences` — per-user preferences (toggle each event type, adjust days-ahead thresholds). Defaults ship with sensible values.
+- `GET/POST/DELETE /api/people-ops/custom-events` — CRUD for manager-defined events.
+- All queries defensive (`try/except → 0`) so a missing collection never returns 500.
+
+### Frontend (`components/people-ops/KeyDatesWidget.js`)
+- Grouped list by bucket with per-event severity coloring.
+- Icons per type (Cake, Award, ShieldCheck, FileWarning, PlaneLanding, Calendar, Pin).
+- Header with `+` (add custom event) and gear (preferences dialog).
+- Preferences dialog: switch per type + numeric input for days-ahead.
+- Custom event dialog: title, date, recurrence (once/yearly/monthly), optional linked employee, days-ahead, notes.
+- Empty state with clear CTA to add first custom event.
+
+### Testing
+- E2E via curl: default preferences load, custom event creates + appears in `/key-dates` with correct bucket + severity, TSS deadlines auto-computed.
+- Screenshot on `/people-ops/directory` confirms widget renders with real data (custom event in "This week" bucket, TSS reminders in "This month").
+
+
 ## February 2026 — Sidebar Cleanup + Logo Fidelity + FoodOps Grouped Nav
 
 ### Feedback trío

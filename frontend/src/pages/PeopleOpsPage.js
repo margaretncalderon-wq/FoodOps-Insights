@@ -6,6 +6,7 @@ import { Layout } from "../components/Layout";
 
 // Section Components
 import { EmployeeDirectory } from "../components/people-ops/EmployeeDirectory";
+import KeyDatesWidget from "../components/people-ops/KeyDatesWidget";
 import { EmployeeProfile } from "../components/people-ops/EmployeeProfile";
 import { PayrollSection } from "../components/people-ops/PayrollSection";
 import { PayrollPeriodView } from "../components/people-ops/PayrollPeriodView";
@@ -455,7 +456,7 @@ export default function PeopleOpsPage() {
         {/* Content */}
         <Routes>
           <Route index element={<Navigate to="directory" replace />} />
-          <Route path="directory" element={<EmployeeDirectory />} />
+          <Route path="directory" element={<DirectoryWithKeyDates />} />
           <Route path="org-chart" element={<OrgChartSection />} />
           <Route path="employee/:employeeId" element={<EmployeeProfile />} />
           <Route path="payroll" element={<PayrollSection />} />
@@ -475,5 +476,17 @@ export default function PeopleOpsPage() {
         </Routes>
       </div>
     </Layout>
+  );
+}
+
+// Directory tab wraps the employee list with the "Key Dates" widget on top —
+// gives the manager an at-a-glance view of upcoming birthdays / probation / TSS
+// / custom events before they scroll into the employee grid below.
+function DirectoryWithKeyDates() {
+  return (
+    <div className="space-y-6">
+      <KeyDatesWidget />
+      <EmployeeDirectory />
+    </div>
   );
 }

@@ -89,6 +89,7 @@ from routers.supplier_contracts import supplier_contracts_router
 from routers.inventory import inventory_router
 from routers.packing_templates import packing_templates_router
 from routers.nav_badges import router as nav_badges_router
+from routers.hr_alerts import router as hr_alerts_router
 from routers.purchase_lists import purchase_list_router
 from models.purchase_lists import PurchaseList, PurchaseListCreate, PurchaseListItem
 from routers.events import events_router
@@ -8354,6 +8355,7 @@ api_router.include_router(plated_menus_router)
 api_router.include_router(inventory_router)
 api_router.include_router(packing_templates_router)
 api_router.include_router(nav_badges_router)
+api_router.include_router(hr_alerts_router)
 api_router.include_router(suppliers_router)
 api_router.include_router(supplier_contracts_router)  # /api/supplier-contracts/*
 api_router.include_router(operations_router)
