@@ -1,5 +1,30 @@
 # Kora OS — Product Requirements Document
 
+## Sprint L + E2E Validation (Feb 12, 2026)
+
+**Estado:** ✅ Implementado + validado end-to-end por testing_agent (iteration 237).
+
+### Sprint L — Recomendación → Meta del Execution Hub
+- `POST /api/inventory/recommendations/{index}/create-goal` convierte la recomendación cached en una `ExecutionGoal`. Idempotente vía `created_goal_id`.
+- Mapping automático: `estimated_impact_usd > 0` → area `COST`, `priority=high` → area `RISK`, target_date = 7/14/30 días según prioridad.
+- UI: botón "Crear meta en Execution Hub" en cada card; se reemplaza por badge "Meta creada" tras conversión.
+
+### E2E Validation — Ambos módulos verificados
+**Event Orchestration** ✅ — event detail carga con 8 tabs; el embed de Packing List dentro de Documents funciona sin dropdown (consolidación P1 confirmada).
+
+**Resource Management** ✅ — 11/11 tabs visibles después de fixes:
+- **Fix #1 (HIGH)**: `Delivery Notes` + `Asset Gallery` estaban gated por industria; ahora `industries=["all"]` en ambos.
+- **Fix #2**: Placeholder "Selecciona un evento confirmado" → "Selecciona un evento" (menos confuso).
+
+### Resumen tabs Resource Management post-fix
+Inventory · Purchasing · **Delivery Notes** · Packing List · Templates · Next 14d · Utilization · AI Recommendations · Asset Count · Vendor Agreements · **Asset Gallery**
+
+### Tests
+- Regression: **182 tests** green (1 pre-existing plan-limit no relacionada).
+- 26/26 tests del testing agent pasaron en iteration 237.
+
+
+
 ## Sprint K · Smart Recommendations con IA (Feb 12, 2026)
 
 **Estado:** ✅ Implementado + probado con LLM real.

@@ -1,6 +1,29 @@
 # Kora OS - Changelog
 
 
+## February 2026 — Sprint L + E2E Validation
+
+### Sprint L — Convert Recommendation → Execution Hub Goal
+- New endpoint `POST /api/inventory/recommendations/{index}/create-goal` reads the cached snapshot, composes an `ExecutionGoalCreate` payload (title from `rec.title`, objective from `rec.reason + action_hint`, `impact_areas` derived from `estimated_impact_usd > 0` → COST and `priority == "high"` → RISK, `target_date` defaulted to 7/14/30 days by priority), and calls the existing `create_execution_goal`. Idempotent via `created_goal_id` stamp on the cached recommendation.
+- FE: `SmartRecommendationsSection` cards gained a `Crear meta en Execution Hub` button (data-testid=create-goal-btn-{idx}). Once converted, the button is replaced by a green "Meta creada" badge.
+- Verified live: recommendation "Patrón de daños repetidos en Silla Chiavari — revisar protocolo" successfully created goal `goal_3e5565c9e02d` with impact_areas=[cost,risk] and target_date=2026-07-19.
+
+### Full E2E validation (testing_agent_v3_fork iteration 237)
+- **26/26 backend pytest** (Sprints E/F/G/H/I/J/K/L + cross-module consistency check) — green.
+- **Event Orchestration**: event detail loads correctly with 8 tabs (Blueprint, Operational Flow, Team & Roles, Production Assets, Documents, Project Calendar, Post-Review, Project Binder). The embedded `EventPackingSection` inside Documents → Packing List / Setup renders **without** the event dropdown (eventId is fixed) — consolidation confirmed.
+- **Resource Management**: 11/11 tabs render correctly after 2 HIGH-priority fixes below.
+
+### Post-validation fixes
+- **Fix #1 (HIGH)**: `Delivery Notes` (Conduces) and `Asset Gallery` tabs were hidden because the demo tenant's industry classification didn't match `events|events_hospitality|generic`. Widened both to `industries=["all"]` — these are core features that any tenant needs. All 11 Resource Management tabs now visible.
+- **Fix #2 (Copy)**: `EventPackingSection` placeholder changed from "Selecciona un evento confirmado" → "Selecciona un evento" (the endpoint already returns Committed/Won/Closed stage events, not literally status=confirmed; the label was misleading).
+
+### Testing verification
+- Preview smoke: All 11 tabs visible; Packing List dropdown populates with the demo event correctly.
+- Regression: 182 backend tests green (1 pre-existing plan-limit failure unrelated).
+
+
+
+
 ## February 2026 — Sprint K · Smart Recommendations (Emergent LLM)
 
 ### Implementation

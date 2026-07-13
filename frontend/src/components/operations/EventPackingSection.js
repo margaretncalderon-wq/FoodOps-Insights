@@ -297,7 +297,7 @@ export function EventPackingSection({ eventId: eventIdProp = null, embedded = fa
               disabled={loadingEvents}
             >
               <SelectTrigger data-testid="event-packing-select">
-                <SelectValue placeholder={t("Selecciona un evento confirmado", "Select a confirmed event")} />
+                <SelectValue placeholder={t("Selecciona un evento", "Select an event")} />
               </SelectTrigger>
               <SelectContent>
                 {events.length === 0 && (

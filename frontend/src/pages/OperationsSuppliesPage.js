@@ -76,7 +76,7 @@ export default function OperationsSuppliesPage() {
       path: "/ops-supplies/checkin", 
       label: isEs ? "Conduces" : "Delivery Notes", 
       icon: Truck,
-      industries: ["events", "events_hospitality", "generic"] // Not for pure services
+      industries: ["all"]
     },
     { 
       id: "event-packing", 
@@ -132,7 +132,7 @@ export default function OperationsSuppliesPage() {
       path: "/ops-supplies/gallery", 
       label: isEs ? "Galería de Activos" : "Asset Gallery", 
       icon: Image,
-      industries: ["events", "events_hospitality", "generic"] // Visual assets
+      industries: ["all"]
     },
     { 
       id: "maintenance", 
