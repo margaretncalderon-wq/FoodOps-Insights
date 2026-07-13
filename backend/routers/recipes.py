@@ -96,11 +96,16 @@ async def calculate_recipe_cost(ingredients: List[RecipeIngredient], sub_recipes
 
     Accepts both NEW format (item_id + item_type='ingredient') and LEGACY format
     (ingredient_id directly, no item_type). Uses utils.units to do real unit→base conversion.
+
+    Also collects `missing_refs` — a list of item_ids that couldn't be resolved
+    against the tenant's ingredient/recipe collections. Callers can use this to
+    surface actionable diagnostics ("Ingredient X was deleted; re-link or remove").
     """
     from utils.units import cost_for_recipe_line, normalize_unit
     total_cost = 0.0
     updated_ingredients = []
     updated_sub_recipes = []
+    missing_refs = []  # (item_id, kind, name_from_line)
 
     for ing in ingredients:
         ing_dict = ing.model_dump() if hasattr(ing, 'model_dump') else dict(ing)
@@ -146,6 +151,17 @@ async def calculate_recipe_cost(ingredients: List[RecipeIngredient], sub_recipes
                     "applied_waste_pct": round(applied_waste, 2),
                 })
                 total_cost += line_cost
+                continue
+            else:
+                # Ingredient reference is dead (deleted or belongs to another
+                # tenant). Mark the line so the FE can surface it as a fixable
+                # issue instead of just showing $0 silently.
+                missing_refs.append({"item_id": item_id, "kind": "ingredient",
+                                     "name": ing_dict.get("name") or "?"})
+                updated_ingredients.append({
+                    **ing_dict, "item_id": item_id, "ingredient_id": item_id,
+                    "cost": 0, "total_cost": 0, "_missing_ref": True,
+                })
                 continue
 
         # Sub-recipe reference (legacy item_type=recipe inline)

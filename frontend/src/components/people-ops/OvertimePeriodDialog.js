@@ -440,9 +440,13 @@ export default function OvertimePeriodDialog({
     }));
     const partialRows = workedRows.filter(r => (r.time_in && !r.time_out) || (!r.time_in && r.time_out));
     if (partialRows.length > 0) {
+      // Show which specific dates are problematic so the user can find them fast.
+      const dateList = partialRows.slice(0, 5).map(r => r.date.slice(5)).join(", ");
+      const more = partialRows.length > 5 ? ` +${partialRows.length - 5} más` : "";
       toast.error(isEs
-        ? `${partialRows.length} día(s) tienen solo entrada o solo salida. Completa ambos o déjalos vacíos.`
-        : `${partialRows.length} day(s) have only in OR out. Fill both or leave empty.`);
+        ? `Días incompletos (entrada o salida vacía): ${dateList}${more}. Completa ambos o déjalos vacíos.`
+        : `Incomplete days (missing in or out): ${dateList}${more}. Fill both or leave empty.`,
+        { duration: 8000 });
       return;
     }
     const worked_entries = workedRows
@@ -668,8 +672,11 @@ export default function OvertimePeriodDialog({
                       : (vac.type || "off")
                   ) : "";
                   const isSameTime = row.time_in && row.time_out && row.time_in === row.time_out && !isOff;
+                  const isPartial = ((row.time_in && !row.time_out) || (!row.time_in && row.time_out)) && !isOff;
                   return (
-                    <tr key={iso} className={`border-b ${isVac ? "bg-blue-50/70" : offDates.has(iso) ? "bg-orange-50/60" : isSameTime ? "bg-red-50/60" : isSun ? "bg-red-50/40" : isDayOff ? "bg-slate-100/60" : ""}`}>
+                    <tr key={iso} className={`border-b ${isPartial ? "bg-rose-50/80 ring-1 ring-inset ring-rose-200" : isVac ? "bg-blue-50/70" : offDates.has(iso) ? "bg-orange-50/60" : isSameTime ? "bg-red-50/60" : isSun ? "bg-red-50/40" : isDayOff ? "bg-slate-100/60" : ""}`}
+                        title={isPartial ? (isEs ? "⚠ Falta entrada o salida — el guardado se bloqueará" : "⚠ Missing in or out — save will be blocked") : undefined}
+                    >
                       <td className="px-2 py-1.5">
                         <div className="flex flex-col">
                           <span className={`text-xs font-medium ${isSun ? "text-red-700" : ""}`}>
