@@ -447,6 +447,53 @@ export function EmployeeProfile() {
                         {isEs ? "Alimenta las alertas de cumpleaños" : "Feeds birthday alerts"}
                       </p>
                     </div>
+                    <div>
+                      <label className="text-sm text-muted-foreground">
+                        {isEs ? "Email Personal" : "Personal Email"}
+                      </label>
+                      <Input
+                        type="email"
+                        value={editData.personal_email || ""}
+                        onChange={(e) => setEditData({ ...editData, personal_email: e.target.value })}
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-sm text-muted-foreground">{isEs ? "Ciudad" : "City"}</label>
+                        <Input
+                          value={editData.city || ""}
+                          onChange={(e) => setEditData({ ...editData, city: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <label className="text-sm text-muted-foreground">{isEs ? "Dirección" : "Address"}</label>
+                        <Input
+                          value={editData.address || ""}
+                          onChange={(e) => setEditData({ ...editData, address: e.target.value })}
+                        />
+                      </div>
+                    </div>
+                    <div className="border-t pt-3 mt-2">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+                        {isEs ? "Contacto de Emergencia" : "Emergency Contact"}
+                      </p>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="text-sm text-muted-foreground">{isEs ? "Nombre" : "Name"}</label>
+                          <Input
+                            value={editData.emergency_contact_name || ""}
+                            onChange={(e) => setEditData({ ...editData, emergency_contact_name: e.target.value })}
+                          />
+                        </div>
+                        <div>
+                          <label className="text-sm text-muted-foreground">{isEs ? "Teléfono" : "Phone"}</label>
+                          <Input
+                            value={editData.emergency_contact_phone || ""}
+                            onChange={(e) => setEditData({ ...editData, emergency_contact_phone: e.target.value })}
+                          />
+                        </div>
+                      </div>
+                    </div>
                   </>
                 ) : (
                   <>
@@ -476,6 +523,29 @@ export function EmployeeProfile() {
                       <div className="flex items-center gap-3">
                         <Cake className="w-4 h-4 text-muted-foreground" />
                         <span>{isEs ? "Nacimiento:" : "Birthday:"} {employee.date_of_birth}</span>
+                      </div>
+                    )}
+                    {employee.personal_email && (
+                      <div className="flex items-center gap-3">
+                        <Mail className="w-4 h-4 text-muted-foreground" />
+                        <span className="text-sm">{employee.personal_email}</span>
+                        <span className="text-[10px] uppercase tracking-wide text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+                          {isEs ? "Personal" : "Personal"}
+                        </span>
+                      </div>
+                    )}
+                    {(employee.emergency_contact_name || employee.emergency_contact_phone) && (
+                      <div className="pt-3 mt-3 border-t">
+                        <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1.5">
+                          {isEs ? "Contacto de Emergencia" : "Emergency Contact"}
+                        </p>
+                        <div className="flex items-center gap-3">
+                          <AlertOctagon className="w-4 h-4 text-red-500" />
+                          <span className="text-sm">
+                            {employee.emergency_contact_name || "—"}
+                            {employee.emergency_contact_phone && ` · ${employee.emergency_contact_phone}`}
+                          </span>
+                        </div>
                       </div>
                     )}
                   </>

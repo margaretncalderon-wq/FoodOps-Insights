@@ -77,6 +77,12 @@ export function EmployeeDirectory() {
     email: "",
     phone: "",
     date_of_birth: "",
+    national_id: "",
+    personal_email: "",
+    address: "",
+    city: "",
+    emergency_contact_name: "",
+    emergency_contact_phone: "",
     job_title: "",
     job_role_id: "",
     department: "",
@@ -167,6 +173,8 @@ export function EmployeeDirectory() {
       setDialogOpen(false);
       setFormData({
         first_name: "", last_name: "", email: "", phone: "", date_of_birth: "",
+        national_id: "", personal_email: "", address: "", city: "",
+        emergency_contact_name: "", emergency_contact_phone: "",
         job_title: "", job_role_id: "", department: "", department_id: "",
         cost_center_id: "", manager_id: "", is_manager: false,
         hire_date: new Date().toISOString().split("T")[0],
@@ -394,6 +402,70 @@ export function EmployeeDirectory() {
               <p className="text-xs text-muted-foreground mt-1">
                 {isEs ? "Activa alertas de cumpleaños en Fechas Clave" : "Enables birthday alerts in Key Dates"}
               </p>
+            </div>
+            <div>
+              <label className="text-sm font-medium">{isEs ? "Cédula" : "National ID"}</label>
+              <Input
+                data-testid="employee-national-id"
+                value={formData.national_id}
+                onChange={(e) => setFormData({ ...formData, national_id: e.target.value })}
+                placeholder={isEs ? "000-0000000-0" : "e.g. 000-0000000-0"}
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">
+                {isEs ? "Email Personal" : "Personal Email"}
+              </label>
+              <Input
+                data-testid="employee-personal-email"
+                type="email"
+                value={formData.personal_email}
+                onChange={(e) => setFormData({ ...formData, personal_email: e.target.value })}
+                placeholder="personal@example.com"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">{isEs ? "Ciudad" : "City"}</label>
+              <Input
+                data-testid="employee-city"
+                value={formData.city}
+                onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+              />
+            </div>
+            <div className="col-span-2">
+              <label className="text-sm font-medium">{isEs ? "Dirección" : "Address"}</label>
+              <Input
+                data-testid="employee-address"
+                value={formData.address}
+                onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+              />
+            </div>
+
+            {/* Emergency contact */}
+            <div className="col-span-2 border-t pt-4 mt-2">
+              <p className="text-sm font-medium text-muted-foreground mb-3">
+                {isEs ? "Contacto de Emergencia" : "Emergency Contact"}
+              </p>
+            </div>
+            <div>
+              <label className="text-sm font-medium">
+                {isEs ? "Nombre del Contacto" : "Contact Name"}
+              </label>
+              <Input
+                data-testid="employee-emergency-name"
+                value={formData.emergency_contact_name}
+                onChange={(e) => setFormData({ ...formData, emergency_contact_name: e.target.value })}
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">
+                {isEs ? "Teléfono de Emergencia" : "Emergency Phone"}
+              </label>
+              <Input
+                data-testid="employee-emergency-phone"
+                value={formData.emergency_contact_phone}
+                onChange={(e) => setFormData({ ...formData, emergency_contact_phone: e.target.value })}
+              />
             </div>
 
             {/* Employment Info */}
