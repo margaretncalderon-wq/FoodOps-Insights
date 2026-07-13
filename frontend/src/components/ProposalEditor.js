@@ -138,13 +138,18 @@ const SortableItemRow = ({ id, children }) => {
 // Sortable wrapper for an entire section — used to reorder sections by dragging
 // the header. Drag handle is exposed via render-prop so the consumer can place
 // it inside the existing header layout without disturbing other controls.
+// Also exposes `isDropTarget` so the section can visually highlight when an
+// item is being dragged over it (fixes silent "no feedback" UX bug).
 const SortableSectionWrapper = ({ id, children, disabled }) => {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id, disabled });
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging, isOver, active } = useSortable({ id, disabled });
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.6 : 1,
   };
+  // Highlight the section as a valid drop target when something OTHER than
+  // this section itself is being dragged over it.
+  const isDropTarget = !!(isOver && active && active.id !== id);
   const dragHandleProps = disabled
     ? null
     : {
@@ -157,8 +162,14 @@ const SortableSectionWrapper = ({ id, children, disabled }) => {
         type: "button",
       };
   return (
-    <div ref={setNodeRef} style={style}>
-      {children(dragHandleProps)}
+    <div
+      ref={setNodeRef}
+      style={style}
+      data-testid={`section-dropzone-${id}`}
+      data-drop-target={isDropTarget ? "true" : "false"}
+      className={isDropTarget ? "ring-2 ring-emerald-400 ring-offset-1 rounded-lg transition-shadow" : ""}
+    >
+      {children(dragHandleProps, isDropTarget)}
     </div>
   );
 };
@@ -2505,11 +2516,11 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
                                 id={sectionDragId}
                                 disabled={isLocked || isEditing}
                               >
-                                {(dragHandleProps) => (
-                              <div className="border rounded-lg overflow-hidden mb-3" data-testid={`section-${itype}-${section.title || "default"}`}>
+                                {(dragHandleProps, isDropTarget) => (
+                              <div className={`border rounded-lg overflow-hidden mb-3 transition-colors ${isDropTarget ? "border-emerald-400 bg-emerald-50/40" : ""}`} data-testid={`section-${itype}-${section.title || "default"}`}>
                                 {/* Section header (only if has a title or it's the only-but-empty draft) */}
                                 {(section.title || section.isDraft) && (
-                                  <div className="flex items-center justify-between gap-2 px-3 py-2 bg-muted/40 border-b">
+                                  <div className={`flex items-center justify-between gap-2 px-3 py-2 border-b transition-colors ${isDropTarget ? "bg-emerald-100/70" : "bg-muted/40"}`}>
                                     <div className="flex items-center gap-2 flex-1 min-w-0">
                                       {dragHandleProps ? (
                                         <button {...dragHandleProps} title={language === "es" ? "Arrastrar sección" : "Drag section"}>
