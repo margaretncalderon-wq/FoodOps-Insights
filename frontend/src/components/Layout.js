@@ -1,5 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import axios from "axios";
+import { API } from "../utils/api";
 import { useAuth } from "../contexts/AuthContext";
 import { useLanguage } from "../contexts/LanguageContext";
 import { useModules } from "../contexts/ModulesContext";
@@ -112,6 +114,23 @@ export const Layout = ({ children }) => {
 
   const isActive = (path) => location.pathname.startsWith(path);
 
+  // Sprint N — Global sidebar badges: fetch aggregated signals per module.
+  // Refetches on route change so counters update after the user resolves an item.
+  const [navBadges, setNavBadges] = useState({});
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const { data } = await axios.get(`${API}/nav/global-badges`);
+        if (!cancelled) setNavBadges(data?.badges || {});
+      } catch (_e) {
+        if (!cancelled) setNavBadges({});
+      }
+    };
+    load();
+    return () => { cancelled = true; };
+  }, [location.pathname]);
+
   return (
     <div className="min-h-screen bg-background">
       {/* Sidebar - Desktop */}
@@ -130,26 +149,41 @@ export const Layout = ({ children }) => {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 p-4 space-y-1">
+        <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
           {navItems.map((item) => {
             const Icon = item.icon;
             const active = isActive(item.path);
             const displayLabel = item.labelKey 
               ? t(item.labelKey) 
               : (language === "es" && item.labelEs ? item.labelEs : item.label);
+            const badge = navBadges[item.path];
+            const tooltip = badge ? (language === "es" ? badge.tooltip_es : badge.tooltip_en) : undefined;
             return (
               <Link
                 key={item.path}
                 to={item.path}
                 data-testid={`nav-${item.labelKey || item.path.replace('/', '')}`}
+                title={tooltip}
                 className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 ${
                   active
                     ? "bg-[#AED768] text-[#1F2937]"
                     : "text-white/70 hover:bg-white/10 hover:text-white"
                 }`}
               >
-                <Icon className="w-5 h-5" strokeWidth={1.5} />
-                <span className="font-medium">{displayLabel}</span>
+                <Icon className="w-5 h-5 shrink-0" strokeWidth={1.5} />
+                <span className="font-medium flex-1 truncate">{displayLabel}</span>
+                {badge && badge.count > 0 && (
+                  <span
+                    data-testid={`nav-badge-${item.path.replace('/', '')}`}
+                    className={`inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-[10px] font-bold leading-none ${
+                      badge.tone === "red"
+                        ? "bg-red-500 text-white"
+                        : "bg-amber-400 text-[#1F2937]"
+                    }`}
+                  >
+                    {badge.count > 99 ? "99+" : badge.count}
+                  </span>
+                )}
               </Link>
             );
           })}
@@ -250,19 +284,33 @@ export const Layout = ({ children }) => {
             {navItems.map((item) => {
               const Icon = item.icon;
               const active = isActive(item.path);
+              const badge = navBadges[item.path];
+              const tooltip = badge ? (language === "es" ? badge.tooltip_es : badge.tooltip_en) : undefined;
               return (
                 <Link
                   key={item.path}
                   to={item.path}
                   onClick={() => setMobileMenuOpen(false)}
+                  title={tooltip}
                   className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
                     active
                       ? "bg-[#AED768] text-[#1F2937]"
                       : "text-[#1F2937] hover:bg-muted"
                   }`}
                 >
-                  <Icon className="w-5 h-5" strokeWidth={1.5} />
-                  <span className="font-medium">{item.label || t(item.labelKey)}</span>
+                  <Icon className="w-5 h-5 shrink-0" strokeWidth={1.5} />
+                  <span className="font-medium flex-1 truncate">{item.label || t(item.labelKey)}</span>
+                  {badge && badge.count > 0 && (
+                    <span
+                      className={`inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-[10px] font-bold leading-none ${
+                        badge.tone === "red"
+                          ? "bg-red-500 text-white"
+                          : "bg-amber-400 text-[#1F2937]"
+                      }`}
+                    >
+                      {badge.count > 99 ? "99+" : badge.count}
+                    </span>
+                  )}
                 </Link>
               );
             })}

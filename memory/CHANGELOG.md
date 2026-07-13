@@ -1,22 +1,51 @@
 # Kora OS - Changelog
 
 
-## February 2026 — Brand Consistency · Unified Kora Logo
+## February 2026 — Sprint N · Global Sidebar Nav Badges
 
 ### Motivation
-User feedback: "el logo debe ser consistente con el nuevo en todos lados incluyendo landing page". The new Kora OS wordmark was in use on the Landing page, but the sidebar, Login, Register, and Admin flows still shipped the older "K-node" icon. Result was visual dissonance between marketing and product surfaces.
+Sprint M added passive signals inside the Resource Management page, but the same "hey, this needs attention" cue was missing at the top-level sidebar. Users had to open each module to know if there was something waiting. Sprint N brings the same passive-signal pattern to the **global** navigation — one dot per module, one glance to prioritize the day.
 
 ### Implementation
-- **Icon extracted** — programmatically isolated the "K" glyph from `kora-logo.png` (green on `#192332` navy) and generated `kora-icon.png` (1024px) plus `favicon-16/32/64/192.png` and refreshed `favicon.png`/`favicon-v2.png` under `/app/frontend/public/`.
-- **Layout.js sidebar + mobile header** — replaced old K-node with the new K icon inside a rounded navy tile, keeping the "Kora OS" label + "Designed for clarity" tagline.
-- **LoginPage.js** — updated three logo instances (form header, mock dashboard header, hero accent pill) to use the new icon on the brand navy background.
-- **RegisterPage.js** — same two logo blocks updated for step-1 header and mock dashboard preview.
-- **AdminLoginPage.js** — replaced generic Shield-in-red-tile with the Kora K icon (Shield preserved as a subtle inline badge on the sub-label).
-- **OnboardingPage.js** — added the missing brand mark above the "Configura tu espacio de trabajo" heading.
-- **index.html** — switched `theme-color` to the new brand navy `#192332`, added explicit 32/192 favicon sizes with `?v=3` cache-buster.
+- **Backend** — new `routers/nav_badges.py` exposes `GET /api/nav/global-badges`. Single aggregated call returns `{ path: { count, tone, tooltip_es, tooltip_en } }` for the 6 modules where a real "attention" signal exists today:
+  - `/client-engagement` — overdue follow-ups on `leads` + `clients` (amber, or red > 5)
+  - `/event-orchestration` — events scheduled in the next 7 days (amber)
+  - `/ops-supplies` — reuses Sprint M's inventory nav-badges math (red if overdue conduces / over-reserved, amber for damages)
+  - `/execution-hub` — goals with `status = "blocked"` (red)
+  - `/business-clarity` — unpaid `accounts_receivable` + `invoices` past `due_date` (red)
+  - `/people-ops` — pending deductions in `pending` / `under_review` state (amber)
+  - `/food-ops` — recipes without a `cost_per_unit` (data hygiene, amber)
+- Paths with `count == 0` are **omitted** from the payload so the FE renders conditionally without null checks.
+- Every count uses `_safe_count` with try/except fallback to 0 — a missing collection never returns 500.
+
+- **Frontend** — `Layout.js` now:
+  - Fetches `/api/nav/global-badges` on mount **and on route change** (so counters refresh after the user resolves an item).
+  - Renders a small pill badge next to each nav item (`data-testid=nav-badge-{path}`), red for critical / amber for review, with a native tooltip carrying the localized reason (`tooltip_es` / `tooltip_en`).
+  - Both desktop sidebar and mobile menu share the same badge logic.
+  - Long labels now truncate (`truncate` + `flex-1`) so the badge stays right-aligned regardless of language.
 
 ### Testing
-- Visual verification via screenshots on `/login`, `/`, `/dashboard` — icon renders correctly in every surface, sidebar shows the new mark, landing navbar unchanged (already on new logo).
+- E2E: logged in as `demo.agency@kora.com`, `/api/nav/global-badges` returned 4 modules with real counts (3, 3, 8, 3). Sidebar screenshot confirms badges render with correct tones.
+
+---
+
+## February 2026 — Brand Consistency · Unified Kora Logo (K-node)
+
+### Motivation
+User feedback: "el logo debe ser consistente con el nuevo en todos lados incluyendo landing page". The correct brand mark is the **K-node** (one green node + four white nodes connected — representing "connected operations"), not the "Kora" wordmark. Previous session mis-identified the wordmark as the target logo; this session corrected the direction.
+
+### Implementation
+- **Assets** — replaced `kora-icon.png` and `kora-logo.png` with the official K-node PNG (`App icon.png`, 4500×4500 navy `#192332` with the K-node shape). Regenerated `favicon.png`, `favicon-v2.png`, and sized variants `favicon-16/32/64/192.png` from the same source.
+- **Layout.js sidebar + mobile header** — new K-node icon inside a rounded `#192332` navy tile, sitting beside the "Kora OS" + "Designed for clarity" text.
+- **LoginPage.js** — updated three logo instances (form header, mock dashboard header, hero accent pill).
+- **RegisterPage.js** — updated header + mock dashboard preview.
+- **AdminLoginPage.js** — replaced generic Shield-in-red-tile with the Kora K-node icon (Shield preserved as a subtle inline badge on the sub-label).
+- **OnboardingPage.js** — added the missing brand mark above the "Configura tu espacio de trabajo" heading.
+- **LandingPage.js** — no code change; existing references to `/kora-logo.png` now automatically resolve to the K-node icon.
+- **index.html** — `theme-color` set to `#192332`, favicon references use `?v=3` cache-buster with explicit 32/192 sizes.
+
+### Testing
+- Visual verification via screenshots on `/login`, `/`, `/dashboard` — K-node icon renders correctly on every surface.
 
 
 
