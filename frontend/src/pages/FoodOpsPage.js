@@ -37,7 +37,7 @@ import CulinaryDigestDialog from "../components/CulinaryDigestDialog";
 import RecipeImportDialog from "../components/RecipeImportDialog";
 
 // Icons
-import { Package, Plus, Search, AlertTriangle, Truck, Edit, Trash2, ArrowUpDown, DollarSign, Archive, ShoppingCart, ChefHat, UtensilsCrossed, RefreshCw, Copy, BookOpen, Layers, Beaker, Utensils, Menu as MenuIcon, ArrowLeft, History, Printer, CheckCircle, Factory, ClipboardList, FileUp, Sparkles, Wand2, Sliders, TrendingUp, FileText, Mail, ChevronDown } from "lucide-react";
+import { Package, Plus, Search, AlertTriangle, Truck, Edit, Trash2, ArrowUpDown, ArrowUp, ArrowDown, DollarSign, Archive, ShoppingCart, ChefHat, UtensilsCrossed, RefreshCw, Copy, BookOpen, Layers, Beaker, Utensils, Menu as MenuIcon, ArrowLeft, History, Printer, CheckCircle, Factory, ClipboardList, FileUp, Sparkles, Wand2, Sliders, TrendingUp, FileText, Mail, ChevronDown } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../components/ui/dropdown-menu";
 
 import { KoraLoader } from "../components/KoraLoader";
@@ -125,6 +125,29 @@ function PriceEquivalenceBreakdown({ baseUnit, costPerBase, language }) {
     </div>
   );
 }
+
+// ==================== SORTABLE TABLE HEAD ====================
+// Clickable column header that shows sort direction (↑ ↓ ↕) inline with the
+// label. Wire it by passing the current sort state ("asc" | "desc" | null)
+// and a click handler that toggles direction on repeated clicks.
+function SortHead({ label, sortKey, currentDir, onClick, align = "left", className = "" }) {
+  const Icon = currentDir === "asc" ? ArrowUp : currentDir === "desc" ? ArrowDown : ArrowUpDown;
+  const active = currentDir !== null;
+  return (
+    <button
+      type="button"
+      onClick={() => onClick(sortKey)}
+      data-testid={`sort-${sortKey}`}
+      className={`inline-flex items-center gap-1 select-none hover:text-foreground transition-colors ${
+        active ? "text-foreground font-semibold" : "text-muted-foreground"
+      } ${align === "right" ? "flex-row-reverse" : ""} ${className}`}
+    >
+      <span>{label}</span>
+      <Icon className={`w-3 h-3 ${active ? "opacity-100" : "opacity-50"}`} />
+    </button>
+  );
+}
+
 
 // ==================== OUTLIER FIX PANEL ====================
 // Renders the top items whose `stock × cost_per_unit` explodes the total.
@@ -694,11 +717,38 @@ function InventorySection() {
   const itemSorters = {
     name_asc: (a, b) => (a.name || "").localeCompare(b.name || "", undefined, { sensitivity: "base" }),
     name_desc: (a, b) => (b.name || "").localeCompare(a.name || "", undefined, { sensitivity: "base" }),
+    brand_asc: (a, b) => (a.brand || "").localeCompare(b.brand || "", undefined, { sensitivity: "base" }),
+    brand_desc: (a, b) => (b.brand || "").localeCompare(a.brand || "", undefined, { sensitivity: "base" }),
+    category_asc: (a, b) => (a.category || "").localeCompare(b.category || ""),
+    category_desc: (a, b) => (b.category || "").localeCompare(a.category || ""),
     cost_desc: (a, b) => (b.cost_per_base_unit || b.cost_per_unit || 0) - (a.cost_per_base_unit || a.cost_per_unit || 0),
     cost_asc: (a, b) => (a.cost_per_base_unit || a.cost_per_unit || 0) - (b.cost_per_base_unit || b.cost_per_unit || 0),
     stock_desc: (a, b) => (b.stock_quantity || 0) - (a.stock_quantity || 0),
     stock_asc: (a, b) => (a.stock_quantity || 0) - (b.stock_quantity || 0),
+    available_desc: (a, b) => ((b.stock_quantity || 0) - (b.reserved_quantity || 0)) - ((a.stock_quantity || 0) - (a.reserved_quantity || 0)),
+    available_asc: (a, b) => ((a.stock_quantity || 0) - (a.reserved_quantity || 0)) - ((b.stock_quantity || 0) - (b.reserved_quantity || 0)),
+    value_desc: (a, b) => ((b.stock_quantity || 0) * (b.cost_per_unit || 0)) - ((a.stock_quantity || 0) * (a.cost_per_unit || 0)),
+    value_asc: (a, b) => ((a.stock_quantity || 0) * (a.cost_per_unit || 0)) - ((b.stock_quantity || 0) * (b.cost_per_unit || 0)),
     created_desc: (a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0),
+  };
+
+  // Text-first columns default to ascending on the initial click; numeric-first
+  // columns default to descending (so the biggest values pop to the top,
+  // which matches what people expect when "sort by Value"). Sequential clicks
+  // on the same header flip the direction.
+  const columnDefaultDir = { name: "asc", brand: "asc", category: "asc" };
+  const handleHeaderSort = (key) => {
+    const currentKey = itemSortBy.replace(/_(asc|desc)$/, "");
+    const currentDir = itemSortBy.endsWith("_desc") ? "desc" : "asc";
+    const nextDir = currentKey === key
+      ? (currentDir === "asc" ? "desc" : "asc")
+      : (columnDefaultDir[key] || "desc");
+    setItemSortBy(`${key}_${nextDir}`);
+  };
+  const sortState = (key) => {
+    const currentKey = itemSortBy.replace(/_(asc|desc)$/, "");
+    if (currentKey !== key) return null;
+    return itemSortBy.endsWith("_desc") ? "desc" : "asc";
   };
 
   const filteredItems = applySort(
@@ -911,7 +961,19 @@ function InventorySection() {
             </CardHeader>
             <CardContent>
               <Table>
-                <TableHeader><TableRow><TableHead>{t("name")}</TableHead><TableHead>{language === "es" ? "Marca" : "Brand"}</TableHead><TableHead>{t("category")}</TableHead><TableHead className="text-right">{language === "es" ? "En Mano" : "On Hand"}</TableHead><TableHead className="text-right">{language === "es" ? "Disponible" : "Available"}</TableHead><TableHead className="text-right">{t("cost")}</TableHead><TableHead className="text-right">= {language === "es" ? "Valor" : "Value"}</TableHead><TableHead>{t("supplier")}</TableHead><TableHead></TableHead></TableRow></TableHeader>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead><SortHead label={t("name")} sortKey="name" currentDir={sortState("name")} onClick={handleHeaderSort} /></TableHead>
+                    <TableHead><SortHead label={language === "es" ? "Marca" : "Brand"} sortKey="brand" currentDir={sortState("brand")} onClick={handleHeaderSort} /></TableHead>
+                    <TableHead><SortHead label={t("category")} sortKey="category" currentDir={sortState("category")} onClick={handleHeaderSort} /></TableHead>
+                    <TableHead className="text-right"><SortHead label={language === "es" ? "En Mano" : "On Hand"} sortKey="stock" currentDir={sortState("stock")} onClick={handleHeaderSort} align="right" /></TableHead>
+                    <TableHead className="text-right"><SortHead label={language === "es" ? "Disponible" : "Available"} sortKey="available" currentDir={sortState("available")} onClick={handleHeaderSort} align="right" /></TableHead>
+                    <TableHead className="text-right"><SortHead label={t("cost")} sortKey="cost" currentDir={sortState("cost")} onClick={handleHeaderSort} align="right" /></TableHead>
+                    <TableHead className="text-right"><SortHead label={`= ${language === "es" ? "Valor" : "Value"}`} sortKey="value" currentDir={sortState("value")} onClick={handleHeaderSort} align="right" /></TableHead>
+                    <TableHead>{t("supplier")}</TableHead>
+                    <TableHead></TableHead>
+                  </TableRow>
+                </TableHeader>
                 <TableBody>
                   {filteredItems.map(item => {
                     const onHand = item.stock_quantity || 0;

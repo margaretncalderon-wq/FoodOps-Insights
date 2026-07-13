@@ -14,12 +14,34 @@ import { toast } from "sonner";
 import { 
   Package, Plus, Edit, Trash2, Search, AlertTriangle, ShoppingCart,
   History, Upload, DollarSign, Archive, Clock, Loader2, Camera, 
-  FileImage, Save, TrendingDown, TrendingUp, XCircle
+  FileImage, Save, TrendingDown, TrendingUp, XCircle,
+  ArrowUpDown, ArrowUp, ArrowDown
 } from "lucide-react";
 
 import { API_BASE as API } from "../../utils/api";
 import { formatDateOnly } from "../../utils/dates";
 import { fmtNum } from "../../utils/format";
+
+// Sortable table head — clickable label with directional arrow.
+// Passes the string sort key up to the parent so the parent can decide the
+// next state. Fully controlled component (no internal state).
+function SortHead({ label, sortKey, currentDir, onClick, align = "left" }) {
+  const Icon = currentDir === "asc" ? ArrowUp : currentDir === "desc" ? ArrowDown : ArrowUpDown;
+  const active = currentDir !== null;
+  return (
+    <button
+      type="button"
+      onClick={() => onClick(sortKey)}
+      data-testid={`sort-${sortKey}`}
+      className={`inline-flex items-center gap-1 select-none hover:text-foreground transition-colors ${
+        active ? "text-foreground font-semibold" : "text-muted-foreground"
+      } ${align === "right" ? "flex-row-reverse" : ""}`}
+    >
+      <span>{label}</span>
+      <Icon className={`w-3 h-3 ${active ? "opacity-100" : "opacity-50"}`} />
+    </button>
+  );
+}
 
 // Operations Supplies types
 const OPS_SUPPLY_TYPES = [
@@ -279,6 +301,48 @@ export function InventorySection() {
     return matchesSearch && matchesType && matchesCategory;
   });
 
+  // Sortable column headers — same pattern as Culinary Intelligence.
+  // `sortBy` is stored as "key_asc" / "key_desc"; text columns default to
+  // ascending on the first click, numeric columns to descending so the biggest
+  // values pop to the top.
+  const [sortBy, setSortBy] = useState("name_asc");
+  const columnDefaultDir = { name: "asc", type: "asc", category: "asc" };
+  const handleHeaderSort = (key) => {
+    const currentKey = sortBy.replace(/_(asc|desc)$/, "");
+    const currentDir = sortBy.endsWith("_desc") ? "desc" : "asc";
+    const nextDir = currentKey === key
+      ? (currentDir === "asc" ? "desc" : "asc")
+      : (columnDefaultDir[key] || "desc");
+    setSortBy(`${key}_${nextDir}`);
+  };
+  const sortState = (key) => {
+    const currentKey = sortBy.replace(/_(asc|desc)$/, "");
+    if (currentKey !== key) return null;
+    return sortBy.endsWith("_desc") ? "desc" : "asc";
+  };
+
+  const cmpText = (a, b) => (a || "").localeCompare(b || "", undefined, { sensitivity: "base" });
+  const cmpNum = (a, b) => (Number(a) || 0) - (Number(b) || 0);
+  const sortComparators = {
+    name_asc: (a, b) => cmpText(a.name, b.name),
+    name_desc: (a, b) => cmpText(b.name, a.name),
+    type_asc: (a, b) => cmpText(a.inventory_type, b.inventory_type),
+    type_desc: (a, b) => cmpText(b.inventory_type, a.inventory_type),
+    category_asc: (a, b) => cmpText(a.category, b.category),
+    category_desc: (a, b) => cmpText(b.category, a.category),
+    stock_asc: (a, b) => cmpNum(a.stock_quantity, b.stock_quantity),
+    stock_desc: (a, b) => cmpNum(b.stock_quantity, a.stock_quantity),
+    reserved_asc: (a, b) => cmpNum(a.reserved_quantity, b.reserved_quantity),
+    reserved_desc: (a, b) => cmpNum(b.reserved_quantity, a.reserved_quantity),
+    available_asc: (a, b) => cmpNum((a.stock_quantity || 0) - (a.reserved_quantity || 0), (b.stock_quantity || 0) - (b.reserved_quantity || 0)),
+    available_desc: (a, b) => cmpNum((b.stock_quantity || 0) - (b.reserved_quantity || 0), (a.stock_quantity || 0) - (a.reserved_quantity || 0)),
+    cost_asc: (a, b) => cmpNum(a.cost_per_unit, b.cost_per_unit),
+    cost_desc: (a, b) => cmpNum(b.cost_per_unit, a.cost_per_unit),
+    value_asc: (a, b) => cmpNum((a.stock_quantity || 0) * (a.cost_per_unit || 0), (b.stock_quantity || 0) * (b.cost_per_unit || 0)),
+    value_desc: (a, b) => cmpNum((b.stock_quantity || 0) * (b.cost_per_unit || 0), (a.stock_quantity || 0) * (a.cost_per_unit || 0)),
+  };
+  const sortedItems = [...filteredItems].sort(sortComparators[sortBy] || sortComparators.name_asc);
+
   // Calculate stats — respect the active filters so the number is contextual.
   // (Previously used `items` which showed the grand total regardless of filters,
   // making it hard to explain and often surprisingly high.)
@@ -478,27 +542,27 @@ export function InventorySection() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>{t("name")}</TableHead>
-                  <TableHead>{t("type")}</TableHead>
-                  <TableHead>{t("category")}</TableHead>
-                  <TableHead className="text-right">{t("onHand")}</TableHead>
-                  <TableHead className="text-right">{t("reserved")}</TableHead>
-                  <TableHead className="text-right">{t("available")}</TableHead>
-                  <TableHead className="text-right">{t("cost")}</TableHead>
-                  <TableHead className="text-right">= {language === "es" ? "Valor" : "Value"}</TableHead>
+                  <TableHead><SortHead label={t("name")} sortKey="name" currentDir={sortState("name")} onClick={handleHeaderSort} /></TableHead>
+                  <TableHead><SortHead label={t("type")} sortKey="type" currentDir={sortState("type")} onClick={handleHeaderSort} /></TableHead>
+                  <TableHead><SortHead label={t("category")} sortKey="category" currentDir={sortState("category")} onClick={handleHeaderSort} /></TableHead>
+                  <TableHead className="text-right"><SortHead label={t("onHand")} sortKey="stock" currentDir={sortState("stock")} onClick={handleHeaderSort} align="right" /></TableHead>
+                  <TableHead className="text-right"><SortHead label={t("reserved")} sortKey="reserved" currentDir={sortState("reserved")} onClick={handleHeaderSort} align="right" /></TableHead>
+                  <TableHead className="text-right"><SortHead label={t("available")} sortKey="available" currentDir={sortState("available")} onClick={handleHeaderSort} align="right" /></TableHead>
+                  <TableHead className="text-right"><SortHead label={t("cost")} sortKey="cost" currentDir={sortState("cost")} onClick={handleHeaderSort} align="right" /></TableHead>
+                  <TableHead className="text-right"><SortHead label={`= ${language === "es" ? "Valor" : "Value"}`} sortKey="value" currentDir={sortState("value")} onClick={handleHeaderSort} align="right" /></TableHead>
                   <TableHead>{t("costCenter")}</TableHead>
                   <TableHead className="text-right">{language === "es" ? "Acciones" : "Actions"}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredItems.length === 0 ? (
+                {sortedItems.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
                       {language === "es" ? "No hay items" : "No items found"}
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredItems.map(item => {
+                  sortedItems.map(item => {
                     const onHand = item.stock_quantity || 0;
                     const reserved = item.reserved_quantity || 0;
                     const available = onHand - reserved;
