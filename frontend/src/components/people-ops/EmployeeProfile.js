@@ -23,7 +23,7 @@ import {
   ArrowLeft, User, Briefcase, Wallet, Calendar, Building2,
   Mail, Phone, MapPin, RefreshCw, Edit2, Save, X,
   FileText, Clock, TrendingUp, AlertCircle, DollarSign, Sun, Moon,
-  Percent, Zap, CreditCard, History, Plus, ArrowRight, Trash2, AlertOctagon, CalendarDays
+  Percent, Zap, CreditCard, History, Plus, ArrowRight, Trash2, AlertOctagon, CalendarDays, Cake
 } from "lucide-react";
 import {
   Select,
@@ -433,6 +433,20 @@ export function EmployeeProfile() {
                         onChange={(e) => setEditData({ ...editData, national_id: e.target.value })}
                       />
                     </div>
+                    <div>
+                      <label className="text-sm text-muted-foreground">
+                        {isEs ? "Fecha de Nacimiento" : "Date of Birth"}
+                      </label>
+                      <Input
+                        type="date"
+                        value={editData.date_of_birth || ""}
+                        onChange={(e) => setEditData({ ...editData, date_of_birth: e.target.value })}
+                        data-testid="edit-date-of-birth"
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {isEs ? "Alimenta las alertas de cumpleaños" : "Feeds birthday alerts"}
+                      </p>
+                    </div>
                   </>
                 ) : (
                   <>
@@ -456,6 +470,12 @@ export function EmployeeProfile() {
                       <div className="flex items-center gap-3">
                         <FileText className="w-4 h-4 text-muted-foreground" />
                         <span>{isEs ? "Cédula:" : "ID:"} {employee.national_id}</span>
+                      </div>
+                    )}
+                    {employee.date_of_birth && (
+                      <div className="flex items-center gap-3">
+                        <Cake className="w-4 h-4 text-muted-foreground" />
+                        <span>{isEs ? "Nacimiento:" : "Birthday:"} {employee.date_of_birth}</span>
                       </div>
                     )}
                   </>

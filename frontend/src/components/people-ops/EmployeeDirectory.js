@@ -76,6 +76,7 @@ export function EmployeeDirectory() {
     last_name: "",
     email: "",
     phone: "",
+    date_of_birth: "",
     job_title: "",
     job_role_id: "",
     department: "",
@@ -165,7 +166,7 @@ export function EmployeeDirectory() {
       );
       setDialogOpen(false);
       setFormData({
-        first_name: "", last_name: "", email: "", phone: "",
+        first_name: "", last_name: "", email: "", phone: "", date_of_birth: "",
         job_title: "", job_role_id: "", department: "", department_id: "",
         cost_center_id: "", manager_id: "", is_manager: false,
         hire_date: new Date().toISOString().split("T")[0],
@@ -379,6 +380,20 @@ export function EmployeeDirectory() {
                 value={formData.phone}
                 onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
               />
+            </div>
+            <div>
+              <label className="text-sm font-medium">
+                {isEs ? "Fecha de Nacimiento" : "Date of Birth"}
+              </label>
+              <Input
+                data-testid="employee-date-of-birth"
+                type="date"
+                value={formData.date_of_birth}
+                onChange={(e) => setFormData({ ...formData, date_of_birth: e.target.value })}
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                {isEs ? "Activa alertas de cumpleaños en Fechas Clave" : "Enables birthday alerts in Key Dates"}
+              </p>
             </div>
 
             {/* Employment Info */}
