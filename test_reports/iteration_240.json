@@ -1,0 +1,51 @@
+{
+  "summary": "Hotfix regression: the CRITICAL NaN side-effect uncovered in iteration 239 is now 100% resolved. Backend and frontend verified for Ciano Gourmet (company_98d8b4725822) tenant with pame + margaret. BUG 2 (Recalcular Costos) — end-to-end green. BUG 3 (Overtime) copy + backend already validated in iter 239, code still present. BUG 1 (drag-drop) — already green in iter 238, code intact, not re-exercised per request.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter240_nan_fix.py",
+    "/app/backend/tests/test_recalculate_all_recipes.py",
+    "/app/test_reports/pytest/iter240_nan.xml",
+    "/app/test_reports/pytest/iter240_recalc.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "_safe_float + _sanitize_json_floats in /app/backend/routers/recipes.py (lines 51-100) are a clean, defensive fix — treats 'nan'/'inf'/None/'' as default and recursively strips NaN/Inf from responses.",
+    "compute_full_recipe_costing now uses _safe_float for all numeric inputs (prep_time, cook_time, labor_minutes, yield_quantity, sell_price) and sanitizes output before return — root cause resolved.",
+    "get_recipes wraps the response through _sanitize_json_floats — good defense-in-depth so one bad legacy row cannot 500 the whole tenant.",
+    "POST /api/recipes/repair-nan endpoint is in place and idempotent (returns repaired_count=0 after cleanup — verified in test_repair_nan_reports_zero_after_clean).",
+    "ProposalEditor.js still 4965 lines (carry-over from iter 238) — should be split, but not blocking."
+  ],
+  "updated_files": [],
+  "test_files_created": [
+    "/app/backend/tests/test_iter240_nan_fix.py (4 tests — all pass)"
+  ],
+  "success_rate": {"backend": "17/17 (100%) — 4/4 new NaN regression + 13/13 recalculate-all pytest suite", "frontend": "100% — recipes list loads for pame, dry-run modal opens, 19 recipes scanned, 'Everything is up to date' (as expected post repair), list reloads clean"},
+  "test_credentials": "pamemey27@gmail.com / Evoque2024!  |  margaret.n.calderon@gmail.com / Evoque2024!  |  demo.agency@kora.com / Evoque2024! — all in /app/memory/test_credentials.md",
+  "seed_data_creation": "test_recipe_crud_intact creates+deletes TEST_Recalc_Regression_Recipe (self-cleanup). test_dry_run_false_persists_changes runs a real recalculate-all against pame's tenant — confirmed NO re-poisoning.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "NaN fix is confirmed in place. Regression suite: pytest /app/backend/tests/test_iter240_nan_fix.py -v (needs REACT_APP_BACKEND_URL env var set OR the default in the file works). If any new tenant later reports GET /api/recipes 500, run POST /api/recipes/repair-nan as that tenant to fix, and add asserts in _safe_float for any new fields that surface. Frontend: Culinary Intelligence → Food Cost → Recipes tab shows 'Recalculate Costs' button (English label) — modal shows Recipes Scanned / Changed / Increased / Decreased KPIs; Apply button only appears when Changed > 0.",
+  "verification_details": {
+    "backend": {
+      "GET /api/recipes as pame": "200, 19 recipes, no NaN/Inf in labor_cost/total_cost_full/cost_per_portion/prep_time/cook_time",
+      "GET /api/recipes as margaret": "200, no NaN",
+      "POST /api/recipes/recalculate-all?dry_run=false": "200, no re-poisoning — subsequent GET still 200 and clean",
+      "POST /api/recipes/repair-nan (post-clean)": "200, repaired_count=0 (idempotent)",
+      "test_recalculate_all_recipes.py": "13/13 pass (previously 11/13 in iter 239)"
+    },
+    "frontend": {
+      "Login as pame → FoodOps → Food Cost → Recipes": "loads without error",
+      "Recipes list": "19 recipes visible (Buffet, Catibia Camarones al Ajillo, Catibia Chivo, etc.)",
+      "Recalculate Costs button": "opens dry-run modal 'Preview: Cost Recalculation' — Recipes Scanned=19, Changed=0, Everything is up to date",
+      "Modal close + list still renders after": "OK, no 500"
+    }
+  }
+}

@@ -48,6 +48,58 @@ logger = logging.getLogger(__name__)
 recipes_router = APIRouter(prefix="/recipes", tags=["Recipes"])
 
 
+def _safe_float(value: Any, default: float = 0.0) -> float:
+    """Coerce any value to a JSON-safe finite float.
+
+    Legacy tenants have prep_time/cook_time/yield_quantity stored as the string
+    'nan' (from a pandas-based migration), whitespace, or None. `float('nan')`
+    succeeds but produces NaN which then propagates through the costing pipeline
+    and gets persisted, breaking `GET /recipes` afterward (FastAPI refuses to
+    serialize NaN/Inf → 500 for the whole tenant).
+
+    This helper returns `default` for None, empty/whitespace strings, the
+    literal strings 'nan'/'inf' (any case), and any NaN/Inf float. Everything
+    else is best-effort coerced via `float()`.
+    """
+    if value is None:
+        return default
+    if isinstance(value, str):
+        s = value.strip().lower()
+        if s == "" or s == "nan" or s == "inf" or s == "-inf" or s == "none" or s == "null":
+            return default
+        try:
+            f = float(s)
+        except (TypeError, ValueError):
+            return default
+        if math.isnan(f) or math.isinf(f):
+            return default
+        return f
+    try:
+        f = float(value)
+    except (TypeError, ValueError):
+        return default
+    if math.isnan(f) or math.isinf(f):
+        return default
+    return f
+
+
+def _sanitize_json_floats(obj: Any) -> Any:
+    """Recursively replace NaN/Inf floats with 0 so the payload is JSON-safe.
+
+    Used as a defense-in-depth guard around `get_recipes` and the costing
+    output — one poisoned row must not nuke the whole tenant response.
+    """
+    if isinstance(obj, float):
+        if math.isnan(obj) or math.isinf(obj):
+            return 0
+        return obj
+    if isinstance(obj, dict):
+        return {k: _sanitize_json_floats(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_sanitize_json_floats(v) for v in obj]
+    return obj
+
+
 # ============ BODY (endpoints + helpers) — extracted from server.py ============
 @recipes_router.get("")
 async def get_recipes(recipe_type: Optional[str] = None, user: User = Depends(get_current_user)):
@@ -89,7 +141,10 @@ async def get_recipes(recipe_type: Optional[str] = None, user: User = Depends(ge
                 f"[recipes] skipping malformed row for company {user.company_id}: {row_err}"
             )
             continue
-    return safe_out
+    # Defense-in-depth: any legacy row with NaN/Inf floats (from a poisoned
+    # recalculate-all before the safe_float fix) would otherwise 500 the whole
+    # tenant. Sanitize once at the boundary.
+    return _sanitize_json_floats(safe_out)
 
 async def calculate_recipe_cost(ingredients: List[RecipeIngredient], sub_recipes: List[Dict] = None, company_id: str = "") -> tuple:
     """Calculate total cost for a recipe's ingredients and sub-recipes, with proper unit conversion.
@@ -244,27 +299,29 @@ async def compute_full_recipe_costing(
     """
     # Fetch config from company
     company = await db.companies.find_one({"company_id": company_id}, {"_id": 0})
-    chef_hourly = float((company or {}).get("chef_hourly_rate") or 20.0)
-    overhead_pct = float((company or {}).get("recipe_overhead_percent") or 15.0)
-    target_food_pct = float((company or {}).get("recipe_target_food_cost_percent") or 30.0)
-    
-    prep_min = float(recipe_data.get("prep_time_minutes") or recipe_data.get("prep_time") or 0)
-    cook_min = float(recipe_data.get("cook_time_minutes") or recipe_data.get("cook_time") or 0)
-    labor_min = float(recipe_data.get("labor_minutes") or 0)
+    chef_hourly = _safe_float((company or {}).get("chef_hourly_rate"), 20.0)
+    overhead_pct = _safe_float((company or {}).get("recipe_overhead_percent"), 15.0)
+    target_food_pct = _safe_float((company or {}).get("recipe_target_food_cost_percent"), 30.0)
+
+    prep_min = _safe_float(recipe_data.get("prep_time_minutes") or recipe_data.get("prep_time"), 0)
+    cook_min = _safe_float(recipe_data.get("cook_time_minutes") or recipe_data.get("cook_time"), 0)
+    labor_min = _safe_float(recipe_data.get("labor_minutes"), 0)
     total_labor_min = prep_min + cook_min + labor_min
     labor_cost = round((total_labor_min / 60.0) * chef_hourly, 4)
-    
+
+    # Guard against a poisoned food_cost value coming in from the caller.
+    food_cost = _safe_float(food_cost, 0.0)
     overhead_cost = round(food_cost * (overhead_pct / 100.0), 4)
     total_cost_full = round(food_cost + labor_cost + overhead_cost, 4)
-    
-    yield_qty = float(recipe_data.get("yield_quantity") or 1) or 1
-    portions = float(recipe_data.get("portions_per_yield") or 1) or 1
-    
+
+    yield_qty = _safe_float(recipe_data.get("yield_quantity"), 1) or 1
+    portions = _safe_float(recipe_data.get("portions_per_yield"), 1) or 1
+
     cost_per_yield = round(food_cost / yield_qty, 4)
     cost_per_portion_food = round(food_cost / (yield_qty * portions if yield_qty * portions else 1), 4)
     total_cost_per_portion = round(total_cost_full / (yield_qty * portions if yield_qty * portions else 1), 4)
-    
-    sell_price = float(recipe_data.get("sell_price") or recipe_data.get("default_portion_price") or 0)
+
+    sell_price = _safe_float(recipe_data.get("sell_price") or recipe_data.get("default_portion_price"), 0)
     food_cost_percent = round((cost_per_portion_food / sell_price * 100), 2) if sell_price > 0 else 0
     total_cost_percent = round((total_cost_per_portion / sell_price * 100), 2) if sell_price > 0 else 0
     contribution_dollar = round(sell_price - total_cost_per_portion, 4) if sell_price > 0 else 0
@@ -287,8 +344,8 @@ async def compute_full_recipe_costing(
     labor_per_portion = round(labor_cost / (yield_qty * portions if yield_qty * portions else 1), 4)
     prime_cost_per_portion = round(cost_per_portion_food + labor_per_portion, 4)
 
-    target_prime_pct = float((company or {}).get("recipe_target_prime_cost_percent") or 55.0)
-    target_margin_pct = float((company or {}).get("recipe_target_gross_margin_percent") or 65.0)
+    target_prime_pct = _safe_float((company or {}).get("recipe_target_prime_cost_percent"), 55.0)
+    target_margin_pct = _safe_float((company or {}).get("recipe_target_gross_margin_percent"), 65.0)
 
     # A) Food Cost Method — the industry default (Gastrokaisen, CaterTrax, Toast POS)
     suggested_sell_price = round(cost_per_portion_food / (target_food_pct / 100.0), 2) if target_food_pct > 0 else 0
@@ -300,7 +357,7 @@ async def compute_full_recipe_costing(
 
     price_gap_pct = round(((sell_price - suggested_sell_price) / suggested_sell_price * 100), 2) if suggested_sell_price > 0 else 0
     
-    return {
+    result = {
         "food_cost": round(food_cost, 4),
         "labor_cost": labor_cost,
         "overhead_cost": overhead_cost,
@@ -349,6 +406,8 @@ async def compute_full_recipe_costing(
             "computed_at": datetime.now(timezone.utc).isoformat(),
         },
     }
+    # Defense-in-depth: ensure no NaN/Inf leaks into Mongo or JSON response.
+    return _sanitize_json_floats(result)
 
 async def check_circular_dependency(parent_id: str, child_id: str, company_id: str, visited: set = None) -> bool:
     """Check if adding child_id as sub-recipe of parent_id would create a circular dependency"""
@@ -1205,6 +1264,71 @@ async def recalculate_all_recipes(
         "avg_diff_pct": round(avg_diff_pct, 2),
         "changes": changes[:200],  # cap UI payload
         "applied": not dry_run,
+    }
+
+
+@recipes_router.post("/repair-nan")
+async def repair_nan_recipes(user: User = Depends(get_current_user)):
+    """Repair rows already poisoned with NaN / stringified 'nan' costs.
+
+    Root cause: a previous `recalculate-all` pass persisted `float('nan')` for
+    recipes whose prep_time / cook_time was stored as the string 'nan'. Any
+    subsequent `GET /api/recipes` for that tenant then 500s because FastAPI's
+    JSON encoder refuses to serialize NaN.
+
+    This endpoint scans the tenant's recipes and coerces:
+      - prep_time / prep_time_minutes / cook_time / cook_time_minutes /
+        labor_minutes / yield_quantity / portions_per_yield → 0 (or 1 for
+        yield_quantity / portions_per_yield when 0 would break math)
+      - labor_cost / overhead_cost / total_cost_full / cost_per_yield /
+        cost_per_portion / total_cost_per_portion / food_cost_percent /
+        total_cost_percent / contribution_dollar / contribution_percent /
+        suggested_sell_price / price_gap_pct / total_cost → 0
+
+    Idempotent. Returns a report of the recipes that were repaired.
+    """
+    scanned = 0
+    repaired = []
+
+    numeric_zero_fields = [
+        "labor_cost", "overhead_cost", "total_cost_full", "cost_per_yield",
+        "cost_per_portion", "total_cost_per_portion", "prime_cost_per_portion",
+        "food_cost_percent", "total_cost_percent", "contribution_dollar",
+        "contribution_percent", "suggested_sell_price", "price_gap_pct",
+        "total_cost", "food_cost", "prep_time", "prep_time_minutes",
+        "cook_time", "cook_time_minutes", "labor_minutes", "sell_price",
+    ]
+    numeric_one_fields = ["yield_quantity", "portions_per_yield"]
+
+    async for r in db.recipes.find(
+        {"company_id": user.company_id}, {"_id": 0}
+    ):
+        scanned += 1
+        updates: Dict[str, Any] = {}
+        for f in numeric_zero_fields:
+            if f in r:
+                clean = _safe_float(r.get(f), 0)
+                if r.get(f) != clean and not (isinstance(r.get(f), (int, float)) and clean == float(r.get(f) or 0)):
+                    updates[f] = clean
+        for f in numeric_one_fields:
+            if f in r:
+                clean = _safe_float(r.get(f), 1) or 1
+                if r.get(f) != clean and not (isinstance(r.get(f), (int, float)) and clean == float(r.get(f) or 0)):
+                    updates[f] = clean
+        if updates:
+            await db.recipes.update_one(
+                {"recipe_id": r["recipe_id"], "company_id": user.company_id},
+                {"$set": updates},
+            )
+            repaired.append({
+                "recipe_id": r["recipe_id"],
+                "name": r.get("name"),
+                "fixed_fields": list(updates.keys()),
+            })
+    return {
+        "scanned": scanned,
+        "repaired_count": len(repaired),
+        "repaired": repaired[:100],
     }
 @recipes_router.get("/{recipe_id}/portion-formats")
 async def get_recipe_portion_formats(recipe_id: str, user: User = Depends(get_current_user)):
