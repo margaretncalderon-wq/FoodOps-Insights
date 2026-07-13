@@ -1201,38 +1201,59 @@ def calculate_liquidation_rd(
     daily_salary = base_salary / 23.83
     
     result = {
+        "country_code": "DO",
+        "applicable_law": "Código de Trabajo de la República Dominicana",
         "years_of_service": round(years_worked, 2),
         "months_worked": round(months_worked, 1),
         "daily_salary": round(daily_salary, 2),
         "preaviso_days": 0,
         "preaviso_amount": 0,
+        "preaviso_applies": False,
         "cesantia_days": 0,
         "cesantia_amount": 0,
+        "cesantia_applies": False,
         "vacation_amount": 0,
         "regalia_proportion": 0,
         "pending_salary_amount": 0,
         "gross_liquidation": 0,
         "total_deductions": pending_deductions,
         "net_liquidation": 0,
-        "breakdown": []
+        "breakdown": [],
+        "concepts_not_applicable": [],
     }
-    
-    # Preaviso & Cesantía only apply for unjustified dismissal
+
+    # Preaviso & Cesantía only apply for unjustified dismissal (desahucio)
     if termination_type == TerminationType.DISMISSAL_UNJUSTIFIED:
         # Preaviso
         preaviso_days = calculate_preaviso_days(months_worked)
         preaviso_amount = preaviso_days * daily_salary
         result["preaviso_days"] = preaviso_days
         result["preaviso_amount"] = round(preaviso_amount, 2)
+        result["preaviso_applies"] = True
         result["breakdown"].append(f"Preaviso ({preaviso_days} días): ${preaviso_amount:,.2f}")
-        
+
         # Cesantía
         cesantia_days = calculate_cesantia_days(months_worked)
         cesantia_amount = cesantia_days * daily_salary
         result["cesantia_days"] = cesantia_days
         result["cesantia_amount"] = round(cesantia_amount, 2)
+        result["cesantia_applies"] = True
         result["breakdown"].append(f"Cesantía ({cesantia_days} días): ${cesantia_amount:,.2f}")
-    
+    else:
+        # Explain WHY they are zero — critical for UX transparency.
+        _reason_map = {
+            TerminationType.RESIGNATION: "No aplica en Renuncia Voluntaria (Art. 76 y 80 C.T.)",
+            TerminationType.DISMISSAL_JUSTIFIED: "No aplica en Despido Justificado (Art. 88 C.T.)",
+            TerminationType.MUTUAL_AGREEMENT: "No aplica en Mutuo Acuerdo (salvo pacto escrito)",
+            TerminationType.CONTRACT_END: "No aplica en Fin de Contrato a término",
+            TerminationType.RETIREMENT: "No aplica en Jubilación",
+        }
+        _reason = _reason_map.get(termination_type, "No aplica para este tipo de terminación")
+        result["concepts_not_applicable"].extend([
+            {"concept": "preaviso", "reason": _reason},
+            {"concept": "cesantia", "reason": _reason},
+        ])
+
     # Vacaciones no disfrutadas (applies to all termination types)
     vacation_amount = vacation_days_owed * daily_salary
     result["vacation_amount"] = round(vacation_amount, 2)
@@ -1272,3 +1293,155 @@ def calculate_liquidation_rd(
     result["breakdown"].append(f"TOTAL NETO: ${result['net_liquidation']:,.2f}")
     
     return result
+
+
+def calculate_liquidation_us(
+    termination_type: TerminationType,
+    hire_date: str,
+    termination_date: str,
+    base_salary: float,
+    vacation_days_owed: float = 0,
+    pending_salary_days: int = 0,
+    pending_deductions: float = 0,
+    severance_weeks: float = 0,
+    hours_per_week: float = 40,
+) -> dict:
+    """
+    US liquidation. Federal FLSA does NOT mandate severance (preaviso/cesantía)
+    — only accrued wages + earned PTO/vacation (varies by state; some states
+    require payout on termination).
+
+    Christmas/13-month bonus is not standard in the US — omitted unless the
+    company opts in via `severance_weeks` for a policy-driven severance package.
+
+    Args:
+      severance_weeks: number of weeks of severance the company offers (policy).
+                        Multiplied by weekly salary.
+      hours_per_week:  used to derive hourly rate and daily rate.
+    """
+    from datetime import datetime as dt
+
+    hire_dt = dt.fromisoformat(hire_date)
+    term_dt = dt.fromisoformat(termination_date)
+    delta = term_dt - hire_dt
+    months_worked = delta.days / 30.44
+    years_worked = months_worked / 12
+
+    # US convention: monthly salary / 21.67 avg working days (or use weeks × 5)
+    weekly_salary = (base_salary * 12) / 52.0
+    daily_salary = weekly_salary / 5.0  # standard 5-day work week
+    hourly_rate = weekly_salary / hours_per_week if hours_per_week > 0 else 0
+
+    result = {
+        "country_code": "US",
+        "applicable_law": "US FLSA + state PTO payout rules (verify state law)",
+        "years_of_service": round(years_worked, 2),
+        "months_worked": round(months_worked, 1),
+        "daily_salary": round(daily_salary, 2),
+        "weekly_salary": round(weekly_salary, 2),
+        "hourly_rate": round(hourly_rate, 2),
+        "preaviso_days": 0,
+        "preaviso_amount": 0,
+        "preaviso_applies": False,
+        "cesantia_days": 0,
+        "cesantia_amount": 0,
+        "cesantia_applies": False,
+        "vacation_amount": 0,
+        "regalia_proportion": 0,
+        "severance_weeks": severance_weeks,
+        "severance_amount": 0,
+        "pending_salary_amount": 0,
+        "gross_liquidation": 0,
+        "total_deductions": pending_deductions,
+        "net_liquidation": 0,
+        "breakdown": [],
+        "concepts_not_applicable": [
+            {"concept": "preaviso", "reason": "US federal law does not mandate notice pay (FLSA)."},
+            {"concept": "cesantia", "reason": "US federal law does not mandate severance; check state law + company policy."},
+            {"concept": "regalia", "reason": "13th-month / Christmas bonus is not standard in the US."},
+        ],
+    }
+
+    # PTO payout — varies by state. We include it if the caller provides days.
+    vacation_amount = vacation_days_owed * daily_salary
+    result["vacation_amount"] = round(vacation_amount, 2)
+    if vacation_days_owed > 0:
+        result["breakdown"].append(f"PTO payout ({vacation_days_owed} days): ${vacation_amount:,.2f}")
+
+    # Policy severance — only if company offers it
+    if severance_weeks > 0:
+        severance_amount = severance_weeks * weekly_salary
+        result["severance_amount"] = round(severance_amount, 2)
+        result["breakdown"].append(f"Severance ({severance_weeks} weeks): ${severance_amount:,.2f}")
+
+    # Pending salary
+    pending_salary_amount = pending_salary_days * daily_salary
+    result["pending_salary_amount"] = round(pending_salary_amount, 2)
+    if pending_salary_days > 0:
+        result["breakdown"].append(f"Pending wages ({pending_salary_days} days): ${pending_salary_amount:,.2f}")
+
+    result["gross_liquidation"] = round(
+        result["vacation_amount"] + result["severance_amount"] + result["pending_salary_amount"], 2
+    )
+    result["net_liquidation"] = round(result["gross_liquidation"] - result["total_deductions"], 2)
+
+    if pending_deductions > 0:
+        result["breakdown"].append(f"(-) Deductions: -${pending_deductions:,.2f}")
+    result["breakdown"].append(f"NET TOTAL: ${result['net_liquidation']:,.2f}")
+
+    return result
+
+
+def calculate_liquidation(
+    country_code: Optional[str],
+    termination_type: TerminationType,
+    hire_date: str,
+    termination_date: str,
+    base_salary: float,
+    vacation_days_owed: float = 0,
+    regalia_months_worked: int = 0,
+    pending_salary_days: int = 0,
+    pending_deductions: float = 0,
+    severance_weeks: float = 0,
+) -> dict:
+    """Country-aware dispatcher for liquidation calculations.
+
+    Supported natively:
+      - DO (Dominican Republic) — full Código de Trabajo compliance
+      - US (United States)      — FLSA + PTO payout + policy severance
+
+    Anything else falls back to DO logic with a `verify_local_law=True` flag so
+    the UI can warn the user to double-check with a local labor lawyer.
+    """
+    code = (country_code or "DO").strip().upper()
+    if code == "US":
+        return calculate_liquidation_us(
+            termination_type=termination_type,
+            hire_date=hire_date,
+            termination_date=termination_date,
+            base_salary=base_salary,
+            vacation_days_owed=vacation_days_owed,
+            pending_salary_days=pending_salary_days,
+            pending_deductions=pending_deductions,
+            severance_weeks=severance_weeks,
+        )
+    # DO is the native default; anything unmapped uses DO with a warning flag.
+    result = calculate_liquidation_rd(
+        termination_type=termination_type,
+        hire_date=hire_date,
+        termination_date=termination_date,
+        base_salary=base_salary,
+        vacation_days_owed=vacation_days_owed,
+        regalia_months_worked=regalia_months_worked,
+        pending_salary_days=pending_salary_days,
+        pending_deductions=pending_deductions,
+    )
+    if code != "DO":
+        result["country_code"] = code
+        result["verify_local_law"] = True
+        result["applicable_law"] = (
+            f"Calculado con reglas de RD (país={code} no soportado nativamente). "
+            f"Verifica con abogado laboral local."
+        )
+    return result
+

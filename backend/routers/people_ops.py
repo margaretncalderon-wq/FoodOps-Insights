@@ -5992,7 +5992,7 @@ async def get_offboarding_records(
 @people_ops_router.post("/offboarding")
 async def create_offboarding(data: dict, user: User = Depends(get_current_user)):
     """Create an offboarding/termination record with liquidation calculation"""
-    from models.people_ops import calculate_liquidation_rd, TerminationType
+    from models.people_ops import calculate_liquidation, TerminationType
     
     company_id = user.company_id or user.active_org_id
     employee_id = data.get("employee_id")
@@ -6025,9 +6025,23 @@ async def create_offboarding(data: dict, user: User = Depends(get_current_user))
     
     # Get pending loan balance
     pending_deductions = employee.get("active_loan_balance", 0)
-    
-    # Calculate liquidation
-    liquidation = calculate_liquidation_rd(
+
+    # Resolve country from company (DO / US / other). Uses same alias mapping
+    # as payroll config so calculations stay consistent across the app.
+    company = await db.companies.find_one(
+        {"company_id": company_id}, {"_id": 0, "country": 1, "country_code": 1}
+    ) or {}
+    raw_country = company.get("country_code") or company.get("country") or "DO"
+    _country_aliases = {
+        "republica dominicana": "DO", "república dominicana": "DO", "dominican republic": "DO",
+        "estados unidos": "US", "united states": "US", "usa": "US", "u.s.a.": "US", "us": "US",
+    }
+    key = (raw_country or "").strip().lower()
+    country_code = _country_aliases.get(key, raw_country.strip().upper() if raw_country else "DO")
+
+    # Calculate liquidation (country-aware)
+    liquidation = calculate_liquidation(
+        country_code=country_code,
         termination_type=TerminationType(termination_type),
         hire_date=hire_date,
         termination_date=termination_date,
@@ -6035,7 +6049,8 @@ async def create_offboarding(data: dict, user: User = Depends(get_current_user))
         vacation_days_owed=vacation_days_owed,
         regalia_months_worked=regalia_months_worked,
         pending_salary_days=data.get("pending_salary_days", 0),
-        pending_deductions=pending_deductions
+        pending_deductions=pending_deductions,
+        severance_weeks=data.get("severance_weeks", 0),
     )
     
     offboarding_id = f"off_{uuid.uuid4().hex[:12]}"
@@ -6059,12 +6074,18 @@ async def create_offboarding(data: dict, user: User = Depends(get_current_user))
         
         "base_salary": monthly_salary,
         "daily_salary": liquidation["daily_salary"],
-        
+        "country_code": liquidation.get("country_code", country_code),
+        "applicable_law": liquidation.get("applicable_law"),
+        "concepts_not_applicable": liquidation.get("concepts_not_applicable", []),
+        "verify_local_law": liquidation.get("verify_local_law", False),
+
         "preaviso_days": liquidation["preaviso_days"],
         "preaviso_amount": liquidation["preaviso_amount"],
-        
+        "preaviso_applies": liquidation.get("preaviso_applies", False),
+
         "cesantia_days": liquidation["cesantia_days"],
         "cesantia_amount": liquidation["cesantia_amount"],
+        "cesantia_applies": liquidation.get("cesantia_applies", False),
         
         "vacation_days_owed": vacation_days_owed,
         "vacation_amount": liquidation["vacation_amount"],
@@ -6177,6 +6198,108 @@ async def update_offboarding(
     )
     
     return {"message": "Record updated"}
+
+
+@people_ops_router.post("/offboarding/{offboarding_id}/recalculate")
+async def recalculate_offboarding(
+    offboarding_id: str,
+    data: dict,
+    user: User = Depends(get_current_user),
+):
+    """Recompute the whole liquidation with a (possibly new) termination_type,
+    salary override, or vacation days. Used by the modal's "Cambiar tipo de
+    terminación" action so the user can see how each type affects the total.
+
+    Accepts (all optional): termination_type, base_salary_override,
+    vacation_days_owed_override, pending_salary_days, severance_weeks.
+    Only draft/pending_approval records can be recalculated.
+    """
+    from models.people_ops import calculate_liquidation, TerminationType
+
+    company_id = user.company_id or user.active_org_id
+    record = await db.offboarding.find_one(
+        {"company_id": company_id, "offboarding_id": offboarding_id}, {"_id": 0}
+    )
+    if not record:
+        raise HTTPException(status_code=404, detail="Record not found")
+    if record.get("status") not in ["draft", "pending_approval"]:
+        raise HTTPException(status_code=400, detail="Cannot recalculate processed records")
+
+    termination_type = data.get("termination_type") or record.get("termination_type") or "resignation"
+    base_salary = float(data.get("base_salary_override") or record.get("base_salary") or 0)
+    vacation_days = float(
+        data.get("vacation_days_owed_override")
+        if data.get("vacation_days_owed_override") is not None
+        else record.get("vacation_days_owed", 0)
+    )
+    pending_salary_days = int(data.get("pending_salary_days", record.get("pending_salary_days", 0)))
+    severance_weeks = float(data.get("severance_weeks", record.get("severance_weeks", 0)))
+    pending_deductions = float(record.get("pending_deductions", 0))
+
+    # Resolve country (same helper logic as create_offboarding)
+    company = await db.companies.find_one(
+        {"company_id": company_id}, {"_id": 0, "country": 1, "country_code": 1}
+    ) or {}
+    raw_country = (
+        record.get("country_code")
+        or company.get("country_code")
+        or company.get("country")
+        or "DO"
+    )
+    _country_aliases = {
+        "republica dominicana": "DO", "república dominicana": "DO", "dominican republic": "DO",
+        "estados unidos": "US", "united states": "US", "usa": "US", "u.s.a.": "US", "us": "US",
+    }
+    key = (raw_country or "").strip().lower()
+    country_code = _country_aliases.get(key, raw_country.strip().upper() if raw_country else "DO")
+
+    liquidation = calculate_liquidation(
+        country_code=country_code,
+        termination_type=TerminationType(termination_type),
+        hire_date=record["hire_date"],
+        termination_date=record["termination_date"],
+        base_salary=base_salary,
+        vacation_days_owed=vacation_days,
+        regalia_months_worked=record.get("regalia_months_worked", 0),
+        pending_salary_days=pending_salary_days,
+        pending_deductions=pending_deductions,
+        severance_weeks=severance_weeks,
+    )
+
+    now = datetime.now(timezone.utc)
+    update = {
+        "termination_type": termination_type,
+        "base_salary": base_salary,
+        "daily_salary": liquidation["daily_salary"],
+        "country_code": liquidation.get("country_code", country_code),
+        "applicable_law": liquidation.get("applicable_law"),
+        "concepts_not_applicable": liquidation.get("concepts_not_applicable", []),
+        "verify_local_law": liquidation.get("verify_local_law", False),
+        "preaviso_days": liquidation["preaviso_days"],
+        "preaviso_amount": liquidation["preaviso_amount"],
+        "preaviso_applies": liquidation.get("preaviso_applies", False),
+        "cesantia_days": liquidation["cesantia_days"],
+        "cesantia_amount": liquidation["cesantia_amount"],
+        "cesantia_applies": liquidation.get("cesantia_applies", False),
+        "vacation_days_owed": vacation_days,
+        "vacation_amount": liquidation["vacation_amount"],
+        "regalia_proportion": liquidation.get("regalia_proportion", 0),
+        "pending_salary_days": pending_salary_days,
+        "pending_salary_amount": liquidation["pending_salary_amount"],
+        "severance_weeks": severance_weeks,
+        "severance_amount": liquidation.get("severance_amount", 0),
+        "gross_liquidation": liquidation["gross_liquidation"],
+        "net_liquidation": liquidation["net_liquidation"],
+        "updated_at": now,
+    }
+    await db.offboarding.update_one(
+        {"offboarding_id": offboarding_id},
+        {"$set": update},
+    )
+    updated = await db.offboarding.find_one(
+        {"offboarding_id": offboarding_id}, {"_id": 0}
+    )
+    return {"message": "Recalculated", "record": updated, "liquidation": liquidation}
 
 
 @people_ops_router.post("/offboarding/{offboarding_id}/submit")

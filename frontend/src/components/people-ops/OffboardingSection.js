@@ -123,6 +123,23 @@ export function OffboardingSection() {
     setDetailDialogOpen(true);
   };
 
+  const handleRecalculate = async (nextType) => {
+    if (!selectedRecord?.offboarding_id) return;
+    try {
+      const res = await axios.post(
+        `${API}/api/people-ops/offboarding/${selectedRecord.offboarding_id}/recalculate`,
+        { termination_type: nextType },
+        { withCredentials: true }
+      );
+      // Refresh selectedRecord + list
+      const updated = res.data?.record;
+      if (updated) setSelectedRecord(updated);
+      fetchData();
+    } catch (err) {
+      alert(err.response?.data?.detail || (isEs ? "Error al recalcular" : "Recalculation error"));
+    }
+  };
+
   const handleSubmit = async (offboardingId) => {
     try {
       await axios.post(`${API}/api/people-ops/offboarding/${offboardingId}/submit`, {}, { withCredentials: true });
@@ -478,13 +495,57 @@ export function OffboardingSection() {
 
       {/* Detail Dialog */}
       <Dialog open={detailDialogOpen} onOpenChange={setDetailDialogOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl max-h-[92vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{isEs ? "Detalle de Liquidación" : "Severance Detail"}</DialogTitle>
           </DialogHeader>
 
-          {selectedRecord && (
+          {selectedRecord && (() => {
+            const ttype = selectedRecord.termination_type || "resignation";
+            const ttypeMeta = TERMINATION_TYPES[ttype] || TERMINATION_TYPES.resignation;
+            const country = (selectedRecord.country_code || "DO").toUpperCase();
+            const isUS = country === "US";
+            const notAppMap = {};
+            (selectedRecord.concepts_not_applicable || []).forEach((c) => {
+              notAppMap[c.concept] = c.reason;
+            });
+            const canEdit = ["draft", "pending_approval"].includes(selectedRecord.status);
+            return (
             <div className="space-y-4 py-4">
+              {/* Termination Type & Country header */}
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge className={ttypeMeta.color} data-testid="offboarding-detail-type-badge">
+                  {isEs ? ttypeMeta.label : ttypeMeta.labelEn}
+                </Badge>
+                <Badge variant="outline" className="border-slate-300" data-testid="offboarding-detail-country-badge">
+                  {isEs ? "País" : "Country"}: {country}
+                </Badge>
+                {selectedRecord.verify_local_law && (
+                  <Badge className="bg-amber-100 text-amber-700">
+                    {isEs ? "Verificar ley local" : "Verify local law"}
+                  </Badge>
+                )}
+                {canEdit && (
+                  <div className="ml-auto flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground">{isEs ? "Cambiar a:" : "Change to:"}</span>
+                    <Select value={ttype} onValueChange={handleRecalculate}>
+                      <SelectTrigger className="h-8 w-52" data-testid="offboarding-detail-change-type-select">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Object.entries(TERMINATION_TYPES).map(([k, v]) => (
+                          <SelectItem key={k} value={k}>{isEs ? v.label : v.labelEn}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+              </div>
+
+              {selectedRecord.applicable_law && (
+                <p className="text-xs text-muted-foreground -mt-2 italic">{selectedRecord.applicable_law}</p>
+              )}
+
               {/* Employee Info */}
               <div className="grid grid-cols-2 gap-4 p-4 rounded-lg bg-muted/50">
                 <div>
@@ -504,42 +565,92 @@ export function OffboardingSection() {
                   <p className="text-sm text-muted-foreground">{isEs ? "Fecha Terminación" : "Termination Date"}</p>
                   <p className="font-medium">{selectedRecord.termination_date}</p>
                 </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">{isEs ? "Salario Mensual" : "Monthly Salary"}</p>
+                  <p className="font-medium" data-testid="offboarding-detail-base-salary">{formatCurrency(selectedRecord.base_salary)}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">
+                    {isEs ? "Salario Diario" : "Daily Salary"}
+                    <span className="text-xs text-muted-foreground/70 ml-1">
+                      ({isUS ? "÷ 21.67" : "÷ 23.83"})
+                    </span>
+                  </p>
+                  <p className="font-medium" data-testid="offboarding-detail-daily-salary">{formatCurrency(selectedRecord.daily_salary)}</p>
+                </div>
               </div>
 
               {/* Liquidation Breakdown */}
               <div className="space-y-2">
                 <h4 className="font-medium">{isEs ? "Desglose de Liquidación" : "Severance Breakdown"}</h4>
-                
-                {selectedRecord.preaviso_amount > 0 && (
-                  <div className="flex justify-between p-2 rounded bg-muted/30">
-                    <span>{isEs ? "Preaviso" : "Notice"} ({selectedRecord.preaviso_days} {isEs ? "días" : "days"})</span>
+
+                {/* Preaviso — always shown, with reason if not applicable */}
+                {!isUS && (
+                  <div
+                    className={`flex justify-between p-2 rounded ${selectedRecord.preaviso_amount > 0 ? "bg-muted/30" : "bg-muted/10 text-muted-foreground"}`}
+                    data-testid="offboarding-detail-preaviso-row"
+                  >
+                    <span>
+                      {isEs ? "Preaviso" : "Notice"} ({selectedRecord.preaviso_days || 0} {isEs ? "días" : "days"})
+                      {!selectedRecord.preaviso_applies && notAppMap.preaviso && (
+                        <span className="block text-xs italic mt-0.5">{notAppMap.preaviso}</span>
+                      )}
+                    </span>
                     <span className="font-medium">{formatCurrency(selectedRecord.preaviso_amount)}</span>
                   </div>
                 )}
-                
-                {selectedRecord.cesantia_amount > 0 && (
-                  <div className="flex justify-between p-2 rounded bg-muted/30">
-                    <span>{isEs ? "Cesantía" : "Severance"} ({selectedRecord.cesantia_days} {isEs ? "días" : "days"})</span>
+
+                {/* Cesantía — always shown, with reason if not applicable */}
+                {!isUS && (
+                  <div
+                    className={`flex justify-between p-2 rounded ${selectedRecord.cesantia_amount > 0 ? "bg-muted/30" : "bg-muted/10 text-muted-foreground"}`}
+                    data-testid="offboarding-detail-cesantia-row"
+                  >
+                    <span>
+                      {isEs ? "Cesantía" : "Severance"} ({selectedRecord.cesantia_days || 0} {isEs ? "días" : "days"})
+                      {!selectedRecord.cesantia_applies && notAppMap.cesantia && (
+                        <span className="block text-xs italic mt-0.5">{notAppMap.cesantia}</span>
+                      )}
+                    </span>
                     <span className="font-medium">{formatCurrency(selectedRecord.cesantia_amount)}</span>
                   </div>
                 )}
-                
-                {selectedRecord.vacation_amount > 0 && (
-                  <div className="flex justify-between p-2 rounded bg-muted/30">
-                    <span>{isEs ? "Vacaciones" : "Vacation"} ({selectedRecord.vacation_days_owed} {isEs ? "días" : "days"})</span>
-                    <span className="font-medium">{formatCurrency(selectedRecord.vacation_amount)}</span>
-                  </div>
-                )}
-                
-                {selectedRecord.regalia_proportion > 0 && (
-                  <div className="flex justify-between p-2 rounded bg-muted/30">
-                    <span>{isEs ? "Regalía Proporcional" : "Proportional Bonus"} ({selectedRecord.regalia_months_worked} {isEs ? "meses" : "months"})</span>
+
+                {/* Vacaciones / PTO */}
+                <div className="flex justify-between p-2 rounded bg-muted/30" data-testid="offboarding-detail-vacation-row">
+                  <span>
+                    {isUS ? "PTO Payout" : (isEs ? "Vacaciones" : "Vacation")}
+                    {" "}({selectedRecord.vacation_days_owed || 0} {isEs && !isUS ? "días" : "days"})
+                  </span>
+                  <span className="font-medium">{formatCurrency(selectedRecord.vacation_amount)}</span>
+                </div>
+
+                {/* Regalía — DO only */}
+                {!isUS && (
+                  <div className="flex justify-between p-2 rounded bg-muted/30" data-testid="offboarding-detail-regalia-row">
+                    <span>{isEs ? "Regalía Proporcional" : "Proportional Bonus"} ({selectedRecord.regalia_months_worked || 0} {isEs ? "meses" : "months"})</span>
                     <span className="font-medium">{formatCurrency(selectedRecord.regalia_proportion)}</span>
                   </div>
                 )}
-                
+
+                {/* Severance — US only */}
+                {isUS && (
+                  <div
+                    className={`flex justify-between p-2 rounded ${selectedRecord.severance_amount > 0 ? "bg-muted/30" : "bg-muted/10 text-muted-foreground"}`}
+                    data-testid="offboarding-detail-severance-row"
+                  >
+                    <span>
+                      Severance ({selectedRecord.severance_weeks || 0} weeks)
+                      {(selectedRecord.severance_weeks || 0) === 0 && (
+                        <span className="block text-xs italic mt-0.5">Optional company policy — set severance_weeks to add.</span>
+                      )}
+                    </span>
+                    <span className="font-medium">{formatCurrency(selectedRecord.severance_amount || 0)}</span>
+                  </div>
+                )}
+
                 {selectedRecord.pending_salary_amount > 0 && (
-                  <div className="flex justify-between p-2 rounded bg-muted/30">
+                  <div className="flex justify-between p-2 rounded bg-muted/30" data-testid="offboarding-detail-pending-salary-row">
                     <span>{isEs ? "Salario Pendiente" : "Pending Salary"}</span>
                     <span className="font-medium">{formatCurrency(selectedRecord.pending_salary_amount)}</span>
                   </div>
@@ -549,7 +660,7 @@ export function OffboardingSection() {
                   <span className="font-medium text-blue-700">{isEs ? "Subtotal Bruto" : "Gross Subtotal"}</span>
                   <span className="font-bold text-blue-700">{formatCurrency(selectedRecord.gross_liquidation)}</span>
                 </div>
-                
+
                 {selectedRecord.total_deductions > 0 && (
                   <div className="flex justify-between p-2 rounded bg-red-50 border border-red-100">
                     <span className="text-red-700">{isEs ? "(-) Deducciones" : "(-) Deductions"}</span>
@@ -559,37 +670,40 @@ export function OffboardingSection() {
 
                 <div className="flex justify-between p-3 rounded-lg bg-emerald-50 border border-emerald-200">
                   <span className="font-bold text-emerald-700">{isEs ? "TOTAL NETO A PAGAR" : "NET TOTAL TO PAY"}</span>
-                  <span className="text-xl font-bold text-emerald-700">{formatCurrency(selectedRecord.net_liquidation)}</span>
+                  <span className="text-xl font-bold text-emerald-700" data-testid="offboarding-detail-net-total">{formatCurrency(selectedRecord.net_liquidation)}</span>
                 </div>
               </div>
-
-              <DialogFooter>
-                <Button
-                  variant="outline"
-                  onClick={() => handleDelete(selectedRecord)}
-                  className="text-red-600 border-red-300 hover:bg-red-50 mr-auto"
-                  data-testid="delete-offboarding-detail-btn"
-                >
-                  <Trash2 className="w-4 h-4 mr-2" />
-                  {isEs ? "Eliminar" : "Delete"}
-                </Button>
-                <Button variant="outline" onClick={() => setDetailDialogOpen(false)}>{isEs ? "Cerrar" : "Close"}</Button>
-                
-                {selectedRecord.status === "pending_approval" && (
-                  <Button onClick={() => handleApprove(selectedRecord.offboarding_id)} className="bg-emerald-600 hover:bg-emerald-700">
-                    <CheckCircle className="w-4 h-4 mr-2" />
-                    {isEs ? "Aprobar" : "Approve"}
-                  </Button>
-                )}
-                
-                {selectedRecord.status === "approved" && (
-                  <Button onClick={() => handleProcess(selectedRecord.offboarding_id)} className="bg-blue-600 hover:bg-blue-700">
-                    <CheckCircle className="w-4 h-4 mr-2" />
-                    {isEs ? "Marcar como Procesado" : "Mark as Processed"}
-                  </Button>
-                )}
-              </DialogFooter>
             </div>
+            );
+          })()}
+
+          {selectedRecord && (
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => handleDelete(selectedRecord)}
+                className="text-red-600 border-red-300 hover:bg-red-50 mr-auto"
+                data-testid="delete-offboarding-detail-btn"
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                {isEs ? "Eliminar" : "Delete"}
+              </Button>
+              <Button variant="outline" onClick={() => setDetailDialogOpen(false)}>{isEs ? "Cerrar" : "Close"}</Button>
+
+              {selectedRecord.status === "pending_approval" && (
+                <Button onClick={() => handleApprove(selectedRecord.offboarding_id)} className="bg-emerald-600 hover:bg-emerald-700">
+                  <CheckCircle className="w-4 h-4 mr-2" />
+                  {isEs ? "Aprobar" : "Approve"}
+                </Button>
+              )}
+
+              {selectedRecord.status === "approved" && (
+                <Button onClick={() => handleProcess(selectedRecord.offboarding_id)} className="bg-blue-600 hover:bg-blue-700">
+                  <CheckCircle className="w-4 h-4 mr-2" />
+                  {isEs ? "Marcar como Procesado" : "Mark as Processed"}
+                </Button>
+              )}
+            </DialogFooter>
           )}
         </DialogContent>
       </Dialog>

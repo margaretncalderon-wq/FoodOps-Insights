@@ -1,0 +1,41 @@
+{
+  "summary": "Full backend + frontend testing of multi-country liquidation dispatcher, recalculate endpoint, and Offboarding Detail Dialog. All requested behaviors verified working end-to-end on preview URL.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/people-ops/offboarding", "issue": "Response body only exposes country_code/applicable_law/concepts_not_applicable nested under `liquidation` key, not at top level. Record is correctly persisted with those fields on the row. Consider mirroring top-level for parity with GET listing response."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Offboarding Detail Dialog", "issues": ["NET TOTAL can go negative when deductions (loans) > gross (e.g., resignation with active loan showed $-38,924.36). Mathematically correct but consider surfacing an explicit 'Employee owes company' state instead of a red-flagged negative currency."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_offboarding_multicountry_iter241.py",
+    "/app/test_reports/pytest/iter241.xml"
+  ],
+  "action_items": [
+    "Optional: also mirror country_code/applicable_law/concepts_not_applicable at the top level of POST /offboarding response (currently only nested under `.liquidation`).",
+    "Optional UX: handle negative net (deductions > gross) with an explicit label instead of $-nnn."
+  ],
+  "critical_code_review_comments": [
+    "calculate_liquidation dispatcher cleanly handles DO/US and falls back to DO with verify_local_law=True for unmapped countries.",
+    "Country alias mapping is duplicated between create_offboarding and recalculate_offboarding (~10 lines). Consider extracting to a helper _resolve_country_code(company_id) to keep them in sync.",
+    "recalculate_offboarding correctly rejects processed/approved with 400. Good.",
+    "OffboardingSection Detail Dialog: uses IIFE inside JSX (line 503-678, 175 lines). Consider extracting to <OffboardingDetailBody selectedRecord ...> for readability, but not blocking.",
+    "handleRecalculate has no loading state on the Select — rapid toggles could interleave requests. Consider disabling the select while awaiting axios."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_offboarding_multicountry_iter241.py (new)"
+  ],
+  "success_rate": {"backend": "100% (6/6 passed, 1 skipped — no processed records exist)", "frontend": "100%"},
+  "test_credentials": "demo.agency@kora.com / Evoque2024!",
+  "seed_data_creation": "Created + deleted 1 TEST offboarding for María González during test_create_offboarding_stores_country_fields.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Multi-country liquidation (DO/US) dispatcher + recalculate endpoint verified. Detail dialog on Offboarding tab (People Ops → Offboarding) fully working: type/country badges, applicable_law italic line, monthly/daily salary with ÷23.83 divisor note, always-visible Preaviso/Cesantía rows with legal reason ('Art. 76 y 80 C.T.') on Resignation, live recalculation via Select in draft/pending records. Tested with existing demo agency records for María González (base_salary=$75k, 1.59 years). NET flips: $153,060.53 (Despido) ↔ $-38,924.36 (Renuncia, negative due to $73.5k loan).",
+  "rca_of_the_issue": "N/A — feature verification, no bugs found."
+}
