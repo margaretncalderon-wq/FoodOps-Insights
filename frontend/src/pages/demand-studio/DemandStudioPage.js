@@ -94,6 +94,22 @@ export default function DemandStudioPage() {
   // Check if tab group contains active tab
   const isGroupActive = (tabs) => tabs.includes(activeTab);
 
+  // Active-child label helpers — used to render the current tab inline
+  // next to the group label (e.g., "Channels · Social Media"). Keeps every
+  // dropdown across the app on the same "title · active-child" pattern.
+  const dsTabLabels = {
+    campaigns: isEs ? "Campañas" : "Campaigns",
+    activations: isEs ? "Activaciones" : "Activations",
+    "social-media": "Social Media",
+    "email-marketing": "Email Marketing",
+    "spend-ledger": isEs ? "Libro de Gastos" : "Spend Ledger",
+    insights: "Insights",
+  };
+  const dsActiveChildFor = (keys) => {
+    const k = keys.find((x) => x === activeTab);
+    return k ? dsTabLabels[k] : null;
+  };
+
   // Fetch user's organizations
   useEffect(() => {
     const fetchOrganizations = async () => {
@@ -281,7 +297,10 @@ export default function DemandStudioPage() {
                     data-testid="nav-planning-dropdown"
                   >
                     <Target className="w-4 h-4" />
-                    {isEs ? "Planificación" : "Planning"}
+                    <span>{isEs ? "Planificación" : "Planning"}</span>
+                    {dsActiveChildFor(["campaigns", "activations"]) && (
+                      <span className="text-xs opacity-70">· {dsActiveChildFor(["campaigns", "activations"])}</span>
+                    )}
                     <ChevronDown className="w-3 h-3" />
                   </button>
                 </DropdownMenuTrigger>
@@ -325,7 +344,10 @@ export default function DemandStudioPage() {
                     data-testid="nav-channels-dropdown"
                   >
                     <Send className="w-4 h-4" />
-                    {isEs ? "Canales" : "Channels"}
+                    <span>{isEs ? "Canales" : "Channels"}</span>
+                    {dsActiveChildFor(["social-media", "email-marketing"]) && (
+                      <span className="text-xs opacity-70">· {dsActiveChildFor(["social-media", "email-marketing"])}</span>
+                    )}
                     <ChevronDown className="w-3 h-3" />
                   </button>
                 </DropdownMenuTrigger>
@@ -386,7 +408,10 @@ export default function DemandStudioPage() {
                     data-testid="nav-analytics-dropdown"
                   >
                     <BarChart3 className="w-4 h-4" />
-                    {isEs ? "Análisis" : "Analytics"}
+                    <span>{isEs ? "Análisis" : "Analytics"}</span>
+                    {dsActiveChildFor(["spend-ledger", "insights"]) && (
+                      <span className="text-xs opacity-70">· {dsActiveChildFor(["spend-ledger", "insights"])}</span>
+                    )}
                     <ChevronDown className="w-3 h-3" />
                   </button>
                 </DropdownMenuTrigger>

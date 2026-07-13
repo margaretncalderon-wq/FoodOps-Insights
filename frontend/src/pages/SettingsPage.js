@@ -1224,7 +1224,18 @@ export default function SettingsPage() {
     );
   }
 
-  return (
+  
+  // __SETTINGS_TAB_LABELS__
+  const settingsTabLabels = {"branding": {"es": "Marca", "en": "Branding"}, "terminology": {"es": "Terminología", "en": "Terminology"}, "templates": {"es": "Plantillas", "en": "Templates"}, "locale": {"es": "Regional", "en": "Locale"}, "billing": {"es": "Facturación", "en": "Billing"}, "taxes": {"es": "Impuestos", "en": "Taxes"}, "org-structure": {"es": "Estructura Org.", "en": "Org Structure"}, "team": {"es": "Usuarios", "en": "Users"}, "roles": {"es": "Roles", "en": "Roles"}, "automations": {"es": "Reglas", "en": "Rules"}, "integrations": {"es": "Integraciones", "en": "Integrations"}, "crm-config": {"es": "CRM Config", "en": "CRM Config"}, "features": {"es": "Funciones", "en": "Features"}, "preferences": {"es": "Preferencias", "en": "Preferences"}, "leadforms": {"es": "Formularios", "en": "Lead Forms"}, "categories": {"es": "Categorías", "en": "Categories"}, "partner-capabilities": {"es": "Partner Capabilities", "en": "Partner Capabilities"}, "picklist": {"es": "Tipos de Ítems", "en": "Item Types"}, "inventory-categories": {"es": "Cat. Inventario", "en": "Inv. Categories"}, "margin-policy": {"es": "Política de Margen", "en": "Margin Policy"}, "import-export": {"es": "Importar/Exportar", "en": "Import/Export"}, "data-admin": {"es": "Admin Datos", "en": "Data Admin"}};
+  const getSettingsActiveChild = (keys) => {
+    const k = keys.find((x) => x === activeSettingsTab);
+    if (!k) return null;
+    const lbl = settingsTabLabels[k];
+    if (!lbl) return null;
+    return language === "es" ? lbl.es : lbl.en;
+  };
+
+return (
     <Layout>
       <div className="space-y-6" data-testid="settings-page">
         <div>
@@ -1246,6 +1257,9 @@ export default function SettingsPage() {
                   }`}>
                     <Palette className="w-4 h-4" />
                     {language === "es" ? "Empresa" : "Company"}
+                    {getSettingsActiveChild(["branding", "terminology", "templates", "locale"]) && (
+                      <span className="text-xs opacity-70">· {getSettingsActiveChild(["branding", "terminology", "templates", "locale"])}</span>
+                    )}
                     <ChevronDown className="w-3 h-3" />
                   </button>
                 </DropdownMenuTrigger>
@@ -1279,6 +1293,9 @@ export default function SettingsPage() {
                   }`}>
                     <DollarSign className="w-4 h-4" />
                     {language === "es" ? "Finanzas" : "Finance"}
+                    {getSettingsActiveChild(["billing", "taxes", "org-structure"]) && (
+                      <span className="text-xs opacity-70">· {getSettingsActiveChild(["billing", "taxes", "org-structure"])}</span>
+                    )}
                     <ChevronDown className="w-3 h-3" />
                   </button>
                 </DropdownMenuTrigger>
@@ -1308,6 +1325,9 @@ export default function SettingsPage() {
                   }`}>
                     <Users className="w-4 h-4" />
                     {language === "es" ? "Equipo" : "Team"}
+                    {getSettingsActiveChild(["team", "roles"]) && (
+                      <span className="text-xs opacity-70">· {getSettingsActiveChild(["team", "roles"])}</span>
+                    )}
                     <ChevronDown className="w-3 h-3" />
                   </button>
                 </DropdownMenuTrigger>
@@ -1333,6 +1353,9 @@ export default function SettingsPage() {
                   }`}>
                     <Zap className="w-4 h-4" />
                     {language === "es" ? "Automatización" : "Automation"}
+                    {getSettingsActiveChild(["automations", "integrations", "crm-config"]) && (
+                      <span className="text-xs opacity-70">· {getSettingsActiveChild(["automations", "integrations", "crm-config"])}</span>
+                    )}
                     <ChevronDown className="w-3 h-3" />
                   </button>
                 </DropdownMenuTrigger>
@@ -1362,6 +1385,9 @@ export default function SettingsPage() {
                   }`}>
                     <ToggleLeft className="w-4 h-4" />
                     {language === "es" ? "Producto" : "Product"}
+                    {getSettingsActiveChild(["features", "preferences"]) && (
+                      <span className="text-xs opacity-70">· {getSettingsActiveChild(["features", "preferences"])}</span>
+                    )}
                     <ChevronDown className="w-3 h-3" />
                   </button>
                 </DropdownMenuTrigger>
@@ -1387,6 +1413,9 @@ export default function SettingsPage() {
                   }`}>
                     <TrendingUp className="w-4 h-4" />
                     {language === "es" ? "Crecimiento" : "Growth"}
+                    {getSettingsActiveChild(["leadforms"]) && (
+                      <span className="text-xs opacity-70">· {getSettingsActiveChild(["leadforms"])}</span>
+                    )}
                     <ChevronDown className="w-3 h-3" />
                   </button>
                 </DropdownMenuTrigger>
@@ -1408,6 +1437,9 @@ export default function SettingsPage() {
                   }`}>
                     <Database className="w-4 h-4" />
                     {language === "es" ? "Catálogos" : "Catalogs"}
+                    {getSettingsActiveChild(["categories", "picklist", "inventory-categories", "margin-policy"]) && (
+                      <span className="text-xs opacity-70">· {getSettingsActiveChild(["categories", "picklist", "inventory-categories", "margin-policy"])}</span>
+                    )}
                     <ChevronDown className="w-3 h-3" />
                   </button>
                 </DropdownMenuTrigger>
@@ -1445,6 +1477,9 @@ export default function SettingsPage() {
                   }`}>
                     <Settings className="w-4 h-4" />
                     {language === "es" ? "Utilidades" : "Utilities"}
+                    {getSettingsActiveChild(["import-export", "data-admin"]) && (
+                      <span className="text-xs opacity-70">· {getSettingsActiveChild(["import-export", "data-admin"])}</span>
+                    )}
                     <ChevronDown className="w-3 h-3" />
                   </button>
                 </DropdownMenuTrigger>

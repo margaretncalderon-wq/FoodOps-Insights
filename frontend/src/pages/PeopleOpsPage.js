@@ -134,6 +134,27 @@ export default function PeopleOpsPage() {
   // Check if tab group contains active tab
   const isGroupActive = (tabs) => tabs.includes(activeTab);
 
+  // Labels for each tab key — used to render the active child inline
+  // next to the group label on the dropdown trigger (e.g., "Payroll · Periods").
+  const tabLabels = {
+    payroll: isEs ? "Períodos" : "Periods",
+    "variable-pay": isEs ? "Pago Variable" : "Variable Pay",
+    "payroll-config": isEs ? "Configuración" : "Config",
+    "month-end": isEs ? "Cierre de Mes" : "Month-End",
+    "time-off": isEs ? "Ausencias" : "Time Off",
+    overtime: isEs ? "Horas Extra" : "Overtime",
+    "time-clock": isEs ? "Reloj Checador" : "Time Clock",
+    loans: isEs ? "Préstamos" : "Loans",
+    benefits: isEs ? "Beneficios" : "Benefits",
+    recruitment: isEs ? "Reclutamiento" : "Recruitment",
+    onboarding: "Onboarding",
+    performance: isEs ? "Desempeño" : "Performance",
+  };
+  const activeChildFor = (keys) => {
+    const k = keys.find((x) => x === activeTab);
+    return k ? tabLabels[k] : null;
+  };
+
   return (
     <Layout>
       <div className="space-y-6" data-testid="people-ops-page">
@@ -227,7 +248,10 @@ export default function PeopleOpsPage() {
                     data-testid="nav-payroll-dropdown"
                   >
                     <Wallet className="w-4 h-4" />
-                    {isEs ? "Nómina" : "Payroll"}
+                    <span>{isEs ? "Nómina" : "Payroll"}</span>
+                    {activeChildFor(["payroll", "variable-pay", "payroll-config", "month-end"]) && (
+                      <span className="text-xs opacity-70">· {activeChildFor(["payroll", "variable-pay", "payroll-config", "month-end"])}</span>
+                    )}
                     <ChevronDown className="w-3 h-3" />
                   </button>
                 </DropdownMenuTrigger>
@@ -278,7 +302,10 @@ export default function PeopleOpsPage() {
                     data-testid="nav-time-dropdown"
                   >
                     <Clock className="w-4 h-4" />
-                    {isEs ? "Tiempo" : "Time"}
+                    <span>{isEs ? "Tiempo" : "Time"}</span>
+                    {activeChildFor(["time-off", "overtime", "time-clock"]) && (
+                      <span className="text-xs opacity-70">· {activeChildFor(["time-off", "overtime", "time-clock"])}</span>
+                    )}
                     <ChevronDown className="w-3 h-3" />
                   </button>
                 </DropdownMenuTrigger>
@@ -322,7 +349,10 @@ export default function PeopleOpsPage() {
                     data-testid="nav-benefits-dropdown"
                   >
                     <Gift className="w-4 h-4" />
-                    {isEs ? "Beneficios" : "Benefits"}
+                    <span>{isEs ? "Beneficios" : "Benefits"}</span>
+                    {activeChildFor(["loans", "benefits"]) && (
+                      <span className="text-xs opacity-70">· {activeChildFor(["loans", "benefits"])}</span>
+                    )}
                     <ChevronDown className="w-3 h-3" />
                   </button>
                 </DropdownMenuTrigger>
@@ -374,7 +404,10 @@ export default function PeopleOpsPage() {
                     data-testid="nav-talent-dropdown"
                   >
                     <Award className="w-4 h-4" />
-                    {isEs ? "Talento" : "Talent"}
+                    <span>{isEs ? "Talento" : "Talent"}</span>
+                    {activeChildFor(["recruitment", "onboarding", "performance"]) && (
+                      <span className="text-xs opacity-70">· {activeChildFor(["recruitment", "onboarding", "performance"])}</span>
+                    )}
                     <ChevronDown className="w-3 h-3" />
                   </button>
                 </DropdownMenuTrigger>

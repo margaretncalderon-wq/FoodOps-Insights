@@ -165,7 +165,10 @@ export default function BusinessClarityPage() {
           }`}
         >
           <Icon className="w-4 h-4" />
-          {label}
+          <span>{label}</span>
+          {items.find((it) => location.pathname === it.path) && (
+            <span className="text-xs opacity-70">· {items.find((it) => location.pathname === it.path).label}</span>
+          )}
           <ChevronDown className="w-3 h-3" />
         </button>
       </DropdownMenuTrigger>

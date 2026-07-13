@@ -174,7 +174,10 @@ export default function ClientEngagementPage() {
                   }`}
                 >
                   <Users className="w-4 h-4" />
-                  {getCrmLabel() ? `CRM: ${getCrmLabel()}` : "CRM"}
+                  <span>CRM</span>
+                  {getCrmLabel() && (
+                    <span className="text-xs opacity-70">· {getCrmLabel()}</span>
+                  )}
                   {totalCrmBadge > 0 && (
                     <Badge variant="secondary" className="text-xs ml-1">
                       {totalCrmBadge}
