@@ -12,6 +12,7 @@ import {
   ArrowRight, Check, Globe, Sparkles, MapPin, Mic2, Zap, Star,
   TrendingUp, ChevronRight, Quote, Loader2,
 } from "lucide-react";
+import { KoraLogo } from "../components/KoraLogo";
 
 // =============================================================
 // MODULES (same order as in-app sidebar: general → specific)
@@ -743,9 +744,7 @@ export default function LandingPage() {
       <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-xl border-b border-[#E5E7EB]">
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-3" data-testid="header-logo">
-            <div className="w-10 h-10 rounded-xl overflow-hidden bg-[#1F2937] flex items-center justify-center p-1">
-              <img src="/kora-logo.png" alt="Kora OS" className="w-full h-full object-contain" />
-            </div>
+            <KoraLogo size={40} className="rounded-xl" />
             <div className="leading-tight">
               <span className="block font-heading text-base font-bold text-[#1F2937]">Kora OS</span>
               <span className="block text-[10px] text-[#AED768] font-medium">Designed for clarity</span>
@@ -1227,9 +1226,7 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto">
           <div className="flex flex-col md:flex-row items-center justify-between gap-5">
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-lg overflow-hidden bg-[#1F2937] flex items-center justify-center p-1">
-                <img src="/kora-logo.png" alt="Kora OS" className="w-full h-full object-contain" />
-              </div>
+              <KoraLogo size={36} className="rounded-lg" />
               <div className="leading-tight">
                 <span className="block font-heading text-sm font-bold">Kora OS</span>
                 <span className="block text-[10px] text-[#AED768]">Designed for clarity</span>

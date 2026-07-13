@@ -7,6 +7,7 @@ import { useLanguage } from "../contexts/LanguageContext";
 import { useModules } from "../contexts/ModulesContext";
 import { usePresence } from "../hooks/usePresence";
 import { PresenceAvatarStack } from "./PresenceAvatars";
+import { KoraLogo } from "./KoraLogo";
 import { Button } from "./ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import {
@@ -138,9 +139,7 @@ export const Layout = ({ children }) => {
         {/* Logo */}
         <div className="p-6 border-b border-white/10">
           <Link to="/dashboard" className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl overflow-hidden bg-[#192332] flex items-center justify-center">
-              <img src="/kora-icon.png" alt="Kora OS" className="w-full h-full object-contain" />
-            </div>
+            <KoraLogo size={40} className="rounded-xl" />
             <div>
               <h1 className="font-heading text-lg font-semibold text-white">Kora OS</h1>
               <p className="text-xs text-[#AED768]/80">Designed for clarity</p>
@@ -257,9 +256,7 @@ export const Layout = ({ children }) => {
       <header className="md:hidden fixed top-0 left-0 right-0 h-16 bg-white border-b border-border z-50">
         <div className="flex items-center justify-between h-full px-4">
           <Link to="/dashboard" className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg overflow-hidden bg-[#192332] flex items-center justify-center">
-              <img src="/kora-icon.png" alt="Kora OS" className="w-full h-full object-contain" />
-            </div>
+            <KoraLogo size={32} className="rounded-lg" />
             <span className="font-heading font-semibold text-[#1F2937]">Kora OS</span>
           </Link>
           <div className="flex items-center gap-2">

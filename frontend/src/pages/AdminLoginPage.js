@@ -7,6 +7,7 @@ import { Label } from "../components/ui/label";
 import { Card, CardContent } from "../components/ui/card";
 import { toast } from "sonner";
 import { Loader2, Shield } from "lucide-react";
+import { KoraLogo } from "../components/KoraLogo";
 
 export default function AdminLoginPage() {
   const { login, loading } = useAuth();
@@ -37,8 +38,8 @@ export default function AdminLoginPage() {
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="w-16 h-16 rounded-2xl bg-[#192332] flex items-center justify-center mx-auto mb-4 overflow-hidden ring-2 ring-red-500/40">
-            <img src="/kora-icon.png" alt="Kora OS" className="w-full h-full object-contain" />
+          <div className="mx-auto mb-4 inline-block ring-2 ring-red-500/40 rounded-2xl">
+            <KoraLogo size={64} className="rounded-2xl" />
           </div>
           <h1 className="font-heading text-3xl font-bold text-white">Kora OS</h1>
           <p className="text-slate-400 mt-2 flex items-center justify-center gap-2">

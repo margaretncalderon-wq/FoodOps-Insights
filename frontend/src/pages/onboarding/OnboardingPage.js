@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useLanguage } from "../../contexts/LanguageContext";
 import axios from "axios";
 import { toast } from "sonner";
+import { KoraLogo } from "../../components/KoraLogo";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../../components/ui/card";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
@@ -186,8 +187,8 @@ export default function OnboardingPage() {
       <div className="max-w-4xl mx-auto">
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="w-16 h-16 rounded-2xl bg-[#192332] flex items-center justify-center mx-auto mb-4 overflow-hidden shadow-md">
-            <img src="/kora-icon.png" alt="Kora OS" className="w-full h-full object-contain" />
+          <div className="mx-auto mb-4 inline-block rounded-2xl shadow-md">
+            <KoraLogo size={64} className="rounded-2xl" />
           </div>
           <h1 className="text-3xl font-bold text-primary">Kora OS</h1>
           <p className="text-muted-foreground">

@@ -6,6 +6,7 @@ import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { toast } from "sonner";
 import { Loader2, Check, Building2, Briefcase, Wrench, ChevronRight, ChevronLeft, Users, Calendar, ChefHat, Package, Sparkles, Clock, Shield } from "lucide-react";
+import { KoraLogo } from "../components/KoraLogo";
 
 // Kora Core - Required subscription
 const KORA_CORE = {
@@ -265,9 +266,7 @@ export default function RegisterPage() {
         <div className="w-full max-w-md mx-auto">
           {/* Logo */}
           <Link to="/" className="inline-flex items-center gap-2 mb-8">
-            <div className="w-8 h-8 rounded-lg overflow-hidden bg-[#192332] flex items-center justify-center">
-              <img src="/kora-icon.png" alt="Kora OS" className="w-full h-full object-contain" />
-            </div>
+            <KoraLogo size={32} className="rounded-lg" />
             <span className="font-heading text-lg font-semibold text-[#1F2937]">Kora OS</span>
           </Link>
 
@@ -787,9 +786,7 @@ export default function RegisterPage() {
         <div className="relative z-10 bg-white rounded-2xl shadow-2xl p-6 w-full max-w-md transform rotate-[2deg]">
           {/* Mock dashboard header */}
           <div className="flex items-center gap-3 mb-6">
-            <div className="w-10 h-10 bg-[#192332] rounded-lg overflow-hidden flex items-center justify-center">
-              <img src="/kora-icon.png" alt="Kora OS" className="w-full h-full object-contain" />
-            </div>
+            <KoraLogo size={40} className="rounded-lg" />
             <div>
               <p className="font-semibold text-[#1F2937] text-sm">Kora OS</p>
               <p className="text-xs text-[#9CA3AF]">{isEs ? "Tu nuevo espacio" : "Your new workspace"}</p>

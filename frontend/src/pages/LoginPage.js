@@ -6,6 +6,7 @@ import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { toast } from "sonner";
 import { Loader2, Check, Users, Calendar, ChefHat, Briefcase } from "lucide-react";
+import { KoraLogo } from "../components/KoraLogo";
 
 export default function LoginPage() {
   const { login, loginWithGoogle, loading } = useAuth();
@@ -188,9 +189,7 @@ export default function LoginPage() {
         <div className="relative z-10 bg-white rounded-2xl shadow-2xl p-6 w-full max-w-md transform rotate-[-2deg]">
           {/* Mock dashboard header */}
           <div className="flex items-center gap-3 mb-6">
-            <div className="w-10 h-10 bg-[#192332] rounded-lg overflow-hidden flex items-center justify-center">
-              <img src="/kora-icon.png" alt="Kora OS" className="w-full h-full object-contain" />
-            </div>
+            <KoraLogo size={40} className="rounded-lg" />
             <div>
               <p className="font-semibold text-[#1F2937] text-sm">Kora OS</p>
               <p className="text-xs text-[#9CA3AF]">Dashboard</p>
@@ -223,9 +222,7 @@ export default function LoginPage() {
 
         {/* Kora logo accent */}
         <div className="absolute top-12 left-12 flex items-center gap-3">
-          <div className="w-12 h-12 bg-[#192332] rounded-xl overflow-hidden flex items-center justify-center">
-            <img src="/kora-icon.png" alt="Kora OS" className="w-full h-full object-contain" />
-          </div>
+          <KoraLogo size={48} className="rounded-xl" />
           <span className="text-white/80 font-heading text-xl font-semibold">Kora OS</span>
         </div>
 
