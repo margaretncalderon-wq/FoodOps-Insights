@@ -10,10 +10,8 @@ import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { Separator } from "../components/ui/separator";
 import { toast } from "sonner";
-import { 
-  FileText, CheckCircle, Calendar, Users, MapPin, ChefHat, Loader2,
-  Utensils, Wine, Armchair, Package, Clock, DollarSign, CalendarDays
-} from "lucide-react";
+import { FileText, CheckCircle, Calendar, Users, MapPin, ChefHat, Utensils, Wine, Armchair, Package, Clock, DollarSign, CalendarDays } from "lucide-react";
+import { KoraLoader } from "../components/KoraLoader";
 import { formatDateOnly } from "../utils/dates";
 import { fmtNum } from "../utils/format";
 
@@ -98,7 +96,7 @@ export default function ClientPortal() {
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        <KoraLoader size={32} />
       </div>
     );
   }
@@ -658,7 +656,7 @@ export default function ClientPortal() {
                     {isEs ? "Cancelar" : "Cancel"}
                   </Button>
                   <Button onClick={handleSign} disabled={saving} data-testid="confirm-portal-sign-btn">
-                    {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <CheckCircle className="w-4 h-4 mr-2" />}
+                    {saving ? <KoraLoader size={16} className="mr-2" /> : <CheckCircle className="w-4 h-4 mr-2" />}
                     {isProposal
                       ? (isEs ? "Firmar y Aprobar" : "Sign & Approve")
                       : (isEs ? "Firmar y Enviar" : "Sign & Submit")}

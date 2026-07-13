@@ -10,7 +10,8 @@ import { Badge } from "./ui/badge";
 import { Switch } from "./ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "./ui/tabs";
-import { Mail, Bell, Loader2, Save, Eye, Send, Clock, X, Info, History, Sparkles } from "lucide-react";
+import { Mail, Bell, Save, Eye, Send, Clock, X, Info, History, Sparkles } from "lucide-react";
+import { KoraLoader } from "./KoraLoader";
 import { API_BASE as API } from "../utils/api";
 
 const SECTION_META = [
@@ -163,7 +164,7 @@ export default function CulinaryDigestDialog({ open, onOpenChange }) {
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="max-w-2xl">
           <div className="py-12 text-center">
-            {loading ? <Loader2 className="w-6 h-6 animate-spin mx-auto" /> : null}
+            {loading ? <KoraLoader size={24} className="mx-auto" /> : null}
           </div>
         </DialogContent>
       </Dialog>
@@ -315,7 +316,7 @@ export default function CulinaryDigestDialog({ open, onOpenChange }) {
           <TabsContent value="preview" className="space-y-3 mt-3">
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={loadPreview} disabled={previewLoading} data-testid="cd-load-preview-btn">
-                {previewLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Eye className="w-4 h-4" />}
+                {previewLoading ? <KoraLoader size={16} /> : <Eye className="w-4 h-4" />}
                 <span className="ml-1.5">{isEs ? "Cargar vista previa" : "Load Preview"}</span>
               </Button>
             </div>
@@ -364,11 +365,11 @@ export default function CulinaryDigestDialog({ open, onOpenChange }) {
 
         <DialogFooter className="gap-2 mt-2">
           <Button onClick={dispatch} disabled={generating} variant="outline" className="border-amber-300 text-amber-700 hover:bg-amber-50" data-testid="cd-generate-now-btn">
-            {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+            {generating ? <KoraLoader size={16} /> : <Send className="w-4 h-4" />}
             <span className="ml-1.5">{isEs ? "Enviar ahora" : "Send Now"}</span>
           </Button>
           <Button onClick={save} disabled={saving} data-testid="cd-save-btn">
-            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+            {saving ? <KoraLoader size={16} /> : <Save className="w-4 h-4" />}
             <span className="ml-1.5">{isEs ? "Guardar" : "Save"}</span>
           </Button>
         </DialogFooter>

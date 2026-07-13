@@ -10,11 +10,9 @@ import { Badge } from "../../components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs";
 import { Switch } from "../../components/ui/switch";
 import { Checkbox } from "../../components/ui/checkbox";
-import {
-  Settings, Globe, FileText, Code, Copy, Check, ExternalLink,
-  Loader2, Save, Eye, DollarSign, History, RefreshCw, Package, Layers
-} from "lucide-react";
+import { Settings, Globe, FileText, Code, Copy, Check, ExternalLink, Save, Eye, DollarSign, History, RefreshCw, Package, Layers } from "lucide-react";
 
+import { KoraLoader } from "../../components/KoraLoader";
 import { API_BASE as API } from "../../utils/api";
 
 export default function SuperAdminSettings() {
@@ -278,7 +276,7 @@ export default function SuperAdminSettings() {
             <CardContent className="space-y-6">
               {coreLoading ? (
                 <div className="flex items-center justify-center py-8">
-                  <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                  <KoraLoader size={24} />
                 </div>
               ) : (
                 <>
@@ -387,7 +385,7 @@ export default function SuperAdminSettings() {
                   {/* Save Button */}
                   <Button onClick={handleSaveCoreConfig} disabled={savingCore} className="w-full">
                     {savingCore ? (
-                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                      <KoraLoader size={16} className="mr-2" />
                     ) : (
                       <Save className="w-4 h-4 mr-2" />
                     )}
@@ -416,7 +414,7 @@ export default function SuperAdminSettings() {
               <CardContent className="space-y-6">
                 {pricingLoading ? (
                   <div className="flex items-center justify-center py-8">
-                    <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                    <KoraLoader size={24} />
                   </div>
                 ) : (
                   <>
@@ -543,7 +541,7 @@ export default function SuperAdminSettings() {
                     {/* Save Button */}
                     <Button onClick={handleSavePricing} disabled={savingPricing} className="w-full">
                       {savingPricing ? (
-                        <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                        <KoraLoader size={16} className="mr-2" />
                       ) : (
                         <Save className="w-4 h-4 mr-2" />
                       )}
@@ -689,7 +687,7 @@ export default function SuperAdminSettings() {
                 </div>
 
                 <Button onClick={handleSaveConfig} disabled={loading} className="w-full">
-                  {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
+                  {loading ? <KoraLoader size={16} className="mr-2" /> : <Save className="w-4 h-4 mr-2" />}
                   Guardar Configuración
                 </Button>
               </CardContent>
@@ -920,7 +918,7 @@ export default function SuperAdminSettings() {
                 className="w-full"
               >
                 {repairLoading ? (
-                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                  <KoraLoader size={16} className="mr-2" />
                 ) : (
                   <RefreshCw className="w-4 h-4 mr-2" />
                 )}
@@ -1068,7 +1066,7 @@ function PlansEditor() {
               disabled={savingId === p.plan_id}
               data-testid={`plan-save-${p.plan_id}`}
             >
-              {savingId === p.plan_id && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+              {savingId === p.plan_id && <KoraLoader size={16} className="mr-2" />}
               <Save className="w-4 h-4 mr-2" /> Guardar
             </Button>
           </CardContent>

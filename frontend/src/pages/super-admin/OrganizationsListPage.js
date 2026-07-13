@@ -11,11 +11,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table";
 import { Progress } from "../../components/ui/progress";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "../../components/ui/dialog";
-import { 
-  Building2, Search, Filter, ChevronLeft, ChevronRight, 
-  Eye, Ban, Check, Users, Calendar, Loader2, RefreshCw, Key, Trash2, Plus
-} from "lucide-react";
+import { Building2, Search, Filter, ChevronLeft, ChevronRight, Eye, Ban, Check, Users, Calendar, RefreshCw, Key, Trash2, Plus } from "lucide-react";
 
+import { KoraLoader } from "../../components/KoraLoader";
 import { API_BASE as API } from "../../utils/api";
 import { formatDateOnly } from "../../utils/dates";
 
@@ -330,7 +328,7 @@ export default function OrganizationsListPage() {
         <CardContent className="p-0">
           {loading ? (
             <div className="flex items-center justify-center py-20">
-              <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
+              <KoraLoader size={32} />
             </div>
           ) : (
             <Table>
@@ -576,7 +574,7 @@ export default function OrganizationsListPage() {
               className="bg-amber-600 hover:bg-amber-700"
             >
               {changingPassword ? (
-                <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                <KoraLoader size={16} className="mr-2" />
               ) : (
                 <Key className="w-4 h-4 mr-2" />
               )}
@@ -641,7 +639,7 @@ export default function OrganizationsListPage() {
               className="bg-red-600 hover:bg-red-700"
             >
               {deleting ? (
-                <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                <KoraLoader size={16} className="mr-2" />
               ) : (
                 <Trash2 className="w-4 h-4 mr-2" />
               )}
@@ -692,7 +690,7 @@ export default function OrganizationsListPage() {
               Cancelar
             </Button>
             <Button onClick={handleCreateOrg} disabled={creatingOrg || !newOrgName}>
-              {creatingOrg ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
+              {creatingOrg ? <KoraLoader size={16} className="mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
               Crear
             </Button>
           </DialogFooter>

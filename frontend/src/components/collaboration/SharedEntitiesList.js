@@ -9,20 +9,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "../ui/tabs";
-import {
-  Share2,
-  Users,
-  FolderKanban,
-  Target,
-  XCircle,
-  Eye,
-  MessageSquare,
-  PenLine,
-  Edit,
-  Clock,
-  Building2,
-  Loader2
-} from "lucide-react";
+import { Share2, Users, FolderKanban, Target, XCircle, Eye, MessageSquare, PenLine, Edit, Clock, Building2 } from "lucide-react";
+import { KoraLoader } from "../KoraLoader";
 import { useLanguage } from "../../contexts/LanguageContext";
 
 const API = process.env.REACT_APP_BACKEND_URL;
@@ -98,7 +86,7 @@ export default function SharedEntitiesList() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-48">
-        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+        <KoraLoader size={32} />
       </div>
     );
   }
@@ -230,7 +218,7 @@ export default function SharedEntitiesList() {
                               disabled={revoking === share.share_id}
                             >
                               {revoking === share.share_id ? (
-                                <Loader2 className="w-4 h-4 animate-spin" />
+                                <KoraLoader size={16} />
                               ) : (
                                 <>
                                   <XCircle className="w-4 h-4 mr-1" />

@@ -22,10 +22,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../ui/select";
-import { 
-  Users, Link2, Copy, Check, Plus, Trash2, Mail, Shield, Eye, Edit,
-  Loader2, ExternalLink, Clock, Lock, Unlock, RefreshCw
-} from "lucide-react";
+import { Users, Link2, Copy, Check, Plus, Trash2, Mail, Shield, Eye, Edit, ExternalLink, Clock, Lock, Unlock, RefreshCw } from "lucide-react";
+import { KoraLoader } from "../KoraLoader";
 import { toast } from "sonner";
 import { formatDateOnly } from "../../utils/dates";
 
@@ -223,7 +221,7 @@ export default function SocialSharing({ selectedOrgId }) {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+        <KoraLoader size={24} />
       </div>
     );
   }
@@ -277,7 +275,7 @@ export default function SocialSharing({ selectedOrgId }) {
                     >
                       <SelectTrigger className="w-32 h-8">
                         {updatingRole === collab.membership_id ? (
-                          <Loader2 className="w-3 h-3 animate-spin" />
+                          <KoraLoader size={12} />
                         ) : (
                           <SelectValue />
                         )}
@@ -479,7 +477,7 @@ export default function SocialSharing({ selectedOrgId }) {
               {isEs ? "Cancelar" : "Cancel"}
             </Button>
             <Button onClick={handleInvite} disabled={saving}>
-              {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Mail className="w-4 h-4 mr-2" />}
+              {saving ? <KoraLoader size={16} className="mr-2" /> : <Mail className="w-4 h-4 mr-2" />}
               {isEs ? "Enviar Invitación" : "Send Invitation"}
             </Button>
           </DialogFooter>
@@ -550,7 +548,7 @@ export default function SocialSharing({ selectedOrgId }) {
               {isEs ? "Cancelar" : "Cancel"}
             </Button>
             <Button onClick={handleCreateLink} disabled={saving}>
-              {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Link2 className="w-4 h-4 mr-2" />}
+              {saving ? <KoraLoader size={16} className="mr-2" /> : <Link2 className="w-4 h-4 mr-2" />}
               {isEs ? "Crear Link" : "Create Link"}
             </Button>
           </DialogFooter>
@@ -604,7 +602,7 @@ export default function SocialSharing({ selectedOrgId }) {
               {isEs ? "Cancelar" : "Cancel"}
             </Button>
             <Button onClick={handleUpdateLink} disabled={saving}>
-              {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Check className="w-4 h-4 mr-2" />}
+              {saving ? <KoraLoader size={16} className="mr-2" /> : <Check className="w-4 h-4 mr-2" />}
               {isEs ? "Guardar" : "Save"}
             </Button>
           </DialogFooter>

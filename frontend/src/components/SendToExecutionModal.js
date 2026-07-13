@@ -15,16 +15,8 @@ import {
   DialogFooter,
   DialogDescription,
 } from "./ui/dialog";
-import {
-  Target,
-  Plus,
-  Trash2,
-  GripVertical,
-  Loader2,
-  Rocket,
-  CheckCircle,
-  Calendar,
-} from "lucide-react";
+import { Target, Plus, Trash2, GripVertical, Rocket, CheckCircle, Calendar } from "lucide-react";
+import { KoraLoader } from "./KoraLoader";
 import { toast } from "sonner";
 
 export default function SendToExecutionModal({ 
@@ -161,7 +153,7 @@ export default function SendToExecutionModal({
 
         {loading ? (
           <div className="flex items-center justify-center py-12">
-            <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+            <KoraLoader size={32} />
           </div>
         ) : (
           <div className="space-y-6 py-4">
@@ -267,7 +259,7 @@ export default function SendToExecutionModal({
           >
             {sending ? (
               <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                <KoraLoader size={16} className="mr-2" />
                 {language === "es" ? "Creando..." : "Creating..."}
               </>
             ) : (

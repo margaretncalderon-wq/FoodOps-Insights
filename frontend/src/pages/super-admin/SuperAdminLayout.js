@@ -3,10 +3,8 @@ import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useLanguage } from "../../contexts/LanguageContext";
 import axios from "axios";
 import { Button } from "../../components/ui/button";
-import {
-  Shield, BarChart3, Users, Building2, Settings, CreditCard,
-  ChevronLeft, LogOut, Eye, X, Loader2, Landmark, Sparkles, Plug, Database, Bug, Tag
-} from "lucide-react";
+import { Shield, BarChart3, Users, Building2, Settings, CreditCard, ChevronLeft, LogOut, Eye, X, Landmark, Sparkles, Plug, Database, Bug, Tag } from "lucide-react";
+import { KoraLoader } from "../../components/KoraLoader";
 import UsageAlertsBell from "./UsageAlertsBell";
 
 import { API_BASE as API } from "../../utils/api";
@@ -92,7 +90,7 @@ export default function SuperAdminLayout() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
-        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+        <KoraLoader size={32} />
       </div>
     );
   }

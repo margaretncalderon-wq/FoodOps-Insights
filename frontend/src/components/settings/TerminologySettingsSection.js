@@ -16,21 +16,9 @@ import {
   TableRow 
 } from "../ui/table";
 import { toast } from "sonner";
-import { 
-  Building2, 
-  Briefcase, 
-  Heart, 
-  Home, 
-  GraduationCap, 
-  Dumbbell, 
-  Lightbulb, 
-  Check, 
-  Loader2, 
-  Languages,
-  ArrowRight,
-  Sparkles
-} from "lucide-react";
+import { Building2, Briefcase, Heart, Home, GraduationCap, Dumbbell, Lightbulb, Check, Languages, ArrowRight, Sparkles } from "lucide-react";
 
+import { KoraLoader } from "../KoraLoader";
 const API_URL = process.env.REACT_APP_BACKEND_URL;
 
 // Icon mapping for industries
@@ -324,7 +312,7 @@ export default function TerminologySettingsSection() {
               >
                 {applying === selectedPreview ? (
                   <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    <KoraLoader size={16} className="mr-2" />
                     {language === "es" ? "Aplicando..." : "Applying..."}
                   </>
                 ) : (

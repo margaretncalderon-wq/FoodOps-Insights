@@ -1,6 +1,27 @@
 # Kora OS - Changelog
 
 
+## February 2026 — Brand Loading: KoraLoader Rollout
+
+### Motivation
+Previous iteration accidentally made the K-node logo pulse permanently — the user (rightly) flagged that as distracting: "así no es cuando algo está loading". Correct pattern: logo stays **static**, animation is reserved for genuine loading states.
+
+### Implementation
+- **`KoraLogo`** default flipped to `animated={false}` — every existing sidebar/landing/login/register/admin logo is now perfectly still.
+- **New `<KoraLoader />`** (`components/KoraLoader.js`) — same K-node motif, but with the fast/pronounced `.kora-loader` variant CSS (1.2s cycle, opacity 15%→100%, scale 0.75→1.15, staggered) so it reads as a real spinner. `showBg={false}` so it sits transparently inside buttons/pages.
+- **Bulk migration** — automated script (`/tmp/replace_loaders.py`) replaced **248 `<Loader2 … animate-spin>`** usages across **110 files** with `<KoraLoader size=…/>`. The script:
+  - Infers `size` from Tailwind `w-N` classes (mapping to px).
+  - Preserves non-sizing / non-animation classes.
+  - Adds `import { KoraLoader }` right after the existing `lucide-react` import.
+  - Drops `Loader2` from the lucide import list if the file no longer uses it as a static icon.
+- **Manual hotspots** — `App.js PageLoader`, `LoginPage` submit button, `RegisterPage` submit button already migrated by hand for extra care.
+
+### Testing
+- Lint clean on the top touched files (LoginPage, RegisterPage, SettingsPage, FoodOpsPage).
+- Screenshots confirm the logo is now static and identical on `/`, `/login`, `/register`, `/dashboard` — sidebar badges still render correctly (Client Engagement 3, Resource 3, Business Clarity 8).
+- `prefers-reduced-motion` still honored — spinners stop when the user has motion-reduction enabled.
+
+
 ## February 2026 — Sprint N · Global Sidebar Nav Badges
 
 ### Motivation

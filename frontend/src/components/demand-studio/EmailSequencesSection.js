@@ -32,12 +32,9 @@ import {
   TableRow,
 } from "../ui/table";
 import { ScrollArea } from "../ui/scroll-area";
-import { 
-  Plus, Mail, Play, Pause, Trash2, Edit2, Loader2, Users,
-  Clock, ChevronRight, MailPlus, Settings, Zap, ArrowRight,
-  CheckCircle2, AlertCircle, RefreshCw
-} from "lucide-react";
+import { Plus, Mail, Play, Pause, Trash2, Edit2, Users, Clock, ChevronRight, MailPlus, Settings, Zap, ArrowRight, CheckCircle2, AlertCircle, RefreshCw } from "lucide-react";
 
+import { KoraLoader } from "../KoraLoader";
 import { API_BASE as API } from "../../utils/api";
 
 const TRIGGER_TYPES = [
@@ -257,7 +254,7 @@ export default function EmailSequencesSection() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+        <KoraLoader size={32} />
       </div>
     );
   }

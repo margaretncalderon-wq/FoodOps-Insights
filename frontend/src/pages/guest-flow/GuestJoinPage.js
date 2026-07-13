@@ -3,8 +3,9 @@ import { useParams } from "react-router-dom";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
-import { Users, Loader2, CheckCircle, AlertCircle } from "lucide-react";
+import { Users, CheckCircle, AlertCircle } from "lucide-react";
 
+import { KoraLoader } from "../../components/KoraLoader";
 const API = process.env.REACT_APP_BACKEND_URL;
 
 export default function GuestJoinPage() {
@@ -48,7 +49,7 @@ export default function GuestJoinPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
-        <Loader2 className="w-8 h-8 text-white animate-spin" />
+        <KoraLoader size={32} />
       </div>
     );
   }
@@ -180,7 +181,7 @@ export default function GuestJoinPage() {
                 disabled={submitting || !form.guest_name || !form.whatsapp_number}
                 data-testid="guest-join-submit"
               >
-                {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : "Unirme a la cola"}
+                {submitting ? <KoraLoader size={20} /> : "Unirme a la cola"}
               </Button>
             </form>
           )}

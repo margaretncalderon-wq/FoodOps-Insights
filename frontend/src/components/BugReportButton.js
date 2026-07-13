@@ -24,8 +24,9 @@ import {
   SelectValue,
 } from "./ui/select";
 import { toast } from "sonner";
-import { Bug, Send, Loader2, Upload, X, Image, Video } from "lucide-react";
+import { Bug, Send, Upload, X, Image, Video } from "lucide-react";
 
+import { KoraLoader } from "./KoraLoader";
 export default function BugReportButton({ variant = "ghost", size = "icon", className = "" }) {
   const { language } = useLanguage();
   const isEs = language === "es";
@@ -303,7 +304,7 @@ export default function BugReportButton({ variant = "ghost", size = "icon", clas
             <Button onClick={handleSubmit} disabled={submitting || uploading} data-testid="bug-report-submit">
               {submitting || uploading ? (
                 <>
-                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                  <KoraLoader size={16} className="mr-2" />
                   {uploading ? (isEs ? "Subiendo..." : "Uploading...") : (isEs ? "Enviando..." : "Sending...")}
                 </>
               ) : (

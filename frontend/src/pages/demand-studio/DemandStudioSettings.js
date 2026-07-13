@@ -7,12 +7,8 @@ import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { Badge } from "../../components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs";
-import { 
-  Settings, Link2, Copy, Check, Webhook, 
-  Facebook, ExternalLink, Zap, AlertCircle, Sparkles, Instagram,
-  Loader2, CheckCircle, XCircle, RefreshCw, Users, Building2, 
-  UserPlus, Trash2, Edit, Shield, Eye
-} from "lucide-react";
+import { Settings, Link2, Copy, Check, Webhook, Facebook, ExternalLink, Zap, AlertCircle, Sparkles, Instagram, CheckCircle, XCircle, RefreshCw, Users, Building2, UserPlus, Trash2, Edit, Shield, Eye } from "lucide-react";
+import { KoraLoader } from "../../components/KoraLoader";
 import { toast } from "sonner";
 import BrandHub from "../../components/demand-studio/BrandHub";
 import CompanyShareSettings from "../../components/demand-studio/CompanyShareSettings";
@@ -459,7 +455,7 @@ export default function DemandStudioSettings() {
             <CardContent>
               {igLoading ? (
                 <div className="flex items-center justify-center py-8">
-                  <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                  <KoraLoader size={24} />
                 </div>
               ) : igConnection?.connected ? (
                 <div className="space-y-4">
@@ -495,7 +491,7 @@ export default function DemandStudioSettings() {
                       disabled={igSyncing}
                     >
                       {igSyncing ? (
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        <KoraLoader size={16} className="mr-2" />
                       ) : (
                         <RefreshCw className="w-4 h-4 mr-2" />
                       )}
@@ -566,7 +562,7 @@ export default function DemandStudioSettings() {
               <CardTitle className="text-base flex items-center gap-2">
                 <Users className="w-4 h-4" />
                 {isEs ? "Colaboradores" : "Collaborators"}
-                {membersLoading && <Loader2 className="w-4 h-4 animate-spin" />}
+                {membersLoading && <KoraLoader size={16} />}
               </CardTitle>
             </CardHeader>
             <CardContent>

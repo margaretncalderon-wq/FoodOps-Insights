@@ -8,7 +8,8 @@ import { Label } from "./ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Badge } from "./ui/badge";
 import { Card, CardContent } from "./ui/card";
-import { ChefHat, Printer, Loader2, AlertTriangle, Info, Sparkles, Clock, CheckCircle2 } from "lucide-react";
+import { ChefHat, Printer, AlertTriangle, Info, Sparkles, Clock, CheckCircle2 } from "lucide-react";
+import { KoraLoader } from "./KoraLoader";
 import { API_BASE as API } from "../utils/api";
 import { buildBeoPrintHtml, escapeHtml } from "./KitchenBEOPrint";
 
@@ -126,7 +127,7 @@ export default function KitchenBEO({ open, onOpenChange, events = [] }) {
             </Select>
           </div>
           <Button onClick={generate} disabled={loading || !eventId} data-testid="beo-generate-btn">
-            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+            {loading ? <KoraLoader size={16} /> : <Sparkles className="w-4 h-4" />}
             <span className="ml-1.5">{isEs ? "Generar" : "Generate"}</span>
           </Button>
         </div>

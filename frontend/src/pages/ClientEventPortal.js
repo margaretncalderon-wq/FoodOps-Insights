@@ -6,11 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card"
 import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
-import { 
-  FileText, Loader2, Calendar, MapPin, Users, Building2, 
-  FileSignature, Receipt, ClipboardList, Truck, Clock, 
-  CheckCircle, ExternalLink, PlayCircle, ChefHat
-} from "lucide-react";
+import { FileText, Calendar, MapPin, Users, Building2, FileSignature, Receipt, ClipboardList, Truck, Clock, CheckCircle, ExternalLink, PlayCircle, ChefHat } from "lucide-react";
+import { KoraLoader } from "../components/KoraLoader";
 import { formatDateOnly } from "../utils/dates";
 
 export default function ClientEventPortal() {
@@ -79,7 +76,7 @@ export default function ClientEventPortal() {
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        <KoraLoader size={32} />
       </div>
     );
   }

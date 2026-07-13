@@ -10,16 +10,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
-import {
-  FileDown,
-  Printer,
-  FileText,
-  Loader2,
-  Calendar,
-  Clock,
-  Users,
-  MapPin,
-} from "lucide-react";
+import { FileDown, Printer, FileText, Calendar, Clock, Users, MapPin } from "lucide-react";
+import { KoraLoader } from "./KoraLoader";
 import { toast } from "sonner";
 import { formatDateOnly } from "../utils/dates";
 
@@ -393,7 +385,7 @@ export default function TimelineExport({
       <DropdownMenuTrigger asChild>
         <Button variant="outline" size="sm" disabled={exporting} data-testid="export-timeline-btn">
           {exporting ? (
-            <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+            <KoraLoader size={16} className="mr-1" />
           ) : (
             <FileDown className="w-4 h-4 mr-1" />
           )}

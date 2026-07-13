@@ -4,9 +4,8 @@ import { useParams } from "react-router-dom";
 import axios from "axios";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Badge } from "../components/ui/badge";
-import { 
-  Truck, Package, Loader2, Calendar, MapPin, Clock, CheckCircle, XCircle, Image
-} from "lucide-react";
+import { Truck, Package, Calendar, MapPin, Clock, CheckCircle, XCircle, Image } from "lucide-react";
+import { KoraLoader } from "../components/KoraLoader";
 import { formatDateOnly } from "../utils/dates";
 
 export default function ClientDeliveryNote() {
@@ -36,7 +35,7 @@ export default function ClientDeliveryNote() {
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        <KoraLoader size={32} />
       </div>
     );
   }

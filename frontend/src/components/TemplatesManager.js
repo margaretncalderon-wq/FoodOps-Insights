@@ -23,21 +23,8 @@ import {
   DialogTitle,
   DialogFooter,
 } from "./ui/dialog";
-import {
-  Layout,
-  Plus,
-  Edit2,
-  Trash2,
-  Copy,
-  Image,
-  Package,
-  Clock,
-  Users,
-  Loader2,
-  Star,
-  FileDown,
-  Sparkles,
-} from "lucide-react";
+import { Layout, Plus, Edit2, Trash2, Copy, Image, Package, Clock, Users, Star, FileDown, Sparkles } from "lucide-react";
+import { KoraLoader } from "./KoraLoader";
 import { toast } from "sonner";
 
 const TEMPLATE_CATEGORIES = [
@@ -200,7 +187,7 @@ export default function TemplatesManager({ token, onApplyTemplate }) {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-[#3A4D3F]" />
+        <KoraLoader size={32} />
       </div>
     );
   }
@@ -469,7 +456,7 @@ export default function TemplatesManager({ token, onApplyTemplate }) {
             <Button onClick={handleSave} className="bg-[#3A4D3F] hover:bg-[#2d3d31]" disabled={saving}>
               {saving ? (
                 <>
-                  <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                  <KoraLoader size={16} className="mr-1" />
                   {isEs ? "Guardando..." : "Saving..."}
                 </>
               ) : (

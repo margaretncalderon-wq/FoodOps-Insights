@@ -5,11 +5,8 @@ import axios from "axios";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
-import { 
-  FileText, Loader2, Calendar, Users, Building2, 
-  FileSignature, Receipt, ChevronRight, Clock,
-  CheckCircle, AlertCircle, CreditCard, DollarSign
-} from "lucide-react";
+import { FileText, Calendar, Users, Building2, FileSignature, Receipt, ChevronRight, Clock, CheckCircle, AlertCircle, CreditCard, DollarSign } from "lucide-react";
+import { KoraLoader } from "../components/KoraLoader";
 import { formatDateOnly } from "../utils/dates";
 import { useTerminology } from "../hooks/useTerminology";
 
@@ -63,7 +60,7 @@ export default function ClientPortalMain() {
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        <KoraLoader size={32} />
       </div>
     );
   }

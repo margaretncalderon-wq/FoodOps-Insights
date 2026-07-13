@@ -11,11 +11,9 @@ import { Textarea } from "../ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "../ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
-import {
-  Plus, Pencil, Trash2, Search, RefreshCw, Truck, Loader2,
-  Phone, Mail, MapPin, Building2, Star
-} from "lucide-react";
+import { Plus, Pencil, Trash2, Search, RefreshCw, Truck, Phone, Mail, MapPin, Building2, Star } from "lucide-react";
 
+import { KoraLoader } from "../KoraLoader";
 const API = process.env.REACT_APP_BACKEND_URL;
 
 export function SuppliersSection({ showHeader = true, compact = false }) {
@@ -491,7 +489,7 @@ export function SuppliersSection({ showHeader = true, compact = false }) {
               {isEs ? "Cancelar" : "Cancel"}
             </Button>
             <Button onClick={handleSave} disabled={saving}>
-              {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              {saving && <KoraLoader size={16} className="mr-2" />}
               {isEs ? "Guardar" : "Save"}
             </Button>
           </DialogFooter>

@@ -18,7 +18,8 @@ import {
 } from "../components/ui/select";
 import { SearchableSelect } from "../components/ui/searchable-select";
 import { toast } from "sonner";
-import { ArrowLeft, Plus, Trash2, Sparkles, Loader2 } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Sparkles } from "lucide-react";
+import { KoraLoader } from "../components/KoraLoader";
 import { fmtNum } from "../utils/format";
 
 
@@ -309,7 +310,7 @@ export default function RecipeBuilder() {
             className="gap-2"
             data-testid="ai-analyze-btn"
           >
-            {aiLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+            {aiLoading ? <KoraLoader size={16} /> : <Sparkles className="w-4 h-4" />}
             {t("aiAssistant")}
           </Button>
         </div>
@@ -415,7 +416,7 @@ export default function RecipeBuilder() {
                     className="gap-2"
                     data-testid="ai-suggest-ingredients-btn"
                   >
-                    {aiSuggestLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                    {aiSuggestLoading ? <KoraLoader size={14} /> : <Sparkles className="w-3.5 h-3.5" />}
                     {language === "es" ? "Sugerir con IA" : "Suggest with AI"}
                   </Button>
                 </CardHeader>
@@ -575,7 +576,7 @@ export default function RecipeBuilder() {
                     </span>
                   </div>
                   <Button type="submit" className="w-full" disabled={loading} data-testid="save-recipe-btn">
-                    {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : t("save")}
+                    {loading ? <KoraLoader size={16} /> : t("save")}
                   </Button>
                 </CardContent>
               </Card>

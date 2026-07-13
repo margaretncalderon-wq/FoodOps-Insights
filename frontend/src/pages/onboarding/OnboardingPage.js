@@ -10,11 +10,9 @@ import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { Badge } from "../../components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select";
-import { 
-  Building2, Globe, CreditCard, Users, Check, ChevronRight, 
-  ChevronLeft, Loader2, Crown, Zap, Rocket, Mail, Plus, X 
-} from "lucide-react";
+import { Building2, Globe, CreditCard, Users, Check, ChevronRight, ChevronLeft, Crown, Zap, Rocket, Mail, Plus, X } from "lucide-react";
 
+import { KoraLoader } from "../../components/KoraLoader";
 import { API_BASE as API } from "../../utils/api";
 
 const CURRENCIES = [
@@ -295,7 +293,7 @@ export default function OnboardingPage() {
 
                 <div className="flex justify-end pt-4">
                   <Button onClick={handleCreateOrg} disabled={loading} data-testid="create-org-btn">
-                    {loading && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+                    {loading && <KoraLoader size={16} className="mr-2" />}
                     {isEs ? "Continuar" : "Continue"}
                     <ChevronRight className="w-4 h-4 ml-2" />
                   </Button>
@@ -408,7 +406,7 @@ export default function OnboardingPage() {
                     {isEs ? "Atrás" : "Back"}
                   </Button>
                   <Button onClick={handleSelectPlan} disabled={loading || !selectedPlan} data-testid="select-plan-btn">
-                    {loading && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+                    {loading && <KoraLoader size={16} className="mr-2" />}
                     {isEs ? "Continuar" : "Continue"}
                     <ChevronRight className="w-4 h-4 ml-2" />
                   </Button>
@@ -532,7 +530,7 @@ export default function OnboardingPage() {
                     {isEs ? "Atrás" : "Back"}
                   </Button>
                   <Button onClick={handleSendInvitations} disabled={loading} data-testid="send-invites-btn">
-                    {loading && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+                    {loading && <KoraLoader size={16} className="mr-2" />}
                     {invitations.length > 0 
                       ? (isEs ? `Enviar ${invitations.length} Invitaciones` : `Send ${invitations.length} Invitations`)
                       : (isEs ? "Continuar sin invitar" : "Continue without inviting")}
@@ -567,7 +565,7 @@ export default function OnboardingPage() {
                 </p>
                 
                 <Button size="lg" onClick={handleComplete} disabled={loading} data-testid="complete-onboarding-btn">
-                  {loading && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+                  {loading && <KoraLoader size={16} className="mr-2" />}
                   {isEs ? "Ir al Dashboard" : "Go to Dashboard"}
                 </Button>
               </CardContent>

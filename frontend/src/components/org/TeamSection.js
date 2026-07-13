@@ -18,11 +18,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "../ui/dropdown-menu";
-import { 
-  Users, Plus, Mail, MoreVertical, Shield, Loader2, 
-  UserMinus, RefreshCw, Clock, Check, X, Key, Pencil,
-  UserX, UserCheck, AlertTriangle, Eye, Info
-} from "lucide-react";
+import { Users, Plus, Mail, MoreVertical, Shield, UserMinus, RefreshCw, Clock, Check, X, Key, Pencil, UserX, UserCheck, AlertTriangle, Eye, Info } from "lucide-react";
+import { KoraLoader } from "../KoraLoader";
 import { Label } from "../ui/label";
 
 import { API_BASE as API } from "../../utils/api";
@@ -329,7 +326,7 @@ export function TeamSection() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin" />
+        <KoraLoader size={32} />
       </div>
     );
   }
@@ -621,7 +618,7 @@ export function TeamSection() {
               {isEs ? "Cancelar" : "Cancel"}
             </Button>
             <Button onClick={handleInvite} disabled={actionLoading} data-testid="send-invite-btn">
-              {actionLoading && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+              {actionLoading && <KoraLoader size={16} className="mr-2" />}
               {isEs ? "Enviar Invitación" : "Send Invitation"}
             </Button>
           </DialogFooter>
@@ -698,7 +695,7 @@ export function TeamSection() {
               {isEs ? "Cancelar" : "Cancel"}
             </Button>
             <Button onClick={handleCreateDirect} disabled={actionLoading} data-testid="create-direct-submit-btn">
-              {actionLoading && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+              {actionLoading && <KoraLoader size={16} className="mr-2" />}
               {isEs ? "Crear Usuario" : "Create User"}
             </Button>
           </DialogFooter>
@@ -748,7 +745,7 @@ export function TeamSection() {
               {isEs ? "Cancelar" : "Cancel"}
             </Button>
             <Button onClick={handleEditMember} disabled={actionLoading} data-testid="edit-submit-btn">
-              {actionLoading && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+              {actionLoading && <KoraLoader size={16} className="mr-2" />}
               {isEs ? "Guardar" : "Save"}
             </Button>
           </DialogFooter>

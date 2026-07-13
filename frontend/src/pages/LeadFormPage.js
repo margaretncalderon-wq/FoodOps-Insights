@@ -15,9 +15,10 @@ import {
   SelectValue,
 } from "../components/ui/select";
 import { toast } from "sonner";
-import { CheckCircle, Loader2, Calendar, Users, Mail, Phone, Building2, User, Globe, MessageCircle } from "lucide-react";
+import { CheckCircle, Calendar, Users, Mail, Phone, Building2, User, Globe, MessageCircle } from "lucide-react";
 
 
+import { KoraLoader } from "../components/KoraLoader";
 // Translations
 const translations = {
   en: {
@@ -571,7 +572,7 @@ export default function LeadFormPage() {
             >
               {submitting ? (
                 <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  <KoraLoader size={16} className="mr-2" />
                   {t.submitting}
                 </>
               ) : (

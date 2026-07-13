@@ -13,11 +13,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table";
 import { Textarea } from "../ui/textarea";
 import { ScrollArea } from "../ui/scroll-area";
-import {
-  Plus, RefreshCw, TrendingUp, TrendingDown, Wallet, ArrowUpCircle, ArrowDownCircle,
-  DollarSign, AlertTriangle, Calendar, Clock, PiggyBank, CreditCard, Loader2,
-  ArrowRightLeft, Receipt, Target, ChevronRight
-} from "lucide-react";
+import { Plus, RefreshCw, TrendingUp, TrendingDown, Wallet, ArrowUpCircle, ArrowDownCircle, DollarSign, AlertTriangle, Calendar, Clock, PiggyBank, CreditCard, ArrowRightLeft, Receipt, Target, ChevronRight } from "lucide-react";
+import { KoraLoader } from "../KoraLoader";
 import { Progress } from "../ui/progress";
 
 import { API_BASE as API } from "../../utils/api";
@@ -955,7 +952,7 @@ export function CashFlowSection() {
             >
               {submitting ? (
                 <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  <KoraLoader size={16} className="mr-2" />
                   {isEs ? "Guardando..." : "Saving..."}
                 </>
               ) : (

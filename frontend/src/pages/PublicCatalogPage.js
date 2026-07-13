@@ -10,8 +10,9 @@ import { Textarea } from "../components/ui/textarea";
 import { Badge } from "../components/ui/badge";
 import { Card, CardContent } from "../components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../components/ui/dialog";
-import { Mail, Phone, MapPin, Globe, Loader2, ChefHat, Send, CheckCircle2, X } from "lucide-react";
+import { Mail, Phone, MapPin, Globe, ChefHat, Send, CheckCircle2, X } from "lucide-react";
 
+import { KoraLoader } from "../components/KoraLoader";
 import { API_BASE as API } from "../utils/api";
 import { fmtNum } from "../utils/format";
 
@@ -80,7 +81,7 @@ export default function PublicCatalogPage() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <Loader2 className="w-8 h-8 animate-spin text-emerald-600" />
+        <KoraLoader size={32} />
       </div>
     );
   }
@@ -430,7 +431,7 @@ export default function PublicCatalogPage() {
                 </div>
               )}
               <Button type="submit" disabled={submitting} className="w-full" style={{ backgroundColor: primary }} data-testid="quote-form-submit">
-                {submitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
+                {submitting ? <KoraLoader size={16} className="mr-2" /> : <Send className="w-4 h-4 mr-2" />}
                 {t("Enviar solicitud", "Send request")}
               </Button>
             </form>

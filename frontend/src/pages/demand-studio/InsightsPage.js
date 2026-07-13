@@ -9,13 +9,9 @@ import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, Legend, Area, AreaChart
 } from "recharts";
-import {
-  Loader2, TrendingUp, TrendingDown, DollarSign, Users, Target, 
-  BarChart3, Mail, Instagram, Youtube, Play, Eye, Heart, 
-  MousePointer, ArrowRight, RefreshCw, Megaphone, Send,
-  ExternalLink, ChevronRight
-} from "lucide-react";
+import { TrendingUp, TrendingDown, DollarSign, Users, Target, BarChart3, Mail, Instagram, Youtube, Play, Eye, Heart, MousePointer, ArrowRight, RefreshCw, Megaphone, Send, ExternalLink, ChevronRight } from "lucide-react";
 
+import { KoraLoader } from "../../components/KoraLoader";
 import { API_BASE as API } from "../../utils/api";
 
 const formatNumber = (num) => {
@@ -108,7 +104,7 @@ export default function InsightsPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+        <KoraLoader size={32} />
       </div>
     );
   }

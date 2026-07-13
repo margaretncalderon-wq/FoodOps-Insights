@@ -11,7 +11,8 @@ import { Card, CardContent } from "./ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { SearchableSelect } from "./ui/searchable-select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./ui/table";
-import { TrendingUp, Sparkles, Loader2, Info, ChevronRight } from "lucide-react";
+import { TrendingUp, Sparkles, Info, ChevronRight } from "lucide-react";
+import { KoraLoader } from "./KoraLoader";
 import { API_BASE as API } from "../utils/api";
 
 const QUADRANT_META = {
@@ -154,7 +155,7 @@ export default function MenuEngineeringDialog({ open, onOpenChange }) {
         </div>
 
         {loading ? (
-          <div className="py-12 text-center"><Loader2 className="w-6 h-6 animate-spin mx-auto" /></div>
+          <div className="py-12 text-center"><KoraLoader size={24} className="mx-auto" /></div>
         ) : (data?.recipes || []).length === 0 ? (
           <p className="text-center text-sm text-muted-foreground py-6">
             {isEs ? "Sin recetas con precio de venta. Agrega precios para empezar el análisis." : "No recipes with sell price. Add prices to start the analysis."}
@@ -238,7 +239,7 @@ export default function MenuEngineeringDialog({ open, onOpenChange }) {
               />
             </div>
             <Button onClick={runWhatIf} disabled={simulating || !whatIf.recipe_id} data-testid="me-whatif-run-btn">
-              {simulating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+              {simulating ? <KoraLoader size={16} /> : <Sparkles className="w-4 h-4" />}
               <span className="ml-1.5">{isEs ? "Simular" : "Simulate"}</span>
             </Button>
           </div>

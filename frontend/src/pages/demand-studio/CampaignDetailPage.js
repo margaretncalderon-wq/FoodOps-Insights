@@ -26,12 +26,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../../components/ui/select";
-import { 
-  ArrowLeft, Target, Calendar, DollarSign, Users, 
-  Megaphone, Mail, Share2, BarChart3, Plus, Edit2,
-  Loader2, Copy, Link2, Check, Zap, Image,
-  FileText, Clock, TrendingUp, ExternalLink, Trash2, Sparkles
-} from "lucide-react";
+import { ArrowLeft, Target, Calendar, DollarSign, Users, Megaphone, Mail, Share2, BarChart3, Plus, Edit2, Copy, Link2, Check, Zap, Image, FileText, Clock, TrendingUp, ExternalLink, Trash2, Sparkles } from "lucide-react";
+import { KoraLoader } from "../../components/KoraLoader";
 import { toast } from "sonner";
 import CampaignDNA from "../../components/demand-studio/CampaignDNA";
 
@@ -184,7 +180,7 @@ export default function CampaignDetailPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
-        <Loader2 className="w-8 h-8 animate-spin text-purple-500" />
+        <KoraLoader size={32} />
       </div>
     );
   }

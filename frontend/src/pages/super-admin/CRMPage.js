@@ -15,12 +15,9 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue
 } from "../../components/ui/select";
-import {
-  Users, Phone, Mail, Building2, Search, Plus,
-  Calendar, Clock, MessageSquare, Edit, Trash2,
-  TrendingUp, AlertCircle, Loader2, DollarSign, Target
-} from "lucide-react";
+import { Users, Phone, Mail, Building2, Search, Plus, Calendar, Clock, MessageSquare, Edit, Trash2, TrendingUp, AlertCircle, DollarSign, Target } from "lucide-react";
 
+import { KoraLoader } from "../../components/KoraLoader";
 import { API_BASE as API } from "../../utils/api";
 
 export default function CRMPage() {
@@ -141,7 +138,7 @@ export default function CRMPage() {
     return matchesSearch && matchesTab;
   });
 
-  if (loading) return <div className="flex items-center justify-center h-64"><Loader2 className="w-8 h-8 animate-spin text-muted-foreground" /></div>;
+  if (loading) return <div className="flex items-center justify-center h-64"><KoraLoader size={32} /></div>;
 
   return (
     <div className="p-6 space-y-6">

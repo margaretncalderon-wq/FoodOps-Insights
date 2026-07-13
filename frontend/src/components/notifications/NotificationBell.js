@@ -4,11 +4,9 @@ import axios from "axios";
 import { useLanguage } from "../../contexts/LanguageContext";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
-import { 
-  Bell, Check, CheckCheck, X, Target, 
-  ExternalLink, Loader2, MessageSquare
-} from "lucide-react";
+import { Bell, Check, CheckCheck, X, Target, ExternalLink, MessageSquare } from "lucide-react";
 
+import { KoraLoader } from "../KoraLoader";
 import { API_BASE as API } from "../../utils/api";
 
 export default function NotificationBell() {
@@ -237,7 +235,7 @@ export default function NotificationBell() {
           <div className="max-h-96 overflow-y-auto">
             {loading ? (
               <div className="flex items-center justify-center py-8">
-                <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+                <KoraLoader size={20} />
               </div>
             ) : notifications.length === 0 ? (
               <div className="py-8 text-center text-muted-foreground text-sm">

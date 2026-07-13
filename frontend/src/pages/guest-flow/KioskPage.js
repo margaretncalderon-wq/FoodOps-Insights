@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams } from "react-router-dom";
 import QRCode from "react-qr-code";
-import { Users, Clock, CheckCircle, Loader2 } from "lucide-react";
+import { Users, Clock, CheckCircle } from "lucide-react";
 
+import { KoraLoader } from "../../components/KoraLoader";
 const API = process.env.REACT_APP_BACKEND_URL;
 
 export default function KioskPage() {
@@ -39,7 +40,7 @@ export default function KioskPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
-        <Loader2 className="w-10 h-10 text-white animate-spin" />
+        <KoraLoader size={40} />
       </div>
     );
   }

@@ -13,12 +13,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from ".
 import { Textarea } from "../../components/ui/textarea";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "../../components/ui/dropdown-menu";
 import { toast } from "sonner";
-import { 
-  Users, UserPlus, Sparkles, Building2, Mail, Calendar, 
-  Loader2, Copy, CheckCircle, Gift, Star, Megaphone,
-  MoreHorizontal, CreditCard, RefreshCw, ExternalLink, CalendarPlus, Pencil
-} from "lucide-react";
+import { Users, UserPlus, Sparkles, Building2, Mail, Calendar, Copy, CheckCircle, Gift, Star, Megaphone, MoreHorizontal, CreditCard, RefreshCw, ExternalLink, CalendarPlus, Pencil } from "lucide-react";
 
+import { KoraLoader } from "../../components/KoraLoader";
 import { API_BASE as API } from "../../utils/api";
 import { formatDateOnly } from "../../utils/dates";
 
@@ -367,7 +364,7 @@ export default function DemoAccountsPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        <KoraLoader size={32} />
       </div>
     );
   }
@@ -718,7 +715,7 @@ export default function DemoAccountsPage() {
               className="bg-gradient-to-r from-purple-500 to-pink-500"
             >
               {saving ? (
-                <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                <KoraLoader size={16} className="mr-2" />
               ) : (
                 <Sparkles className="w-4 h-4 mr-2" />
               )}
@@ -831,7 +828,7 @@ export default function DemoAccountsPage() {
               className="bg-emerald-500 hover:bg-emerald-600"
             >
               {saving ? (
-                <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                <KoraLoader size={16} className="mr-2" />
               ) : (
                 <CreditCard className="w-4 h-4 mr-2" />
               )}
@@ -904,7 +901,7 @@ export default function DemoAccountsPage() {
               className="bg-amber-500 hover:bg-amber-600"
             >
               {saving ? (
-                <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                <KoraLoader size={16} className="mr-2" />
               ) : (
                 <CalendarPlus className="w-4 h-4 mr-2" />
               )}
@@ -997,7 +994,7 @@ export default function DemoAccountsPage() {
               disabled={saving}
             >
               {saving ? (
-                <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                <KoraLoader size={16} className="mr-2" />
               ) : (
                 <CheckCircle className="w-4 h-4 mr-2" />
               )}

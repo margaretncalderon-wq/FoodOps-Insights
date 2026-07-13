@@ -50,15 +50,9 @@ import {
   AlertDialogTitle,
 } from "./ui/alert-dialog";
 import { toast } from "sonner";
-import {
-  Plus, Trash2, FileText, Download, Eye, Utensils, Wine, 
-  Armchair, Users, Flower2, Package, GripVertical, Percent,
-  DollarSign, ChevronDown, ChevronRight, Loader2, AlertTriangle, 
-  Search, Send, CheckCircle, XCircle, Lock, History, TrendingUp,
-  Edit, Clock, Calculator, Link2, RefreshCw, CreditCard, Check, X, Type, ChefHat, Calendar as CalendarIcon,
-  ArrowUp, ArrowDown, Copy
-} from "lucide-react";
+import { Plus, Trash2, FileText, Download, Eye, Utensils, Wine, Armchair, Users, Flower2, Package, GripVertical, Percent, DollarSign, ChevronDown, ChevronRight, AlertTriangle, Search, Send, CheckCircle, XCircle, Lock, History, TrendingUp, Edit, Clock, Calculator, Link2, RefreshCw, CreditCard, Check, X, Type, ChefHat, Calendar as CalendarIcon, ArrowUp, ArrowDown, Copy } from "lucide-react";
 
+import { KoraLoader } from "./KoraLoader";
 import {
   DndContext,
   closestCenter,
@@ -1913,7 +1907,7 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
   if (loading) {
     return (
       <div className="flex items-center justify-center h-48">
-        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+        <KoraLoader size={32} />
       </div>
     );
   }

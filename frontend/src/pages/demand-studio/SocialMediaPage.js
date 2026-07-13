@@ -31,15 +31,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "../../components/ui/dropdown-menu";
-import { 
-  Plus, Calendar, List, BarChart3, Hash, Instagram, Layers,
-  Loader2, Play, Copy, Archive, Check, Settings, Edit,
-  ChevronLeft, ChevronRight, Linkedin, Youtube, Lightbulb,
-  ExternalLink, Sparkles, Trash2, ArrowRight, Grid3X3, Wand2, Share2,
-  Building2, ChevronDown, AtSign, User, Video, Film, Eye, MoreHorizontal,
-  ArrowUpRight, GripVertical, History, RefreshCw
-} from "lucide-react";
+import { Plus, Calendar, List, BarChart3, Hash, Instagram, Layers, Play, Copy, Archive, Check, Settings, Edit, ChevronLeft, ChevronRight, Linkedin, Youtube, Lightbulb, ExternalLink, Sparkles, Trash2, ArrowRight, Grid3X3, Wand2, Share2, Building2, ChevronDown, AtSign, User, Video, Film, Eye, MoreHorizontal, ArrowUpRight, GripVertical, History, RefreshCw } from "lucide-react";
 
+import { KoraLoader } from "../../components/KoraLoader";
 import { API_BASE as API } from "../../utils/api"; // Dynamic API URL
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 import FeedTab from "../../components/demand-studio/FeedTab";
@@ -1321,7 +1315,7 @@ export default function SocialMediaPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+        <KoraLoader size={32} />
       </div>
     );
   }
@@ -3440,7 +3434,7 @@ export default function SocialMediaPage() {
               {isEs ? "Cancelar" : "Cancel"}
             </Button>
             <Button onClick={handleSavePost} disabled={!postForm.social_account_id || !postForm.title || postSaving}>
-              {postSaving && <Loader2 className="w-4 h-4 mr-1 animate-spin" />}
+              {postSaving && <KoraLoader size={16} className="mr-1" />}
               {isEs ? "Guardar" : "Save"}
             </Button>
           </DialogFooter>
@@ -3497,7 +3491,7 @@ export default function SocialMediaPage() {
               {isEs ? "Cancelar" : "Cancel"}
             </Button>
             <Button onClick={handleSaveAccount} disabled={!accountForm.handle || accountSaving} data-testid="save-account-btn">
-              {accountSaving && <Loader2 className="w-4 h-4 mr-1 animate-spin" />}
+              {accountSaving && <KoraLoader size={16} className="mr-1" />}
               {editingAccount ? (isEs ? "Actualizar" : "Update") : (isEs ? "Guardar" : "Save")}
             </Button>
           </DialogFooter>
@@ -3645,7 +3639,7 @@ export default function SocialMediaPage() {
               {isEs ? "Cancelar" : "Cancel"}
             </Button>
             <Button onClick={handleSavePillar} disabled={!pillarForm.name || pillarSaving} data-testid="pillar-save-btn">
-              {pillarSaving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              {pillarSaving && <KoraLoader size={16} className="mr-2" />}
               {isEs ? "Guardar" : "Save"}
             </Button>
           </DialogFooter>
@@ -3776,7 +3770,7 @@ export default function SocialMediaPage() {
               {isEs ? "Cancelar" : "Cancel"}
             </Button>
             <Button onClick={handleSaveAudience} disabled={!audienceForm.name || audienceSaving}>
-              {audienceSaving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              {audienceSaving && <KoraLoader size={16} className="mr-2" />}
               {isEs ? "Guardar" : "Save"}
             </Button>
           </DialogFooter>
@@ -3877,7 +3871,7 @@ export default function SocialMediaPage() {
               {isEs ? "Cancelar" : "Cancel"}
             </Button>
             <Button onClick={handleSaveSegment} disabled={!segmentForm.name || segmentSaving}>
-              {segmentSaving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              {segmentSaving && <KoraLoader size={16} className="mr-2" />}
               {isEs ? "Guardar" : "Save"}
             </Button>
           </DialogFooter>
@@ -4051,7 +4045,7 @@ export default function SocialMediaPage() {
               {isEs ? "Cancelar" : "Cancel"}
             </Button>
             <Button onClick={handleSaveIdea} disabled={!ideaForm.title || ideaSaving}>
-              {ideaSaving && <Loader2 className="w-4 h-4 mr-1 animate-spin" />}
+              {ideaSaving && <KoraLoader size={16} className="mr-1" />}
               {isEs ? "Guardar" : "Save"}
             </Button>
           </DialogFooter>

@@ -14,7 +14,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "./ui/select";
-import { Calculator, Loader2, ChefHat, Info } from "lucide-react";
+import { Calculator, ChefHat, Info } from "lucide-react";
+import { KoraLoader } from "./KoraLoader";
 import { toast } from "sonner";
 import { fmtNum } from "../utils/format";
 
@@ -127,7 +128,7 @@ export default function RecipeScalingPanel({ recipes = [], defaultPortions = 0 }
             disabled={loading || !selectedId}
             data-testid="scaling-calculate-btn"
           >
-            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Calculator className="w-4 h-4" />}
+            {loading ? <KoraLoader size={16} /> : <Calculator className="w-4 h-4" />}
             <span className="ml-1.5">{language === "es" ? "Calcular" : "Scale"}</span>
           </Button>
         </div>

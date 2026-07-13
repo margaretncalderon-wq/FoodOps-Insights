@@ -3,8 +3,9 @@ import axios from "axios";
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
 import { Badge } from "../../components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table";
-import { Shield, Activity, Building2, Users, Loader2 } from "lucide-react";
+import { Shield, Activity, Building2, Users } from "lucide-react";
 
+import { KoraLoader } from "../../components/KoraLoader";
 import { API_BASE as API } from "../../utils/api";
 
 export default function GlobalAuditPage() {
@@ -44,7 +45,7 @@ export default function GlobalAuditPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-slate-400" />
+        <KoraLoader size={32} />
       </div>
     );
   }

@@ -19,24 +19,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "./ui/select";
-import { 
-  History, 
-  Clock, 
-  User, 
-  ArrowRight, 
-  Move, 
-  Maximize2,
-  Plus,
-  Trash2,
-  Edit2,
-  Loader2,
-  RefreshCw,
-  CheckCircle,
-  XCircle,
-  Copy,
-  Filter
-} from "lucide-react";
+import { History, Clock, User, ArrowRight, Move, Maximize2, Plus, Trash2, Edit2, RefreshCw, CheckCircle, XCircle, Copy, Filter } from "lucide-react";
 
+import { KoraLoader } from "./KoraLoader";
 const MODULE_INFO = {
   auth: { name: "Authentication", icon: "🔐", color: "bg-gray-100 text-gray-700" },
   crm: { name: "Client Management", icon: "👥", color: "bg-blue-100 text-blue-700" },
@@ -192,7 +177,7 @@ export function GlobalActivityLog({ trigger, orgId = null }) {
           {/* Logs List */}
           {loading && logs.length === 0 ? (
             <div className="flex items-center justify-center py-12">
-              <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+              <KoraLoader size={32} />
             </div>
           ) : logs.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">

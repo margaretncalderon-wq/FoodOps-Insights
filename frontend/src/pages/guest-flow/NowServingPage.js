@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams } from "react-router-dom";
-import { Loader2, Users } from "lucide-react";
+import { Users } from "lucide-react";
 
+import { KoraLoader } from "../../components/KoraLoader";
 const API = process.env.REACT_APP_BACKEND_URL;
 
 export default function NowServingPage() {
@@ -29,7 +30,7 @@ export default function NowServingPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
-        <Loader2 className="w-10 h-10 text-white animate-spin" />
+        <KoraLoader size={40} />
       </div>
     );
   }

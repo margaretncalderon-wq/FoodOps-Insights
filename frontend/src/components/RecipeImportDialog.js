@@ -12,8 +12,9 @@ import { Label } from "./ui/label";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "./ui/tabs";
 import { Textarea } from "./ui/textarea";
 import { Input } from "./ui/input";
-import { AlertTriangle, CheckCircle, Download, FileUp, Keyboard, Loader2, Plus, Trash2, X } from "lucide-react";
+import { AlertTriangle, CheckCircle, Download, FileUp, Keyboard, Plus, Trash2, X } from "lucide-react";
 
+import { KoraLoader } from "./KoraLoader";
 /**
  * RecipeImportDialog
  * 3-step flow: select → preview → result.
@@ -515,7 +516,7 @@ Pollo al limón\tPechuga marinada en limón\tPlato principal\tfinal_dish\t2\t30 
             <>
               <Button variant="outline" onClick={handleClose}>{t("Cancelar", "Cancel")}</Button>
               <Button onClick={handleValidate} disabled={validating} data-testid="recipe-import-validate-btn">
-                {validating && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                {validating && <KoraLoader size={16} className="mr-2" />}
                 {t("Revisar y validar", "Review & validate")}
               </Button>
             </>
@@ -528,7 +529,7 @@ Pollo al limón\tPechuga marinada en limón\tPlato principal\tfinal_dish\t2\t30 
                 disabled={importing || (preview?.valid_rows || 0) + (preview?.warning_rows || 0) === 0}
                 data-testid="recipe-import-confirm-btn"
               >
-                {importing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <FileUp className="w-4 h-4 mr-2" />}
+                {importing ? <KoraLoader size={16} className="mr-2" /> : <FileUp className="w-4 h-4 mr-2" />}
                 {t(
                   `Importar ${(preview?.valid_rows || 0) + (preview?.warning_rows || 0)} receta(s)`,
                   `Import ${(preview?.valid_rows || 0) + (preview?.warning_rows || 0)} recipe(s)`

@@ -16,12 +16,9 @@ import { Textarea } from "../../components/ui/textarea";
 import { ScrollArea } from "../../components/ui/scroll-area";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "../../components/ui/dropdown-menu";
 import { toast } from "sonner";
-import { 
-  Plug, Plus, Key, Copy, CheckCircle, RefreshCw, MoreHorizontal,
-  Loader2, Activity, AlertTriangle, Shield, ExternalLink, 
-  FileJson, Clock, Building2, Trash2, Pause, Play, Eye, EyeOff
-} from "lucide-react";
+import { Plug, Plus, Key, Copy, CheckCircle, RefreshCw, MoreHorizontal, Activity, AlertTriangle, Shield, ExternalLink, FileJson, Clock, Building2, Trash2, Pause, Play, Eye, EyeOff } from "lucide-react";
 
+import { KoraLoader } from "../../components/KoraLoader";
 import { API_BASE as API } from "../../utils/api";
 
 const PERMISSIONS = [
@@ -240,7 +237,7 @@ export default function IntegrationsPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        <KoraLoader size={32} />
       </div>
     );
   }
@@ -537,7 +534,7 @@ export default function IntegrationsPage() {
               {isEs ? "Cancelar" : "Cancel"}
             </Button>
             <Button onClick={handleCreate} disabled={saving}>
-              {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Key className="w-4 h-4 mr-2" />}
+              {saving ? <KoraLoader size={16} className="mr-2" /> : <Key className="w-4 h-4 mr-2" />}
               {isEs ? "Crear y Generar Keys" : "Create & Generate Keys"}
             </Button>
           </DialogFooter>

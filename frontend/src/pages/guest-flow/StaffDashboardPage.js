@@ -8,10 +8,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/ca
 import { Input } from "../../components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "../../components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select";
-import {
-  Loader2, Users, ArrowUp, ArrowDown, Phone, CheckCircle, XCircle, Play, Pause,
-  RotateCcw, ChevronRight, MessageCircle, Hash, Clock, MoreVertical, Copy, ExternalLink, QrCode, Monitor
-} from "lucide-react";
+import { Users, ArrowUp, ArrowDown, Phone, CheckCircle, XCircle, Play, Pause, RotateCcw, ChevronRight, MessageCircle, Hash, Clock, MoreVertical, Copy, ExternalLink, QrCode, Monitor } from "lucide-react";
+import { KoraLoader } from "../../components/KoraLoader";
 import QRCode from "react-qr-code";
 
 import { API_BASE as API } from "../../utils/api";
@@ -137,7 +135,7 @@ export default function StaffDashboardPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
-        <Loader2 className="w-8 h-8 text-white animate-spin" />
+        <KoraLoader size={32} />
       </div>
     );
   }
@@ -219,14 +217,14 @@ export default function StaffDashboardPage() {
         <div className="flex flex-wrap gap-2" data-testid="queue-controls">
           {!isActive && !isPaused && (
             <Button onClick={() => doQueueAction("activate")} disabled={!!actionLoading} className="bg-emerald-600 hover:bg-emerald-700 text-white" data-testid="activate-queue-btn">
-              {actionLoading === "activate" ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Play className="w-4 h-4 mr-1" />}
+              {actionLoading === "activate" ? <KoraLoader size={16} className="mr-1" /> : <Play className="w-4 h-4 mr-1" />}
               Activar Cola
             </Button>
           )}
           {isActive && (
             <>
               <Button onClick={doCallNext} disabled={!!actionLoading} className="bg-white text-black hover:bg-zinc-200 flex-1 sm:flex-none h-12 text-base font-semibold" data-testid="call-next-btn">
-                {actionLoading === "call_next" ? <Loader2 className="w-5 h-5 animate-spin mr-1" /> : <ChevronRight className="w-5 h-5 mr-1" />}
+                {actionLoading === "call_next" ? <KoraLoader size={20} className="mr-1" /> : <ChevronRight className="w-5 h-5 mr-1" />}
                 Llamar Siguiente
               </Button>
               <Button onClick={() => doQueueAction("pause")} variant="outline" disabled={!!actionLoading} className="border-amber-500/30 text-amber-400 hover:bg-amber-500/10" data-testid="pause-queue-btn">

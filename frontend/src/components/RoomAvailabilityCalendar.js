@@ -18,15 +18,9 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "./ui/tooltip";
-import {
-  Calendar as CalendarIcon,
-  ChevronLeft,
-  ChevronRight,
-  Loader2,
-  DoorOpen,
-  Users,
-} from "lucide-react";
+import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, DoorOpen, Users } from "lucide-react";
 
+import { KoraLoader } from "./KoraLoader";
 const DAYS_OF_WEEK = {
   en: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
   es: ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"],
@@ -260,7 +254,7 @@ export default function RoomAvailabilityCalendar({ venueId, venueName, rooms = [
             {monthName} {year}
           </h3>
           
-          {loading && <Loader2 className="w-4 h-4 animate-spin text-gray-400" />}
+          {loading && <KoraLoader size={16} />}
         </div>
 
         {/* Room Legend */}

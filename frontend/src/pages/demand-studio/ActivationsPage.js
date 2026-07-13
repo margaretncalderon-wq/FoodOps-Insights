@@ -28,12 +28,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../../components/ui/select";
-import { 
-  Plus, Zap, Calendar, MapPin, DollarSign, 
-  Trash2, Edit2, Loader2, Link2, Unlink, CalendarDays,
-  Users, ExternalLink, CheckCircle, Clock, Building2
-} from "lucide-react";
+import { Plus, Zap, Calendar, MapPin, DollarSign, Trash2, Edit2, Link2, Unlink, CalendarDays, Users, ExternalLink, CheckCircle, Clock, Building2 } from "lucide-react";
 
+import { KoraLoader } from "../../components/KoraLoader";
 import { API_BASE as API } from "../../utils/api";
 import { formatDateOnly } from "../../utils/dates";
 
@@ -333,7 +330,7 @@ export default function ActivationsPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+        <KoraLoader size={32} />
       </div>
     );
   }
@@ -542,7 +539,7 @@ export default function ActivationsPage() {
               <div className="space-y-2 max-h-64 overflow-y-auto">
                 {loadingEvents ? (
                   <div className="flex items-center justify-center py-8">
-                    <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                    <KoraLoader size={24} />
                   </div>
                 ) : linkableEvents.length === 0 ? (
                   <p className="text-sm text-muted-foreground text-center py-8">
@@ -689,7 +686,7 @@ export default function ActivationsPage() {
                   disabled={!newEventData.name || creatingEvent}
                 >
                   {creatingEvent ? (
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    <KoraLoader size={16} className="mr-2" />
                   ) : (
                     <Plus className="w-4 h-4 mr-2" />
                   )}
@@ -854,7 +851,7 @@ export default function ActivationsPage() {
 
           {loadingEventDetails ? (
             <div className="flex items-center justify-center py-12">
-              <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+              <KoraLoader size={32} />
             </div>
           ) : selectedEventDetails ? (
             <div className="mt-6 space-y-6">

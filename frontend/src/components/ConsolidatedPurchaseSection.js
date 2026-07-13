@@ -15,13 +15,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 
 // Icons
-import { 
-  ShoppingCart, Package, Truck, RefreshCw, FileText, Check,
-  Calendar, Users, ArrowRight, AlertTriangle, Download, CheckCircle,
-  Printer, PackageMinus, Loader2, Archive, Clock, Eye, ArchiveRestore,
-  Factory, ChefHat
-} from "lucide-react";
+import { ShoppingCart, Package, Truck, RefreshCw, FileText, Check, Calendar, Users, ArrowRight, AlertTriangle, Download, CheckCircle, Printer, PackageMinus, Archive, Clock, Eye, ArchiveRestore, Factory, ChefHat } from "lucide-react";
 
+import { KoraLoader } from "./KoraLoader";
 import { API_BASE as API } from "../utils/api";
 import { formatDateOnly } from "../utils/dates";
 import { fmtNum } from "../utils/format";
@@ -947,7 +943,7 @@ export default function ConsolidatedPurchaseSection() {
                 >
                   {markingComplete ? (
                     <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      <KoraLoader size={16} className="mr-2" />
                       {language === "es" ? "Procesando..." : "Processing..."}
                     </>
                   ) : (
@@ -1109,7 +1105,7 @@ export default function ConsolidatedPurchaseSection() {
             >
               {processingSR ? (
                 <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  <KoraLoader size={16} className="mr-2" />
                   {language === "es" ? "Procesando..." : "Processing..."}
                 </>
               ) : (
@@ -1226,7 +1222,7 @@ export default function ConsolidatedPurchaseSection() {
 
           {loadingSuggestions ? (
             <div className="flex items-center justify-center py-12">
-              <Loader2 className="w-8 h-8 animate-spin text-purple-600" />
+              <KoraLoader size={32} />
             </div>
           ) : suggestedProduction?.suggested_lines?.length > 0 ? (
             <div className="space-y-4">
@@ -1306,7 +1302,7 @@ export default function ConsolidatedPurchaseSection() {
               >
                 {creatingBatch ? (
                   <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    <KoraLoader size={16} className="mr-2" />
                     {language === "es" ? "Creando..." : "Creating..."}
                   </>
                 ) : (

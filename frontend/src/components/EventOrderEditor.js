@@ -28,11 +28,8 @@ import {
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
 import { toast } from "sonner";
-import { 
-  Plus, Trash2, FileText, Download, Eye, Utensils, Wine, 
-  Armchair, Users, Flower2, Package, GripVertical, Percent,
-  DollarSign, ChevronDown, ChevronRight, Loader2, AlertTriangle, Search
-} from "lucide-react";
+import { Plus, Trash2, FileText, Download, Eye, Utensils, Wine, Armchair, Users, Flower2, Package, GripVertical, Percent, DollarSign, ChevronDown, ChevronRight, AlertTriangle, Search } from "lucide-react";
+import { KoraLoader } from "./KoraLoader";
 import { fmtNum } from "../utils/format";
 
 
@@ -337,7 +334,7 @@ export default function EventOrderEditor({ eventId, event, onDocumentGenerated }
   if (loading) {
     return (
       <div className="flex items-center justify-center h-48">
-        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+        <KoraLoader size={32} />
       </div>
     );
   }

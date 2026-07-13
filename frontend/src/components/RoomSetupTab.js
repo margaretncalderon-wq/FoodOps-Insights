@@ -29,35 +29,8 @@ import {
   TabsList,
   TabsTrigger,
 } from "./ui/tabs";
-import {
-  DoorOpen,
-  Plus,
-  Edit2,
-  Trash2,
-  Clock,
-  Users,
-  Layout,
-  Package,
-  Calendar,
-  CheckCircle,
-  AlertCircle,
-  Loader2,
-  GripVertical,
-  ChevronDown,
-  ChevronUp,
-  Utensils,
-  Monitor,
-  Music,
-  Mic,
-  Lightbulb,
-  Armchair,
-  Move,
-  Copy,
-  FileDown,
-  Image,
-  Sparkles,
-  History,
-} from "lucide-react";
+import { DoorOpen, Plus, Edit2, Trash2, Clock, Users, Layout, Package, Calendar, CheckCircle, AlertCircle, GripVertical, ChevronDown, ChevronUp, Utensils, Monitor, Music, Mic, Lightbulb, Armchair, Move, Copy, FileDown, Image, Sparkles, History } from "lucide-react";
+import { KoraLoader } from "./KoraLoader";
 import { toast } from "sonner";
 import {
   DndContext,
@@ -571,7 +544,7 @@ export default function RoomSetupTab({ eventId, event, isLocked = false }) {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-[#3A4D3F]" />
+        <KoraLoader size={32} />
       </div>
     );
   }
@@ -1099,7 +1072,7 @@ export default function RoomSetupTab({ eventId, event, isLocked = false }) {
             >
               {copying ? (
                 <>
-                  <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                  <KoraLoader size={16} className="mr-1" />
                   {isEs ? "Copiando..." : "Copying..."}
                 </>
               ) : (
@@ -1486,7 +1459,7 @@ function RoomSetupCard({ setup, isEs, isLocked, eventId, token, onEdit, onDelete
             >
               {savingTemplate ? (
                 <>
-                  <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                  <KoraLoader size={16} className="mr-1" />
                   {isEs ? "Guardando..." : "Saving..."}
                 </>
               ) : (
@@ -2465,7 +2438,7 @@ function TemplatesView({ token, eventId, venues, isEs, isLocked, onApplyTemplate
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-[#3A4D3F]" />
+        <KoraLoader size={32} />
       </div>
     );
   }
@@ -2658,7 +2631,7 @@ function TemplatesView({ token, eventId, venues, isEs, isLocked, onApplyTemplate
             <Button onClick={handleConfirmApply} className="bg-[#3A4D3F] hover:bg-[#2d3d31]" disabled={applying}>
               {applying ? (
                 <>
-                  <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                  <KoraLoader size={16} className="mr-1" />
                   {isEs ? "Aplicando..." : "Applying..."}
                 </>
               ) : (
@@ -2780,7 +2753,7 @@ function TemplatesView({ token, eventId, venues, isEs, isLocked, onApplyTemplate
             <Button onClick={handleCreateTemplate} className="bg-[#3A4D3F] hover:bg-[#2d3d31]" disabled={creating}>
               {creating ? (
                 <>
-                  <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                  <KoraLoader size={16} className="mr-1" />
                   {isEs ? "Creando..." : "Creating..."}
                 </>
               ) : (
@@ -2849,7 +2822,7 @@ function TemplatesView({ token, eventId, venues, isEs, isLocked, onApplyTemplate
             >
               {duplicating ? (
                 <>
-                  <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                  <KoraLoader size={16} className="mr-1" />
                   {isEs ? "Duplicando..." : "Duplicating..."}
                 </>
               ) : (

@@ -24,7 +24,8 @@ import {
   SelectValue,
 } from "../ui/select";
 import { Checkbox } from "../ui/checkbox";
-import { Share2, Mail, AlertCircle, Loader2 } from "lucide-react";
+import { Share2, Mail, AlertCircle } from "lucide-react";
+import { KoraLoader } from "../KoraLoader";
 import { useLanguage } from "../../contexts/LanguageContext";
 
 const API = process.env.REACT_APP_BACKEND_URL;
@@ -212,7 +213,7 @@ export default function ShareEntityDialog({
             {isEs ? "Cancelar" : "Cancel"}
           </Button>
           <Button onClick={handleShare} disabled={loading} data-testid="confirm-share-button">
-            {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+            {loading && <KoraLoader size={16} className="mr-2" />}
             {isEs ? "Compartir" : "Share"}
           </Button>
         </DialogFooter>

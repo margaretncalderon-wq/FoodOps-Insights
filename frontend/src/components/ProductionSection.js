@@ -17,12 +17,9 @@ import { Textarea } from "./ui/textarea";
 import { Checkbox } from "./ui/checkbox";
 
 // Icons
-import { 
-  Factory, Plus, ChefHat, Package, ArrowRight, CheckCircle, 
-  AlertTriangle, RefreshCw, Trash2, Eye, Play, Archive,
-  Calendar, FileText, Loader2, Info, Calculator, Printer
-} from "lucide-react";
+import { Factory, Plus, ChefHat, Package, ArrowRight, CheckCircle, AlertTriangle, RefreshCw, Trash2, Eye, Play, Archive, Calendar, FileText, Info, Calculator, Printer } from "lucide-react";
 
+import { KoraLoader } from "./KoraLoader";
 import { API_BASE as API } from "../utils/api";
 import EventProductionPlan from "./EventProductionPlan";
 import KitchenBEO from "./KitchenBEO";
@@ -363,7 +360,7 @@ export default function ProductionSection() {
             disabled={generatingMep || batches.filter(b => ["PLANNED", "IN_PROGRESS"].includes(b.status)).length === 0}
             className="gap-2 border-amber-300 text-amber-700 hover:bg-amber-50"
           >
-            {generatingMep ? <Loader2 className="w-4 h-4 animate-spin" /> : <ChefHat className="w-4 h-4" />}
+            {generatingMep ? <KoraLoader size={16} /> : <ChefHat className="w-4 h-4" />}
             Mise en Place
           </Button>
           <Button onClick={() => setCreateDialogOpen(true)} className="gap-2">
@@ -753,7 +750,7 @@ export default function ProductionSection() {
               >
                 {posting ? (
                   <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    <KoraLoader size={16} className="mr-2" />
                     {language === "es" ? "Publicando..." : "Posting..."}
                   </>
                 ) : (

@@ -10,7 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Badge } from "./ui/badge";
 import { Card, CardContent } from "./ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./ui/table";
-import { Calculator, Loader2, AlertTriangle, ChefHat, Package, Info } from "lucide-react";
+import { Calculator, AlertTriangle, ChefHat, Package, Info } from "lucide-react";
+import { KoraLoader } from "./KoraLoader";
 import { API_BASE as API } from "../utils/api";
 import { fmtNum } from "../utils/format";
 
@@ -108,7 +109,7 @@ export default function EventProductionPlan({ open, onOpenChange, events = [] })
             />
           </div>
           <Button onClick={handleCompute} disabled={loading || !eventId} data-testid="event-plan-compute-btn">
-            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Calculator className="w-4 h-4" />}
+            {loading ? <KoraLoader size={16} /> : <Calculator className="w-4 h-4" />}
             <span className="ml-1.5">{language === "es" ? "Calcular" : "Compute"}</span>
           </Button>
         </div>

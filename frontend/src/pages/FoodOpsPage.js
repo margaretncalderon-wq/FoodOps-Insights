@@ -37,14 +37,9 @@ import CulinaryDigestDialog from "../components/CulinaryDigestDialog";
 import RecipeImportDialog from "../components/RecipeImportDialog";
 
 // Icons
-import { 
-  Package, Plus, Search, AlertTriangle, Truck, Edit, Trash2, 
-  ArrowUpDown, DollarSign, Archive, ShoppingCart, ChefHat,
-  UtensilsCrossed, RefreshCw, Copy, BookOpen, Layers, Beaker,
-  Utensils, Menu as MenuIcon, ArrowLeft, History, Printer, CheckCircle,
-  Factory, ClipboardList, FileUp, Sparkles, Wand2, Loader2, Sliders, TrendingUp, FileText, Mail
-} from "lucide-react";
+import { Package, Plus, Search, AlertTriangle, Truck, Edit, Trash2, ArrowUpDown, DollarSign, Archive, ShoppingCart, ChefHat, UtensilsCrossed, RefreshCw, Copy, BookOpen, Layers, Beaker, Utensils, Menu as MenuIcon, ArrowLeft, History, Printer, CheckCircle, Factory, ClipboardList, FileUp, Sparkles, Wand2, Sliders, TrendingUp, FileText, Mail } from "lucide-react";
 
+import { KoraLoader } from "../components/KoraLoader";
 import { API_BASE as API } from "../utils/api"; // Dynamic API URL
 
 // Culinary Intelligence inventory types (food-related only)
@@ -1658,7 +1653,7 @@ function InventorySection() {
             )}
             {aiRepairLoading && (
               <div className="p-8 text-center">
-                <Loader2 className="w-8 h-8 animate-spin text-purple-600 mx-auto mb-2" />
+                <KoraLoader size={32} className="mx-auto mb-2" />
                 <p className="text-sm text-muted-foreground">
                   {language === "es" ? "IA analizando… puede tardar 10-30s" : "AI analyzing… may take 10-30s"}
                 </p>
@@ -1744,7 +1739,7 @@ function InventorySection() {
                 className="bg-emerald-600 hover:bg-emerald-700 text-white"
                 data-testid="apply-all-ai-repair-btn"
               >
-                {aiRepairApplying ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <CheckCircle className="w-4 h-4 mr-1" />}
+                {aiRepairApplying ? <KoraLoader size={16} className="mr-1" /> : <CheckCircle className="w-4 h-4 mr-1" />}
                 {language === "es" ? `Aplicar Todos (${aiRepairProposals.length})` : `Apply All (${aiRepairProposals.length})`}
               </Button>
             )}
@@ -2470,7 +2465,7 @@ function PlatedMenusSection() {
                           data-testid={`convert-to-catalog-${menu.menu_id}`}
                         >
                           {convertingMenuId === menu.menu_id
-                            ? <Loader2 className="w-4 h-4 animate-spin" />
+                            ? <KoraLoader size={16} />
                             : <FileText className="w-4 h-4 text-indigo-600" />
                           }
                         </Button>
@@ -2555,7 +2550,7 @@ function PlatedMenusSection() {
                                 data-testid={`menu-refresh-costs-${menu.menu_id}`}
                               >
                                 {refreshingMenuId === menu.menu_id ? (
-                                  <Loader2 className="w-3 h-3 animate-spin" />
+                                  <KoraLoader size={12} />
                                 ) : (
                                   <RefreshCw className="w-3 h-3" />
                                 )}

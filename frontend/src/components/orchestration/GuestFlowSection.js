@@ -9,11 +9,9 @@ import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "../ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
-import {
-  Users, Plus, ExternalLink, Copy, Play, Pause,
-  QrCode, Clock, CheckCircle, Loader2, Hash, Link2, Monitor
-} from "lucide-react";
+import { Users, Plus, ExternalLink, Copy, Play, Pause, QrCode, Clock, CheckCircle, Hash, Link2, Monitor } from "lucide-react";
 
+import { KoraLoader } from "../KoraLoader";
 import { API_BASE as API } from "../../utils/api";
 
 const ACTIVATION_TYPES = [
@@ -98,7 +96,7 @@ export default function GuestFlowSection({ eventId, language }) {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+        <KoraLoader size={24} />
       </div>
     );
   }
@@ -319,7 +317,7 @@ export default function GuestFlowSection({ eventId, language }) {
               {isEs ? "Cancelar" : "Cancel"}
             </Button>
             <Button onClick={createActivation} disabled={saving || !newAct.activation_name.trim()} data-testid="create-activation-submit">
-              {saving ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null}
+              {saving ? <KoraLoader size={16} className="mr-1" /> : null}
               {isEs ? "Crear" : "Create"}
             </Button>
           </DialogFooter>

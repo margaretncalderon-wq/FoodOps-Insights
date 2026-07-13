@@ -9,7 +9,8 @@ import { Card, CardContent } from "./ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./ui/table";
 import { Label } from "./ui/label";
-import { AlertTriangle, Loader2, Info, TrendingUp, TrendingDown } from "lucide-react";
+import { AlertTriangle, Info, TrendingUp, TrendingDown } from "lucide-react";
+import { KoraLoader } from "./KoraLoader";
 import { API_BASE as API } from "../utils/api";
 import { formatDateOnly } from "../utils/dates";
 import { fmtNum } from "../utils/format";
@@ -164,7 +165,7 @@ export default function CostVarianceDialog({ open, onOpenChange, initialEventId 
         )}
 
         {loading ? (
-          <div className="py-12 text-center"><Loader2 className="w-6 h-6 animate-spin mx-auto" /></div>
+          <div className="py-12 text-center"><KoraLoader size={24} className="mx-auto" /></div>
         ) : (data?.events || []).length === 0 ? (
           <p className="text-center text-sm text-muted-foreground py-6">
             {isEs ? "No hay eventos con lotes de producción publicados en esta ventana." : "No events with POSTED production batches in this window."}

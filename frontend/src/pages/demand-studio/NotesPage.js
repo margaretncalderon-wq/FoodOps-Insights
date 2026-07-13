@@ -29,11 +29,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "../../components/ui/dropdown-menu";
-import {
-  FileText, Plus, Search, Folder, Tag, MoreVertical, Edit2, Trash2,
-  Paperclip, Image, Sparkles, Loader2, Calendar, Link2, X, Upload,
-  FolderPlus, ChevronRight
-} from "lucide-react";
+import { FileText, Plus, Search, Folder, Tag, MoreVertical, Edit2, Trash2, Paperclip, Image, Sparkles, Calendar, Link2, X, Upload, FolderPlus, ChevronRight } from "lucide-react";
+import { KoraLoader } from "../../components/KoraLoader";
 import { toast } from "sonner";
 import CommentsSection from "../../components/shared/CommentsSection";
 import { formatDateOnly } from "../../utils/dates";
@@ -361,7 +358,7 @@ export default function NotesPage() {
       {/* Notes Grid */}
       {loading ? (
         <div className="flex items-center justify-center py-12">
-          <Loader2 className="w-6 h-6 animate-spin" />
+          <KoraLoader size={24} />
         </div>
       ) : filteredNotes.length === 0 ? (
         <Card>
@@ -476,7 +473,7 @@ export default function NotesPage() {
                     onClick={handleAISummarize}
                     disabled={aiLoading}
                   >
-                    {aiLoading ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Sparkles className="w-3 h-3 mr-1" />}
+                    {aiLoading ? <KoraLoader size={12} className="mr-1" /> : <Sparkles className="w-3 h-3 mr-1" />}
                     {isEs ? "Resumir" : "Summarize"}
                   </Button>
                   <Button 
@@ -485,7 +482,7 @@ export default function NotesPage() {
                     onClick={handleAIExtractActions}
                     disabled={aiLoading}
                   >
-                    {aiLoading ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Sparkles className="w-3 h-3 mr-1" />}
+                    {aiLoading ? <KoraLoader size={12} className="mr-1" /> : <Sparkles className="w-3 h-3 mr-1" />}
                     {isEs ? "Extraer Actions" : "Extract Actions"}
                   </Button>
                 </div>

@@ -7,12 +7,9 @@ import { Badge } from "../../components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs";
 import { Input } from "../../components/ui/input";
 import { Progress } from "../../components/ui/progress";
-import {
-  DollarSign, TrendingUp, TrendingDown, Users, CreditCard, FileText,
-  BarChart3, PieChart, ArrowUp, ArrowDown, Calendar, Building2,
-  Package, AlertCircle, CheckCircle2, Clock, Loader2
-} from "lucide-react";
+import { DollarSign, TrendingUp, TrendingDown, Users, CreditCard, FileText, BarChart3, PieChart, ArrowUp, ArrowDown, Calendar, Building2, Package, AlertCircle, CheckCircle2, Clock } from "lucide-react";
 
+import { KoraLoader } from "../../components/KoraLoader";
 import { API_BASE as API } from "../../utils/api";
 
 export default function BIPage() {
@@ -56,7 +53,7 @@ export default function BIPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin" />
+        <KoraLoader size={32} />
       </div>
     );
   }

@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams } from "react-router-dom";
-import { Loader2, Clock, CheckCircle, XCircle, Bell, Users } from "lucide-react";
+import { Clock, CheckCircle, XCircle, Bell, Users } from "lucide-react";
 
+import { KoraLoader } from "../../components/KoraLoader";
 const API = process.env.REACT_APP_BACKEND_URL;
 
 const STATUS_CONFIG = {
@@ -41,7 +42,7 @@ export default function GuestStatusPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
-        <Loader2 className="w-8 h-8 text-white animate-spin" />
+        <KoraLoader size={32} />
       </div>
     );
   }

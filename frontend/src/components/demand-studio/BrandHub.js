@@ -16,11 +16,8 @@ import {
   DialogTitle,
   DialogFooter,
 } from "../ui/dialog";
-import { 
-  Palette, Type, Image as ImageIcon, Wand2, FileText, MessageSquare, BookOpen,
-  Plus, Search, Pin, Star, Trash2, Edit, Save, Upload, Copy, Check,
-  Loader2, ChevronRight, ExternalLink, Sparkles, Pencil
-} from "lucide-react";
+import { Palette, Type, Image as ImageIcon, Wand2, FileText, MessageSquare, BookOpen, Plus, Search, Pin, Star, Trash2, Edit, Save, Upload, Copy, Check, ChevronRight, ExternalLink, Sparkles, Pencil } from "lucide-react";
+import { KoraLoader } from "../KoraLoader";
 import { toast } from "sonner";
 import { API_BASE as API } from "../../utils/api";
 import StudioEditor from "./StudioEditor";
@@ -321,7 +318,7 @@ export default function BrandHub({ brandId = null }) {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+        <KoraLoader size={32} />
       </div>
     );
   }
@@ -474,7 +471,7 @@ export default function BrandHub({ brandId = null }) {
           </Card>
 
           <Button onClick={saveBrandKit} disabled={saving}>
-            {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+            {saving ? <KoraLoader size={16} className="mr-2" /> : <Save className="w-4 h-4 mr-2" />}
             {isEs ? "Guardar Brand Kit" : "Save Brand Kit"}
           </Button>
         </TabsContent>
@@ -775,7 +772,7 @@ export default function BrandHub({ brandId = null }) {
           </Card>
 
           <Button onClick={saveMessaging} disabled={saving}>
-            {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+            {saving ? <KoraLoader size={16} className="mr-2" /> : <Save className="w-4 h-4 mr-2" />}
             {isEs ? "Guardar Messaging" : "Save Messaging"}
           </Button>
         </TabsContent>
@@ -918,7 +915,7 @@ export default function BrandHub({ brandId = null }) {
               {isEs ? "Cancelar" : "Cancel"}
             </Button>
             <Button onClick={savePlaybook} disabled={saving}>
-              {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+              {saving ? <KoraLoader size={16} className="mr-2" /> : <Save className="w-4 h-4 mr-2" />}
               {isEs ? "Guardar" : "Save"}
             </Button>
           </DialogFooter>
@@ -998,7 +995,7 @@ export default function BrandHub({ brandId = null }) {
                     disabled={uploadingTemplate}
                   />
                   {uploadingTemplate ? (
-                    <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+                    <KoraLoader size={32} />
                   ) : (
                     <>
                       <Upload className="w-8 h-8 text-muted-foreground mb-2" />
@@ -1016,7 +1013,7 @@ export default function BrandHub({ brandId = null }) {
               {isEs ? "Cancelar" : "Cancel"}
             </Button>
             <Button onClick={createNewTemplate} disabled={saving || !newTemplate.name.trim()}>
-              {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Plus className="w-4 h-4 mr-2" />}
+              {saving ? <KoraLoader size={16} className="mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
               {isEs ? "Crear Template" : "Create Template"}
             </Button>
           </DialogFooter>

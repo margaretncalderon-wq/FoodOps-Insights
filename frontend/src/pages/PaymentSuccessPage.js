@@ -2,7 +2,8 @@ import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useLanguage } from "../contexts/LanguageContext";
 import { Button } from "../components/ui/button";
-import { Loader2, CheckCircle2, XCircle, PartyPopper } from "lucide-react";
+import { CheckCircle2, XCircle, PartyPopper } from "lucide-react";
+import { KoraLoader } from "../components/KoraLoader";
 import { toast } from "sonner";
 import { fmtNum } from "../utils/format";
 
@@ -72,7 +73,7 @@ export default function PaymentSuccessPage() {
       <div className="max-w-md w-full">
         {status === "checking" && (
           <div className="bg-white rounded-2xl shadow-xl p-8 text-center">
-            <Loader2 className="w-16 h-16 mx-auto text-[#2563EB] animate-spin mb-6" />
+            <KoraLoader size={64} className="mx-auto mb-6" />
             <h1 className="text-2xl font-bold text-[#1F2937] mb-2">
               {isEs ? "Verificando pago..." : "Verifying payment..."}
             </h1>

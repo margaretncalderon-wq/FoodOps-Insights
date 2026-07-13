@@ -21,12 +21,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../../components/ui/select";
-import { 
-  Plus, Target, Calendar, DollarSign, Trash2, 
-  Edit2, Loader2, Users, UserPlus, X, ShieldCheck, Share2,
-  Copy, Link2, QrCode, Eye
-} from "lucide-react";
+import { Plus, Target, Calendar, DollarSign, Trash2, Edit2, Users, UserPlus, X, ShieldCheck, Share2, Copy, Link2, QrCode, Eye } from "lucide-react";
 
+import { KoraLoader } from "../../components/KoraLoader";
 import { API_BASE as API } from "../../utils/api"; // Dynamic API URL
 import ShareEntityDialog from "../../components/collaboration/ShareEntityDialog";
 import { toast } from "sonner";
@@ -293,7 +290,7 @@ export default function CampaignsPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+        <KoraLoader size={32} />
       </div>
     );
   }

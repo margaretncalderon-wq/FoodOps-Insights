@@ -13,17 +13,8 @@ import {
   DialogTitle,
   DialogFooter,
 } from "./ui/dialog";
-import {
-  Image,
-  Upload,
-  Trash2,
-  ZoomIn,
-  ZoomOut,
-  Maximize2,
-  Loader2,
-  X,
-  FileImage,
-} from "lucide-react";
+import { Image, Upload, Trash2, ZoomIn, ZoomOut, Maximize2, X, FileImage } from "lucide-react";
+import { KoraLoader } from "./KoraLoader";
 import { toast } from "sonner";
 
 // Layout type visual representations (simple SVG icons)
@@ -391,7 +382,7 @@ export default function VisualLayoutEditor({
               onClick={() => fileInputRef.current?.click()}
             >
               {uploading ? (
-                <Loader2 className="w-8 h-8 mx-auto mb-2 animate-spin text-[#3A4D3F]" />
+                <KoraLoader size={32} className="mx-auto mb-2" />
               ) : (
                 <Upload className="w-8 h-8 mx-auto mb-2 text-gray-400" />
               )}

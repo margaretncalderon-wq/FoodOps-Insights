@@ -5,8 +5,9 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../co
 import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
 import { Alert, AlertDescription } from "../components/ui/alert";
-import { Loader2, AlertTriangle, CheckCircle, Building2, RefreshCw } from "lucide-react";
+import { AlertTriangle, CheckCircle, Building2, RefreshCw } from "lucide-react";
 
+import { KoraLoader } from "../components/KoraLoader";
 const API = process.env.REACT_APP_BACKEND_URL;
 
 export default function EmergencyRestore() {
@@ -62,7 +63,7 @@ export default function EmergencyRestore() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <Loader2 className="w-8 h-8 animate-spin" />
+        <KoraLoader size={32} />
       </div>
     );
   }
@@ -145,7 +146,7 @@ export default function EmergencyRestore() {
                             onClick={() => handleRestore(c.company_id, c.name)}
                             disabled={restoring}
                           >
-                            {restoring ? <Loader2 className="w-4 h-4 animate-spin" /> : "Restaurar"}
+                            {restoring ? <KoraLoader size={16} /> : "Restaurar"}
                           </Button>
                         )}
                       </div>

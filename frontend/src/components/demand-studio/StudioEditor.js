@@ -15,12 +15,8 @@ import {
   DialogTitle,
   DialogFooter,
 } from "../ui/dialog";
-import { 
-  Wand2, Sliders, Crop, Download, Save, Heart, Plus,
-  Loader2, RefreshCw, Check, X, ChevronLeft, ChevronRight,
-  Image as ImageIcon, Square, RectangleHorizontal, RectangleVertical,
-  Smartphone, Upload, Trash2, Star
-} from "lucide-react";
+import { Wand2, Sliders, Crop, Download, Save, Heart, Plus, RefreshCw, Check, X, ChevronLeft, ChevronRight, Image as ImageIcon, Square, RectangleHorizontal, RectangleVertical, Smartphone, Upload, Trash2, Star } from "lucide-react";
+import { KoraLoader } from "../KoraLoader";
 import { toast } from "sonner";
 import { API_BASE as API } from "../../utils/api";
 
@@ -379,7 +375,7 @@ export default function StudioEditor({
                   disabled={uploading}
                 />
                 {uploading ? (
-                  <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+                  <KoraLoader size={20} />
                 ) : (
                   <Plus className="w-5 h-5 text-muted-foreground" />
                 )}
@@ -627,7 +623,7 @@ export default function StudioEditor({
               {isEs ? "Cancelar" : "Cancel"}
             </Button>
             <Button onClick={handleSaveAsTemplate} disabled={loading || !newTemplateName.trim()}>
-              {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+              {loading ? <KoraLoader size={16} className="mr-2" /> : <Save className="w-4 h-4 mr-2" />}
               {isEs ? "Guardar Template" : "Save Template"}
             </Button>
           </DialogFooter>

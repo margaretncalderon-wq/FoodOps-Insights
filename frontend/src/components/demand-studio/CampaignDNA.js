@@ -10,10 +10,8 @@ import { Label } from "../ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 import { Switch } from "../ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
-import { 
-  Palette, Wand2, FileText, MessageSquare, Download,
-  Save, Loader2, RefreshCw, Check, ArrowRight, Sparkles
-} from "lucide-react";
+import { Palette, Wand2, FileText, MessageSquare, Download, Save, RefreshCw, Check, ArrowRight, Sparkles } from "lucide-react";
+import { KoraLoader } from "../KoraLoader";
 import { toast } from "sonner";
 import { API_BASE as API } from "../../utils/api";
 
@@ -124,7 +122,7 @@ export default function CampaignDNA({ campaignId, brandId = null }) {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+        <KoraLoader size={32} />
       </div>
     );
   }
@@ -143,7 +141,7 @@ export default function CampaignDNA({ campaignId, brandId = null }) {
           </p>
         </div>
         <Button onClick={saveDNA} disabled={saving}>
-          {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+          {saving ? <KoraLoader size={16} className="mr-2" /> : <Save className="w-4 h-4 mr-2" />}
           {isEs ? "Guardar" : "Save"}
         </Button>
       </div>

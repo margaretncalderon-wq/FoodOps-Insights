@@ -23,13 +23,9 @@ import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from "./ui/command";
 
 // Icons
-import { 
-  Plus, Search, Edit, Trash2, ChefHat, Copy, X, AlertTriangle,
-  Link2, DollarSign, History, Percent, Info, Layers, Utensils,
-  Beaker, CookingPot, ArrowRight, RefreshCw, Check, Package,
-  AlertOctagon, Tag, Upload, Image, FileText, Loader2, BookOpen, Sparkles
-} from "lucide-react";
+import { Plus, Search, Edit, Trash2, ChefHat, Copy, X, AlertTriangle, Link2, DollarSign, History, Percent, Info, Layers, Utensils, Beaker, CookingPot, ArrowRight, RefreshCw, Check, Package, AlertOctagon, Tag, Upload, Image, FileText, BookOpen, Sparkles } from "lucide-react";
 
+import { KoraLoader } from "./KoraLoader";
 import { API_BASE as API } from "../utils/api";
 import IngredientWizard from "./culinary/IngredientWizard";
 import { formatDateOnly } from "../utils/dates";
@@ -292,7 +288,7 @@ function IngredientRow({ ing, onChange, onRemove, isEs }) {
       </TableCell>
       <TableCell className="text-right font-mono">
         <div className="flex items-center justify-end gap-1.5">
-          {loading && <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />}
+          {loading && <KoraLoader size={12} />}
           <span className={showWarning ? "text-amber-700" : "text-foreground"}>
             ${(preview.cost || 0).toFixed(2)}
           </span>
@@ -1446,7 +1442,7 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
                   className="gap-2"
                   data-testid="recipe-ai-suggest-ingredients"
                 >
-                  {aiSuggesting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                  {aiSuggesting ? <KoraLoader size={14} /> : <Sparkles className="w-3.5 h-3.5" />}
                   {language === "es" ? "Sugerir con IA" : "Suggest with AI"}
                 </Button>
                 <IngredientPicker

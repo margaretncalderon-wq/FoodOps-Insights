@@ -23,10 +23,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../ui/select";
-import { 
-  Users, Building2, Mail, Loader2, Shield, Eye, Edit, UserPlus,
-  Hash, Target, Receipt, BarChart3, FileText, Zap, Check, X
-} from "lucide-react";
+import { Users, Building2, Mail, Shield, Eye, Edit, UserPlus, Hash, Target, Receipt, BarChart3, FileText, Zap, Check, X } from "lucide-react";
+import { KoraLoader } from "../KoraLoader";
 import { toast } from "sonner";
 
 const API = process.env.REACT_APP_BACKEND_URL;
@@ -303,7 +301,7 @@ export default function CompanyShareSettings({ open, onOpenChange, existingMembe
             {isEs ? "Cancelar" : "Cancel"}
           </Button>
           <Button onClick={handleSave} disabled={saving} data-testid="save-permissions-btn">
-            {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+            {saving && <KoraLoader size={16} className="mr-2" />}
             {existingMembership 
               ? (isEs ? "Guardar Cambios" : "Save Changes")
               : (isEs ? "Enviar Invitación" : "Send Invitation")

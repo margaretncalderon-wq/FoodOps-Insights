@@ -12,11 +12,8 @@ import {
   SheetHeader,
   SheetTitle,
 } from "../ui/sheet";
-import { 
-  Grid3X3, Eye, Calendar, Clock, ExternalLink, Instagram,
-  Loader2, RefreshCw, Link2, Edit, Wand2, Image as ImageIcon,
-  Play, CheckCircle, AlertCircle, Smartphone, LayoutGrid, Upload
-} from "lucide-react";
+import { Grid3X3, Eye, Calendar, Clock, ExternalLink, Instagram, RefreshCw, Link2, Edit, Wand2, Image as ImageIcon, Play, CheckCircle, AlertCircle, Smartphone, LayoutGrid, Upload } from "lucide-react";
+import { KoraLoader } from "../KoraLoader";
 import { API_BASE as API } from "../../utils/api";
 import { formatDateOnly } from "../../utils/dates";
 
@@ -177,7 +174,7 @@ export default function FeedTab({ campaigns = [], pillars = [] }) {
   };
 
   if (loading) {
-    return <div className="flex items-center justify-center h-64"><Loader2 className="w-8 h-8 animate-spin text-muted-foreground" /></div>;
+    return <div className="flex items-center justify-center h-64"><KoraLoader size={32} /></div>;
   }
 
   const feed = getCurrentFeed();

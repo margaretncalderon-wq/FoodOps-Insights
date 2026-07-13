@@ -9,12 +9,9 @@ import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { Badge } from "../ui/badge";
 import { toast } from "sonner";
-import { 
-  Upload, Download, Users, Package, 
-  ChefHat, Loader2, CheckCircle2, AlertCircle, FileDown,
-  FileText, CalendarDays, UserPlus
-} from "lucide-react";
+import { Upload, Download, Users, Package, ChefHat, CheckCircle2, AlertCircle, FileDown, FileText, CalendarDays, UserPlus } from "lucide-react";
 
+import { KoraLoader } from "../KoraLoader";
 import { API_BASE as API } from "../../utils/api";
 
 // Filter options:
@@ -255,7 +252,7 @@ export default function ImportExportSection({ filter }) {
                     className="w-full"
                   >
                     {loading ? (
-                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                      <KoraLoader size={16} className="mr-2" />
                     ) : (
                       <Download className="w-4 h-4 mr-2" />
                     )}

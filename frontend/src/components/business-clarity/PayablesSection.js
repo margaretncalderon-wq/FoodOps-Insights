@@ -12,11 +12,9 @@ import { Label } from "../ui/label";
 import { Input } from "../ui/input";
 import { Textarea } from "../ui/textarea";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui/tooltip";
-import {
-  FileText, RefreshCw, Calendar, Building2, AlertCircle, HelpCircle, Info, Target, Plus, Loader2,
-  DollarSign, CreditCard, CheckCircle, Clock, History, Download
-} from "lucide-react";
+import { FileText, RefreshCw, Calendar, Building2, AlertCircle, HelpCircle, Info, Target, Plus, DollarSign, CreditCard, CheckCircle, Clock, History, Download } from "lucide-react";
 
+import { KoraLoader } from "../KoraLoader";
 import { API_BASE as API } from "../../utils/api";
 import { fmtNum } from "../../utils/format";
 const formatCurrency = (amount) => `$${(amount || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -833,7 +831,7 @@ export function PayablesSection() {
             <Button onClick={handleCreateExpense} disabled={submitting} data-testid="save-expense-btn">
               {submitting ? (
                 <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  <KoraLoader size={16} className="mr-2" />
                   {isEs ? "Guardando..." : "Saving..."}
                 </>
               ) : (
@@ -975,7 +973,7 @@ export function PayablesSection() {
                 <div className="border rounded-lg max-h-32 overflow-y-auto">
                   {loadingHistory ? (
                     <div className="p-4 text-center text-muted-foreground text-sm">
-                      <Loader2 className="w-4 h-4 animate-spin inline mr-2" />
+                      <KoraLoader size={16} className="inline mr-2" />
                       {isEs ? "Cargando..." : "Loading..."}
                     </div>
                   ) : (
@@ -1010,7 +1008,7 @@ export function PayablesSection() {
             >
               {processingPayment ? (
                 <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  <KoraLoader size={16} className="mr-2" />
                   {isEs ? "Procesando..." : "Processing..."}
                 </>
               ) : (
@@ -1096,7 +1094,7 @@ export function PayablesSection() {
             >
               {creatingVendor ? (
                 <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  <KoraLoader size={16} className="mr-2" />
                   {isEs ? "Creando..." : "Creating..."}
                 </>
               ) : (

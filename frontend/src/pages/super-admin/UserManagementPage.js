@@ -11,11 +11,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "../../components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table";
 import { toast } from "sonner";
-import { 
-  Users, UserPlus, Search, Edit2, Trash2, Shield, 
-  Eye, EyeOff, Key, Building2, Mail, Loader2 
-} from "lucide-react";
+import { Users, UserPlus, Search, Edit2, Trash2, Shield, Eye, EyeOff, Key, Building2, Mail } from "lucide-react";
 
+import { KoraLoader } from "../../components/KoraLoader";
 import { API_BASE as API } from "../../utils/api";
 
 export default function UserManagementPage() {
@@ -253,7 +251,7 @@ export default function UserManagementPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin" />
+        <KoraLoader size={32} />
       </div>
     );
   }
@@ -521,7 +519,7 @@ export default function UserManagementPage() {
               {isEs ? "Cancelar" : "Cancel"}
             </Button>
             <Button onClick={handleCreateUser} disabled={saving}>
-              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : (isEs ? "Crear" : "Create")}
+              {saving ? <KoraLoader size={16} /> : (isEs ? "Crear" : "Create")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -653,7 +651,7 @@ export default function UserManagementPage() {
               {isEs ? "Cancelar" : "Cancel"}
             </Button>
             <Button onClick={handleUpdateUser} disabled={saving}>
-              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : (isEs ? "Guardar" : "Save")}
+              {saving ? <KoraLoader size={16} /> : (isEs ? "Guardar" : "Save")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -707,7 +705,7 @@ export default function UserManagementPage() {
               {isEs ? "Cancelar" : "Cancel"}
             </Button>
             <Button onClick={handleUpdatePermissions} disabled={saving}>
-              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : (isEs ? "Guardar" : "Save")}
+              {saving ? <KoraLoader size={16} /> : (isEs ? "Guardar" : "Save")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -750,7 +748,7 @@ export default function UserManagementPage() {
               {isEs ? "Cancelar" : "Cancel"}
             </Button>
             <Button onClick={handleCreateOrg} disabled={saving}>
-              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : (isEs ? "Crear" : "Create")}
+              {saving ? <KoraLoader size={16} /> : (isEs ? "Crear" : "Create")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -802,7 +800,7 @@ export default function UserManagementPage() {
               {isEs ? "Cancelar" : "Cancel"}
             </Button>
             <Button onClick={handleAssignOrg} disabled={saving || !assignOrgId}>
-              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : (isEs ? "Asignar" : "Assign")}
+              {saving ? <KoraLoader size={16} /> : (isEs ? "Asignar" : "Assign")}
             </Button>
           </DialogFooter>
         </DialogContent>

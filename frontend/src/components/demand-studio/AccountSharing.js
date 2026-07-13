@@ -22,11 +22,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../ui/select";
-import { 
-  Users, Link2, Copy, Check, Plus, Trash2, Mail, Shield, Eye, Edit,
-  Loader2, ExternalLink, Clock, Lock, Unlock, RefreshCw, Instagram,
-  Linkedin, Youtube, Hash, AtSign
-} from "lucide-react";
+import { Users, Link2, Copy, Check, Plus, Trash2, Mail, Shield, Eye, Edit, ExternalLink, Clock, Lock, Unlock, RefreshCw, Instagram, Linkedin, Youtube, Hash, AtSign } from "lucide-react";
+import { KoraLoader } from "../KoraLoader";
 import { toast } from "sonner";
 import { formatDateOnly } from "../../utils/dates";
 
@@ -264,7 +261,7 @@ export default function AccountSharing({ accounts = [] }) {
             <CardTitle className="flex items-center gap-2">
               <Users className="w-5 h-5" />
               {isEs ? "Colaboradores" : "Collaborators"}
-              {loading && <Loader2 className="w-4 h-4 animate-spin" />}
+              {loading && <KoraLoader size={16} />}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -433,7 +430,7 @@ export default function AccountSharing({ accounts = [] }) {
               {isEs ? "Cancelar" : "Cancel"}
             </Button>
             <Button onClick={handleInvite} disabled={saving} data-testid="send-invite-btn">
-              {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              {saving && <KoraLoader size={16} className="mr-2" />}
               {isEs ? "Enviar Invitación" : "Send Invitation"}
             </Button>
           </DialogFooter>
@@ -513,7 +510,7 @@ export default function AccountSharing({ accounts = [] }) {
               {isEs ? "Cancelar" : "Cancel"}
             </Button>
             <Button onClick={handleCreateLink} disabled={saving} data-testid="create-link-submit-btn">
-              {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              {saving && <KoraLoader size={16} className="mr-2" />}
               {isEs ? "Crear Link" : "Create Link"}
             </Button>
           </DialogFooter>

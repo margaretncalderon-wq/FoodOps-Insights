@@ -6,8 +6,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
 import { toast } from "sonner";
-import { Building2, Briefcase, Wrench, Check, Loader2, Sparkles } from "lucide-react";
+import { Building2, Briefcase, Wrench, Check, Sparkles } from "lucide-react";
 
+import { KoraLoader } from "../KoraLoader";
 const API_URL = process.env.REACT_APP_BACKEND_URL;
 
 const TEMPLATE_INFO = {
@@ -99,7 +100,7 @@ export default function IndustryConfigSection() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <Loader2 className="w-6 h-6 animate-spin text-primary" />
+        <KoraLoader size={24} />
       </div>
     );
   }
@@ -194,7 +195,7 @@ export default function IndustryConfigSection() {
                     }}
                   >
                     {applying === template.key ? (
-                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                      <KoraLoader size={16} className="mr-2" />
                     ) : null}
                     {language === "es" ? "Usar esta plantilla" : "Use this template"}
                   </Button>

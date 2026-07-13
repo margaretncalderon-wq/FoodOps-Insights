@@ -10,22 +10,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card"
 import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
-import { 
-  Users, 
-  ArrowUpRight, 
-  ArrowDownLeft, 
-  Building2, 
-  Target, 
-  Megaphone,
-  Loader2,
-  Eye,
-  MessageSquare,
-  Plus,
-  Edit3,
-  ExternalLink,
-  Clock,
-  XCircle
-} from "lucide-react";
+import { Users, ArrowUpRight, ArrowDownLeft, Building2, Target, Megaphone, Eye, MessageSquare, Plus, Edit3, ExternalLink, Clock, XCircle } from "lucide-react";
+import { KoraLoader } from "../components/KoraLoader";
 import { toast } from "sonner";
 import { formatDateOnly } from "../utils/dates";
 
@@ -123,7 +109,7 @@ export default function CollaborationDashboard() {
     return (
       <Layout>
         <div className="flex items-center justify-center min-h-[60vh]">
-          <Loader2 className="w-8 h-8 animate-spin text-[#AED768]" />
+          <KoraLoader size={32} />
         </div>
       </Layout>
     );

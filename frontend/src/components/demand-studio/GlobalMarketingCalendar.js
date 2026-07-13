@@ -11,12 +11,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../ui/select";
-import { 
-  ChevronLeft, ChevronRight, Calendar, Target, 
-  Mail, Zap, Instagram, Linkedin, Youtube, Hash,
-  Loader2
-} from "lucide-react";
+import { ChevronLeft, ChevronRight, Calendar, Target, Mail, Zap, Instagram, Linkedin, Youtube, Hash } from "lucide-react";
 
+import { KoraLoader } from "../KoraLoader";
 import { API_BASE as API } from "../../utils/api"; // Dynamic API URL
 
 const PLATFORMS = {
@@ -226,7 +223,7 @@ export default function GlobalMarketingCalendar() {
 
         {loading ? (
           <div className="flex items-center justify-center h-48">
-            <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+            <KoraLoader size={24} />
           </div>
         ) : (
           <>

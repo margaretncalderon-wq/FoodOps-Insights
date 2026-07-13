@@ -7,8 +7,9 @@ import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from "./ui/command";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
-import { Package, ArrowLeft, Layers, Loader2, Check } from "lucide-react";
+import { Package, ArrowLeft, Layers, Check } from "lucide-react";
 
+import { KoraLoader } from "./KoraLoader";
 import { API_BASE as API } from "../utils/api";
 import { fmtNum } from "../utils/format";
 
@@ -114,7 +115,7 @@ export default function PackagePicker({ proposalId, quantityMultiplier = 1, onLo
             <CommandList>
               {loading && (
                 <div className="p-4 flex items-center justify-center text-muted-foreground">
-                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                  <KoraLoader size={16} className="mr-2" />
                   <span className="text-xs">{isEs ? "Cargando..." : "Loading..."}</span>
                 </div>
               )}
@@ -224,7 +225,7 @@ export default function PackagePicker({ proposalId, quantityMultiplier = 1, onLo
                       disabled={posting}
                       data-testid="package-load-base"
                     >
-                      {posting ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> : <Check className="w-3.5 h-3.5 mr-1" />}
+                      {posting ? <KoraLoader size={14} className="mr-1" /> : <Check className="w-3.5 h-3.5 mr-1" />}
                       {isEs ? "Cargar sin variante (precio base)" : "Load base (no variant)"}
                     </Button>
                   </div>
@@ -236,7 +237,7 @@ export default function PackagePicker({ proposalId, quantityMultiplier = 1, onLo
                   disabled={posting}
                   data-testid="package-load-confirm"
                 >
-                  {posting ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> : <Check className="w-3.5 h-3.5 mr-1" />}
+                  {posting ? <KoraLoader size={14} className="mr-1" /> : <Check className="w-3.5 h-3.5 mr-1" />}
                   {isEs
                     ? `Cargar ${(selectedMenu.items || []).length} ítems`
                     : `Load ${(selectedMenu.items || []).length} items`}

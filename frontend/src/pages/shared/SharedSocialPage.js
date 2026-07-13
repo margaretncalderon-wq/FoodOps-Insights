@@ -9,10 +9,8 @@ import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { Badge } from "../../components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs";
-import { 
-  Lock, Loader2, Calendar, Lightbulb, FileText, AlertCircle,
-  Instagram, Clock, Eye, PenLine, Image, Video
-} from "lucide-react";
+import { Lock, Calendar, Lightbulb, FileText, AlertCircle, Instagram, Clock, Eye, PenLine, Image, Video } from "lucide-react";
+import { KoraLoader } from "../../components/KoraLoader";
 import { toast } from "sonner";
 import { formatDateOnly } from "../../utils/dates";
 
@@ -159,7 +157,7 @@ export default function SharedSocialPage() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        <KoraLoader size={32} />
       </div>
     );
   }
@@ -217,7 +215,7 @@ export default function SharedSocialPage() {
               </div>
               <Button type="submit" className="w-full" disabled={validating}>
                 {validating ? (
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  <KoraLoader size={16} className="mr-2" />
                 ) : (
                   <Lock className="w-4 h-4 mr-2" />
                 )}
@@ -287,7 +285,7 @@ export default function SharedSocialPage() {
 
           {loadingData ? (
             <div className="flex items-center justify-center py-12">
-              <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+              <KoraLoader size={24} />
             </div>
           ) : (
             <>

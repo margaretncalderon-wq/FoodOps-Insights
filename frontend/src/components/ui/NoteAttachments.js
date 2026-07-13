@@ -1,6 +1,7 @@
 import { useState, useRef } from "react";
 import { Button } from "./button";
-import { Paperclip, X, FileText, Image, Film, Loader2 } from "lucide-react";
+import { Paperclip, X, FileText, Image, Film } from "lucide-react";
+import { KoraLoader } from "../KoraLoader";
 import axios from "axios";
 import { API } from "../../utils/api";
 
@@ -87,7 +88,7 @@ export default function NoteAttachments({ attachments = [], onAttachmentsChange,
             disabled={uploading}
             data-testid="attach-file-btn"
           >
-            {uploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Paperclip className="w-3.5 h-3.5" />}
+            {uploading ? <KoraLoader size={14} /> : <Paperclip className="w-3.5 h-3.5" />}
             {uploading ? "Subiendo..." : "Adjuntar archivo"}
           </Button>
         </div>

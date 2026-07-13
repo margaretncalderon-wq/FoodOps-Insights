@@ -5,11 +5,9 @@ import { useLanguage } from "../../contexts/LanguageContext";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
-import { 
-  Activity, Clock, FileEdit, CheckCircle, XCircle, PlusCircle,
-  Instagram, Linkedin, Youtube, Hash, AtSign, RefreshCw, Loader2
-} from "lucide-react";
+import { Activity, Clock, FileEdit, CheckCircle, XCircle, PlusCircle, Instagram, Linkedin, Youtube, Hash, AtSign, RefreshCw } from "lucide-react";
 
+import { KoraLoader } from "../KoraLoader";
 const API = process.env.REACT_APP_BACKEND_URL;
 
 export default function ActivityFeed({ accountId = null, orgId = null, limit = 10 }) {
@@ -115,7 +113,7 @@ export default function ActivityFeed({ accountId = null, orgId = null, limit = 1
         </CardHeader>
         <CardContent>
           <div className="flex items-center justify-center py-8">
-            <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+            <KoraLoader size={24} />
           </div>
         </CardContent>
       </Card>

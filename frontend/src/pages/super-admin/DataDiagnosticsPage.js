@@ -4,23 +4,9 @@ import { Card, CardHeader, CardTitle, CardContent } from "../../components/ui/ca
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { toast } from "sonner";
-import { 
-  Database, 
-  AlertTriangle, 
-  RefreshCw, 
-  Trash2, 
-  ArrowRight, 
-  Wrench,
-  Users,
-  Building2,
-  FileText,
-  Calendar,
-  Loader2,
-  CheckCircle,
-  XCircle,
-  Search
-} from "lucide-react";
+import { Database, AlertTriangle, RefreshCw, Trash2, ArrowRight, Wrench, Users, Building2, FileText, Calendar, CheckCircle, XCircle, Search } from "lucide-react";
 
+import { KoraLoader } from "../../components/KoraLoader";
 const API = process.env.REACT_APP_BACKEND_URL;
 
 export default function DataDiagnosticsPage() {
@@ -153,7 +139,7 @@ export default function DataDiagnosticsPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        <KoraLoader size={32} />
       </div>
     );
   }
@@ -341,7 +327,7 @@ export default function DataDiagnosticsPage() {
               className="flex-1"
             />
             <Button onClick={fetchCompanyDiagnostics} disabled={actionLoading === "company"}>
-              {actionLoading === "company" ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+              {actionLoading === "company" ? <KoraLoader size={16} /> : <Search className="w-4 h-4" />}
               <span className="ml-2">Analyze</span>
             </Button>
           </div>
@@ -435,7 +421,7 @@ export default function DataDiagnosticsPage() {
                 onClick={() => runMigration(true)}
                 disabled={actionLoading === "migrate"}
               >
-                {actionLoading === "migrate" ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                {actionLoading === "migrate" ? <KoraLoader size={16} className="mr-2" /> : null}
                 Preview Migration
               </Button>
               <Button 
@@ -472,7 +458,7 @@ export default function DataDiagnosticsPage() {
                 onClick={() => fixClientFields(null, true)}
                 disabled={actionLoading === "fix-clients"}
               >
-                {actionLoading === "fix-clients" ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                {actionLoading === "fix-clients" ? <KoraLoader size={16} className="mr-2" /> : null}
                 Preview Fix (All Companies)
               </Button>
               <Button 
@@ -504,7 +490,7 @@ export default function DataDiagnosticsPage() {
                 onClick={() => cleanupNanValues(null, true)}
                 disabled={actionLoading === "cleanup-nan"}
               >
-                {actionLoading === "cleanup-nan" ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                {actionLoading === "cleanup-nan" ? <KoraLoader size={16} className="mr-2" /> : null}
                 Preview Cleanup
               </Button>
               <Button 
@@ -536,7 +522,7 @@ export default function DataDiagnosticsPage() {
                 onClick={() => deleteOrphanedData(true)}
                 disabled={actionLoading === "delete-orphaned"}
               >
-                {actionLoading === "delete-orphaned" ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                {actionLoading === "delete-orphaned" ? <KoraLoader size={16} className="mr-2" /> : null}
                 Preview Delete
               </Button>
               <Button 

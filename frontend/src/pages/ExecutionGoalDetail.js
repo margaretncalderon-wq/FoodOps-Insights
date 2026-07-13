@@ -34,33 +34,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "../components/ui/dropdown-menu";
-import {
-  Target,
-  ArrowLeft,
-  Plus,
-  MoreVertical,
-  CheckCircle2,
-  AlertTriangle,
-  Clock,
-  Users,
-  Calendar,
-  Loader2,
-  Trash2,
-  Edit,
-  MessageSquare,
-  Link2,
-  FileText,
-  GitBranch,
-  Zap,
-  CircleDot,
-  Archive,
-  ChevronDown,
-  ChevronUp,
-  Send,
-  Share2,
-  UserPlus,
-  X,
-} from "lucide-react";
+import { Target, ArrowLeft, Plus, MoreVertical, CheckCircle2, AlertTriangle, Clock, Users, Calendar, Trash2, Edit, MessageSquare, Link2, FileText, GitBranch, Zap, CircleDot, Archive, ChevronDown, ChevronUp, Send, Share2, UserPlus, X } from "lucide-react";
+import { KoraLoader } from "../components/KoraLoader";
 import { toast } from "sonner";
 import ShareEntityDialog from "../components/collaboration/ShareEntityDialog";
 import SharedWith from "../components/collaboration/SharedWith";
@@ -428,7 +403,7 @@ export default function ExecutionGoalDetail() {
     return (
       <Layout>
         <div className="flex items-center justify-center min-h-[60vh]">
-          <Loader2 className="w-8 h-8 animate-spin text-[#AED768]" />
+          <KoraLoader size={32} />
         </div>
       </Layout>
     );
@@ -889,7 +864,7 @@ export default function ExecutionGoalDetail() {
                       className="bg-[#AED768] hover:bg-[#9dc856] text-[#1F2937]"
                       size="sm"
                     >
-                      {addingNote ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Send className="w-4 h-4 mr-1" />}
+                      {addingNote ? <KoraLoader size={16} className="mr-1" /> : <Send className="w-4 h-4 mr-1" />}
                       {language === "es" ? "Enviar" : "Send"}
                     </Button>
                   </div>
@@ -998,7 +973,7 @@ export default function ExecutionGoalDetail() {
                 disabled={creatingTask || !newTask.title}
                 className="bg-[#AED768] hover:bg-[#9dc856] text-[#1F2937]"
               >
-                {creatingTask && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+                {creatingTask && <KoraLoader size={16} className="mr-2" />}
                 {t("createTask")}
               </Button>
             </DialogFooter>
@@ -1041,7 +1016,7 @@ export default function ExecutionGoalDetail() {
                 disabled={creatingDecision || !newDecision.decision}
                 className="bg-[#AED768] hover:bg-[#9dc856] text-[#1F2937]"
               >
-                {creatingDecision && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+                {creatingDecision && <KoraLoader size={16} className="mr-2" />}
                 {t("record")}
               </Button>
             </DialogFooter>
@@ -1083,7 +1058,7 @@ export default function ExecutionGoalDetail() {
                 disabled={creatingDependency || !newDependency.title}
                 className="bg-[#AED768] hover:bg-[#9dc856] text-[#1F2937]"
               >
-                {creatingDependency && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+                {creatingDependency && <KoraLoader size={16} className="mr-2" />}
                 {t("add")}
               </Button>
             </DialogFooter>
@@ -1152,7 +1127,7 @@ export default function ExecutionGoalDetail() {
                   size="icon"
                   data-testid="grant-access-btn"
                 >
-                  {grantingAccess ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserPlus className="w-4 h-4" />}
+                  {grantingAccess ? <KoraLoader size={16} /> : <UserPlus className="w-4 h-4" />}
                 </Button>
               </div>
               

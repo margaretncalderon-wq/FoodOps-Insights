@@ -10,7 +10,8 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from "../ui/dropdown-menu";
-import { ClipboardList, Loader2, CheckCircle, ThumbsUp, ThumbsDown, ExternalLink } from "lucide-react";
+import { ClipboardList, CheckCircle, ThumbsUp, ThumbsDown, ExternalLink } from "lucide-react";
+import { KoraLoader } from "../KoraLoader";
 import { toast } from "sonner";
 
 const API = process.env.REACT_APP_BACKEND_URL;
@@ -111,7 +112,7 @@ export default function ApprovalQueueBell() {
         
         {loading ? (
           <div className="flex items-center justify-center py-8">
-            <Loader2 className="w-5 h-5 animate-spin" />
+            <KoraLoader size={20} />
           </div>
         ) : (
           <div className="divide-y">

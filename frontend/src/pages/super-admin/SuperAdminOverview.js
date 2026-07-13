@@ -2,12 +2,8 @@ import { useState, useEffect } from "react";
 import { useLanguage } from "../../contexts/LanguageContext";
 import axios from "axios";
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
-import { 
-  Building2, Users, CreditCard, TrendingUp, Activity, Loader2, 
-  Package, DollarSign, PieChart, ArrowUpRight, ArrowDownRight,
-  Briefcase, Wrench, Calendar, BarChart3, RefreshCw, Download,
-  FileSpreadsheet, AlertTriangle, AlertCircle, Info, Bell, X
-} from "lucide-react";
+import { Building2, Users, CreditCard, TrendingUp, Activity, Package, DollarSign, PieChart, ArrowUpRight, ArrowDownRight, Briefcase, Wrench, Calendar, BarChart3, RefreshCw, Download, FileSpreadsheet, AlertTriangle, AlertCircle, Info, Bell, X } from "lucide-react";
+import { KoraLoader } from "../../components/KoraLoader";
 import { Button } from "../../components/ui/button";
 import { toast } from "sonner";
 
@@ -144,7 +140,7 @@ export default function SuperAdminOverview() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+        <KoraLoader size={32} />
       </div>
     );
   }

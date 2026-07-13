@@ -31,11 +31,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "../../components/ui/dropdown-menu";
-import {
-  Loader2, Plus, Tag, Copy, Check, MoreHorizontal, 
-  Pencil, Trash2, History, Building2, Percent, Calendar,
-  DollarSign, Users
-} from "lucide-react";
+import { Plus, Tag, Copy, Check, MoreHorizontal, Pencil, Trash2, History, Building2, Percent, Calendar, DollarSign, Users } from "lucide-react";
+import { KoraLoader } from "../../components/KoraLoader";
 import { formatDateOnly } from "../../utils/dates";
 
 const API = process.env.REACT_APP_BACKEND_URL;
@@ -318,7 +315,7 @@ export default function DealsPage() {
         <CardContent>
           {loading ? (
             <div className="flex justify-center py-8">
-              <Loader2 className="w-6 h-6 animate-spin" />
+              <KoraLoader size={24} />
             </div>
           ) : deals.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
@@ -651,7 +648,7 @@ export default function DealsPage() {
               Cancel
             </Button>
             <Button onClick={handleCreate} disabled={saving}>
-              {saving && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+              {saving && <KoraLoader size={16} className="mr-2" />}
               Create Deal
             </Button>
           </DialogFooter>
@@ -745,7 +742,7 @@ export default function DealsPage() {
               Cancel
             </Button>
             <Button onClick={handleUpdate} disabled={saving}>
-              {saving && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+              {saving && <KoraLoader size={16} className="mr-2" />}
               Save Changes
             </Button>
           </DialogFooter>
@@ -786,7 +783,7 @@ export default function DealsPage() {
               Cancel
             </Button>
             <Button onClick={handleApplyDeal} disabled={saving || !selectedCompany}>
-              {saving && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+              {saving && <KoraLoader size={16} className="mr-2" />}
               Apply Deal
             </Button>
           </DialogFooter>

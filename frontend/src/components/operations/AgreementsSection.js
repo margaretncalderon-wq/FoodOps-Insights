@@ -9,8 +9,9 @@ import { Badge } from "../ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "../ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 import { toast } from "sonner";
-import { Plus, Edit, Trash2, FileText, Building2, Calendar, DollarSign, Loader2 } from "lucide-react";
+import { Plus, Edit, Trash2, FileText, Building2, Calendar, DollarSign } from "lucide-react";
 
+import { KoraLoader } from "../KoraLoader";
 import { API_BASE as API } from "../../utils/api";
 import { fmtNum } from "../../utils/format";
 
@@ -142,7 +143,7 @@ export function AgreementsSection() {
     return <Badge className={colors[status] || ""}>{label}</Badge>;
   };
 
-  if (loading) return <div className="flex justify-center p-8"><Loader2 className="w-8 h-8 animate-spin" /></div>;
+  if (loading) return <div className="flex justify-center p-8"><KoraLoader size={32} /></div>;
 
   return (
     <div className="space-y-4">

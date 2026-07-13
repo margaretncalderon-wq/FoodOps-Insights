@@ -8,7 +8,8 @@ import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Badge } from "./ui/badge";
 import { Checkbox } from "./ui/checkbox";
-import { Loader2, Printer, RefreshCw, ChefHat, AlertTriangle, CheckCircle2, Calendar } from "lucide-react";
+import { Printer, RefreshCw, ChefHat, AlertTriangle, CheckCircle2, Calendar } from "lucide-react";
+import { KoraLoader } from "./KoraLoader";
 import { API_BASE as API } from "../utils/api";
 import { buildBeoPrintHtml } from "./KitchenBEOPrint";
 
@@ -127,7 +128,7 @@ export default function KitchenSheetsBatch() {
             <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} data-testid="batch-end-date" />
           </div>
           <Button onClick={fetchSheets} variant="outline" disabled={loading} data-testid="batch-refresh">
-            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+            {loading ? <KoraLoader size={16} /> : <RefreshCw className="w-4 h-4" />}
             <span className="ml-2">{isEs ? "Recargar" : "Reload"}</span>
           </Button>
           <div className="ml-auto flex items-center gap-2">
@@ -139,7 +140,7 @@ export default function KitchenSheetsBatch() {
               </Badge>
             )}
             <Button onClick={printSelected} className="bg-amber-600 hover:bg-amber-700" disabled={summary.sheets === 0 || printing} data-testid="batch-print-btn">
-              {printing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Printer className="w-4 h-4 mr-2" />}
+              {printing ? <KoraLoader size={16} className="mr-2" /> : <Printer className="w-4 h-4 mr-2" />}
               {isEs ? "Imprimir seleccionadas" : "Print selected"}
             </Button>
           </div>

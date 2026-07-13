@@ -9,12 +9,9 @@ import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { Badge } from "../components/ui/badge";
 import { toast } from "sonner";
-import { 
-  Upload, Download, FileSpreadsheet, Users, Package, 
-  ChefHat, Loader2, CheckCircle2, AlertCircle, FileDown,
-  FileText, CalendarDays
-} from "lucide-react";
+import { Upload, Download, FileSpreadsheet, Users, Package, ChefHat, CheckCircle2, AlertCircle, FileDown, FileText, CalendarDays } from "lucide-react";
 
+import { KoraLoader } from "../components/KoraLoader";
 import { API_BASE as API } from "../utils/api";
 
 export default function ImportExportPage() {
@@ -228,7 +225,7 @@ export default function ImportExportPage() {
                       className="flex-1"
                     >
                       {loading ? (
-                        <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                        <KoraLoader size={16} className="mr-2" />
                       ) : (
                         <Download className="w-4 h-4 mr-2" />
                       )}

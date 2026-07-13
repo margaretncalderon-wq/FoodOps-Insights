@@ -24,19 +24,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "../ui/alert-dialog";
-import { 
-  Users, 
-  Building2, 
-  X, 
-  Loader2, 
-  Eye, 
-  MessageSquare, 
-  Plus, 
-  Edit3,
-  ChevronDown,
-  ChevronUp,
-  Shield
-} from "lucide-react";
+import { Users, Building2, X, Eye, MessageSquare, Plus, Edit3, ChevronDown, ChevronUp, Shield } from "lucide-react";
+import { KoraLoader } from "../KoraLoader";
 import { useLanguage } from "../../contexts/LanguageContext";
 import { formatDateOnly } from "../../utils/dates";
 
@@ -155,7 +144,7 @@ export default function SharedWith({
           <div className="mt-3 space-y-2">
             {loading ? (
               <div className="flex justify-center py-4">
-                <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+                <KoraLoader size={20} />
               </div>
             ) : (
               shares.map((share) => {
@@ -224,7 +213,7 @@ export default function SharedWith({
               className="bg-red-500 hover:bg-red-600"
               disabled={revoking}
             >
-              {revoking && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              {revoking && <KoraLoader size={16} className="mr-2" />}
               {isEs ? "Revocar" : "Revoke"}
             </AlertDialogAction>
           </AlertDialogFooter>

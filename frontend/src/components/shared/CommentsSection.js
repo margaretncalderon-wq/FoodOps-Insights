@@ -13,10 +13,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "../ui/dropdown-menu";
-import { 
-  MessageSquare, Send, MoreVertical, Edit2, Trash2, 
-  Reply, Smile, Loader2, AtSign, Check, X
-} from "lucide-react";
+import { MessageSquare, Send, MoreVertical, Edit2, Trash2, Reply, Smile, AtSign, Check, X } from "lucide-react";
+import { KoraLoader } from "../KoraLoader";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 import { es } from "date-fns/locale";
@@ -300,7 +298,7 @@ export default function CommentsSection({ entityType, entityId, orgId = null, cl
                 />
                 <div className="flex gap-2">
                   <Button size="sm" onClick={handleEdit} disabled={sending}>
-                    {sending && <Loader2 className="w-3 h-3 mr-1 animate-spin" />}
+                    {sending && <KoraLoader size={12} className="mr-1" />}
                     <Check className="w-3 h-3 mr-1" />
                     {isEs ? "Guardar" : "Save"}
                   </Button>
@@ -490,7 +488,7 @@ export default function CommentsSection({ entityType, entityId, orgId = null, cl
                 data-testid="submit-comment-btn"
               >
                 {sending ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <KoraLoader size={16} />
                 ) : (
                   <Send className="w-4 h-4" />
                 )}
@@ -543,7 +541,7 @@ export default function CommentsSection({ entityType, entityId, orgId = null, cl
       {/* Comments list */}
       {loading ? (
         <div className="flex items-center justify-center py-8">
-          <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+          <KoraLoader size={24} />
         </div>
       ) : topLevelComments.length === 0 ? (
         <div className="text-center py-8 text-muted-foreground">

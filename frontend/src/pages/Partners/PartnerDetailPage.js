@@ -11,13 +11,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/ta
 import { formatDateOnly } from "../../utils/dates";
 import { Separator } from "../../components/ui/separator";
 import { ScrollArea } from "../../components/ui/scroll-area";
-import {
-  ArrowLeft, Edit, Trash2, Star, MapPin, Phone, Mail, Globe,
-  Building2, FileText, AlertTriangle, Clock, CheckCircle2,
-  Link2, DollarSign, Calendar, TrendingUp, ExternalLink, Instagram, Linkedin,
-  Receipt, ShoppingCart, CreditCard, BarChart3, Package, Loader2,
-  Upload, File, Image, X, Eye, Download, Paperclip, MessageSquare
-} from "lucide-react";
+import { ArrowLeft, Edit, Trash2, Star, MapPin, Phone, Mail, Globe, Building2, FileText, AlertTriangle, Clock, CheckCircle2, Link2, DollarSign, Calendar, TrendingUp, ExternalLink, Instagram, Linkedin, Receipt, ShoppingCart, CreditCard, BarChart3, Package, Upload, File, Image, X, Eye, Download, Paperclip, MessageSquare } from "lucide-react";
+import { KoraLoader } from "../../components/KoraLoader";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger
@@ -609,7 +604,7 @@ export default function PartnerDetailPage() {
                       <Button type="submit" disabled={uploading || !uploadForm.file} data-testid="upload-attachment-btn">
                         {uploading ? (
                           <>
-                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            <KoraLoader size={16} className="mr-2" />
                             {isEs ? "Subiendo..." : "Uploading..."}
                           </>
                         ) : (

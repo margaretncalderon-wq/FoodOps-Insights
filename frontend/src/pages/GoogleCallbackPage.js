@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
-import { Loader2 } from "lucide-react";
+
+import { KoraLoader } from "../components/KoraLoader";
 import { toast } from "sonner";
 
 export default function GoogleCallbackPage() {
@@ -66,7 +67,7 @@ export default function GoogleCallbackPage() {
   return (
     <div className="min-h-screen bg-[#F7F8FA] flex items-center justify-center">
       <div className="text-center">
-        <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-[#2A2F3A]" />
+        <KoraLoader size={32} className="mx-auto mb-4" />
         <p className="text-[#6B7280]">
           {status === "redirecting" ? "Redirigiendo al registro..." : "Verificando autenticación..."}
         </p>

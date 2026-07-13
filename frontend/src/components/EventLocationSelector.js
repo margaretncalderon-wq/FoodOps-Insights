@@ -21,22 +21,9 @@ import {
   DialogTitle,
   DialogFooter,
 } from "./ui/dialog";
-import {
-  Building2,
-  MapPin,
-  User,
-  Plus,
-  Trash2,
-  GripVertical,
-  Home,
-  DoorOpen,
-  Clock,
-  CheckCircle,
-  XCircle,
-  AlertCircle,
-  Loader2,
-} from "lucide-react";
+import { Building2, MapPin, User, Plus, Trash2, GripVertical, Home, DoorOpen, Clock, CheckCircle, XCircle, AlertCircle } from "lucide-react";
 
+import { KoraLoader } from "./KoraLoader";
 const LOCATION_TYPES = {
   onsite: { labelKey: "onsite", icon: Building2, color: "bg-green-500/20 text-green-600" },
   offsite: { labelKey: "offsite", icon: MapPin, color: "bg-blue-500/20 text-blue-600" },
@@ -418,7 +405,7 @@ export default function EventLocationSelector({
                   <div className="mt-2" data-testid="room-availability-indicator">
                     {checkingAvailability ? (
                       <div className="flex items-center gap-2 text-sm text-gray-500">
-                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <KoraLoader size={16} />
                         {t("checkAvailability")}...
                       </div>
                     ) : roomAvailability ? (

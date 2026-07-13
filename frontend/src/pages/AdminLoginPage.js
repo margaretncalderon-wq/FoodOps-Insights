@@ -6,7 +6,8 @@ import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { Card, CardContent } from "../components/ui/card";
 import { toast } from "sonner";
-import { Loader2, Shield } from "lucide-react";
+import { Shield } from "lucide-react";
+import { KoraLoader } from "../components/KoraLoader";
 import { KoraLogo } from "../components/KoraLogo";
 
 export default function AdminLoginPage() {
@@ -91,7 +92,7 @@ export default function AdminLoginPage() {
                 data-testid="admin-login-submit"
               >
                 {loading ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <KoraLoader size={16} />
                 ) : (
                   "Acceder"
                 )}

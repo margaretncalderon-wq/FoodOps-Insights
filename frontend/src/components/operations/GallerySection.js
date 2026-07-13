@@ -4,8 +4,9 @@ import { useLanguage } from "../../contexts/LanguageContext";
 import { Card, CardContent } from "../ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
-import { Image, Loader2 } from "lucide-react";
+import { Image } from "lucide-react";
 
+import { KoraLoader } from "../KoraLoader";
 import { API_BASE as API } from "../../utils/api";
 import { fmtNum } from "../../utils/format";
 
@@ -40,7 +41,7 @@ export function GallerySection() {
     ? items 
     : items.filter(item => item.inventory_type === filter);
 
-  if (loading) return <div className="flex justify-center p-8"><Loader2 className="w-8 h-8 animate-spin" /></div>;
+  if (loading) return <div className="flex justify-center p-8"><KoraLoader size={32} /></div>;
 
   return (
     <div className="space-y-4">

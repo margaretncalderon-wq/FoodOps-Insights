@@ -11,8 +11,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from ".
 import { Label } from "../ui/label";
 import { Input } from "../ui/input";
 import { Textarea } from "../ui/textarea";
-import { CreditCard, RefreshCw, Download, Pencil, Loader2 } from "lucide-react";
+import { CreditCard, RefreshCw, Download, Pencil } from "lucide-react";
 
+import { KoraLoader } from "../KoraLoader";
 import { API_BASE as API } from "../../utils/api";
 import { formatDateOnly } from "../../utils/dates";
 const formatCurrency = (amount) => `$${(amount || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -422,7 +423,7 @@ export function InvoicesSection() {
               {isEs ? "Cancelar" : "Cancel"}
             </Button>
             <Button onClick={handleSaveInvoice} disabled={saving}>
-              {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+              {saving ? <KoraLoader size={16} className="mr-2" /> : null}
               {isEs ? "Guardar" : "Save"}
             </Button>
           </DialogFooter>

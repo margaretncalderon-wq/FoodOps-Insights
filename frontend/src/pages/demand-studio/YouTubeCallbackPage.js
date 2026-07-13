@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import axios from "axios";
 import { toast } from "sonner";
-import { Loader2, CheckCircle2, XCircle, Youtube } from "lucide-react";
+import { CheckCircle2, XCircle, Youtube } from "lucide-react";
+import { KoraLoader } from "../../components/KoraLoader";
 import { Card, CardContent } from "../../components/ui/card";
 import { Button } from "../../components/ui/button";
 
@@ -75,7 +76,7 @@ export default function YouTubeCallbackPage() {
             status === "success" ? "bg-green-100" : "bg-red-100"
           }`}>
             {status === "processing" && (
-              <Loader2 className="w-8 h-8 text-red-600 animate-spin" />
+              <KoraLoader size={32} />
             )}
             {status === "success" && (
               <CheckCircle2 className="w-8 h-8 text-green-600" />

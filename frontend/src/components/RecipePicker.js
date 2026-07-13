@@ -6,8 +6,9 @@ import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from "./ui/command";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
-import { Search, ChefHat, Loader2, ArrowLeft, Sparkles, AlertTriangle, Check } from "lucide-react";
+import { Search, ChefHat, ArrowLeft, Sparkles, AlertTriangle, Check } from "lucide-react";
 
+import { KoraLoader } from "./KoraLoader";
 import { API_BASE as API } from "../utils/api";
 import { formatQtyUnit, formatPerUnit } from "../utils/portionUnits";
 import { fmtNum } from "../utils/format";
@@ -206,7 +207,7 @@ export default function RecipePicker({
 
             {loadingFormats ? (
               <div className="p-6 flex items-center justify-center text-muted-foreground">
-                <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                <KoraLoader size={16} className="mr-2" />
                 <span className="text-xs">{isEs ? "Cargando formatos..." : "Loading formats..."}</span>
               </div>
             ) : portionFormats.length === 0 ? (

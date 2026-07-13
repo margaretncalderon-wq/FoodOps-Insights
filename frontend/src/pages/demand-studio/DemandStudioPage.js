@@ -3,11 +3,8 @@ import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import axios from "axios";
 import { Layout } from "../../components/Layout";
 import { useLanguage } from "../../contexts/LanguageContext";
-import { 
-  Megaphone, LayoutDashboard, Target, Zap, Mail, 
-  Receipt, BarChart3, Settings, Hash, FileText,
-  Building2, ChevronDown, Check, Loader2, Send
-} from "lucide-react";
+import { Megaphone, LayoutDashboard, Target, Zap, Mail, Receipt, BarChart3, Settings, Hash, FileText, Building2, ChevronDown, Check, Send } from "lucide-react";
+import { KoraLoader } from "../../components/KoraLoader";
 import {
   Select,
   SelectContent,
@@ -184,7 +181,7 @@ export default function DemandStudioPage() {
                 {isEs ? "Viendo:" : "Viewing:"}
               </span>
               {loadingOrgs ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
+                <KoraLoader size={16} />
               ) : (
                 <Select value={selectedOrgId || ""} onValueChange={handleOrgChange}>
                   <SelectTrigger className="w-56" data-testid="org-selector-trigger">

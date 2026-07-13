@@ -6,12 +6,8 @@ import { Input } from "../components/ui/input";
 import { Textarea } from "../components/ui/textarea";
 import { useLanguage } from "../contexts/LanguageContext";
 import { API_BASE as API } from "../utils/api";
-import {
-  Activity, Puzzle, Target, Briefcase, Megaphone, ClipboardList,
-  UtensilsCrossed, Package, Building2, Users, Calendar,
-  ArrowRight, Check, Globe, Sparkles, MapPin, Mic2, Zap, Star,
-  TrendingUp, ChevronRight, Quote, Loader2,
-} from "lucide-react";
+import { Activity, Puzzle, Target, Briefcase, Megaphone, ClipboardList, UtensilsCrossed, Package, Building2, Users, Calendar, ArrowRight, Check, Globe, Sparkles, MapPin, Mic2, Zap, Star, TrendingUp, ChevronRight, Quote } from "lucide-react";
+import { KoraLoader } from "../components/KoraLoader";
 import { KoraLogo } from "../components/KoraLogo";
 
 // =============================================================
@@ -680,7 +676,7 @@ function WaitlistForm({ source = "landing", onSuccess, isEs }) {
         className="w-full h-12 rounded-full bg-[#AED768] hover:bg-[#9BC75A] text-[#1F2937] font-semibold"
         data-testid="waitlist-submit"
       >
-        {submitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+        {submitting && <KoraLoader size={16} className="mr-2" />}
         {source === "demo"
           ? (isEs ? "Reservar mi demo" : "Book my demo")
           : (isEs ? "Reclamar mi 30% off" : "Claim my 30% off")}

@@ -6,19 +6,8 @@ import { Badge } from "../../components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "../../components/ui/alert";
 import { Separator } from "../../components/ui/separator";
 import { Input } from "../../components/ui/input";
-import { 
-  AlertTriangle, 
-  CheckCircle2, 
-  RefreshCw, 
-  User, 
-  Building2, 
-  Users,
-  ArrowRight,
-  Shield,
-  Loader2,
-  Search,
-  Zap
-} from "lucide-react";
+import { AlertTriangle, CheckCircle2, RefreshCw, User, Building2, Users, ArrowRight, Shield, Search, Zap } from "lucide-react";
+import { KoraLoader } from "../../components/KoraLoader";
 import axios from "axios";
 
 const API = process.env.REACT_APP_BACKEND_URL;
@@ -329,7 +318,7 @@ export default function EmergencyRestorePage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-amber-500" />
+        <KoraLoader size={32} />
       </div>
     );
   }
@@ -384,7 +373,7 @@ export default function EmergencyRestorePage() {
               size="lg"
               className="bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-700 hover:to-orange-700 text-lg py-6 px-8"
             >
-              {fixing ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <Zap className="w-5 h-5 mr-2" />}
+              {fixing ? <KoraLoader size={20} className="mr-2" /> : <Zap className="w-5 h-5 mr-2" />}
               ARREGLAR TODO CON UN CLIC
             </Button>
             
@@ -502,7 +491,7 @@ export default function EmergencyRestorePage() {
                         className="bg-green-600 hover:bg-green-700"
                       >
                         {restoring ? (
-                          <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                          <KoraLoader size={16} className="mr-2" />
                         ) : (
                           <ArrowRight className="w-4 h-4 mr-2" />
                         )}
@@ -535,7 +524,7 @@ export default function EmergencyRestorePage() {
                   className="bg-zinc-800 border-zinc-700"
                 />
                 <Button onClick={handleSearch} disabled={searching || searchQuery.length < 2}>
-                  {searching ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+                  {searching ? <KoraLoader size={16} /> : <Search className="w-4 h-4" />}
                 </Button>
               </div>
 
@@ -568,7 +557,7 @@ export default function EmergencyRestorePage() {
                             disabled={restoring}
                             className="bg-green-600 hover:bg-green-700"
                           >
-                            {restoring ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <ArrowRight className="w-4 h-4 mr-2" />}
+                            {restoring ? <KoraLoader size={16} className="mr-2" /> : <ArrowRight className="w-4 h-4 mr-2" />}
                             Restaurar Mi Cuenta
                           </Button>
                         </div>
@@ -592,7 +581,7 @@ export default function EmergencyRestorePage() {
                                 disabled={bulkRestoring}
                                 className="border-amber-500 text-amber-400 hover:bg-amber-500/20"
                               >
-                                {bulkRestoring ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                                {bulkRestoring ? <KoraLoader size={16} className="mr-2" /> : null}
                                 Arreglar Membresías
                               </Button>
                               <Button
@@ -600,7 +589,7 @@ export default function EmergencyRestorePage() {
                                 disabled={bulkRestoring}
                                 className="bg-purple-600 hover:bg-purple-700"
                               >
-                                {bulkRestoring ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <RefreshCw className="w-4 h-4 mr-2" />}
+                                {bulkRestoring ? <KoraLoader size={16} className="mr-2" /> : <RefreshCw className="w-4 h-4 mr-2" />}
                                 Restaurar Todos los Usuarios
                               </Button>
                             </div>
@@ -749,7 +738,7 @@ export default function EmergencyRestorePage() {
                   className="bg-purple-600 hover:bg-purple-700"
                 >
                   {bulkRestoring ? (
-                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                    <KoraLoader size={16} className="mr-2" />
                   ) : (
                     <RefreshCw className="w-4 h-4 mr-2" />
                   )}

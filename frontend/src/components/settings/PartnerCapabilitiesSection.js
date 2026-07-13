@@ -10,8 +10,9 @@ import { Badge } from "../ui/badge";
 import { Switch } from "../ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "../ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table";
-import { Plus, Pencil, Trash2, Loader2, Tag, RefreshCw, Zap } from "lucide-react";
+import { Plus, Pencil, Trash2, Tag, RefreshCw, Zap } from "lucide-react";
 
+import { KoraLoader } from "../KoraLoader";
 const API = process.env.REACT_APP_BACKEND_URL;
 
 // Default capabilities (from backend)
@@ -141,7 +142,7 @@ export default function PartnerCapabilitiesSection() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-40">
-        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+        <KoraLoader size={24} />
       </div>
     );
   }
@@ -292,7 +293,7 @@ export default function PartnerCapabilitiesSection() {
               {isEs ? "Cancelar" : "Cancel"}
             </Button>
             <Button onClick={handleSave} disabled={saving}>
-              {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              {saving && <KoraLoader size={16} className="mr-2" />}
               {isEs ? "Guardar" : "Save"}
             </Button>
           </DialogFooter>

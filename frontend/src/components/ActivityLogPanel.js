@@ -12,20 +12,9 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "./ui/sheet";
-import { 
-  History, 
-  Clock, 
-  User, 
-  ArrowRight, 
-  Move, 
-  Maximize2,
-  Plus,
-  Trash2,
-  Edit2,
-  Loader2,
-  RefreshCw
-} from "lucide-react";
+import { History, Clock, User, ArrowRight, Move, Maximize2, Plus, Trash2, Edit2, RefreshCw } from "lucide-react";
 
+import { KoraLoader } from "./KoraLoader";
 export function ActivityLogPanel({ eventId, roomId = null }) {
   const { token } = useAuth();
   const [logs, setLogs] = useState([]);
@@ -136,7 +125,7 @@ export function ActivityLogPanel({ eventId, roomId = null }) {
 
           {loading && logs.length === 0 ? (
             <div className="flex items-center justify-center py-8">
-              <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+              <KoraLoader size={24} />
             </div>
           ) : logs.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">

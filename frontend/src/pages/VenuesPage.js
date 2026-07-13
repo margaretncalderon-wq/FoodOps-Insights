@@ -30,27 +30,8 @@ import {
   TabsList,
   TabsTrigger,
 } from "../components/ui/tabs";
-import {
-  Building2,
-  Plus,
-  MapPin,
-  Users,
-  Edit2,
-  Trash2,
-  Loader2,
-  Home,
-  DoorOpen,
-  Star,
-  Phone,
-  Mail,
-  ParkingCircle,
-  Accessibility,
-  Wifi,
-  Monitor,
-  Music,
-  Calendar,
-  List,
-} from "lucide-react";
+import { Building2, Plus, MapPin, Users, Edit2, Trash2, Home, DoorOpen, Star, Phone, Mail, ParkingCircle, Accessibility, Wifi, Monitor, Music, Calendar, List } from "lucide-react";
+import { KoraLoader } from "../components/KoraLoader";
 import { toast } from "sonner";
 import RoomAvailabilityCalendar from "../components/RoomAvailabilityCalendar";
 
@@ -302,7 +283,7 @@ export default function VenuesPage() {
     return (
       <Layout>
         <div className="flex items-center justify-center h-64" data-testid="venues-loading">
-          <Loader2 className="w-8 h-8 animate-spin text-[#3A4D3F]" />
+          <KoraLoader size={32} />
         </div>
       </Layout>
     );

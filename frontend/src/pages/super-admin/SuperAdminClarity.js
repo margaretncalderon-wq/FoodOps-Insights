@@ -15,11 +15,8 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue
 } from "../../components/ui/select";
-import {
-  DollarSign, TrendingUp, TrendingDown, Users, CreditCard, FileText,
-  BarChart3, ArrowUp, ArrowDown, Calendar, Building2, Plus, Edit, Trash2,
-  Receipt, Wallet, PiggyBank, Calculator, ClipboardList, Loader2, Download
-} from "lucide-react";
+import { DollarSign, TrendingUp, TrendingDown, Users, CreditCard, FileText, BarChart3, ArrowUp, ArrowDown, Calendar, Building2, Plus, Edit, Trash2, Receipt, Wallet, PiggyBank, Calculator, ClipboardList, Download } from "lucide-react";
+import { KoraLoader } from "../../components/KoraLoader";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
 
@@ -328,7 +325,7 @@ export default function SuperAdminClarity() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+        <KoraLoader size={32} />
       </div>
     );
   }

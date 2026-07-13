@@ -33,12 +33,9 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 
 // Icons
-import {
-  Zap, Plus, Play, Pause, Trash2, History,
-  ChevronRight, MoreVertical, Loader2, CheckCircle2,
-  AlertCircle, Clock, Sparkles, Edit
-} from "lucide-react";
+import { Zap, Plus, Play, Pause, Trash2, History, ChevronRight, MoreVertical, CheckCircle2, AlertCircle, Clock, Sparkles, Edit } from "lucide-react";
 
+import { KoraLoader } from "../KoraLoader";
 // Workflow Builder
 import WorkflowBuilder from "./WorkflowBuilder";
 
@@ -206,7 +203,7 @@ export default function AutomationSection() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+        <KoraLoader size={32} />
       </div>
     );
   }

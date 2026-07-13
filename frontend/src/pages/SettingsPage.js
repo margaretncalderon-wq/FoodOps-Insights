@@ -32,7 +32,8 @@ import {
   DropdownMenuTrigger,
 } from "../components/ui/dropdown-menu";
 import { toast } from "sonner";
-import { Building2, Palette, Globe, DollarSign, FileText, Loader2, Check, Plus, Trash2, Tag, ListChecks, Percent, Package, FormInput, Copy, ExternalLink, Edit, ToggleLeft, Utensils, Calculator, FileStack, ChefHat, ShoppingCart, Users, Shield, Zap, Plug, Clock, Languages, Upload, MapPin, Phone, Mail, Globe2, Eye, CreditCard, Landmark, X, Pencil, RefreshCw, ChevronDown, ChevronRight, Settings, Database, TrendingUp, Sliders } from "lucide-react";
+import { Building2, Palette, Globe, DollarSign, FileText, Check, Plus, Trash2, Tag, ListChecks, Percent, Package, FormInput, Copy, ExternalLink, Edit, ToggleLeft, Utensils, Calculator, FileStack, ChefHat, ShoppingCart, Users, Shield, Zap, Plug, Clock, Languages, Upload, MapPin, Phone, Mail, Globe2, Eye, CreditCard, Landmark, X, Pencil, RefreshCw, ChevronDown, ChevronRight, Settings, Database, TrendingUp, Sliders } from "lucide-react";
+import { KoraLoader } from "../components/KoraLoader";
 import { Textarea } from "../components/ui/textarea";
 import { Badge } from "../components/ui/badge";
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
@@ -2255,7 +2256,7 @@ export default function SettingsPage() {
                             <label className="cursor-pointer">
                               <input type="file" className="hidden" accept="image/*" onChange={handleLogoUpload} disabled={uploadingLogo} />
                               <span className="text-sm text-primary hover:underline flex items-center justify-center gap-1">
-                                {uploadingLogo ? <Loader2 className="w-3 h-3 animate-spin" /> : <Edit className="w-3 h-3" />}
+                                {uploadingLogo ? <KoraLoader size={12} /> : <Edit className="w-3 h-3" />}
                                 {language === "es" ? "Cambiar logo" : "Change logo"}
                               </span>
                             </label>
@@ -2266,7 +2267,7 @@ export default function SettingsPage() {
                             <Upload className="w-8 h-8 mx-auto text-muted-foreground mb-2" />
                             <span className="text-sm text-muted-foreground">
                               {uploadingLogo ? (
-                                <span className="flex items-center justify-center gap-2"><Loader2 className="w-4 h-4 animate-spin" />{language === "es" ? "Subiendo..." : "Uploading..."}</span>
+                                <span className="flex items-center justify-center gap-2"><KoraLoader size={16} />{language === "es" ? "Subiendo..." : "Uploading..."}</span>
                               ) : (
                                 language === "es" ? "Haz clic para subir logo" : "Click to upload logo"
                               )}
@@ -2665,7 +2666,7 @@ export default function SettingsPage() {
                                   data-testid="signature-upload-input"
                                 />
                                 <span className="text-xs text-primary hover:underline flex items-center gap-1">
-                                  {uploadingSignature ? <Loader2 className="w-3 h-3 animate-spin" /> : <Edit className="w-3 h-3" />}
+                                  {uploadingSignature ? <KoraLoader size={12} /> : <Edit className="w-3 h-3" />}
                                   {language === "es" ? "Cambiar" : "Change"}
                                 </span>
                               </label>
@@ -2692,7 +2693,7 @@ export default function SettingsPage() {
                             <span className="text-sm text-muted-foreground">
                               {uploadingSignature ? (
                                 <span className="flex items-center justify-center gap-2">
-                                  <Loader2 className="w-4 h-4 animate-spin" />
+                                  <KoraLoader size={16} />
                                   {language === "es" ? "Subiendo..." : "Uploading..."}
                                 </span>
                               ) : (
@@ -2734,7 +2735,7 @@ export default function SettingsPage() {
                                   data-testid="stamp-upload-input"
                                 />
                                 <span className="text-xs text-primary hover:underline flex items-center gap-1">
-                                  {uploadingStamp ? <Loader2 className="w-3 h-3 animate-spin" /> : <Edit className="w-3 h-3" />}
+                                  {uploadingStamp ? <KoraLoader size={12} /> : <Edit className="w-3 h-3" />}
                                   {language === "es" ? "Cambiar" : "Change"}
                                 </span>
                               </label>
@@ -2761,7 +2762,7 @@ export default function SettingsPage() {
                             <span className="text-sm text-muted-foreground">
                               {uploadingStamp ? (
                                 <span className="flex items-center justify-center gap-2">
-                                  <Loader2 className="w-4 h-4 animate-spin" />
+                                  <KoraLoader size={16} />
                                   {language === "es" ? "Subiendo..." : "Uploading..."}
                                 </span>
                               ) : (
@@ -2919,7 +2920,7 @@ export default function SettingsPage() {
                   {language === "es" ? "Vista Previa de Documento" : "Document Preview"}
                 </Button>
                 <Button type="submit" disabled={saving} data-testid="save-settings-btn">
-                  {saving && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+                  {saving && <KoraLoader size={16} className="mr-2" />}
                   {t("save")}
                 </Button>
               </div>
@@ -4226,7 +4227,7 @@ export default function SettingsPage() {
                               <span className="text-xs text-muted-foreground">
                                 {template.is_active ? (language === "es" ? "Activo" : "Active") : (language === "es" ? "Inactivo" : "Inactive")}
                               </span>
-                              {isSaving && <Loader2 className="w-4 h-4 animate-spin" />}
+                              {isSaving && <KoraLoader size={16} />}
                             </div>
                           </div>
                         </CardHeader>
@@ -4984,7 +4985,7 @@ export default function SettingsPage() {
                     }}
                     disabled={saving}
                   >
-                    {saving && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+                    {saving && <KoraLoader size={16} className="mr-2" />}
                     {language === "es" ? "Guardar Tipos de Items" : "Save Item Types"}
                   </Button>
                 </div>
@@ -5046,7 +5047,7 @@ export default function SettingsPage() {
                 </div>
                 <div className="flex justify-end">
                   <Button onClick={handleSubmit} disabled={saving}>
-                    {saving && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+                    {saving && <KoraLoader size={16} className="mr-2" />}
                     {t("save")}
                   </Button>
                 </div>
@@ -5418,7 +5419,7 @@ function DataAdminSection({ language }) {
                 onClick={handleDeleteClients}
                 disabled={deleting === "clients" || stats.clients === 0}
               >
-                {deleting === "clients" ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Trash2 className="w-4 h-4 mr-2" />}
+                {deleting === "clients" ? <KoraLoader size={16} className="mr-2" /> : <Trash2 className="w-4 h-4 mr-2" />}
                 {isEs ? "Borrar Todos" : "Delete All"}
               </Button>
             </div>
@@ -5441,7 +5442,7 @@ function DataAdminSection({ language }) {
                 onClick={() => handleDeleteLeads("outreach")}
                 disabled={deleting?.startsWith("leads") || stats.outreach === 0}
               >
-                {deleting === "leads-outreach" ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Trash2 className="w-4 h-4 mr-2" />}
+                {deleting === "leads-outreach" ? <KoraLoader size={16} className="mr-2" /> : <Trash2 className="w-4 h-4 mr-2" />}
                 {isEs ? `Borrar Outreach (${stats.outreach})` : `Delete Outreach (${stats.outreach})`}
               </Button>
               <Button 
@@ -5450,7 +5451,7 @@ function DataAdminSection({ language }) {
                 onClick={() => handleDeleteLeads("inbound")}
                 disabled={deleting?.startsWith("leads") || stats.inbound === 0}
               >
-                {deleting === "leads-inbound" ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Trash2 className="w-4 h-4 mr-2" />}
+                {deleting === "leads-inbound" ? <KoraLoader size={16} className="mr-2" /> : <Trash2 className="w-4 h-4 mr-2" />}
                 {isEs ? `Borrar Inbound (${stats.inbound})` : `Delete Inbound (${stats.inbound})`}
               </Button>
               <Button 
@@ -5458,7 +5459,7 @@ function DataAdminSection({ language }) {
                 onClick={() => handleDeleteLeads("all")}
                 disabled={deleting?.startsWith("leads") || stats.leads === 0}
               >
-                {deleting === "leads-all" ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Trash2 className="w-4 h-4 mr-2" />}
+                {deleting === "leads-all" ? <KoraLoader size={16} className="mr-2" /> : <Trash2 className="w-4 h-4 mr-2" />}
                 {isEs ? "Borrar TODOS los Leads" : "Delete ALL Leads"}
               </Button>
             </div>

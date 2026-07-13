@@ -24,28 +24,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../components/ui/select";
-import {
-  Target,
-  Plus,
-  Search,
-  Filter,
-  Clock,
-  CheckCircle2,
-  AlertTriangle,
-  Loader2,
-  ChevronRight,
-  Users,
-  Calendar,
-  ArrowRight,
-  Zap,
-  TrendingUp,
-  Pause,
-  Archive,
-  CircleDot,
-  Lock,
-  Globe,
-  Eye,
-} from "lucide-react";
+import { Target, Plus, Search, Filter, Clock, CheckCircle2, AlertTriangle, ChevronRight, Users, Calendar, ArrowRight, Zap, TrendingUp, Pause, Archive, CircleDot, Lock, Globe, Eye } from "lucide-react";
+import { KoraLoader } from "../components/KoraLoader";
 import { toast } from "sonner";
 import { formatDateOnly } from "../utils/dates";
 
@@ -201,7 +181,7 @@ export default function ExecutionHubPage() {
     return (
       <Layout>
         <div className="flex items-center justify-center min-h-[60vh]">
-          <Loader2 className="w-8 h-8 animate-spin text-[#AED768]" />
+          <KoraLoader size={32} />
         </div>
       </Layout>
     );
@@ -620,7 +600,7 @@ export default function ExecutionHubPage() {
                 data-testid="submit-goal-btn"
               >
                 {creating ? (
-                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                  <KoraLoader size={16} className="mr-2" />
                 ) : (
                   <Plus className="w-4 h-4 mr-2" />
                 )}

@@ -17,12 +17,9 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription 
 } from "../../components/ui/dialog";
 import { useViewAs } from "./SuperAdminLayout";
-import { 
-  Building2, ChevronLeft, Eye, Ban, Check, Users, Calendar, 
-  CreditCard, Activity, AlertTriangle, Loader2, Save, RefreshCw,
-  Clock, Globe, DollarSign, Shield, Trash2, MoreVertical, Package, Briefcase, Key, Tag
-} from "lucide-react";
+import { Building2, ChevronLeft, Eye, Ban, Check, Users, Calendar, CreditCard, Activity, AlertTriangle, Save, RefreshCw, Clock, Globe, DollarSign, Shield, Trash2, MoreVertical, Package, Briefcase, Key, Tag } from "lucide-react";
 
+import { KoraLoader } from "../../components/KoraLoader";
 import { API_BASE as API } from "../../utils/api";
 import { formatDateOnly } from "../../utils/dates";
 import { fmtNum } from "../../utils/format";
@@ -460,7 +457,7 @@ export default function OrganizationDetailPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
+        <KoraLoader size={32} />
       </div>
     );
   }
@@ -627,7 +624,7 @@ export default function OrganizationDetailPage() {
                 </div>
                 {savingAccountType && (
                   <div className="flex items-center gap-2 text-sm text-gray-500">
-                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <KoraLoader size={16} />
                     Guardando...
                   </div>
                 )}
@@ -676,7 +673,7 @@ export default function OrganizationDetailPage() {
                   className="bg-gray-100 border-gray-300 min-h-32 text-gray-900 placeholder:text-gray-500"
                 />
                 <Button onClick={saveNotes} disabled={saving} className="w-full">
-                  {saving && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+                  {saving && <KoraLoader size={16} className="mr-2" />}
                   <Save className="w-4 h-4 mr-2" />
                   Save Notes
                 </Button>
@@ -742,13 +739,13 @@ export default function OrganizationDetailPage() {
                   onClick={fetchModules}
                   disabled={loadingModules}
                 >
-                  {loadingModules ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                  {loadingModules ? <KoraLoader size={16} /> : <RefreshCw className="w-4 h-4" />}
                 </Button>
               </CardHeader>
               <CardContent>
                 {loadingModules ? (
                   <div className="flex justify-center py-8">
-                    <Loader2 className="w-6 h-6 animate-spin text-gray-500" />
+                    <KoraLoader size={24} />
                   </div>
                 ) : modules.active_modules?.length === 0 ? (
                   <p className="text-slate-500 text-center py-4">No active modules</p>
@@ -1267,7 +1264,7 @@ export default function OrganizationDetailPage() {
               className="bg-amber-600 hover:bg-amber-700"
             >
               {changingPassword ? (
-                <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                <KoraLoader size={16} className="mr-2" />
               ) : (
                 <Key className="w-4 h-4 mr-2" />
               )}
@@ -1373,7 +1370,7 @@ export default function OrganizationDetailPage() {
               data-testid="confirm-add-member-btn"
             >
               {addingMember ? (
-                <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                <KoraLoader size={16} className="mr-2" />
               ) : (
                 <Users className="w-4 h-4 mr-2" />
               )}
@@ -1477,7 +1474,7 @@ function LimitOverridesCard({ planLimits, overrides, onSave, saving }) {
         })}
         <div className="flex flex-wrap gap-2 pt-2">
           <Button onClick={handleSave} disabled={saving} data-testid="limit-overrides-save-btn">
-            {saving && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+            {saving && <KoraLoader size={16} className="mr-2" />}
             <Save className="w-4 h-4 mr-2" /> Guardar
           </Button>
           <Button variant="outline" onClick={handleUnlimit} disabled={saving} data-testid="limit-overrides-unlimit-btn">

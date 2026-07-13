@@ -3,10 +3,8 @@ import axios from "axios";
 import { useLanguage } from "../../contexts/LanguageContext";
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
 import { Badge } from "../../components/ui/badge";
-import { 
-  Target, DollarSign, Users, Briefcase, 
-  TrendingUp, Loader2, Monitor, MapPin, Zap, ShieldCheck
-} from "lucide-react";
+import { Target, DollarSign, Users, Briefcase, TrendingUp, Monitor, MapPin, Zap, ShieldCheck } from "lucide-react";
+import { KoraLoader } from "../../components/KoraLoader";
 import GlobalMarketingCalendar from "../../components/demand-studio/GlobalMarketingCalendar";
 
 import { API_BASE as API } from "../../utils/api"; // Dynamic API URL
@@ -67,7 +65,7 @@ export default function DemandStudioOverview() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+        <KoraLoader size={32} />
       </div>
     );
   }

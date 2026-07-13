@@ -10,12 +10,9 @@ import { Progress } from "../ui/progress";
 import { 
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription 
 } from "../ui/dialog";
-import { 
-  CreditCard, Calendar, AlertTriangle, Check, 
-  Loader2, Users, FileText, Package, CheckCircle2, Plus, X, Sparkles,
-  Clock, Zap, Shield, BarChart3, Target, Activity
-} from "lucide-react";
+import { CreditCard, Calendar, AlertTriangle, Check, Users, FileText, Package, CheckCircle2, Plus, X, Sparkles, Clock, Zap, Shield, BarChart3, Target, Activity } from "lucide-react";
 
+import { KoraLoader } from "../KoraLoader";
 import { API_BASE as API } from "../../utils/api";
 import { formatDateOnly } from "../../utils/dates";
 import { fmtNum } from "../../utils/format";
@@ -287,7 +284,7 @@ export function BillingSection() {
   if (loading || checkingPayment) {
     return (
       <div className="flex flex-col items-center justify-center h-64 gap-4">
-        <Loader2 className="w-8 h-8 animate-spin" />
+        <KoraLoader size={32} />
         {checkingPayment && (
           <p className="text-muted-foreground">
             {isEs ? "Verificando pago..." : "Verifying payment..."}
@@ -649,7 +646,7 @@ export function BillingSection() {
                       disabled={actionLoading}
                     >
                       {actionLoading ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <KoraLoader size={16} />
                       ) : (
                         <>
                           <Zap className="w-4 h-4 mr-1" />
@@ -730,7 +727,7 @@ export function BillingSection() {
               onClick={() => moduleToCancel && handleCancelModule(moduleToCancel)}
             >
               {actionLoading ? (
-                <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                <KoraLoader size={16} className="mr-2" />
               ) : null}
               {isEs ? "Desactivar" : "Deactivate"}
             </Button>
