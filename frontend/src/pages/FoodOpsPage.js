@@ -2887,7 +2887,7 @@ export default function FoodOpsPage() {
     recipes: { path: "/food-ops/recipes", label: isEs ? "Recetas" : "Recipes", icon: ChefHat },
     menus: { path: "/food-ops/menus", label: isEs ? "Menús" : "Menus", icon: BookOpen },
     production: { path: "/food-ops/production", label: isEs ? "Producción" : "Production", icon: Factory },
-    consolidated: { path: "/food-ops/consolidated", label: isEs ? "Costos" : "Costs", icon: Layers },
+    consolidated: { path: "/food-ops/consolidated", label: isEs ? "Prep Plan" : "Prep Plan", icon: Layers },
     purchase_orders: { path: "/food-ops/purchase-orders", label: isEs ? "Órdenes" : "Orders", icon: Truck },
     physical_count: { path: "/food-ops/physical-count", label: isEs ? "Conteo Físico" : "Physical Count", icon: ClipboardList },
     kitchen_sheets: { path: "/food-ops/kitchen-sheets", label: isEs ? "Hojas de Cocina" : "Kitchen Sheets", icon: Printer },
@@ -2895,9 +2895,10 @@ export default function FoodOpsPage() {
   };
 
   const navGroups = [
-    { id: "inventory", label: isEs ? "Inventario" : "Inventory", items: [tabs.inventory, tabs.physical_count, tabs.purchase_orders] },
-    { id: "food_cost", label: isEs ? "Food Cost" : "Food Cost", items: [tabs.recipes, tabs.menus, tabs.consolidated] },
+    { id: "inventory", label: isEs ? "Inventario" : "Inventory", items: [tabs.inventory, tabs.physical_count] },
+    { id: "food_cost", label: isEs ? "Food Cost" : "Food Cost", items: [tabs.recipes, tabs.menus] },
     { id: "kitchen", label: isEs ? "Cocina" : "Kitchen", items: [tabs.production, tabs.kitchen_sheets] },
+    { id: "purchasing", label: isEs ? "Purchasing" : "Purchasing", items: [tabs.consolidated, tabs.purchase_orders] },
     { id: "data", label: isEs ? "Datos" : "Data", items: [tabs.import_export] },
   ];
 
