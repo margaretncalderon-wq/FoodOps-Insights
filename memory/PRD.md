@@ -1,6 +1,27 @@
 # Kora OS — Product Requirements Document
 
 
+## Hotfix — NaN poisoning en Recetas de Ciano Gourmet (Feb 13, 2026)
+
+**Estado:** ✅ Fix + validación end-to-end por testing_agent (iteration 240 — 17/17 tests).
+
+### Problema descubierto (iteration 239)
+El endpoint `POST /api/recipes/recalculate-all` (parte del fix de "Recetas en $0") persistía valores `NaN` en Mongo cuando una receta tenía `prep_time = 'nan'` (string, de una migración legacy). Una vez persistido, `GET /api/recipes` devolvía HTTP 500 para toda la compañía porque FastAPI no puede serializar `NaN`. Afectaba a 6 recetas de Ciano Gourmet (company_98d8b4725822) → pame y margaret no podían ver ninguna receta.
+
+### Fix en `/app/backend/routers/recipes.py`
+- **`_safe_float(value, default)`**: helper que trata `None`, `""`, `'nan'`, `'inf'`, `'null'`, NaN/Inf floats → devuelve `default`. Usado en todos los inputs numéricos de `compute_full_recipe_costing` (prep_time, cook_time, labor_minutes, yield_quantity, sell_price, config de compañía).
+- **`_sanitize_json_floats(obj)`**: recorre recursivamente diccionarios/listas y reemplaza cualquier NaN/Inf con 0. Aplicado al output de `compute_full_recipe_costing` y al response de `GET /recipes` como defense-in-depth.
+- **`POST /api/recipes/repair-nan`**: endpoint idempotente que escanea recetas del tenant y coerce todos los campos numéricos envenenados a 0 (o 1 para yield_quantity/portions_per_yield). Ejecutado una vez contra Ciano Gourmet — 6 recetas reparadas.
+
+### Validación
+- `GET /api/recipes` como pame y margaret → 200, 19 recetas sin NaN.
+- `POST /api/recipes/recalculate-all?dry_run=false` → no vuelve a envenenar.
+- `POST /api/recipes/repair-nan` post-limpieza → `repaired_count=0` (idempotente).
+- 13/13 tests de `test_recalculate_all_recipes.py` + 4/4 tests de `test_iter240_nan_fix.py` — todos verdes.
+- Frontend: pame ve sus 19 recetas y el modal "Preview: Cost Recalculation" abre correctamente.
+
+
+
 ## Bug fix — ProposalEditor Drag-and-Drop feedback (Feb 13, 2026)
 
 **Estado:** ✅ Implementado + validado por testing_agent (iteration 238).
