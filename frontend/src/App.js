@@ -7,6 +7,7 @@ import { ModulesProvider, useModules } from "./contexts/ModulesContext";
 import { OrgConfigProvider } from "./contexts/OrgConfigContext";
 import { LocaleProvider } from "./contexts/LocaleContext";
 import { Loader2 } from "lucide-react";
+import { KoraLoader } from "./components/KoraLoader";
 
 // App version for cache busting - increment this on major updates
 const APP_VERSION = "2.0.2";
@@ -14,7 +15,7 @@ const APP_VERSION = "2.0.2";
 // Loading component for lazy loaded pages
 const PageLoader = () => (
   <div className="min-h-screen flex items-center justify-center bg-background">
-    <Loader2 className="w-8 h-8 animate-spin text-primary" />
+    <KoraLoader size={56} />
   </div>
 );
 

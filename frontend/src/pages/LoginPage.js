@@ -7,6 +7,7 @@ import { Input } from "../components/ui/input";
 import { toast } from "sonner";
 import { Loader2, Check, Users, Calendar, ChefHat, Briefcase } from "lucide-react";
 import { KoraLogo } from "../components/KoraLogo";
+import { KoraLoader } from "../components/KoraLoader";
 
 export default function LoginPage() {
   const { login, loginWithGoogle, loading } = useAuth();
@@ -143,7 +144,7 @@ export default function LoginPage() {
               data-testid="login-submit-btn"
             >
               {loading ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
+                <KoraLoader size={22} />
               ) : (
                 isEs ? "Continuar" : "Continue"
               )}

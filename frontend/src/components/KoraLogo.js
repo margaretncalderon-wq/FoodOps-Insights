@@ -14,7 +14,7 @@ const NAVY = "#192332";
 const GREEN = "#AED768";
 const WHITE = "#F4F1EA";
 
-export const KoraLogo = ({ size = 40, animated = true, className = "", showBg = true }) => {
+export const KoraLogo = ({ size = 40, animated = false, className = "", showBg = true }) => {
   return (
     <svg
       viewBox="0 0 100 100"

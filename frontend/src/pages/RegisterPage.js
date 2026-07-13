@@ -7,6 +7,7 @@ import { Input } from "../components/ui/input";
 import { toast } from "sonner";
 import { Loader2, Check, Building2, Briefcase, Wrench, ChevronRight, ChevronLeft, Users, Calendar, ChefHat, Package, Sparkles, Clock, Shield } from "lucide-react";
 import { KoraLogo } from "../components/KoraLogo";
+import { KoraLoader } from "../components/KoraLoader";
 
 // Kora Core - Required subscription
 const KORA_CORE = {
@@ -746,7 +747,7 @@ export default function RegisterPage() {
                   data-testid="register-submit-btn"
                 >
                   {loading ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <KoraLoader size={22} />
                   ) : (
                     isFromGoogle ? (isEs ? "Completar registro" : "Complete registration") : (isEs ? "Crear cuenta" : "Create account")
                   )}
