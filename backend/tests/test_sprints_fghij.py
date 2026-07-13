@@ -144,6 +144,15 @@ class TestSmartRecommendations:
             assert rec["priority"] in ("high", "medium", "low")
 
 
+class TestCreateGoalFromRecommendation:
+    """Sprint L — convert recommendation into Execution Hub goal."""
+
+    def test_out_of_range_returns_404(self, auth_session):
+        r = auth_session.post(f"{BASE_URL}/api/inventory/recommendations/999/create-goal", json={})
+        # Either 404 (rec missing) or 404 (no cached snapshot)
+        assert r.status_code == 404
+
+
 class TestDamageBilling:
     """Sprint G — manual bill trigger endpoint shape."""
 

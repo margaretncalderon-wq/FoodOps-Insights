@@ -4,7 +4,7 @@ import { useLanguage } from "../../contexts/LanguageContext";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../ui/card";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
-import { Sparkles, RefreshCw, TrendingUp, AlertTriangle, Lightbulb, DollarSign } from "lucide-react";
+import { Sparkles, RefreshCw, TrendingUp, AlertTriangle, Lightbulb, DollarSign, Target, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { API_BASE as API } from "../../utils/api";
 import { formatDateOnly } from "../../utils/dates";
@@ -42,6 +42,27 @@ export function SmartRecommendationsSection() {
       toast.error(e.response?.data?.detail || t("Error al generar", "Generate failed"));
     }
     setGenerating(false);
+  };
+
+  const createGoal = async (index) => {
+    try {
+      const res = await axios.post(
+        `${API}/api/inventory/recommendations/${index}/create-goal`,
+        {},
+        { withCredentials: true }
+      );
+      toast.success(t(
+        `Meta creada en Execution Hub · vence ${new Date(res.data.target_date).toLocaleDateString()}`,
+        `Goal created in Execution Hub · due ${new Date(res.data.target_date).toLocaleDateString()}`
+      ));
+      // Optimistically stamp the local copy
+      setData((p) => ({
+        ...p,
+        recommendations: p.recommendations.map((r, i) => i === index ? { ...r, created_goal_id: res.data.goal_id } : r),
+      }));
+    } catch (e) {
+      toast.error(e.response?.data?.detail || t("No se pudo crear la meta", "Goal creation failed"));
+    }
   };
 
   useEffect(() => { fetchCached(); }, []);
@@ -138,7 +159,7 @@ export function SmartRecommendationsSection() {
       ) : (
         <div className="space-y-3">
           {recs.map((r, idx) => (
-            <RecCard key={idx} idx={idx} r={r} isEs={isEs} />
+            <RecCard key={idx} idx={idx} r={r} isEs={isEs} onCreateGoal={() => createGoal(idx)} />
           ))}
         </div>
       )}
@@ -146,7 +167,7 @@ export function SmartRecommendationsSection() {
   );
 }
 
-function RecCard({ idx, r, isEs }) {
+function RecCard({ idx, r, isEs, onCreateGoal }) {
   const tones = {
     high: { border: "border-red-200", bg: "bg-red-50/40", badge: "bg-red-100 text-red-800", label: isEs ? "Alta" : "High" },
     medium: { border: "border-amber-200", bg: "bg-amber-50/40", badge: "bg-amber-100 text-amber-800", label: isEs ? "Media" : "Medium" },
@@ -179,6 +200,24 @@ function RecCard({ idx, r, isEs }) {
                 → {r.action_hint}
               </p>
             )}
+            <div className="pt-1">
+              {r.created_goal_id ? (
+                <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100 text-xs gap-1">
+                  <CheckCircle2 className="w-3 h-3" />
+                  {isEs ? "Meta creada en Execution Hub" : "Goal created in Execution Hub"}
+                </Badge>
+              ) : (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={onCreateGoal}
+                  data-testid={`create-goal-btn-${idx}`}
+                >
+                  <Target className="w-3.5 h-3.5 mr-1" />
+                  {isEs ? "Crear meta en Execution Hub" : "Create goal in Execution Hub"}
+                </Button>
+              )}
+            </div>
           </div>
         </div>
       </CardContent>

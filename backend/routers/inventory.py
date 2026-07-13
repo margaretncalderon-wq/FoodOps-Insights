@@ -1265,6 +1265,88 @@ async def get_cached_recommendations(user: User = Depends(get_current_user)):
     return {"generated_at": doc.get("generated_at"), "recommendations": doc.get("recommendations", [])}
 
 
+@inventory_router.post("/recommendations/{index}/create-goal")
+async def create_goal_from_recommendation(
+    index: int,
+    data: Optional[dict] = None,
+    user: User = Depends(get_current_user),
+):
+    """Sprint L — Convert a cached recommendation into an Execution Hub goal.
+
+    The goal is created with `context_type=ORGANIZATIONAL` and impact_areas
+    inferred from the recommendation's estimated_impact_usd (cost) and priority
+    (risk if `high`). Idempotent: refuses if the recommendation was already
+    converted (tracked by `created_goal_id` on the cached snapshot).
+    """
+    from routers.execution_hub import create_execution_goal
+    from models.execution_hub import ExecutionGoalCreate, ExecutionContext, ImpactArea
+    from fastapi import BackgroundTasks
+
+    doc = await db.smart_recommendations.find_one(
+        {"company_id": user.company_id}, {"_id": 0}
+    )
+    if not doc:
+        raise HTTPException(status_code=404, detail="No cached recommendations")
+    recs = doc.get("recommendations", [])
+    if not (0 <= index < len(recs)):
+        raise HTTPException(status_code=404, detail=f"Recommendation index {index} out of range")
+    rec = recs[index]
+    if rec.get("created_goal_id"):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Ya convertida en meta {rec['created_goal_id']}"
+        )
+
+    # Compose the goal
+    payload = data or {}
+    target_date = payload.get("target_date")  # ISO date str
+    if not target_date:
+        # Default to 7 days out for high, 14 for medium, 30 for low
+        offset = {"high": 7, "medium": 14, "low": 30}.get(rec.get("priority") or "medium", 14)
+        target_date = (datetime.now(timezone.utc) + timedelta(days=offset)).date().isoformat()
+
+    impact_areas = [ImpactArea.COST] if (rec.get("estimated_impact_usd") or 0) > 0 else []
+    if rec.get("priority") == "high":
+        impact_areas.append(ImpactArea.RISK)
+    if not impact_areas:
+        impact_areas = [ImpactArea.QUALITY]
+
+    goal_input = ExecutionGoalCreate(
+        title=rec.get("title", "Recomendación IA")[:200],
+        objective=(rec.get("reason", "") + ("\n\nAcción sugerida: " + rec["action_hint"] if rec.get("action_hint") else ""))[:2000],
+        context_type=ExecutionContext.ORGANIZATIONAL,
+        context_id=None,
+        impact_areas=impact_areas,
+        visibility="org",
+        target_date=datetime.fromisoformat(target_date) if isinstance(target_date, str) else target_date,
+    )
+
+    try:
+        goal = await create_execution_goal(
+            data=goal_input,
+            background_tasks=BackgroundTasks(),
+            user=user,
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Goal creation failed: {e}")
+
+    # Stamp the cached rec so we don't duplicate
+    recs[index]["created_goal_id"] = goal.get("goal_id")
+    recs[index]["created_goal_at"] = datetime.now(timezone.utc).isoformat()
+    await db.smart_recommendations.update_one(
+        {"company_id": user.company_id},
+        {"$set": {"recommendations": recs}},
+    )
+    return {
+        "goal_id": goal.get("goal_id"),
+        "title": goal.get("title"),
+        "target_date": goal.get("target_date"),
+        "impact_areas": goal.get("impact_areas"),
+    }
+
+
 @inventory_router.get("/utilization-report")
 async def get_utilization_report(
     days: int = 90,

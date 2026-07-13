@@ -1,0 +1,51 @@
+{
+  "summary": "Full E2E validation of Kora ERP after Sprints A-L. Backend: 26/26 pytest tests pass across Sprints E/F/G/H/I/J/K/L + cross-module event consistency check. Frontend: all 10 Resource Management tabs render correctly EXCEPT the 'Conduces (Delivery Notes)' tab which is missing from the top-tab bar (the route /ops-supplies/checkin still renders fine when hit directly). Event Orchestration event detail (correct route: /event-orchestration/{eventId}) loads all requested tabs (Blueprint, Operational Flow, Team & Roles, Production Assets, Documents, Project Calendar, Post-Review, Project Binder). The consolidated Packing List embed inside Documents > Packing List/Setup renders WITHOUT the event dropdown as required (eventId is fixed). Production Assets tab loads correctly but has zero assets in the demo tenant so the asset-link-to-inventory picker could not be exercised end-to-end. One notable cross-module inconsistency: the standalone /ops-supplies/event-packing dropdown filters events to status='confirmed', but the only demo event is in 'planning' status, so the dropdown is empty even though Event Orchestration shows the same event as 'Committed'.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "OperationsSuppliesPage tab bar", "issue": "'Conduces (Delivery Notes)' tab is NOT visible in the Resource Management top tabs. The tab is gated by industries=['events','events_hospitality','generic'] but the demo tenant's industry classification is not matching any of those in useModules() (isEventsIndustry=false, and isProfessionalServices/isConsulting are also false — the tab's `industries.includes('generic') && !isProfessionalServices && !isConsulting` check should pass but tab is hidden). Route /ops-supplies/checkin renders correctly when navigated to directly. Same issue affects the 'Asset Gallery' tab (also gated by the same industries list).", "selector": "[data-testid='tab-checkin']", "priority": "HIGH"}
+    ],
+    "integration_issues": [
+      {"flow": "Resource Management → Packing List event dropdown", "issue": "The dropdown label reads 'Select a confirmed event' and filters to status='confirmed'. Demo tenant's only event ('Lanzamiento Q1 - Marketing Interno') is in status='planning' (Program Orchestration displays it as 'Committed' engagement stage but the underlying event.status is 'planning'). Result: dropdown is empty and user cannot proceed. This is a status-model divergence between Event Orchestration (which treats 'planning'+'Committed' as production-ready) and the /ops-supplies/event-packing endpoint (which requires 'confirmed').", "affected_selectors": ["event-packing-select"]},
+      {"flow": "Event Orchestration → Documents > Packing List (embedded)", "issue": "Works correctly. The embedded EventPackingSection renders WITHOUT the event dropdown (eventId prop is fixed), shows 'No items reserved yet' empty state with 'Go to Purchasing / Reserve' button, plus 'Apply template' and 'Pack all items to unlock conduce' actions. This is the expected consolidation behavior — no divergence between the two views for this event.", "affected_selectors": ["event-packing-section"]},
+      {"flow": "Event Orchestration → Production Assets ⇄ Inventory link", "issue": "Tab loads correctly but demo event has 0 registered production assets ('No assets registered'). Therefore the 'Vincular a Inventario' button (data-testid=asset-link-*) picker dialog could not be exercised end-to-end. Not a code bug — just tenant seed-data gap. Suggest seeding at least one production asset on the demo event.", "affected_selectors": ["asset-link-*"]}
+    ],
+    "design_issues": [
+      {"screen": "Resource Management landing", "issues": ["The standalone /inventory page shows 8 ingredients while /ops-supplies/inventory shows 0 items with 'Operations Inventory - Equipment, disposables, and event supplies' — these are two different inventory types (ingredients vs equipment). Consider adding a clarifying subtitle so users understand these are intentional separate scopes, otherwise it looks like data divergence."]},
+      {"screen": "Packing Templates", "issues": ["All 4 seeded templates (Brand Moment, Brunch Box, Buffet Francés, Picadera) show 'N unmatched' badges because their line-item ratios do not resolve to any existing inventory items. Working as designed but a first-time user may be confused."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration_237_e2e.py",
+    "/app/backend/tests/test_sprints_fghij.py",
+    "/app/backend/tests/test_sprint_e_conflicts.py",
+    "/app/test_reports/pytest/iter_237.xml"
+  ],
+  "action_items": [
+    "(HIGH) Fix industry gating so 'Conduces (Delivery Notes)' and 'Asset Gallery' tabs appear in Resource Management for the demo tenant (generic industry). Either widen the industry filter to include 'all' for Conduces since it is a core delivery-notes feature, or fix the demo tenant industry classification.",
+    "(MEDIUM) Reconcile the event-status model: /ops-supplies/event-packing dropdown filters events to status='confirmed' only, but Event Orchestration's confirmed/committed events are actually in status='planning' with engagement_stage='Committed'. Either loosen the packing-list dropdown filter to include planning+committed, or update the event status when it is committed.",
+    "(SEED) Add 1 production asset + 1 reserved inventory item on the demo confirmed event so the Packing List and Production Assets picker flows can be demoed end-to-end via UI.",
+    "(SEED) Add one zero-cost ingredient to demonstrate the 'sin costo' warning in /inventory."
+  ],
+  "critical_code_review_comments": [
+    "OperationsSuppliesPage.js line 152-155: industry filter logic relies on 3 flags (isEventsIndustry / isProfessionalServices / isConsulting) but there is no explicit 'isGeneric' flag — so a tenant that doesn't match any of the 3 will silently lose all tabs gated by ['events','events_hospitality','generic']. Recommend adding explicit isGeneric or defaulting undefined-industry tenants to include generic-only tabs.",
+    "Consider unifying event status vocabulary across modules — currently a single event can be 'planning' (event.status) AND 'Committed' (engagement_stage) AND filtered out by the packing-list 'confirmed' dropdown at the same time.",
+    "All new endpoints (over-reserved, upcoming-commitments, utilization-report, QR, recommendations, create-goal, damaged bill) return proper 200/404 shapes with expected keys and correctly exclude MongoDB _id.",
+    "Sprint J QR endpoint returns valid PNG bytes (verified magic number 89 50 4E 47).",
+    "Sprint K cached recommendations endpoint returns full shape with 5 recs and preserves the 'converted-to-goal' state (data-testid='create-goal-btn-*' hidden and replaced with 'Goal created in Execution Hub' badge on the first rec).",
+    "Sprint F seed-defaults-btn correctly hides after seeding is complete (idempotent)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration_237_e2e.py (new — 11 tests covering login, over-reserved, invalid template preview, invalid bill, upcoming, utilization, QR PNG, cached recs, invalid create-goal, cross-module event consistency, templates seeded)"
+  ],
+  "success_rate": {"backend": "100% (26/26 pytest passing across sprint suites + new E2E)", "frontend": "90% — 9/10 RM tabs render in navigation (Conduces tab hidden), all EO tabs render correctly. Cross-module packing embed works. Two flows blocked by tenant seed-data (production assets picker, packing dropdown filter mismatch)"},
+  "test_credentials": "demo.agency@kora.com / Evoque2024!",
+  "seed_data_creation": "None this iteration. Previous iterations already populated 3 damaged_items_log entries and 4 packing templates.",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Backend regression is green (26/26). The two frontend gaps that need main-agent fixes are: (1) Conduces tab visibility in RM sidebar — likely a 1-line change in OperationsSuppliesPage.js industry filter (line 149-156); (2) Packing List dropdown status filter should accept 'planning' events with engagement_stage='Committed' OR the event.status backfill should promote committed events to 'confirmed'. Correct Event Orchestration detail route is /event-orchestration/{eventId}, NOT /events/{eventId} (which is the sales/proposal view — separate feature).",
+  "rca of the issue": "1) Conduces tab missing: OperationsSuppliesPage.js industry filter branches on isEventsIndustry/isProfessionalServices/isConsulting only. Tabs gated by ['events','events_hospitality','generic'] require `industries.includes('generic') && !isProfessionalServices && !isConsulting`. If the useModules() hook is not exposing the demo tenant as generic (isGeneric flag is missing / industry field returns something else), the tab is dropped. Reproduction: login as demo → navigate to /ops-supplies/inventory → observe top tab bar has 9 tabs but Conduces missing. Route /ops-supplies/checkin still works when hit directly. 2) Packing dropdown empty: EventPackingSection filters GET /api/events response to status==='confirmed'; demo event.status='planning', so dropdown is empty even though Program Orchestration shows the event as Committed."
+}
