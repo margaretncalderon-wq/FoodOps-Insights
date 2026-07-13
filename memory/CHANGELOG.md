@@ -1,6 +1,32 @@
 # Kora OS - Changelog
 
 
+## February 2026 — Resource Management Nav Grouping
+
+### Problem
+After Sprints A→L, the Resource Management tab bar grew to 11 tabs (Inventory, Purchasing, Delivery Notes, Packing List, Templates, Next 14d, Utilization, AI Recommendations, Asset Count, Vendor Agreements, Asset Gallery). At standard viewport sizes the bar overflowed horizontally with a scrollbar, forcing users to scroll to reach later tabs and burying the AI Recommendations + Asset Count under the fold.
+
+### Solution
+Refactored `OperationsSuppliesPage.js` to render the nav as **5 semantic groups** using shadcn `DropdownMenu`:
+1. **Inventory** (single tab)
+2. **Purchasing & Logistics ▾** — Purchasing · Delivery Notes · Packing List
+3. **Planning ▾** — Templates · Next 14d
+4. **Insights ▾** — Utilization · AI Recommendations
+5. **Assets & Contracts ▾** — Asset Count · Vendor Agreements · Asset Gallery
+
+Behavior:
+- Groups with only one item render as a direct tab (no dropdown).
+- Groups where the active tab lives show a `· {active tab label}` subtitle inline, so users see current context at a glance.
+- The group's border underline glows indigo when any child tab is active.
+- Data-testids preserved (`tab-{id}`) so existing regression tests + testing agent scripts keep working. New `nav-group-{id}` testids added for the dropdown triggers.
+
+### Result
+- No more horizontal overflow at 1920×900 or on typical 1440×900 laptop screens.
+- All 11 tabs remain reachable — grouped, not hidden.
+
+
+
+
 ## February 2026 — Sprint L + E2E Validation
 
 ### Sprint L — Convert Recommendation → Execution Hub Goal
