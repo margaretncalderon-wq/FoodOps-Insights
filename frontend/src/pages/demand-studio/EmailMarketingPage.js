@@ -4,6 +4,7 @@ import { useLanguage } from "../../contexts/LanguageContext";
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
+import { ContentTextarea } from "../../components/shared/ContentTextarea";
 import { Badge } from "../../components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs";
 import {
@@ -473,10 +474,13 @@ export default function EmailMarketingPage() {
             
             <div>
               <label className="text-sm font-medium">{isEs ? "Notas" : "Notes"}</label>
-              <Input
+              <ContentTextarea
                 value={formData.notes}
                 onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                placeholder={isEs ? "Notas adicionales" : "Additional notes"}
+                placeholder={isEs ? "Notas adicionales, copy del email, ideas de A/B test..." : "Additional notes, email copy, A/B test ideas..."}
+                minHeight={140}
+                storageKey="email-notes"
+                data-testid="email-notes-editor"
               />
             </div>
           </div>

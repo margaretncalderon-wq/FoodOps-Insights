@@ -10,6 +10,7 @@ import { Button } from "../../components/ui/button";
 import { Badge } from "../../components/ui/badge";
 import { Input } from "../../components/ui/input";
 import { Textarea } from "../../components/ui/textarea";
+import { ContentTextarea } from "../../components/shared/ContentTextarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs";
 import {
   Dialog,
@@ -664,7 +665,13 @@ export default function CampaignDetailPage() {
             </div>
             <div>
               <label className="text-sm font-medium">{isEs ? "Notas" : "Notes"}</label>
-              <Textarea value={newActivation.notes} onChange={(e) => setNewActivation({...newActivation, notes: e.target.value})} />
+              <ContentTextarea
+                value={newActivation.notes || ""}
+                onChange={(e) => setNewActivation({...newActivation, notes: e.target.value})}
+                placeholder={isEs ? "Notas de la activación..." : "Activation notes..."}
+                minHeight={120}
+                storageKey="activation-notes"
+              />
             </div>
           </div>
           <DialogFooter>
