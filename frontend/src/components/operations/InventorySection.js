@@ -485,6 +485,7 @@ export function InventorySection() {
                   <TableHead className="text-right">{t("reserved")}</TableHead>
                   <TableHead className="text-right">{t("available")}</TableHead>
                   <TableHead className="text-right">{t("cost")}</TableHead>
+                  <TableHead className="text-right">= {language === "es" ? "Valor" : "Value"}</TableHead>
                   <TableHead>{t("costCenter")}</TableHead>
                   <TableHead className="text-right">{language === "es" ? "Acciones" : "Actions"}</TableHead>
                 </TableRow>
@@ -492,7 +493,7 @@ export function InventorySection() {
               <TableBody>
                 {filteredItems.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
                       {language === "es" ? "No hay items" : "No items found"}
                     </TableCell>
                   </TableRow>
@@ -557,6 +558,9 @@ export function InventorySection() {
                               </span>
                             )}
                           </div>
+                        </TableCell>
+                        <TableCell className="text-right font-medium tabular-nums">
+                          ${fmtNum(onHand * (item.cost_per_unit || 0))}
                         </TableCell>
                         <TableCell>
                           <Badge variant="secondary" className="text-xs">

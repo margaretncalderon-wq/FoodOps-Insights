@@ -911,7 +911,7 @@ function InventorySection() {
             </CardHeader>
             <CardContent>
               <Table>
-                <TableHeader><TableRow><TableHead>{t("name")}</TableHead><TableHead>{language === "es" ? "Marca" : "Brand"}</TableHead><TableHead>{t("category")}</TableHead><TableHead className="text-right">{language === "es" ? "En Mano" : "On Hand"}</TableHead><TableHead className="text-right">{language === "es" ? "Disponible" : "Available"}</TableHead><TableHead className="text-right">{t("cost")}</TableHead><TableHead>{t("supplier")}</TableHead><TableHead></TableHead></TableRow></TableHeader>
+                <TableHeader><TableRow><TableHead>{t("name")}</TableHead><TableHead>{language === "es" ? "Marca" : "Brand"}</TableHead><TableHead>{t("category")}</TableHead><TableHead className="text-right">{language === "es" ? "En Mano" : "On Hand"}</TableHead><TableHead className="text-right">{language === "es" ? "Disponible" : "Available"}</TableHead><TableHead className="text-right">{t("cost")}</TableHead><TableHead className="text-right">= {language === "es" ? "Valor" : "Value"}</TableHead><TableHead>{t("supplier")}</TableHead><TableHead></TableHead></TableRow></TableHeader>
                 <TableBody>
                   {filteredItems.map(item => {
                     const onHand = item.stock_quantity || 0;
@@ -946,6 +946,9 @@ function InventorySection() {
                         </span>
                       </TableCell>
                       <TableCell className="text-right">${fmtNum((item.cost_per_unit || 0))}/{item.unit}</TableCell>
+                      <TableCell className="text-right font-medium tabular-nums">
+                        ${fmtNum(onHand * (item.cost_per_unit || 0))}
+                      </TableCell>
                       <TableCell>{getSupplierName(item.preferred_supplier_id)}</TableCell>
                       <TableCell>
                         <div className="flex gap-1">
