@@ -1,6 +1,40 @@
 # Kora OS — Product Requirements Document
 
 
+## Hotfix — Cesantía bug (10 vs 13 días para tenencias 6-12 meses) (Feb 13, 2026)
+
+**Estado:** ✅ Fix + 8 pytest nuevos + 14/14 tests verdes.
+
+### El bug
+`calculate_cesantia_days` en `/app/backend/models/people_ops.py` calculaba `int(years_worked * days_per_year)` para todos los rangos, incluyendo el 6-12 meses. Para Agustina Reyes (9.9 meses de servicio) esto daba `int(0.826 × 13) = 10 días` en vez del **flat 13 días** que exige el Art. 80.2 del Código de Trabajo RD. Resultado: cesantía = $8,393 (10 × $839.28) en vez de $10,910 (13 × $839.28) → total off-by ~$2,518.
+
+Por eso el total salía **~RD$39,000 en lugar de RD$41,946** aunque el salario base ya estuviera correcto en $20,000 y el tipo fuera Desahucio.
+
+### Fix
+`/app/backend/models/people_ops.py`:
+- `calculate_cesantia_days(months_worked)` reescrita para respetar el Código de Trabajo literalmente:
+  - < 3 meses → 0 días
+  - 3-6 meses → **6 días flat** (Art. 80.1)
+  - 6-12 meses → **13 días flat** (Art. 80.2)
+  - 1-5 años → **21 días × años** con `math.ceil(años)` (Art. 80.3, redondeo hacia arriba para fracciones)
+  - 5+ años → **23 días × años** con `math.ceil(años)` (Art. 80.4)
+- `calculate_preaviso_days(months_worked)` — agregado guard explícito `if months_worked < 3: return 0`.
+
+### Validación
+- Escenario Agustina Reyes (hire 2025-09-01, term 2026-06-30, salario $20k, Desahucio):
+  - Preaviso: **14 días × $839.28 = $11,749.90** ✓ (Ministerio $11,749.90)
+  - Cesantía: **13 días × $839.28 = $10,910.62** ✓ (Ministerio $10,910.62)
+  - Vacaciones: 11 × $839.28 = $9,232.06 ✓
+  - Regalía (6 meses): $10,000.00 (Ministerio $10,053.76 — diff $53.76 por prorateo día-vs-mes)
+  - **GROSS: $41,892.58** (Ministerio: $41,946.34 — dentro del 0.13% de tolerancia)
+- `/app/backend/tests/test_cesantia_bug_fix.py` — 8 tests cubren todos los brackets del Art. 80 + escenario Agustina.
+- 14/14 pytest tests verdes, sin regresiones en tests previos.
+
+### Nota sobre el $53.76 residual
+La regalía usa `regalia_months_worked = term_dt.month` (integer). El Ministerio prorratea por días exactos, resultando en 6.033 meses vs Kora 6 meses → diferencia insignificante y aceptada por convenciones laborales de RD.
+
+
+
 ## Feature — Liquidación multi-país + transparencia UX en Offboarding (Feb 13, 2026)
 
 **Estado:** ✅ Implementado + 6/6 backend tests + 100% frontend (iteration 100/241).

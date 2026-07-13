@@ -1145,31 +1145,57 @@ CESANTIA_MAX_DAYS = 630  # Maximum days for cesantía
 
 
 def calculate_preaviso_days(months_worked: float) -> int:
-    """Calculate preaviso days based on RD labor code"""
+    """Calculate preaviso days based on RD Labor Code Art. 76.
+
+    Under 3 months → 0 days (Art. 76 does not apply during the trial period).
+    3 to <6 months → 7 days.
+    6 to <12 months → 14 days.
+    12+ months → 28 days.
+    """
+    if months_worked < 3:
+        return 0
     for period in PREAVISO_PERIODS_RD:
         if period["min_months"] <= months_worked < period["max_months"]:
             return period["days"]
-    return 28  # Default for 12+ months
+    return 28  # 12+ months
 
 
 def calculate_cesantia_days(months_worked: float) -> int:
-    """Calculate cesantía days based on RD labor code"""
+    """Calculate cesantía days based on RD Labor Code Art. 80.
+
+    Per Código de Trabajo RD:
+      - 3 to <6 months of service:  6 days FLAT
+      - 6 to <12 months of service: 13 days FLAT
+      - 1 to 5 years:               21 days per YEAR of service (fraction of
+                                    year rounds UP as customary in labor
+                                    tribunals — a partial year still triggers
+                                    the full annual payment).
+      - 5+ years:                   23 days per YEAR of service (same rounding).
+
+    IMPORTANT: this used to compute `int(years_worked * 13)` for the 6-12
+    bracket, which produced ~10 days for a 10-month tenure (39k vs 41k in
+    the Agustina Reyes case). The bug shorted employees on <12-month
+    dismissals. Now returns the flat 13 days as the Ministry of Labor does.
+    """
+    import math
+
     if months_worked < 3:
         return 0
-    
+
+    if months_worked < 6:
+        return 6      # Art. 80.1 — flat 6 days
+    if months_worked < 12:
+        return 13     # Art. 80.2 — flat 13 days
+
     years_worked = months_worked / 12
-    total_days = 0
-    
-    # Calculate progressively
-    if months_worked >= 3 and months_worked < 6:
-        total_days = int(years_worked * 6)
-    elif months_worked >= 6 and months_worked < 12:
-        total_days = int(years_worked * 13)
-    elif months_worked >= 12 and months_worked < 60:
-        total_days = int(years_worked * 21)
-    else:  # 5+ years
-        total_days = int(years_worked * 23)
-    
+    if months_worked < 60:
+        # Art. 80.3 — 21 days per year of service. Ministry rounds fraction
+        # of year UP to a full year for cesantía payout.
+        total_days = math.ceil(years_worked) * 21
+    else:
+        # Art. 80.4 — 23 days per year of service, 5+ years.
+        total_days = math.ceil(years_worked) * 23
+
     return min(total_days, CESANTIA_MAX_DAYS)
 
 
