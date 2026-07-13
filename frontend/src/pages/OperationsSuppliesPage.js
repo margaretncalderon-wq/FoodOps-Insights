@@ -1,11 +1,13 @@
 import { useNavigate, useLocation, Routes, Route } from "react-router-dom";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
+import axios from "axios";
 import { useLanguage } from "../contexts/LanguageContext";
 import { useModules } from "../contexts/ModulesContext";
 import { Layout } from "../components/Layout";
 import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../components/ui/dropdown-menu";
+import { API_BASE as API } from "../utils/api";
 import { 
   Package, ShoppingCart, Truck, Boxes, FileText, Image, Archive,
   Briefcase, Users, Clock, FolderOpen, PackageCheck, LayoutTemplate, CalendarClock, BarChart3, Sparkles,
@@ -177,6 +179,21 @@ export default function OperationsSuppliesPage() {
   // Determine which group is currently active (for highlighting)
   const activeGroupId = groups.find(g => g.items.some(t => t.id === currentTab))?.id;
 
+  // Fetch aggregated nav-badges once for the whole page (Sprint M).
+  const [navBadges, setNavBadges] = useState({});
+  useEffect(() => {
+    axios
+      .get(`${API}/api/inventory/nav-badges`, { withCredentials: true })
+      .then((r) => setNavBadges(r.data || {}))
+      .catch(() => setNavBadges({}));
+    // Refetch when route changes so counts update after an action
+  }, [location.pathname]);
+
+  const groupBadge = (groupId) => {
+    const key = { logistics: "logistics", planning: "planning", insights: "insights", "assets-admin": "assets" }[groupId];
+    return navBadges[key];
+  };
+
   return (
     <Layout>
       <div className="space-y-6" data-testid="resource-management-page">
@@ -226,6 +243,8 @@ export default function OperationsSuppliesPage() {
               // Multi-item groups render as dropdown menu
               const isActive = activeGroupId === group.id;
               const activeChild = group.items.find(t => t.id === currentTab);
+              const badge = groupBadge(group.id);
+              const badgeTone = badge?.tone;
               return (
                 <DropdownMenu key={group.id}>
                   <DropdownMenuTrigger asChild>
@@ -240,6 +259,23 @@ export default function OperationsSuppliesPage() {
                       <span>{group.label}</span>
                       {activeChild && (
                         <span className="text-xs opacity-70">· {activeChild.label}</span>
+                      )}
+                      {badge?.total > 0 && (
+                        <span
+                          data-testid={`nav-badge-${group.id}`}
+                          className={`inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-semibold rounded-full ${
+                            badgeTone === "red"
+                              ? "bg-red-100 text-red-700 border border-red-200"
+                              : "bg-amber-100 text-amber-700 border border-amber-200"
+                          }`}
+                          title={
+                            badgeTone === "red"
+                              ? (isEs ? "Requiere atención" : "Needs attention")
+                              : (isEs ? "Revisar" : "Review")
+                          }
+                        >
+                          {badge.total}
+                        </span>
                       )}
                       <ChevronDown className="w-3.5 h-3.5" />
                     </button>

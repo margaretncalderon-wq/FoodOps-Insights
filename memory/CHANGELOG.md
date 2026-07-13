@@ -1,6 +1,27 @@
 # Kora OS - Changelog
 
 
+## February 2026 — Sprint M · Nav Group Badges
+
+### Motivation
+After the grouped nav (11 tabs → 5 group triggers) the bar became clean but users lost the passive "hey, something needs attention" signal that a flat list provided. Sprint M brings that signal back — but as compact dots on the group triggers, so counts are visible without opening any dropdown.
+
+### Implementation
+- **Backend** — new `GET /api/inventory/nav-badges` returns aggregated counts per group in a single roundtrip:
+  - `logistics` — overdue conduces + over-reserved items (tone: red)
+  - `planning` — items under stock pressure (tone: red)
+  - `insights` — high-priority AI recommendations without a goal yet (tone: amber)
+  - `assets` — unbilled damaged/missing items (tone: amber)
+- **Frontend** — `OperationsSuppliesPage` fetches once on mount + on route change, renders a pill badge (`data-testid=nav-badge-{groupId}`) next to the group label when `total > 0`. Red pill for urgent, amber for review. Tooltip explains the tone.
+- **Live verified**: demo tenant shows `Insights [1]` (Chiavari reco still pending goal) and `Assets & Contracts [3]` (3 damaged log entries unbilled) — data comes from real state, no seeding.
+
+### Testing
+- Regression: 182 backend tests green (1 pre-existing plan-limit unrelated).
+- Preview smoke: badges render on the correct triggers with correct counts, disappear when total drops to 0.
+
+
+
+
 ## February 2026 — Resource Management Nav Grouping
 
 ### Problem

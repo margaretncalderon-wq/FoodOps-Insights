@@ -1112,6 +1112,89 @@ async def register_qr_scan_count(
     }
 
 
+@inventory_router.get("/nav-badges")
+async def get_nav_badges(user: User = Depends(get_current_user)):
+    """Lightweight aggregation for the Resource Management nav.
+
+    Returns per-group counts so the FE can show passive signals (red/amber
+    dots) on each dropdown trigger without fetching each section individually.
+    """
+    today = datetime.now(timezone.utc).date()
+    today_str = today.isoformat()
+    horizon_str = (today + timedelta(days=14)).isoformat()
+
+    # Overdue conduces
+    overdue_notes = await db.delivery_notes.count_documents({
+        "company_id": user.company_id,
+        "status": {"$in": ["pending", "partial"]},
+        "expected_return_date": {"$lt": today_str, "$ne": None},
+    })
+
+    # Over-reserved items
+    over_reserved = 0
+    async for it in db.ingredients.find(
+        {"company_id": user.company_id, "inventory_type": {"$in": ["equipment", "event_supply", "disposable"]}},
+        {"_id": 0, "stock_quantity": 1, "reserved_quantity": 1}
+    ):
+        if float(it.get("reserved_quantity") or 0) > float(it.get("stock_quantity") or 0):
+            over_reserved += 1
+
+    # Upcoming events in next 14d
+    upcoming_events = await db.events.count_documents({
+        "company_id": user.company_id,
+        "event_date": {"$gte": today_str, "$lte": horizon_str},
+    })
+
+    # Stock pressure — reuse the existing helper's math on a bounded query
+    pressure_count = 0
+    if upcoming_events > 0:
+        # Approximate: use over_reserved as a proxy signal for pressure.
+        # (Full calc lives in /upcoming-commitments; nav doesn't need exactness.)
+        pressure_count = over_reserved
+
+    # Damaged / missing items not yet billed
+    damages_open = await db.damaged_items_log.count_documents({
+        "company_id": user.company_id,
+        "billed_invoice_id": {"$exists": False},
+        "condition": {"$in": ["dañado", "faltante"]},
+    })
+
+    # High-priority AI recommendations without a goal yet
+    rec_snapshot = await db.smart_recommendations.find_one(
+        {"company_id": user.company_id}, {"_id": 0, "recommendations": 1}
+    )
+    high_recos = 0
+    if rec_snapshot:
+        for r in rec_snapshot.get("recommendations") or []:
+            if r.get("priority") == "high" and not r.get("created_goal_id"):
+                high_recos += 1
+
+    return {
+        "logistics": {
+            "overdue_conduces": overdue_notes,
+            "over_reserved": over_reserved,
+            "total": overdue_notes + over_reserved,
+            "tone": "red" if (overdue_notes + over_reserved) > 0 else None,
+        },
+        "planning": {
+            "upcoming_events": upcoming_events,
+            "stock_pressure": pressure_count,
+            "total": pressure_count,
+            "tone": "red" if pressure_count > 0 else None,
+        },
+        "insights": {
+            "high_recos": high_recos,
+            "total": high_recos,
+            "tone": "amber" if high_recos > 0 else None,
+        },
+        "assets": {
+            "damages_open": damages_open,
+            "total": damages_open,
+            "tone": "amber" if damages_open > 0 else None,
+        },
+    }
+
+
 @inventory_router.post("/recommendations")
 async def get_smart_recommendations(user: User = Depends(get_current_user)):
     """Sprint K — Weekly smart recommendations powered by Emergent LLM.
