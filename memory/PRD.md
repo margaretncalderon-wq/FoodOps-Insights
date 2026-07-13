@@ -1,5 +1,26 @@
 # Kora OS — Product Requirements Document
 
+
+## Bug fix — ProposalEditor Drag-and-Drop feedback (Feb 13, 2026)
+
+**Estado:** ✅ Implementado + validado por testing_agent (iteration 238).
+
+### Problema
+Al arrastrar ítems para agruparlos en secciones en Cotizaciones/Propuestas, no había feedback visual sobre qué sección era el drop target válido. El usuario veía el fantasma del ítem seguir el cursor pero al soltar sobre una cabecera de sección no había resaltado, dando la sensación de "no deja".
+
+### Fix
+`/app/frontend/src/components/ProposalEditor.js`:
+- `SortableSectionWrapper` ahora extrae `isOver` y `active` de `useSortable` y calcula `isDropTarget = isOver && active && active.id !== id`.
+- Aplica un ring emerald al wrapper y pasa `isDropTarget` como segundo argumento al render prop.
+- La tarjeta de la sección aplica `border-emerald-400 bg-emerald-50/40` y su cabecera `bg-emerald-100/70` durante hover-drag.
+- Agregado `data-testid="section-dropzone-{id}"` y `data-drop-target="true|false"` para testabilidad.
+
+### Validación
+- Drag de "Jugo Natural" (Bebidas) → "Coffee Break": anillo verde aparece, PUT `/api/proposals/{id}/items/{item_id}` con `section_title="Coffee Break"` retorna 200, ítem persiste tras reload.
+- Feedback visual funcional para todas las secciones (Spring, Bebidas, Coffee Break).
+- Drop indicator fino sobre ítems individuales sigue funcionando (no regresión).
+
+
 ## Sprint L + E2E Validation (Feb 12, 2026)
 
 **Estado:** ✅ Implementado + validado end-to-end por testing_agent (iteration 237).
