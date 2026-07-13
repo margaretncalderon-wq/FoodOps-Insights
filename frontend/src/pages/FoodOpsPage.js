@@ -588,6 +588,19 @@ function InventorySection() {
     return acc;
   }, {});
 
+  // Outlier detection — items whose line value (stock × cost) is > 10× the
+  // median suggest a data entry mistake (typically stock in base units but
+  // cost stored as a pack/case price).
+  const lineValue = (i) => (i.stock_quantity || 0) * (i.cost_per_unit || 0);
+  const _sortedValues = items.map(lineValue).filter(v => v > 0).sort((a, b) => a - b);
+  const _median = _sortedValues.length ? _sortedValues[Math.floor(_sortedValues.length / 2)] : 0;
+  const _threshold = Math.max(_median * 10, 100);
+  const inventoryOutliers = items
+    .map((i) => ({ item: i, value: lineValue(i) }))
+    .filter((x) => x.value > _threshold)
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 5);
+
   if (loading) return <div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>;
 
   return (
@@ -597,7 +610,37 @@ function InventorySection() {
         <Card><CardContent className="pt-4"><div className="flex items-center gap-3"><Package className="h-8 w-8 text-primary" /><div><p className="text-sm text-muted-foreground">{t("items")}</p><p className="text-2xl font-bold">{items.length}</p></div></div></CardContent></Card>
         <Card><CardContent className="pt-4"><div className="flex items-center gap-3"><Truck className="h-8 w-8 text-blue-500" /><div><p className="text-sm text-muted-foreground">{t("suppliers")}</p><p className="text-2xl font-bold">{suppliers.length}</p></div></div></CardContent></Card>
         <Card><CardContent className="pt-4"><div className="flex items-center gap-3"><AlertTriangle className="h-8 w-8 text-yellow-500" /><div><p className="text-sm text-muted-foreground">{t("lowStock")}</p><p className="text-2xl font-bold">{lowStockItems.length}</p></div></div></CardContent></Card>
-        <Card><CardContent className="pt-4"><div className="flex items-center gap-3"><DollarSign className="h-8 w-8 text-green-500" /><div><p className="text-sm text-muted-foreground">{language === "es" ? "Valor Total" : "Total Value"}</p><p className="text-2xl font-bold">${fmtNum(items.reduce((sum, item) => sum + (item.stock_quantity || 0) * (item.cost_per_unit || 0), 0))}</p></div></div></CardContent></Card>
+        <Card>
+          <CardContent className="pt-4">
+            <div className="flex items-start gap-3">
+              <DollarSign className="h-8 w-8 text-green-500 shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm text-muted-foreground">{language === "es" ? "Valor Total" : "Total Value"}</p>
+                <p
+                  className="text-2xl font-bold"
+                  title={language === "es"
+                    ? "Suma de stock × costo unitario en todos los ítems"
+                    : "Sum of stock × unit cost across all items"}
+                >
+                  ${fmtNum(items.reduce((sum, item) => sum + (item.stock_quantity || 0) * (item.cost_per_unit || 0), 0))}
+                </p>
+                {inventoryOutliers.length > 0 && (
+                  <div
+                    className="mt-2 flex items-start gap-1.5 p-1.5 rounded bg-amber-50 border border-amber-200"
+                    title={inventoryOutliers.map(o => `${o.item.name}: $${o.value.toFixed(2)}`).join('\n')}
+                  >
+                    <AlertTriangle className="w-3 h-3 text-amber-600 shrink-0 mt-0.5" />
+                    <span className="text-[10px] text-amber-700 leading-tight">
+                      {language === "es"
+                        ? `${inventoryOutliers.length} ítem(s) con valor inusual — revisar unidad vs. cantidad`
+                        : `${inventoryOutliers.length} item(s) with unusual value — check unit vs. quantity`}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
       
       {/* Value by Type - Collapsible Summary */}

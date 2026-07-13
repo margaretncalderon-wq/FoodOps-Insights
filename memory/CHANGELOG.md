@@ -1,6 +1,32 @@
 # Kora OS - Changelog
 
 
+## February 2026 — Inventory Total Value · Outlier Detection
+
+### Feedback
+Usuario reportó: "inventario total muy alto verifica que se esta multiplicando todo correctamente… Total Value $216,717.72". La fórmula (`stock_quantity × cost_per_unit`) es matemáticamente correcta, pero el número se inflaba por items donde `cost_per_unit` estaba capturado como precio de la unidad de compra (caso/saco) mientras `stock_quantity` estaba en unidad base — un error de captura muy común.
+
+### Fixes
+**`components/operations/InventorySection.js`** (Resource Management → Inventory):
+- Total Value ahora respeta los filtros activos (type/categoría/search) — antes mostraba el gran total sin importar el filtro, causando confusión.
+- Nueva **sub-línea de breakdown por tipo** (Alimentos $X · Empaques $Y · Desechables $Z · Equipos $W) — sin necesidad de cambiar filtros para ver la composición.
+- **Detector de outliers**: si algún ítem tiene un `line_value` > 10× la mediana (mínimo threshold $100), se muestra un chip amber warning "N ítem(s) con valor inusualmente alto — revisar unidad de compra vs. stock". El tooltip lista los ítems específicos con sus valores.
+
+**`pages/FoodOpsPage.js`** (Culinary Intelligence → Inventory):
+- Mismo detector de outliers en la Total Value card (además del "Value by Category" que ya existía).
+- Tooltip explicativo en el número: "Suma de stock × costo unitario en todos los ítems".
+
+### Estrategia de detección
+```
+lineValue(item) = stock_quantity × cost_per_unit
+median = mediana de todos los lineValue > 0
+threshold = max(median × 10, $100)
+outliers = items donde lineValue > threshold, ordenados desc, top 5
+```
+
+Ejemplo: si la mediana de los ítems es $50, cualquier ítem > $500 se marca. Un ítem "Sal Marina" mostrando $4,250 (50 unidades × $85/saco) saltará como outlier — indicando que `cost_per_unit` debe ser normalizado o `stock_quantity` debe estar en la unidad correcta.
+
+
 ## February 2026 — People Ops · HR Alerts & Key Dates
 
 ### Feature

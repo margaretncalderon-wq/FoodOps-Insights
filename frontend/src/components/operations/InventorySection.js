@@ -279,10 +279,40 @@ export function InventorySection() {
     return matchesSearch && matchesType && matchesCategory;
   });
 
-  // Calculate stats
-  const totalValue = items.reduce((sum, item) => sum + ((item.stock_quantity || 0) * (item.cost_per_unit || 0)), 0);
-  const lowStockItems = items.filter(item => (item.stock_quantity || 0) <= (item.par_level || 0));
-  const reservedValue = items.reduce((sum, item) => sum + ((item.reserved_quantity || 0) * (item.cost_per_unit || 0)), 0);
+  // Calculate stats — respect the active filters so the number is contextual.
+  // (Previously used `items` which showed the grand total regardless of filters,
+  // making it hard to explain and often surprisingly high.)
+  const lineValue = (i) => (i.stock_quantity || 0) * (i.cost_per_unit || 0);
+  const totalValue = filteredItems.reduce((sum, item) => sum + lineValue(item), 0);
+  const lowStockItems = filteredItems.filter(item => (item.stock_quantity || 0) <= (item.par_level || 0));
+  const reservedValue = filteredItems.reduce((sum, item) => sum + ((item.reserved_quantity || 0) * (item.cost_per_unit || 0)), 0);
+
+  // Breakdown by inventory type (over the filtered set) so the user sees where
+  // the value concentrates without having to switch the filter one by one.
+  const breakdownByType = filteredItems.reduce((acc, i) => {
+    const t = i.inventory_type || "other";
+    acc[t] = (acc[t] || 0) + lineValue(i);
+    return acc;
+  }, {});
+
+  // Outlier detection: line value > 10× median suggests a data-entry mistake
+  // (usually stock_quantity in base units × cost_per_unit that was a pack price).
+  const outliers = (() => {
+    const values = filteredItems.map(lineValue).filter(v => v > 0).sort((a, b) => a - b);
+    if (values.length < 3) return [];
+    const median = values[Math.floor(values.length / 2)];
+    const threshold = Math.max(median * 10, 100);
+    return filteredItems
+      .map((i) => ({ item: i, value: lineValue(i) }))
+      .filter((x) => x.value > threshold)
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 5);
+  })();
+
+  const isEs = language === "es";
+  const typeLabels = isEs
+    ? { food: "Alimentos", packaging: "Empaques", disposable: "Desechables", equipment: "Equipos", event_supply: "Suministros", other: "Otros" }
+    : { food: "Food", packaging: "Packaging", disposable: "Disposables", equipment: "Equipment", event_supply: "Event Supplies", other: "Other" };
 
   if (loading) {
     return <div className="flex items-center justify-center h-64"><div className="animate-pulse">Loading...</div></div>;
@@ -306,11 +336,49 @@ export function InventorySection() {
         <Card>
           <CardContent className="pt-4">
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">{language === "es" ? "Valor Total" : "Total Value"}</p>
-                <p className="text-2xl font-bold">${totalValue.toLocaleString(undefined, {minimumFractionDigits: 2})}</p>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm text-muted-foreground">
+                  {isEs ? "Valor Total" : "Total Value"}
+                  {(typeFilter !== "all" || categoryFilter !== "all" || searchTerm) && (
+                    <span className="ml-1 text-[10px] text-blue-600 font-medium">
+                      · {isEs ? "filtrado" : "filtered"}
+                    </span>
+                  )}
+                </p>
+                <p
+                  className="text-2xl font-bold"
+                  title={isEs
+                    ? "Suma de stock_quantity × cost_per_unit para los items visibles"
+                    : "Sum of stock_quantity × cost_per_unit across visible items"}
+                >
+                  ${totalValue.toLocaleString(undefined, {minimumFractionDigits: 2})}
+                </p>
+                {Object.keys(breakdownByType).length > 1 && (
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-1.5 text-[10px] text-muted-foreground">
+                    {Object.entries(breakdownByType)
+                      .sort((a, b) => b[1] - a[1])
+                      .map(([t, v]) => (
+                        <span key={t} className="whitespace-nowrap">
+                          {typeLabels[t] || t}: <span className="font-medium text-foreground">${v.toLocaleString(undefined, {maximumFractionDigits: 0})}</span>
+                        </span>
+                      ))}
+                  </div>
+                )}
+                {outliers.length > 0 && (
+                  <div
+                    className="mt-2 flex items-start gap-1.5 p-1.5 rounded bg-amber-50 border border-amber-200"
+                    title={outliers.map(o => `${o.item.name}: $${o.value.toFixed(2)}`).join('\n')}
+                  >
+                    <AlertTriangle className="w-3 h-3 text-amber-600 shrink-0 mt-0.5" />
+                    <span className="text-[10px] text-amber-700 leading-tight">
+                      {isEs
+                        ? `${outliers.length} ítem(s) con valor inusualmente alto — revisar unidad de compra vs. stock`
+                        : `${outliers.length} item(s) with unusually high value — check purchase unit vs. stock`}
+                    </span>
+                  </div>
+                )}
               </div>
-              <DollarSign className="w-8 h-8 text-green-500 opacity-50" />
+              <DollarSign className="w-8 h-8 text-green-500 opacity-50 shrink-0" />
             </div>
           </CardContent>
         </Card>
