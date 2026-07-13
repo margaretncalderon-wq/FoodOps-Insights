@@ -2895,9 +2895,9 @@ export default function FoodOpsPage() {
   };
 
   const navGroups = [
-    { id: "catalog", label: isEs ? "Catálogo" : "Catalog", items: [tabs.inventory, tabs.recipes, tabs.menus] },
-    { id: "kitchen", label: isEs ? "Cocina" : "Kitchen", items: [tabs.production, tabs.kitchen_sheets, tabs.physical_count] },
-    { id: "purchasing", label: isEs ? "Compras" : "Purchasing", items: [tabs.consolidated, tabs.purchase_orders] },
+    { id: "inventory", label: isEs ? "Inventario" : "Inventory", items: [tabs.inventory, tabs.physical_count, tabs.purchase_orders] },
+    { id: "food_cost", label: isEs ? "Food Cost" : "Food Cost", items: [tabs.recipes, tabs.menus, tabs.consolidated] },
+    { id: "kitchen", label: isEs ? "Cocina" : "Kitchen", items: [tabs.production, tabs.kitchen_sheets] },
     { id: "data", label: isEs ? "Datos" : "Data", items: [tabs.import_export] },
   ];
 
