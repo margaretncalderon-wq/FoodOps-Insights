@@ -1,6 +1,45 @@
 # Kora OS — Product Requirements Document
 
 
+## Feature — Liquidación multi-país + transparencia UX en Offboarding (Feb 13, 2026)
+
+**Estado:** ✅ Implementado + 6/6 backend tests + 100% frontend (iteration 100/241).
+
+### Contexto
+El usuario detectó que los cálculos de liquidación de una empleada (Agustina Reyes) en Kora no coincidían con los del Ministerio de Trabajo RD. La raíz fueron 2 problemas de datos (base_salary duplicado + termination_type mal seleccionado) más 4 gaps de transparencia en la UI que no permitían al usuario detectar el problema por sí solo.
+
+### Backend
+`/app/backend/models/people_ops.py`:
+- **`calculate_liquidation(country_code, ...)`** dispatcher.
+- **`calculate_liquidation_us()`** para USA: weekly_salary, PTO payout, política de severance opcional, sin regalía. Incluye `concepts_not_applicable` explicando por qué preaviso/cesantía/regalía no aplican en US federal law.
+- `calculate_liquidation_rd()` ahora emite `preaviso_applies`, `cesantia_applies`, `concepts_not_applicable` con razones legales por artículo (Art. 76, 80, 88 C.T.).
+- Países no mapeados (MX, CO, etc.) usan lógica DO con flag `verify_local_law=True`.
+
+`/app/backend/routers/people_ops.py`:
+- `POST /api/people-ops/offboarding` — resuelve country_code desde company y persiste todos los nuevos campos.
+- **`POST /api/people-ops/offboarding/{id}/recalculate`** — nuevo endpoint que permite cambiar `termination_type` (y opcionalmente `base_salary_override`, `vacation_days_owed_override`, `severance_weeks`) sin eliminar/recrear. Rechaza registros `processed`/`approved` (400).
+
+### Frontend
+`/app/frontend/src/components/people-ops/OffboardingSection.js` (Detail Dialog):
+- Badge del **tipo de terminación** con color por estado (`data-testid=offboarding-detail-type-badge`).
+- Badge del **país** (`offboarding-detail-country-badge`).
+- Línea itálica con `applicable_law` ("Código de Trabajo RD" o texto US).
+- Grid con **Salario Mensual** y **Salario Diario** con nota del divisor (÷ 23.83 para DO, ÷ 21.67 para US).
+- **Preaviso y Cesantía siempre visibles** — cuando no aplican, se ven en gris con la razón legal cursiva debajo ("No aplica en Renuncia Voluntaria — Art. 76 y 80 C.T.").
+- Filas específicas por país: DO muestra Regalía; US muestra Severance (weeks).
+- **Select "Cambiar a:"** en el header (solo para status draft/pending_approval) que llama al endpoint recalculate y refresca el modal en vivo.
+
+### Validación
+- Backend: `calculate_liquidation('DO', RESIGNATION)` → preaviso=0/cesantia=0 + reasons. `calculate_liquidation('DO', DISMISSAL_UNJUSTIFIED)` → preaviso_days=28 correctos. `calculate_liquidation('US')` → weekly/hourly rates + no regalía. Recalculate rechaza processed con 400. Todos verificados por curl y pytest.
+- Frontend: Detail Dialog carga con todos los badges + rows visibles + select funcional en registros editables. NET flip $153k → -$38k al cambiar Despido → Renuncia (por préstamo activo > gross).
+
+### Notas / Backlog menor
+- Response de `POST /offboarding` (creación) tiene los nuevos campos anidados bajo `liquidation.*` en vez de top-level — no bloqueante.
+- Alias de país está duplicado entre create y recalculate — extraer helper.
+- Manejar NET negativo cuando `deductions > gross` con label "Empleado debe a la empresa" en vez de $-x.
+
+
+
 ## Hotfix — NaN poisoning en Recetas de Ciano Gourmet (Feb 13, 2026)
 
 **Estado:** ✅ Fix + validación end-to-end por testing_agent (iteration 240 — 17/17 tests).
