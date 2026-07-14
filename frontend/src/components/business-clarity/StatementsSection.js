@@ -6,8 +6,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "../ui/command";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table";
-import { Download, RefreshCw, AlertTriangle } from "lucide-react";
+import { Check, ChevronsUpDown, Download, RefreshCw, AlertTriangle } from "lucide-react";
 
 import { API_BASE as API } from "../../utils/api";
 import { formatDateOnly } from "../../utils/dates";
@@ -22,6 +24,7 @@ export function StatementsSection() {
   const [statement, setStatement] = useState(null);
   const [loading, setLoading] = useState(true);
   const [downloading, setDownloading] = useState(false);
+  const [clientPickerOpen, setClientPickerOpen] = useState(false);
 
   const fetchClients = useCallback(async () => {
     try {
@@ -166,10 +169,61 @@ export function StatementsSection() {
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold">{isEs ? "Estados de Cuenta" : "Account Statements"}</h2>
         <div className="flex items-center gap-2">
-          <Select value={selectedClient} onValueChange={setSelectedClient}>
-            <SelectTrigger className="w-64"><SelectValue placeholder={isEs ? "Seleccionar cliente" : "Select client"} /></SelectTrigger>
-            <SelectContent>{clients.map(c => <SelectItem key={c.client_id} value={c.client_id}>{c.display_name}</SelectItem>)}</SelectContent>
-          </Select>
+          <Popover open={clientPickerOpen} onOpenChange={setClientPickerOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                role="combobox"
+                aria-expanded={clientPickerOpen}
+                className="w-72 justify-between font-normal"
+                data-testid="statement-client-picker"
+              >
+                <span className="truncate">
+                  {selectedClient
+                    ? (clients.find(c => c.client_id === selectedClient)?.display_name
+                       || (isEs ? "Cliente seleccionado" : "Selected client"))
+                    : (isEs ? "Buscar cliente…" : "Search client…")}
+                </span>
+                <ChevronsUpDown className="w-4 h-4 opacity-50 shrink-0" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-72 p-0" align="start">
+              <Command>
+                <CommandInput
+                  placeholder={isEs ? "Escribir para buscar…" : "Type to search…"}
+                  data-testid="statement-client-search-input"
+                />
+                <CommandList>
+                  <CommandEmpty>
+                    {isEs ? "Sin resultados" : "No results"}
+                  </CommandEmpty>
+                  <CommandGroup>
+                    {clients.map(c => (
+                      <CommandItem
+                        key={c.client_id}
+                        value={`${c.display_name || ""} ${c.company_name || ""} ${c.email || ""} ${c.rnc || ""}`}
+                        onSelect={() => {
+                          setSelectedClient(c.client_id);
+                          setClientPickerOpen(false);
+                        }}
+                        data-testid={`statement-client-option-${c.client_id}`}
+                      >
+                        <Check
+                          className={`mr-2 h-4 w-4 ${selectedClient === c.client_id ? "opacity-100" : "opacity-0"}`}
+                        />
+                        <div className="flex flex-col min-w-0">
+                          <span className="truncate">{c.display_name || c.company_name || c.name}</span>
+                          {(c.company_name && c.display_name !== c.company_name) && (
+                            <span className="text-[11px] text-muted-foreground truncate">{c.company_name}</span>
+                          )}
+                        </div>
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
           {statement && (
             <>
               <Button variant="outline" size="sm" onClick={handleDownloadCSV} className="gap-2"><Download className="w-4 h-4" />CSV</Button>
