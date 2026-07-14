@@ -1227,8 +1227,16 @@ def _stage_to_calendar_meta(event: dict) -> Tuple[str, str, str]:
       * 11  Tomato (red)        → cancelled / lost / archived
       * 7   Peacock (blue)      → in-progress / operational (default fallback)
     """
-    stage_raw = (event.get("stage") or "").strip().lower()
-    op_raw = (event.get("operational_status") or "").strip().lower()
+    # Kora stores stage in Title Case with SPACES ("Inquiry Received",
+    # "Definition In Review", "Committed"). We normalize to snake_case so a
+    # single lookup table matches both the legacy underscore keys and the
+    # user-facing labels — otherwise every event fell through to the "[EVENTO]"
+    # blue default and looked identical on the calendar.
+    def _norm(v: Any) -> str:
+        return (v or "").strip().lower().replace(" ", "_")
+
+    stage_raw = _norm(event.get("stage"))
+    op_raw = _norm(event.get("operational_status"))
 
     # Cancelled / lost / archived → red (highest priority — status always wins)
     if op_raw in ("cancelled", "canceled") or stage_raw in ("archived", "lost", "cancelled"):
@@ -1239,19 +1247,28 @@ def _stage_to_calendar_meta(event: dict) -> Tuple[str, str, str]:
         return ("10", "[CERRADO]", "Cerrado")
 
     # Actively in production takes visual priority over "confirmed"
-    if op_raw in ("in_progress", "in progress", "active"):
+    if op_raw in ("in_progress", "active"):
         return ("7", "[EN CURSO]", "En Curso")
 
     # Confirmed / won / committed → green
-    if stage_raw in ("committed", "won", "closed", "confirmed"):
+    if stage_raw in ("committed", "won", "closed", "confirmed", "approved"):
         return ("10", "[CONFIRMADO]", "Confirmado")
 
     # Definition review / proposal / negotiation → yellow (quoted)
-    if stage_raw in ("definition_review", "proposal", "negotiation", "quoted", "scope_drafted"):
+    # Handles both snake_case legacy keys AND the user-facing labels
+    # ("Definition In Review", "Scope Drafted", etc).
+    if stage_raw in (
+        "definition_review", "definition_in_review",
+        "proposal", "negotiation", "quoted",
+        "scope_drafted",
+    ):
         return ("5", "[COTIZADO]", "Cotizado")
 
     # Early-stage inquiries → gray
-    if stage_raw in ("inquiry_received", "context_captured", "lead", "discovery", "draft"):
+    if stage_raw in (
+        "inquiry_received", "context_captured",
+        "lead", "contacted", "discovery", "draft",
+    ):
         return ("8", "[BORRADOR]", "Borrador")
 
     # Anything unmapped → blue (safe neutral)
@@ -1315,13 +1332,29 @@ async def _event_to_calendar_body(event: dict, client_name: Optional[str] = None
         "status_icons": {},
     }
     tz_name = await _get_company_timezone(company_id) if company_id else "America/Santo_Domingo"
-    stage_raw = (event.get("stage") or "").strip().lower()
-    op_raw = (event.get("operational_status") or "").strip().lower()
+    # Normalise so both title-case ("Inquiry Received") and snake_case
+    # ("inquiry_received") lookups match — this fixed a bug where every event
+    # fell to the default blue color because Kora stores stages as
+    # "Inquiry Received" but the color/icon tables used snake_case keys.
+    stage_raw = (event.get("stage") or "").strip().lower().replace(" ", "_")
+    op_raw = (event.get("operational_status") or "").strip().lower().replace(" ", "_")
     color_id, _legacy_prefix, _legacy_label = _stage_to_calendar_meta(event)
     stage_label = (await _resolve_stage_label(company_id, stage_raw)) if company_id else stage_raw
     if op_raw == "cancelled":
         stage_label = stage_label or "Cancelado"
-    status_icon = cfg["status_icons"].get(stage_raw, "") or cfg["status_icons"].get(op_raw, "")
+    # Status-icon lookup tries both the normalised key AND the space-variant
+    # so tenants that typed "inquiry received" instead of "inquiry_received"
+    # still get their icon rendered.
+    icons_map = cfg["status_icons"] or {}
+    stage_alt = stage_raw.replace("_", " ")
+    op_alt = op_raw.replace("_", " ")
+    status_icon = (
+        icons_map.get(stage_raw)
+        or icons_map.get(stage_alt)
+        or icons_map.get(op_raw)
+        or icons_map.get(op_alt)
+        or ""
+    )
 
     # Template variables
     base_ctx = {

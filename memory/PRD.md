@@ -1,6 +1,39 @@
 # Kora OS — Product Requirements Document
 
 
+## Bug Fix — Google Calendar: Colores por Stage No Se Aplicaban (Feb 14, 2026)
+
+**Estado:** ✅ Fix aplicado + tests unitarios (14/14 casos).
+
+### Problema (reportado por usuario)
+Al presionar "Sincronizar Todo Ahora", todos los eventos en Google Calendar aparecían con **el mismo color sólido** (azul default), sin diferenciación entre "Cotizado" / "Confirmado" / "Cancelado" / etc. El mapeo de colores por estado no funcionaba ni en eventos nuevos ni en existentes.
+
+### Causa raíz
+`_stage_to_calendar_meta` normalizaba el stage con `.strip().lower()` PERO **sin convertir espacios a underscores**. Kora almacena los stages en Title Case con espacios (`"Inquiry Received"`, `"Definition In Review"`, `"Scope Drafted"`), pero el diccionario de lookup usaba `snake_case` (`"inquiry_received"`, `"definition_review"`, `"scope_drafted"`). Resultado: prácticamente todos los eventos caían al fallback `("7", "[EVENTO]", "Evento")` → color azul uniforme.
+
+Mismo bug afectaba el lookup de `status_icons` en `_event_to_calendar_body`.
+
+### Solución
+- **`_stage_to_calendar_meta`**: helper interno `_norm()` que hace `.strip().lower().replace(" ", "_")`.
+- **`_event_to_calendar_body`**: normalización análoga para `stage_raw` y `op_raw`. El lookup de `status_icons` ahora prueba variantes con espacios y underscores.
+- **Cobertura ampliada**: añadidos `"definition_in_review"`, `"approved"`, `"contacted"` a las tablas para cubrir todas las variantes de nomenclatura que aparecen en `LEGACY_STAGE_MAP` y `ENGAGEMENT_STAGES`.
+
+### Comportamiento post-fix
+- `Inquiry Received`, `Context Captured`, `Lead`, `Contacted` → **gris** `[BORRADOR]`
+- `Scope Drafted`, `Definition In Review`, `Proposal`, `Negotiation` → **amarillo** `[COTIZADO]`
+- `Committed`, `Won`, `Approved`, `Confirmed` → **verde oscuro** `[CONFIRMADO]`
+- `Archived`, `Lost` + `operational_status="Cancelled"` → **rojo** `[CANCELADO]`
+- `operational_status="In Progress"` → **azul brillante** `[EN CURSO]` (prioridad sobre stage)
+- `operational_status="Closed"` → **verde oscuro** `[CERRADO]`
+
+### Tests unitarios verificados
+14/14 casos: cada Title Case stage produce el color/prefijo correcto, incluidas transiciones operacionales (cancelled/in_progress/closed) que anulan el stage base.
+
+### Cómo aplicar los colores a eventos existentes
+Presionar **"Sincronizar Todo Ahora"** después del deploy. El sync-all corre en background y llama `events().update()` para cada evento con el body completo incluyendo `colorId` correcto — los eventos existentes se re-colorean automáticamente.
+
+
+
 ## Enhancement — Google Calendar: Zona Horaria Dinámica por Empresa (Feb 14, 2026)
 
 **Estado:** ✅ Implementado + tests unitarios verificados (5/5).
