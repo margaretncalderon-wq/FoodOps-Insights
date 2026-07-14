@@ -33,6 +33,76 @@ export default function GoogleCalendarSettingsSection() {
   const [syncing, setSyncing] = useState(false);
   const [syncStatus, setSyncStatus] = useState(null);
 
+  // Content-template config (title, description blocks, status icons)
+  const [contentCfg, setContentCfg] = useState(null);
+  const [savingContent, setSavingContent] = useState(false);
+  const [newIconKey, setNewIconKey] = useState("");
+  const [newIconValue, setNewIconValue] = useState("");
+
+  const fetchContentCfg = useCallback(async () => {
+    try {
+      const res = await axios.get(`${API}/api/oauth/calendar/content-config`, { withCredentials: true });
+      setContentCfg(res.data);
+    } catch {
+      // silent — endpoint may not be available yet, defaults will apply
+    }
+  }, []);
+
+  const saveContentCfg = async () => {
+    if (!contentCfg) return;
+    setSavingContent(true);
+    try {
+      const res = await axios.put(
+        `${API}/api/oauth/calendar/content-config`,
+        contentCfg,
+        { withCredentials: true }
+      );
+      setContentCfg(res.data);
+      toast.success(isEs ? "Plantilla guardada" : "Template saved");
+    } catch (err) {
+      toast.error(err.response?.data?.detail || (isEs ? "Error al guardar" : "Save error"));
+    } finally {
+      setSavingContent(false);
+    }
+  };
+
+  const addStatusIcon = () => {
+    if (!newIconKey.trim() || !newIconValue.trim()) return;
+    setContentCfg((prev) => ({
+      ...prev,
+      status_icons: { ...(prev?.status_icons || {}), [newIconKey.trim().toLowerCase()]: newIconValue.trim() },
+    }));
+    setNewIconKey("");
+    setNewIconValue("");
+  };
+
+  const removeStatusIcon = (key) => {
+    setContentCfg((prev) => {
+      const next = { ...(prev?.status_icons || {}) };
+      delete next[key];
+      return { ...prev, status_icons: next };
+    });
+  };
+
+  // Live preview using a fake sample record
+  const renderPreview = () => {
+    const cfg = contentCfg;
+    if (!cfg) return "";
+    const sample = {
+      primary_record: isEs ? "Boda Ana & Carlos" : "Ana & Carlos Wedding",
+      status: isEs ? "Confirmado" : "Confirmed",
+      location: "Casa Vieja",
+      status_icon: cfg.status_icons?.committed || cfg.status_icons?.confirmed || "",
+    };
+    let out = (cfg.title_template || "{{primary_record}}").replace(
+      /\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g,
+      (_, k) => sample[k] ?? ""
+    );
+    // Same cleanup rules as backend renderer
+    out = out.replace(/[·\-|]+\s*(?=[·\-|]|$)/g, "").replace(/^\s*[·\-|]+\s*/, "").replace(/\s*[·\-|]+\s*$/, "").replace(/\s{2,}/g, " ").trim();
+    return out;
+  };
+
   const fetchSyncStatus = useCallback(async () => {
     try {
       const res = await axios.get(`${API}/api/oauth/calendar/sync-status`, { withCredentials: true });
@@ -92,7 +162,8 @@ export default function GoogleCalendarSettingsSection() {
   useEffect(() => { fetchStatus(); }, [fetchStatus]);
   useEffect(() => {
     if (status?.is_connected && status?.shared_calendar_id) fetchSyncStatus();
-  }, [status?.is_connected, status?.shared_calendar_id, fetchSyncStatus]);
+    if (status?.is_connected) fetchContentCfg();
+  }, [status?.is_connected, status?.shared_calendar_id, fetchSyncStatus, fetchContentCfg]);
 
   const handleConnect = async () => {
     try {
@@ -356,6 +427,178 @@ export default function GoogleCalendarSettingsSection() {
                     ? "El color se actualiza automáticamente cuando cambia el estado del evento en Kora."
                     : "The color updates automatically when the event stage changes in Kora."}
                 </p>
+              </div>
+            )}
+
+            {/* Content template editor — controls title, description blocks
+                and per-status icons pushed to Google Calendar. */}
+            {status.is_connected && contentCfg && (
+              <div className="p-4 rounded-lg border border-slate-200 bg-white space-y-4" data-testid="calendar-content-template">
+                <div>
+                  <p className="font-medium text-slate-700">
+                    {isEs ? "Plantilla de Contenido del Evento" : "Event Content Template"}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {isEs
+                      ? "Personaliza cómo se ven los eventos que Kora publica en tu Google Calendar."
+                      : "Customize how events pushed to your Google Calendar look."}
+                  </p>
+                </div>
+
+                {/* Title template */}
+                <div className="space-y-1">
+                  <Label className="text-xs font-medium">
+                    {isEs ? "Título del Evento" : "Event Title"}
+                  </Label>
+                  <Input
+                    value={contentCfg.title_template || ""}
+                    onChange={(e) => setContentCfg({ ...contentCfg, title_template: e.target.value })}
+                    placeholder="{{primary_record}}"
+                    className="font-mono text-sm"
+                    data-testid="title-template-input"
+                  />
+                  <p className="text-[11px] text-muted-foreground">
+                    {isEs ? "Variables:" : "Variables:"}{" "}
+                    <code>{"{{primary_record}}"}</code>{" · "}
+                    <code>{"{{status}}"}</code>{" · "}
+                    <code>{"{{location}}"}</code>{" · "}
+                    <code>{"{{status_icon}}"}</code>
+                  </p>
+                  {renderPreview() && (
+                    <div className="mt-2 p-2 rounded bg-slate-50 border border-slate-200 text-sm" data-testid="template-preview">
+                      <span className="text-[10px] text-muted-foreground mr-2">
+                        {isEs ? "Vista previa:" : "Preview:"}
+                      </span>
+                      <span className="font-medium">{renderPreview()}</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Multi-day suffix */}
+                <div className="space-y-1">
+                  <Label className="text-xs font-medium">
+                    {isEs ? "Sufijo Multi-día" : "Multi-day suffix"}
+                  </Label>
+                  <Input
+                    value={contentCfg.multiday_suffix || ""}
+                    onChange={(e) => setContentCfg({ ...contentCfg, multiday_suffix: e.target.value })}
+                    placeholder=" (Día {{day_index}}/{{day_total}})"
+                    className="font-mono text-sm"
+                    data-testid="multiday-suffix-input"
+                  />
+                  <p className="text-[11px] text-muted-foreground">
+                    {isEs
+                      ? "Se agrega al título de eventos de más de 1 día. Variables: "
+                      : "Appended to titles of events longer than 1 day. Variables: "}
+                    <code>{"{{day_index}}"}</code>{" · "}
+                    <code>{"{{day_total}}"}</code>{" · "}
+                    <code>{"{{day_short}}"}</code>
+                  </p>
+                </div>
+
+                {/* Description blocks */}
+                <div>
+                  <Label className="text-xs font-medium mb-2 block">
+                    {isEs ? "Bloques de la Descripción" : "Description Blocks"}
+                  </Label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      { k: "client_name", label: isEs ? "Nombre del Cliente" : "Client Name" },
+                      { k: "guests", label: isEs ? "Cantidad de Invitados" : "Guest Count" },
+                      { k: "location", label: isEs ? "Ubicación" : "Location" },
+                      { k: "status", label: isEs ? "Estado / Etapa" : "Status" },
+                      { k: "open_in_kora_link", label: isEs ? "Link \"Abrir en Kora\"" : "\"Open in Kora\" link" },
+                    ].map(({ k, label }) => (
+                      <label key={k} className="flex items-center gap-2 text-sm cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={!!(contentCfg.description_blocks || {})[k]}
+                          onChange={(e) => setContentCfg({
+                            ...contentCfg,
+                            description_blocks: { ...(contentCfg.description_blocks || {}), [k]: e.target.checked },
+                          })}
+                          className="rounded border-slate-300"
+                          data-testid={`block-toggle-${k}`}
+                        />
+                        <span>{label}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Status icons */}
+                <div>
+                  <Label className="text-xs font-medium mb-2 block">
+                    {isEs ? "Iconos por Estado" : "Status Icons"}
+                  </Label>
+                  <div className="space-y-1 mb-2">
+                    {Object.entries(contentCfg.status_icons || {}).map(([k, v]) => (
+                      <div key={k} className="flex items-center gap-2 text-sm p-1.5 rounded bg-slate-50" data-testid={`icon-row-${k}`}>
+                        <span className="font-mono text-xs text-muted-foreground flex-1">{k}</span>
+                        <span className="text-lg">{v}</span>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          className="h-6 w-6 p-0 text-red-500 hover:text-red-700"
+                          onClick={() => removeStatusIcon(k)}
+                          data-testid={`icon-remove-${k}`}
+                        >
+                          ×
+                        </Button>
+                      </div>
+                    ))}
+                    {Object.keys(contentCfg.status_icons || {}).length === 0 && (
+                      <p className="text-xs text-muted-foreground italic">
+                        {isEs
+                          ? "Sin iconos configurados. Los eventos no mostrarán prefijo de icono."
+                          : "No icons configured. Events won't show an icon prefix."}
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex gap-2">
+                    <Input
+                      value={newIconKey}
+                      onChange={(e) => setNewIconKey(e.target.value)}
+                      placeholder={isEs ? "stage_key (ej. committed)" : "stage_key (e.g. committed)"}
+                      className="flex-1 text-sm"
+                      data-testid="new-icon-key-input"
+                    />
+                    <Input
+                      value={newIconValue}
+                      onChange={(e) => setNewIconValue(e.target.value)}
+                      placeholder="✅"
+                      className="w-20 text-sm text-center"
+                      maxLength={8}
+                      data-testid="new-icon-value-input"
+                    />
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={addStatusIcon}
+                      disabled={!newIconKey.trim() || !newIconValue.trim()}
+                      data-testid="add-icon-btn"
+                    >
+                      {isEs ? "Agregar" : "Add"}
+                    </Button>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground mt-1">
+                    {isEs
+                      ? "Ejemplos: committed → ✅, definition_review → ⏳, inquiry_received → 📝"
+                      : "Examples: committed → ✅, definition_review → ⏳, inquiry_received → 📝"}
+                  </p>
+                </div>
+
+                <div className="flex justify-end pt-2 border-t border-slate-100">
+                  <Button
+                    onClick={saveContentCfg}
+                    disabled={savingContent}
+                    className="bg-primary hover:bg-primary/90"
+                    data-testid="save-content-template-btn"
+                  >
+                    {savingContent ? (isEs ? "Guardando..." : "Saving...") : (isEs ? "Guardar Plantilla" : "Save Template")}
+                  </Button>
+                </div>
               </div>
             )}
 
