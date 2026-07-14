@@ -308,6 +308,57 @@ export default function GoogleCalendarSettingsSection() {
               </div>
             )}
 
+            {/* Color legend — helps user understand what each color means on their calendar */}
+            {status.shared_calendar_id && (
+              <div className="p-3 rounded-lg border border-slate-200 bg-white text-sm space-y-2" data-testid="calendar-color-legend">
+                <p className="font-medium text-slate-700">
+                  {isEs ? "Leyenda de Colores en el Calendario" : "Calendar Color Legend"}
+                </p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-1.5 text-xs">
+                  <div className="flex items-center gap-2">
+                    <span className="inline-block w-3 h-3 rounded-sm" style={{ background: "#0b8043" }} />
+                    <span>{isEs ? "Confirmado / Cerrado" : "Confirmed / Closed"}</span>
+                    <span className="text-muted-foreground">— [CONFIRMADO]</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="inline-block w-3 h-3 rounded-sm" style={{ background: "#039be5" }} />
+                    <span>{isEs ? "En Curso" : "In Progress"}</span>
+                    <span className="text-muted-foreground">— [EN CURSO]</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="inline-block w-3 h-3 rounded-sm" style={{ background: "#f6c026" }} />
+                    <span>{isEs ? "Cotizado / En Negociación" : "Quoted / Negotiating"}</span>
+                    <span className="text-muted-foreground">— [COTIZADO]</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="inline-block w-3 h-3 rounded-sm" style={{ background: "#616161" }} />
+                    <span>{isEs ? "Borrador / Consulta Inicial" : "Draft / Inquiry"}</span>
+                    <span className="text-muted-foreground">— [BORRADOR]</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="inline-block w-3 h-3 rounded-sm" style={{ background: "#d60000" }} />
+                    <span>{isEs ? "Cancelado / Archivado" : "Cancelled / Lost"}</span>
+                    <span className="text-muted-foreground">— [CANCELADO]</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="inline-block w-3 h-3 rounded-sm" style={{ background: "#7986cb" }} />
+                    <span>{isEs ? "Follow-up de Lead" : "Lead Follow-up"}</span>
+                    <span className="text-muted-foreground">— 📞</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="inline-block w-3 h-3 rounded-sm" style={{ background: "#8e24aa" }} />
+                    <span>{isEs ? "Follow-up de Cliente" : "Client Follow-up"}</span>
+                    <span className="text-muted-foreground">— 📞</span>
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground italic pt-1">
+                  {isEs
+                    ? "El color se actualiza automáticamente cuando cambia el estado del evento en Kora."
+                    : "The color updates automatically when the event stage changes in Kora."}
+                </p>
+              </div>
+            )}
+
             {/* Sync preferences */}
             {status.shared_calendar_id && (
               <div className="pt-4 border-t space-y-3">

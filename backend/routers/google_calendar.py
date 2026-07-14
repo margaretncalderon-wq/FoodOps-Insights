@@ -2,7 +2,7 @@
 import os
 import json
 from datetime import datetime, timezone, timedelta
-from typing import Optional
+from typing import Optional, Tuple
 import uuid
 
 from fastapi import APIRouter, HTTPException, Depends, Request, Query
@@ -695,9 +695,14 @@ async def auto_sync_follow_up(company_id: str, entity_type: str, entity_id: str,
     except:
         return
     
+    # Color follow-ups distinctly from events so the calendar doesn't feel
+    # like a monochrome sea. Leads = lavender, Clients = grape.
+    fu_color = "1" if entity_type == "lead" else "3"
+
     event_body = {
-        "summary": f"[{follow_up_type}] {entity_name}",
+        "summary": f"📞 [{follow_up_type}] {entity_name}",
         "description": f"CRM Follow-up: {entity_type.capitalize()}",
+        "colorId": fu_color,
         "start": {"dateTime": start_time.isoformat(), "timeZone": "America/Santo_Domingo"},
         "end": {"dateTime": end_time.isoformat(), "timeZone": "America/Santo_Domingo"},
         "extendedProperties": {
@@ -731,6 +736,51 @@ async def auto_sync_follow_up(company_id: str, entity_type: str, entity_id: str,
 
 
 # ==================== CATERING EVENTS (engagements) ====================
+
+def _stage_to_calendar_meta(event: dict) -> Tuple[str, str, str]:
+    """Map a Kora event's stage / operational_status to Google Calendar
+    `colorId`, a short prefix, and a human-readable stage label.
+
+    Returns (color_id, prefix, label) so the calendar entry visually
+    communicates the sales/operational status of the event at a glance.
+
+    Google Calendar color IDs used:
+      * 10  Basil (dark green)  → confirmed / committed / won
+      * 5   Banana (yellow)     → in negotiation / definition_review / proposal
+      * 8   Graphite (gray)     → early inquiries / drafts
+      * 11  Tomato (red)        → cancelled / lost / archived
+      * 7   Peacock (blue)      → in-progress / operational (default fallback)
+    """
+    stage_raw = (event.get("stage") or "").strip().lower()
+    op_raw = (event.get("operational_status") or "").strip().lower()
+
+    # Cancelled / lost / archived → red (highest priority — status always wins)
+    if op_raw in ("cancelled", "canceled") or stage_raw in ("archived", "lost", "cancelled"):
+        return ("11", "[CANCELADO]", "Cancelado")
+
+    # Closed → dark green with "CERRADO" label
+    if op_raw == "closed":
+        return ("10", "[CERRADO]", "Cerrado")
+
+    # Actively in production takes visual priority over "confirmed"
+    if op_raw in ("in_progress", "in progress", "active"):
+        return ("7", "[EN CURSO]", "En Curso")
+
+    # Confirmed / won / committed → green
+    if stage_raw in ("committed", "won", "closed", "confirmed"):
+        return ("10", "[CONFIRMADO]", "Confirmado")
+
+    # Definition review / proposal / negotiation → yellow (quoted)
+    if stage_raw in ("definition_review", "proposal", "negotiation", "quoted", "scope_drafted"):
+        return ("5", "[COTIZADO]", "Cotizado")
+
+    # Early-stage inquiries → gray
+    if stage_raw in ("inquiry_received", "context_captured", "lead", "discovery", "draft"):
+        return ("8", "[BORRADOR]", "Borrador")
+
+    # Anything unmapped → blue (safe neutral)
+    return ("7", "[EVENTO]", stage_raw.replace("_", " ").title() or "Evento")
+
 
 def _event_to_calendar_body(event: dict, client_name: Optional[str] = None) -> Optional[dict]:
     """Builds a Google Calendar event body from a Kora catering event document.
@@ -789,8 +839,12 @@ def _event_to_calendar_body(event: dict, client_name: Optional[str] = None) -> O
     if end_dt <= start_dt:
         end_dt = start_dt + timedelta(hours=4)
     
+    # Determine visual encoding for this event's stage/status
+    color_id, prefix, stage_label = _stage_to_calendar_meta(event)
+
     # Description
     desc_lines = [f"Kora OS — {event_type}"]
+    desc_lines.append(f"Estado: {stage_label}")
     if client_name:
         desc_lines.append(f"Client: {client_name}")
     if guest_count:
@@ -800,11 +854,12 @@ def _event_to_calendar_body(event: dict, client_name: Optional[str] = None) -> O
     if event.get("scope_summary"):
         desc_lines.append("")
         desc_lines.append(event["scope_summary"])
-    
+
     return {
-        "summary": f"[{event_type}] {name}",
+        "summary": f"{prefix} [{event_type}] {name}",
         "description": "\n".join(desc_lines),
         "location": venue or "",
+        "colorId": color_id,
         "start": {"dateTime": start_dt.isoformat(), "timeZone": "America/Santo_Domingo"},
         "end": {"dateTime": end_dt.isoformat(), "timeZone": "America/Santo_Domingo"},
         "extendedProperties": {
@@ -812,6 +867,8 @@ def _event_to_calendar_body(event: dict, client_name: Optional[str] = None) -> O
                 "kora_entity_type": "event",
                 "kora_entity_id": event.get("event_id", ""),
                 "kora_company_id": event.get("company_id", ""),
+                "kora_stage": (event.get("stage") or "").lower(),
+                "kora_operational_status": (event.get("operational_status") or "").lower(),
             }
         }
     }
