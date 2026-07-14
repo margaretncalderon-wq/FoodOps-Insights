@@ -202,6 +202,46 @@ async def _get_content_config(company_id: str) -> dict:
     }
 
 
+# ==================== TIMEZONE RESOLUTION ====================
+# Cache the per-tenant timezone in-process to avoid a Mongo round trip on every
+# calendar body build. The cache is small (one key per tenant), read-mostly,
+# and safe to leave stale for a short while — worst case a tenant changes their
+# timezone in Settings and it takes up to ~5 minutes to propagate to the
+# next sync. Invalidated proactively when the caller passes `force_refresh=True`.
+_TZ_CACHE: dict[str, tuple[str, float]] = {}
+_TZ_TTL_SECONDS = 300  # 5 minutes
+
+
+async def _get_company_timezone(company_id: str, force_refresh: bool = False) -> str:
+    """Return the tenant's configured IANA timezone (e.g. "America/Bogota").
+
+    Falls back to `America/Santo_Domingo` — Kora's launch market — when the
+    tenant has no `organization_configs` row yet. Never raises: a Mongo hiccup
+    must not break the sync loop.
+    """
+    if not company_id:
+        return "America/Santo_Domingo"
+
+    import time as _time
+    now_ts = _time.time()
+    if not force_refresh:
+        hit = _TZ_CACHE.get(company_id)
+        if hit and (now_ts - hit[1]) < _TZ_TTL_SECONDS:
+            return hit[0]
+
+    try:
+        cfg = await db.organization_configs.find_one(
+            {"company_id": company_id}, {"_id": 0, "timezone": 1}
+        )
+        tz = (cfg or {}).get("timezone") or "America/Santo_Domingo"
+    except Exception as e:
+        logger.warning(f"[calendar tz] failed to load timezone for {company_id}: {e}")
+        tz = "America/Santo_Domingo"
+
+    _TZ_CACHE[company_id] = (tz, now_ts)
+    return tz
+
+
 async def _resolve_stage_label(company_id: str, stage_key: str, lang: str = "es") -> str:
     """Look up the tenant's own pipeline_stages verbiage for a stage_key.
 
@@ -978,16 +1018,17 @@ async def sync_follow_up_to_calendar(
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid follow-up date format")
     
+    tz_name = await _get_company_timezone(user.company_id)
     event_body = {
         "summary": event_summary,
         "description": event_description,
         "start": {
             "dateTime": start_time.isoformat(),
-            "timeZone": "America/Santo_Domingo"  # Default timezone
+            "timeZone": tz_name
         },
         "end": {
             "dateTime": end_time.isoformat(),
-            "timeZone": "America/Santo_Domingo"
+            "timeZone": tz_name
         },
         "extendedProperties": {
             "private": {
@@ -1133,12 +1174,13 @@ async def auto_sync_follow_up(company_id: str, entity_type: str, entity_id: str,
     # like a monochrome sea. Leads = lavender, Clients = grape.
     fu_color = "1" if entity_type == "lead" else "3"
 
+    tz_name = await _get_company_timezone(company_id)
     event_body = {
         "summary": f"📞 [{follow_up_type}] {entity_name}",
         "description": f"CRM Follow-up: {entity_type.capitalize()}",
         "colorId": fu_color,
-        "start": {"dateTime": start_time.isoformat(), "timeZone": "America/Santo_Domingo"},
-        "end": {"dateTime": end_time.isoformat(), "timeZone": "America/Santo_Domingo"},
+        "start": {"dateTime": start_time.isoformat(), "timeZone": tz_name},
+        "end": {"dateTime": end_time.isoformat(), "timeZone": tz_name},
         "extendedProperties": {
             "private": {
                 "kora_entity_type": entity_type,
@@ -1272,6 +1314,7 @@ async def _event_to_calendar_body(event: dict, client_name: Optional[str] = None
         "description_blocks": DEFAULT_DESCRIPTION_BLOCKS,
         "status_icons": {},
     }
+    tz_name = await _get_company_timezone(company_id) if company_id else "America/Santo_Domingo"
     stage_raw = (event.get("stage") or "").strip().lower()
     op_raw = (event.get("operational_status") or "").strip().lower()
     color_id, _legacy_prefix, _legacy_label = _stage_to_calendar_meta(event)
@@ -1389,8 +1432,8 @@ async def _event_to_calendar_body(event: dict, client_name: Optional[str] = None
             start_obj = {"date": s_dt.isoformat()}
             end_obj = {"date": e_dt.isoformat()}
         else:
-            start_obj = {"dateTime": s_dt.isoformat(), "timeZone": "America/Santo_Domingo"}
-            end_obj = {"dateTime": e_dt.isoformat(), "timeZone": "America/Santo_Domingo"}
+            start_obj = {"dateTime": s_dt.isoformat(), "timeZone": tz_name}
+            end_obj = {"dateTime": e_dt.isoformat(), "timeZone": tz_name}
 
         body = {
             "summary": title,

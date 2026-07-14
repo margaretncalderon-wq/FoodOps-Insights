@@ -1,6 +1,39 @@
 # Kora OS — Product Requirements Document
 
 
+## Enhancement — Google Calendar: Zona Horaria Dinámica por Empresa (Feb 14, 2026)
+
+**Estado:** ✅ Implementado + tests unitarios verificados (5/5).
+
+### Problema
+Todos los eventos empujados a Google Calendar tenían `timeZone: "America/Santo_Domingo"` hardcodeado. Un tenant en Colombia, México o EEUU vería sus eventos con hora incorrecta en Google.
+
+### Solución
+- **Nuevo helper `_get_company_timezone(company_id)`** en `routers/google_calendar.py`:
+  - Lee `organization_configs.timezone` para el tenant.
+  - Cache en proceso con TTL de 5 min (evita golpear Mongo en cada build de evento).
+  - Fallback a `America/Santo_Domingo` cuando no hay config o hay error de DB.
+  - Parámetro `force_refresh=True` para invalidación explícita.
+- **6 hardcodes reemplazados** en:
+  - `sync_follow_up_to_calendar` (start/end del follow-up manual)
+  - `auto_sync_follow_up` (start/end del follow-up automático)
+  - `_event_to_calendar_body` (start/end del evento de catering, single-day y multi-día)
+- **Invalidación de cache**: `PUT /api/org-config/locale` ahora limpia `_TZ_CACHE[company_id]` cuando cambia el timezone, para que el próximo sync use el nuevo TZ inmediatamente (sin esperar 5 min).
+
+### Comportamiento
+- Empresa en `America/Bogota` → eventos aparecen a la hora Bogotá en Google Calendar.
+- Empresa que nunca configuró timezone → default `America/Santo_Domingo` (backward-compat con Phase 1).
+- Cambia el timezone en Settings → próxima creación/actualización de evento usa el nuevo TZ.
+
+### Tests verificados
+- ✅ Default fallback cuando company_id no existe
+- ✅ Lectura desde `organization_configs`
+- ✅ Cache válido dentro del TTL
+- ✅ `force_refresh=True` invalida cache
+- ✅ Empty company_id → default
+
+
+
 ## Bug Fix — Google Calendar "Sync All" Cloudflare Timeout (Feb 14, 2026)
 
 **Estado:** ✅ Refactorizado a background tasks + polling. Smoke test 202 verificado.

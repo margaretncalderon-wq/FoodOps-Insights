@@ -398,4 +398,13 @@ async def update_locale_settings(data: dict, user: User = Depends(get_current_us
         update["created_at"] = update["updated_at"]
         await db.organization_configs.insert_one(update)
 
+    # Invalidate the Google Calendar timezone cache so the next sync picks up
+    # the new timezone immediately (default TTL would leave it stale for 5 min).
+    if "timezone" in update:
+        try:
+            from routers.google_calendar import _TZ_CACHE
+            _TZ_CACHE.pop(user.company_id, None)
+        except Exception:
+            pass
+
     return await get_locale_settings(user)
