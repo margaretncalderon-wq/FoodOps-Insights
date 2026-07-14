@@ -30,6 +30,37 @@ export default function GoogleCalendarSettingsSection() {
   const [createCalendarOpen, setCreateCalendarOpen] = useState(false);
   const [newCalendarName, setNewCalendarName] = useState("");
   const [creating, setCreating] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [syncStatus, setSyncStatus] = useState(null);
+
+  const fetchSyncStatus = useCallback(async () => {
+    try {
+      const res = await axios.get(`${API}/api/oauth/calendar/sync-status`, { withCredentials: true });
+      setSyncStatus(res.data);
+    } catch (err) {
+      // silent — endpoint is best-effort diagnostic
+    }
+  }, []);
+
+  const handleSyncAll = async () => {
+    setSyncing(true);
+    try {
+      const res = await axios.post(`${API}/api/oauth/calendar/sync-all`, {}, { withCredentials: true });
+      const d = res.data || {};
+      const totalPushed = (d.events_pushed || 0) + (d.leads_pushed || 0) + (d.clients_pushed || 0);
+      const totalFailed = (d.events_failed || 0) + (d.leads_failed || 0) + (d.clients_failed || 0);
+      toast.success(
+        isEs
+          ? `Sincronizados: ${totalPushed} registro(s) (${d.events_pushed} eventos, ${d.leads_pushed} leads, ${d.clients_pushed} clientes)${totalFailed > 0 ? ` — ${totalFailed} fallaron` : ""}`
+          : `Synced ${totalPushed} record(s) — ${d.events_pushed} events, ${d.leads_pushed} leads, ${d.clients_pushed} clients${totalFailed > 0 ? ` — ${totalFailed} failed` : ""}`
+      );
+      await fetchSyncStatus();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || (isEs ? "Error al sincronizar" : "Sync error"));
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   // Check for OAuth callback params
   useEffect(() => {
@@ -59,6 +90,9 @@ export default function GoogleCalendarSettingsSection() {
   }, []);
 
   useEffect(() => { fetchStatus(); }, [fetchStatus]);
+  useEffect(() => {
+    if (status?.is_connected && status?.shared_calendar_id) fetchSyncStatus();
+  }, [status?.is_connected, status?.shared_calendar_id, fetchSyncStatus]);
 
   const handleConnect = async () => {
     try {
@@ -213,11 +247,66 @@ export default function GoogleCalendarSettingsSection() {
                 <Plus className="w-4 h-4 mr-2" />
                 {isEs ? "Crear Nuevo" : "Create New"}
               </Button>
+              {status.shared_calendar_id && (
+                <Button
+                  variant="outline"
+                  onClick={handleSyncAll}
+                  disabled={syncing}
+                  className="border-emerald-300 text-emerald-700 hover:bg-emerald-50"
+                  data-testid="sync-all-calendar-btn"
+                >
+                  <RefreshCw className={`w-4 h-4 mr-2 ${syncing ? "animate-spin" : ""}`} />
+                  {syncing
+                    ? (isEs ? "Sincronizando…" : "Syncing…")
+                    : (isEs ? "Sincronizar Todo Ahora" : "Sync Everything Now")}
+                </Button>
+              )}
               <Button variant="ghost" className="text-red-600 hover:text-red-700 hover:bg-red-50" onClick={handleDisconnect}>
                 <Unlink className="w-4 h-4 mr-2" />
                 {isEs ? "Desconectar" : "Disconnect"}
               </Button>
             </div>
+
+            {/* Sync diagnostic panel — shows why events might not appear */}
+            {status.shared_calendar_id && syncStatus && (
+              <div className="p-3 rounded-lg bg-slate-50 border border-slate-200 text-sm space-y-1" data-testid="sync-status-panel">
+                <p className="font-medium text-slate-700">
+                  {isEs ? "Estado de Sincronización" : "Sync Status"}
+                </p>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-xs">
+                  <div>
+                    <span className="text-muted-foreground">{isEs ? "Eventos con fecha" : "Events with date"}: </span>
+                    <span className="font-medium">{syncStatus.events?.synced ?? 0} / {syncStatus.events?.with_date ?? 0}</span>
+                    {(syncStatus.events?.pending ?? 0) > 0 && (
+                      <span className="ml-1 text-amber-600">
+                        ({syncStatus.events.pending} {isEs ? "sin sincronizar" : "unsynced"})
+                      </span>
+                    )}
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">{isEs ? "Follow-ups Leads" : "Lead follow-ups"}: </span>
+                    <span className="font-medium">{syncStatus.follow_ups?.leads_synced ?? 0} / {syncStatus.follow_ups?.leads_upcoming ?? 0}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">{isEs ? "Follow-ups Clientes" : "Client follow-ups"}: </span>
+                    <span className="font-medium">{syncStatus.follow_ups?.clients_synced ?? 0} / {syncStatus.follow_ups?.clients_upcoming ?? 0}</span>
+                  </div>
+                </div>
+                {syncStatus.last_backfill_at && (
+                  <p className="text-xs text-muted-foreground pt-1">
+                    {isEs ? "Última sincronización manual" : "Last manual sync"}: {new Date(syncStatus.last_backfill_at).toLocaleString()}
+                  </p>
+                )}
+                {((syncStatus.events?.pending ?? 0) > 0 ||
+                  (syncStatus.follow_ups?.leads_upcoming ?? 0) > (syncStatus.follow_ups?.leads_synced ?? 0)) && (
+                  <p className="text-xs text-amber-700 pt-1">
+                    {isEs
+                      ? "💡 Tip: presiona 'Sincronizar Todo Ahora' para publicar los registros existentes en el calendario."
+                      : "💡 Tip: click 'Sync Everything Now' to push existing records to the calendar."}
+                  </p>
+                )}
+              </div>
+            )}
 
             {/* Sync preferences */}
             {status.shared_calendar_id && (

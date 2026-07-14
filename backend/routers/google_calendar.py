@@ -141,6 +141,142 @@ async def calendar_oauth_callback(
         return RedirectResponse(f"{FRONTEND_URL}/settings?calendar_error={str(e)}")
 
 
+@router.get("/sync-status")
+async def calendar_sync_status(user: User = Depends(get_current_user)):
+    """Diagnostic snapshot of what is / isn't synced to Google Calendar.
+
+    Helps users understand why they don't see anything in the calendar:
+    typical cause is that existing records (created before connecting the
+    calendar) don't have a `calendar_event_id` and were never backfilled.
+    """
+    config = await db[CALENDAR_CONFIG_COLLECTION].find_one({"company_id": user.company_id})
+    if not config or not config.get("is_connected"):
+        return {"is_connected": False}
+
+    from datetime import date as _date
+    today_iso = _date.today().isoformat()
+
+    events_with_date = await db.events.count_documents({
+        "company_id": user.company_id,
+        "event_date_tbd": {"$ne": True},
+        "event_date": {"$ne": None},
+    })
+    events_synced = await db.events.count_documents({
+        "company_id": user.company_id,
+        "calendar_event_id": {"$exists": True, "$ne": ""},
+    })
+
+    leads_pending = await db.leads.count_documents({
+        "company_id": user.company_id,
+        "next_follow_up_date": {"$ne": None, "$gte": today_iso},
+    })
+    leads_synced = await db.leads.count_documents({
+        "company_id": user.company_id,
+        "calendar_event_id": {"$exists": True, "$ne": ""},
+    })
+    clients_pending = await db.clients.count_documents({
+        "company_id": user.company_id,
+        "next_follow_up_date": {"$ne": None, "$gte": today_iso},
+    })
+    clients_synced = await db.clients.count_documents({
+        "company_id": user.company_id,
+        "calendar_event_id": {"$exists": True, "$ne": ""},
+    })
+
+    return {
+        "is_connected": True,
+        "shared_calendar_id": config.get("shared_calendar_id"),
+        "shared_calendar_name": config.get("shared_calendar_name"),
+        "events": {
+            "with_date": events_with_date,
+            "synced": events_synced,
+            "pending": max(events_with_date - events_synced, 0),
+        },
+        "follow_ups": {
+            "leads_upcoming": leads_pending,
+            "leads_synced": leads_synced,
+            "clients_upcoming": clients_pending,
+            "clients_synced": clients_synced,
+        },
+        "last_backfill_at": config.get("last_backfill_at"),
+    }
+
+
+@router.post("/sync-all")
+async def sync_all_to_calendar(user: User = Depends(get_current_user)):
+    """Backfill push: force-sync all existing events + upcoming CRM follow-ups
+    to the connected Google Calendar. Use after connecting for the first time
+    (or after re-connecting to a new shared calendar) to see historical data
+    show up on the calendar.
+
+    Idempotent: records that already have a `calendar_event_id` are UPDATED
+    (not duplicated) via the standard `events.update` API path.
+    """
+    config = await db[CALENDAR_CONFIG_COLLECTION].find_one({"company_id": user.company_id})
+    if not config or not config.get("is_connected"):
+        raise HTTPException(status_code=400, detail="Calendar not connected")
+    if not config.get("shared_calendar_id"):
+        raise HTTPException(status_code=400, detail="No shared calendar selected")
+
+    from datetime import date as _date
+    today_iso = _date.today().isoformat()
+
+    result = {
+        "events_pushed": 0,
+        "events_failed": 0,
+        "leads_pushed": 0,
+        "leads_failed": 0,
+        "clients_pushed": 0,
+        "clients_failed": 0,
+        "errors": [],
+    }
+
+    # 1) Catering events with a real date
+    if config.get("auto_sync_events", True):
+        async for ev in db.events.find({
+            "company_id": user.company_id,
+            "event_date_tbd": {"$ne": True},
+            "event_date": {"$ne": None},
+        }, {"_id": 0}):
+            try:
+                await auto_sync_event(user.company_id, ev["event_id"], action="upsert")
+                result["events_pushed"] += 1
+            except Exception as e:
+                result["events_failed"] += 1
+                result["errors"].append(f"event {ev.get('event_id')}: {str(e)[:120]}")
+
+    # 2) CRM follow-ups (leads + clients with upcoming next_follow_up_date)
+    if config.get("auto_sync_follow_ups", True):
+        for entity_type, collection, id_field in [
+            ("lead", db.leads, "lead_id"),
+            ("client", db.clients, "client_id"),
+        ]:
+            async for entity in collection.find({
+                "company_id": user.company_id,
+                "next_follow_up_date": {"$ne": None, "$gte": today_iso},
+            }, {"_id": 0}):
+                try:
+                    await auto_sync_follow_up(
+                        user.company_id, entity_type, entity[id_field], entity
+                    )
+                    key = "leads_pushed" if entity_type == "lead" else "clients_pushed"
+                    result[key] += 1
+                except Exception as e:
+                    key = "leads_failed" if entity_type == "lead" else "clients_failed"
+                    result[key] += 1
+                    result["errors"].append(f"{entity_type} {entity.get(id_field)}: {str(e)[:120]}")
+
+    # Track when the last backfill ran so the UI can show it.
+    await db[CALENDAR_CONFIG_COLLECTION].update_one(
+        {"company_id": user.company_id},
+        {"$set": {"last_backfill_at": datetime.now(timezone.utc).isoformat()}},
+    )
+    result["last_backfill_at"] = datetime.now(timezone.utc).isoformat()
+    # Cap errors list to keep UI payload small
+    result["errors"] = result["errors"][:20]
+    return result
+
+
 @router.get("/status")
 async def get_calendar_status(user: User = Depends(get_current_user)):
     """Get the current Google Calendar connection status for the company."""
