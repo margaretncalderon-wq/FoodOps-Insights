@@ -140,6 +140,8 @@ export default function GoogleCalendarSettingsSection() {
   // Which preset row is currently expanded showing the emoji palette.
   // `null` = collapsed, keeps the settings section compact.
   const [focusedIconKey, setFocusedIconKey] = useState(null);
+  // Name input for the "save current config as custom template" flow.
+  const [newTemplateName, setNewTemplateName] = useState("");
 
   const fetchContentCfg = useCallback(async () => {
     try {
@@ -752,6 +754,97 @@ export default function GoogleCalendarSettingsSection() {
                         {isEs ? "Limpiar" : "Clear"}
                       </button>
                     </div>
+
+                    {/* User-saved custom templates. Live inline once the user
+                        clicks "Save current as template". Chip-shaped so
+                        many of them can coexist without dominating the UI. */}
+                    {(contentCfg.custom_icon_templates || []).length > 0 && (
+                      <div className="mt-2 pt-2 border-t border-primary/10">
+                        <p className="text-[11px] font-medium text-primary/80 mb-1.5">
+                          {isEs ? "Mis plantillas" : "My templates"}
+                        </p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {(contentCfg.custom_icon_templates || []).map((tpl) => (
+                            <div
+                              key={tpl.id}
+                              className="group flex items-center gap-1 pl-2 pr-1 py-1 rounded-full border border-slate-200 bg-white hover:border-primary transition-colors"
+                              data-testid={`custom-tpl-${tpl.id}`}
+                            >
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setContentCfg((prev) => ({ ...prev, status_icons: { ...tpl.icons } }));
+                                  setFocusedIconKey(null);
+                                  toast.success(
+                                    isEs
+                                      ? `Plantilla "${tpl.name}" aplicada — recuerda guardar`
+                                      : `Template "${tpl.name}" applied — remember to save`
+                                  );
+                                }}
+                                className="text-xs font-medium text-slate-700 hover:text-primary flex items-center gap-1.5"
+                              >
+                                <span className="text-sm">{Object.values(tpl.icons || {}).slice(0, 3).join("")}</span>
+                                <span>{tpl.name}</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setContentCfg((prev) => ({
+                                    ...prev,
+                                    custom_icon_templates: (prev.custom_icon_templates || []).filter((t) => t.id !== tpl.id),
+                                  }));
+                                }}
+                                className="w-5 h-5 rounded-full text-slate-400 hover:bg-red-50 hover:text-red-500 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+                                data-testid={`custom-tpl-remove-${tpl.id}`}
+                                aria-label="delete template"
+                              >
+                                ×
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Save current status_icons as a named custom template.
+                        Only enabled when there's actually something to save
+                        and the user typed a name. */}
+                    <div className="mt-2 pt-2 border-t border-primary/10 flex items-center gap-2">
+                      <Input
+                        value={newTemplateName}
+                        onChange={(e) => setNewTemplateName(e.target.value)}
+                        placeholder={isEs ? "Nombre de plantilla…" : "Template name…"}
+                        maxLength={60}
+                        className="flex-1 h-8 text-xs"
+                        data-testid="new-template-name-input"
+                      />
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="h-8 text-xs border-primary/30 text-primary hover:bg-primary/5"
+                        disabled={
+                          !newTemplateName.trim() ||
+                          Object.keys(contentCfg.status_icons || {}).length === 0 ||
+                          (contentCfg.custom_icon_templates || []).length >= 20
+                        }
+                        onClick={() => {
+                          const nid = `tpl_${Date.now().toString(36)}`;
+                          setContentCfg((prev) => ({
+                            ...prev,
+                            custom_icon_templates: [
+                              ...(prev.custom_icon_templates || []),
+                              { id: nid, name: newTemplateName.trim(), icons: { ...(prev.status_icons || {}) } },
+                            ],
+                          }));
+                          setNewTemplateName("");
+                          toast.success(isEs ? "Plantilla guardada — recuerda guardar cambios" : "Template saved — remember to save changes");
+                        }}
+                        data-testid="save-as-template-btn"
+                      >
+                        {isEs ? "Guardar actual" : "Save current"}
+                      </Button>
+                    </div>
                   </div>
 
                   {/* Preset grid: one row per Kora stage. Click a stage to
@@ -899,37 +992,54 @@ export default function GoogleCalendarSettingsSection() {
                     </p>
                     <div className="space-y-1.5">
                       {[
-                        { key: "committed",             stage: isEs ? "Confirmado" : "Confirmed",   sample: isEs ? "Boda Ana & Carlos"  : "Ana & Carlos Wedding" },
-                        { key: "definition_in_review",  stage: isEs ? "En Revisión" : "In Review",   sample: isEs ? "Corporate — Banco X" : "Corporate — Bank X" },
-                        { key: "inquiry_received",      stage: isEs ? "Solicitud" : "Inquiry",       sample: isEs ? "Cumpleaños Sofía"   : "Sofia's Birthday" },
-                        { key: "cancelled",             stage: isEs ? "Cancelado" : "Cancelled",     sample: isEs ? "Evento Corporativo" : "Corporate Event" },
-                      ].map(({ key, stage, sample }) => {
+                        // Ordered by hour ascending — mimics how Google Calendar
+                        // stacks events in the day view. Times chosen so each
+                        // sample sits at a distinct, realistic catering slot.
+                        { key: "inquiry_received",     stage: isEs ? "Solicitud" : "Inquiry",      sample: isEs ? "Cumpleaños Sofía"    : "Sofia's Birthday",   time: "09:00", multiday: false },
+                        { key: "definition_in_review", stage: isEs ? "En Revisión" : "In Review",  sample: isEs ? "Corporate — Banco X" : "Corporate — Bank X", time: "12:30", multiday: false },
+                        { key: "committed",            stage: isEs ? "Confirmado" : "Confirmed",   sample: isEs ? "Boda Ana & Carlos"   : "Ana & Carlos Wedding", time: "17:00", multiday: false },
+                        { key: "committed",            stage: isEs ? "Confirmado" : "Confirmed",   sample: isEs ? "Retiro Corporativo"  : "Corporate Retreat",   time: "18:00", multiday: true, day: 2, total: 3 },
+                        { key: "cancelled",            stage: isEs ? "Cancelado" : "Cancelled",    sample: isEs ? "Evento Corporativo"  : "Corporate Event",     time: "20:00", multiday: false },
+                      ].map(({ key, stage, sample, time, multiday, day, total }, idx) => {
                         const colorId = stageToColorId(key);
                         const style = CAL_COLOR_STYLES[colorId] || CAL_COLOR_STYLES["7"];
                         const icon = (contentCfg.status_icons || {})[key] || "";
                         // Build the title exactly as the backend would render it.
                         // Substitute the same template variables used server-side.
-                        const raw = (contentCfg.title_template || "{{primary_record}}")
+                        let raw = (contentCfg.title_template || "{{primary_record}}")
                           .replace(/\{\{\s*primary_record\s*\}\}/g, sample)
                           .replace(/\{\{\s*status\s*\}\}/g, stage)
                           .replace(/\{\{\s*location\s*\}\}/g, "Casa Vieja")
                           .replace(/\{\{\s*status_icon\s*\}\}/g, icon);
                         // Same cleanup as `_render_title` on the backend.
-                        const rendered = raw
+                        let rendered = raw
                           .replace(/[·\-|]+\s*(?=[·\-|]|$)/g, "")
                           .replace(/^\s*[·\-|]+\s*/, "")
                           .replace(/\s*[·\-|]+\s*$/, "")
                           .replace(/\s{2,}/g, " ")
                           .trim();
+                        // Multi-day: append the configured suffix (same
+                        // {{day}}/{{total}} substitution rules as backend).
+                        if (multiday) {
+                          const suffix = (contentCfg.multiday_suffix || "· Day {{day}} of {{total}}")
+                            .replace(/\{\{\s*day\s*\}\}/g, String(day))
+                            .replace(/\{\{\s*total\s*\}\}/g, String(total));
+                          rendered = `${rendered} ${suffix}`.trim();
+                        }
                         return (
                           <div
-                            key={key}
+                            key={`${key}-${idx}`}
                             className={`flex items-center gap-2 py-1.5 px-2 rounded ${style.bg} border-l-4 ${style.border} shadow-sm`}
-                            data-testid={`preview-chip-${key}`}
+                            data-testid={`preview-chip-${key}-${idx}`}
                           >
                             <span className={`inline-block w-1.5 h-1.5 rounded-full ${style.dot} flex-shrink-0`} aria-hidden="true" />
-                            <span className="text-xs text-slate-500 font-mono w-16 flex-shrink-0">09:00</span>
+                            <span className="text-xs text-slate-500 font-mono w-16 flex-shrink-0">{time}</span>
                             <span className="text-sm text-slate-800 truncate">{rendered}</span>
+                            {multiday && (
+                              <span className="ml-auto text-[10px] font-medium text-slate-500 uppercase bg-white/70 px-1.5 py-0.5 rounded-sm flex-shrink-0">
+                                {isEs ? "multi-día" : "multi-day"}
+                              </span>
+                            )}
                           </div>
                         );
                       })}

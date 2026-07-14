@@ -1,6 +1,31 @@
 # Kora OS — Product Requirements Document
 
 
+## Feature — Plantillas Personalizadas + Preview Multi-día + Orden Cronológico (Feb 14, 2026)
+
+**Estado:** ✅ Implementado y verificado con curl (backend) + lint limpio.
+
+### (A) Plantillas de iconos personalizables
+- **Backend**: campo `custom_icon_templates` añadido a `calendar_content_config`. Cada entry: `{id, name, icons}`. Validación server-side: max 20 plantillas, 20 iconos por plantilla, nombres de 60 chars, iconos de 8 chars, ID auto-generado si falta.
+- **Frontend**: bloque "Mis plantillas" bajo los presets rápidos. Chip pill-shaped con emojis y nombre. Click aplica. Hover muestra × para borrar.
+- Input "Nombre de plantilla…" + botón "Guardar actual" — snapshot del `status_icons` actual + nombre = plantilla persistida al guardar.
+
+### (B) Chip multi-día en preview
+Agregado un 4° chip al panel de preview que renderiza cómo se ve un evento multi-día:
+- Aplica el `multiday_suffix` con las mismas reglas del backend (`{{day}}`, `{{total}}` substitution).
+- Etiqueta "multi-día" en pill compacto a la derecha del chip.
+- Ejemplo: `🎉 Retiro Corporativo · Casa Vieja · (Día 2/3)`.
+
+### (C) Chips ordenados por hora ascendente
+Los 5 chips del preview ahora están ordenados cronológicamente: 09:00 → 12:30 → 17:00 → 18:00 → 20:00. Mimifica cómo Google Calendar renderiza el día en vista lista.
+
+### Tests verificados (curl E2E)
+- ✅ GET content-config retorna `custom_icon_templates: []` por default.
+- ✅ PUT con plantilla custom → guarda + regresa el array normalizado.
+- ✅ PUT con array vacío → limpia.
+
+
+
 ## Feature — Plantillas de Iconos + Preview en Vivo (Feb 14, 2026)
 
 **Estado:** ✅ Implementado — lint limpio.

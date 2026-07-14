@@ -199,6 +199,8 @@ async def _get_content_config(company_id: str) -> dict:
         "multiday_suffix": doc.get("multiday_suffix") or DEFAULT_MULTIDAY_SUFFIX,
         "description_blocks": {**DEFAULT_DESCRIPTION_BLOCKS, **(doc.get("description_blocks") or {})},
         "status_icons": doc.get("status_icons") or {},
+        # User-saved emoji presets (list of {id, name, icons}). Empty by default.
+        "custom_icon_templates": doc.get("custom_icon_templates") or [],
     }
 
 
@@ -1755,7 +1757,7 @@ async def put_content_config(data: dict, user: User = Depends(get_current_user))
     if role not in (None, "admin", "owner", "super_admin"):
         raise HTTPException(status_code=403, detail="Only admins can edit calendar content templates")
 
-    allowed = {"title_template", "multiday_suffix", "description_blocks", "status_icons"}
+    allowed = {"title_template", "multiday_suffix", "description_blocks", "status_icons", "custom_icon_templates"}
     patch: dict = {k: v for k, v in (data or {}).items() if k in allowed}
 
     # Basic validation — the sync loop must never render garbage.
@@ -1780,6 +1782,30 @@ async def put_content_config(data: dict, user: User = Depends(get_current_user))
             for k, v in patch["status_icons"].items()
             if v
         }
+    if "custom_icon_templates" in patch:
+        # Array of {id, name, icons}. Sanitise each entry — keep the payload
+        # small (max 20 templates, max 20 icons per template, names <=60 chars)
+        # so a rogue client can't blow up the document size.
+        raw = patch["custom_icon_templates"]
+        if not isinstance(raw, list):
+            raise HTTPException(status_code=400, detail="custom_icon_templates must be a list")
+        cleaned: list = []
+        for tpl in raw[:20]:
+            if not isinstance(tpl, dict):
+                continue
+            icons = tpl.get("icons") or {}
+            if not isinstance(icons, dict):
+                continue
+            cleaned.append({
+                "id": (str(tpl.get("id") or "")).strip()[:64] or f"tpl_{uuid.uuid4().hex[:8]}",
+                "name": (str(tpl.get("name") or "")).strip()[:60] or "Custom template",
+                "icons": {
+                    (str(k) or "").strip().lower(): (str(v) or "").strip()[:8]
+                    for k, v in list(icons.items())[:20]
+                    if v
+                },
+            })
+        patch["custom_icon_templates"] = cleaned
 
     patch["updated_at"] = datetime.now(timezone.utc).isoformat()
     patch["company_id"] = user.company_id
