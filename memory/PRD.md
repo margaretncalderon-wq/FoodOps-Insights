@@ -1,6 +1,35 @@
 # Kora OS — Product Requirements Document
 
 
+## Bug Fix — Google Calendar "Sync All" Cloudflare Timeout (Feb 14, 2026)
+
+**Estado:** ✅ Refactorizado a background tasks + polling. Smoke test 202 verificado.
+
+### Problema
+`POST /api/oauth/calendar/sync-all` procesaba cientos de eventos + follow-ups en el request handler. Con inventarios grandes, la duración excedía el timeout de Cloudflare (100s), devolviendo `522/524 — The origin web server did not respond`.
+
+### Solución
+- **Backend (`/app/backend/routers/google_calendar.py`)**:
+  - `sync_all_to_calendar` ahora recibe `BackgroundTasks` de FastAPI.
+  - Marca `calendar_config.background_sync = {status: "running", started_at, total, processed, errors, ...}` antes de encolar.
+  - Devuelve `202 Accepted` inmediatamente con el snapshot inicial.
+  - Nueva función `_run_sync_all_background(company_id)` corre en background:
+    - Pre-cuenta el total (`events + leads + clients`) para renderizar % de avance.
+    - Loop async idéntico al legacy, pero persiste progreso cada 10 registros vía `$set` con dotted-path.
+    - Al terminar: `status="completed"` (o `"failed"` con `last_error`). Actualiza `last_backfill_at`.
+  - Anti-stampede: si ya hay un sync `running` < 30min, devuelve `already_running` sin encolar otro.
+- **Endpoint `GET /sync-status`**: ahora incluye el sub-doc `background_sync` para que la UI polle en vivo.
+- **Frontend (`GoogleCalendarSettingsSection.js`)**:
+  - `handleSyncAll` dispara el POST y espera `202` sin bloquear.
+  - `useEffect` polling: mientras `background_sync.status === "running"`, hace `fetchSyncStatus()` cada 4s.
+  - Barra de progreso visual (`sync-progress-panel`) con `processed/total`.
+  - Toast de éxito/error al transicionar a `completed/failed`.
+
+### Beneficio
+Empresas con cientos de eventos históricos ya pueden hacer backfill inicial sin toparse con timeouts. Además, el usuario puede cerrar la pestaña — el proceso continúa en el servidor.
+
+
+
 ## Enhancement — Business Clarity: cost_center + searchable client/vendor pickers (Feb 14, 2026)
 
 **Estado:** ✅ Implementado + smoke test end-to-end.

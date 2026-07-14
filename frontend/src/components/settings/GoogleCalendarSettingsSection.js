@@ -117,20 +117,57 @@ export default function GoogleCalendarSettingsSection() {
     try {
       const res = await axios.post(`${API}/api/oauth/calendar/sync-all`, {}, { withCredentials: true });
       const d = res.data || {};
-      const totalPushed = (d.events_pushed || 0) + (d.leads_pushed || 0) + (d.clients_pushed || 0);
-      const totalFailed = (d.events_failed || 0) + (d.leads_failed || 0) + (d.clients_failed || 0);
-      toast.success(
-        isEs
-          ? `Sincronizados: ${totalPushed} registro(s) (${d.events_pushed} eventos, ${d.leads_pushed} leads, ${d.clients_pushed} clientes)${totalFailed > 0 ? ` — ${totalFailed} fallaron` : ""}`
-          : `Synced ${totalPushed} record(s) — ${d.events_pushed} events, ${d.leads_pushed} leads, ${d.clients_pushed} clients${totalFailed > 0 ? ` — ${totalFailed} failed` : ""}`
-      );
+      if (d.status === "already_running") {
+        toast.info(
+          isEs
+            ? "Ya hay una sincronización en progreso. Sigue el avance abajo."
+            : "A sync is already in progress. Watch the progress below."
+        );
+      } else {
+        toast.success(
+          isEs
+            ? "Sincronización iniciada en segundo plano. Esto puede tardar unos minutos."
+            : "Sync started in background. This can take a few minutes."
+        );
+      }
+      // Poll sync-status immediately so the UI reflects the running state.
       await fetchSyncStatus();
     } catch (err) {
       toast.error(err.response?.data?.detail || (isEs ? "Error al sincronizar" : "Sync error"));
-    } finally {
       setSyncing(false);
     }
   };
+
+  // Poll every 4s while a background sync is running.
+  // When it finishes we stop the loop and show the final toast once.
+  useEffect(() => {
+    const bg = syncStatus?.background_sync;
+    if (!bg) return;
+    if (bg.status === "running") {
+      setSyncing(true);
+      const id = setInterval(() => { fetchSyncStatus(); }, 4000);
+      return () => clearInterval(id);
+    }
+    // Transitioned out of running → clear the syncing flag and notify once.
+    if (syncing && (bg.status === "completed" || bg.status === "failed")) {
+      setSyncing(false);
+      if (bg.status === "completed") {
+        const total = (bg.events_pushed || 0) + (bg.leads_pushed || 0) + (bg.clients_pushed || 0);
+        const failed = (bg.events_failed || 0) + (bg.leads_failed || 0) + (bg.clients_failed || 0);
+        toast.success(
+          isEs
+            ? `Sincronización completa: ${total} registro(s) publicado(s)${failed > 0 ? ` — ${failed} fallaron` : ""}`
+            : `Sync complete: ${total} record(s) pushed${failed > 0 ? ` — ${failed} failed` : ""}`
+        );
+      } else {
+        toast.error(
+          isEs
+            ? `Sincronización falló: ${bg.last_error || "error desconocido"}`
+            : `Sync failed: ${bg.last_error || "unknown error"}`
+        );
+      }
+    }
+  }, [syncStatus?.background_sync, syncStatus?.background_sync?.status, syncing, fetchSyncStatus, isEs]);
 
   // Check for OAuth callback params
   useEffect(() => {
@@ -328,7 +365,7 @@ export default function GoogleCalendarSettingsSection() {
                 >
                   <RefreshCw className={`w-4 h-4 mr-2 ${syncing ? "animate-spin" : ""}`} />
                   {syncing
-                    ? (isEs ? "Sincronizando…" : "Syncing…")
+                    ? (isEs ? "Sincronizando en segundo plano…" : "Syncing in background…")
                     : (isEs ? "Sincronizar Todo Ahora" : "Sync Everything Now")}
                 </Button>
               )}
@@ -366,6 +403,40 @@ export default function GoogleCalendarSettingsSection() {
                 {syncStatus.last_backfill_at && (
                   <p className="text-xs text-muted-foreground pt-1">
                     {isEs ? "Última sincronización manual" : "Last manual sync"}: {new Date(syncStatus.last_backfill_at).toLocaleString()}
+                  </p>
+                )}
+                {syncStatus.background_sync && syncStatus.background_sync.status === "running" && (
+                  <div className="mt-2 p-2 rounded bg-blue-50 border border-blue-200 space-y-1" data-testid="sync-progress-panel">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-medium text-blue-900">
+                        {isEs ? "Sincronizando en segundo plano…" : "Syncing in background…"}
+                      </span>
+                      <span className="text-blue-700">
+                        {syncStatus.background_sync.processed || 0} / {syncStatus.background_sync.total || 0}
+                      </span>
+                    </div>
+                    <div className="w-full h-1.5 bg-blue-100 rounded overflow-hidden">
+                      <div
+                        className="h-full bg-blue-500 transition-all"
+                        style={{
+                          width: `${
+                            syncStatus.background_sync.total > 0
+                              ? Math.min(100, ((syncStatus.background_sync.processed || 0) / syncStatus.background_sync.total) * 100)
+                              : 5
+                          }%`,
+                        }}
+                      />
+                    </div>
+                    <p className="text-[11px] text-blue-700">
+                      {isEs
+                        ? "Puedes cerrar esta ventana; el proceso continúa en el servidor."
+                        : "You can close this page; the process keeps running on the server."}
+                    </p>
+                  </div>
+                )}
+                {syncStatus.background_sync && syncStatus.background_sync.status === "failed" && (
+                  <p className="text-xs text-red-700 pt-1" data-testid="sync-failed-msg">
+                    {isEs ? "Última sincronización falló" : "Last sync failed"}: {syncStatus.background_sync.last_error || (isEs ? "error desconocido" : "unknown error")}
                   </p>
                 )}
                 {((syncStatus.events?.pending ?? 0) > 0 ||

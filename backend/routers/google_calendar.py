@@ -6,8 +6,8 @@ from datetime import datetime, timezone, timedelta
 from typing import Optional, Tuple, Any
 import uuid
 
-from fastapi import APIRouter, HTTPException, Depends, Request, Query
-from fastapi.responses import RedirectResponse
+from fastapi import APIRouter, HTTPException, Depends, Request, Query, BackgroundTasks
+from fastapi.responses import RedirectResponse, JSONResponse
 import requests
 from cryptography.fernet import Fernet, InvalidToken as FernetInvalidToken
 from google.oauth2.credentials import Credentials
@@ -434,15 +434,24 @@ async def calendar_sync_status(user: User = Depends(get_current_user)):
             "clients_synced": clients_synced,
         },
         "last_backfill_at": config.get("last_backfill_at"),
+        # Snapshot of the background sync job (running/completed/failed).
+        # `null` if the tenant never triggered "Sync All".
+        "background_sync": config.get("background_sync"),
     }
 
 
 @router.post("/sync-all")
-async def sync_all_to_calendar(user: User = Depends(get_current_user)):
+async def sync_all_to_calendar(
+    background_tasks: BackgroundTasks,
+    user: User = Depends(get_current_user),
+):
     """Backfill push: force-sync all existing events + upcoming CRM follow-ups
-    to the connected Google Calendar. Use after connecting for the first time
-    (or after re-connecting to a new shared calendar) to see historical data
-    show up on the calendar.
+    to the connected Google Calendar. Runs in the BACKGROUND to avoid
+    Cloudflare / gateway timeouts (previously synchronous — hundreds of
+    Google API calls easily exceed the 100s upstream limit).
+
+    Returns 202 Accepted immediately. Progress is exposed via
+    `GET /api/oauth/calendar/sync-status` under the `background_sync` key.
 
     Idempotent: records that already have a `calendar_event_id` are UPDATED
     (not duplicated) via the standard `events.update` API path.
@@ -453,63 +462,201 @@ async def sync_all_to_calendar(user: User = Depends(get_current_user)):
     if not config.get("shared_calendar_id"):
         raise HTTPException(status_code=400, detail="No shared calendar selected")
 
-    from datetime import date as _date
-    today_iso = _date.today().isoformat()
+    # Prevent stampede — if a sync is already running, don't start another.
+    bg = config.get("background_sync") or {}
+    if bg.get("status") == "running":
+        started_at = bg.get("started_at")
+        # Safety valve: if a sync has been "running" for more than 30 minutes,
+        # assume it died (server restart / crash) and let a new one start.
+        stale = False
+        if started_at:
+            try:
+                started_dt = datetime.fromisoformat(started_at.replace("Z", "+00:00"))
+                if (datetime.now(timezone.utc) - started_dt).total_seconds() > 1800:
+                    stale = True
+            except Exception:
+                stale = True
+        if not stale:
+            return JSONResponse(
+                status_code=202,
+                content={
+                    "status": "already_running",
+                    "message": "A sync is already in progress. Check sync-status.",
+                    "background_sync": bg,
+                },
+            )
 
-    result = {
+    # Mark as started BEFORE queueing so a subsequent poll immediately sees it.
+    now_iso = datetime.now(timezone.utc).isoformat()
+    initial_state = {
+        "status": "running",
+        "started_at": now_iso,
+        "finished_at": None,
         "events_pushed": 0,
         "events_failed": 0,
         "leads_pushed": 0,
         "leads_failed": 0,
         "clients_pushed": 0,
         "clients_failed": 0,
+        "processed": 0,
+        "total": 0,
         "errors": [],
+        "last_error": None,
+        "started_by_user_id": getattr(user, "user_id", None),
     }
-
-    # 1) Catering events with a real date
-    if config.get("auto_sync_events", True):
-        async for ev in db.events.find({
-            "company_id": user.company_id,
-            "event_date_tbd": {"$ne": True},
-            "event_date": {"$ne": None},
-        }, {"_id": 0}):
-            try:
-                await auto_sync_event(user.company_id, ev["event_id"], action="upsert")
-                result["events_pushed"] += 1
-            except Exception as e:
-                result["events_failed"] += 1
-                result["errors"].append(f"event {ev.get('event_id')}: {str(e)[:120]}")
-
-    # 2) CRM follow-ups (leads + clients with upcoming next_follow_up_date)
-    if config.get("auto_sync_follow_ups", True):
-        for entity_type, collection, id_field in [
-            ("lead", db.leads, "lead_id"),
-            ("client", db.clients, "client_id"),
-        ]:
-            async for entity in collection.find({
-                "company_id": user.company_id,
-                "next_follow_up_date": {"$ne": None, "$gte": today_iso},
-            }, {"_id": 0}):
-                try:
-                    await auto_sync_follow_up(
-                        user.company_id, entity_type, entity[id_field], entity
-                    )
-                    key = "leads_pushed" if entity_type == "lead" else "clients_pushed"
-                    result[key] += 1
-                except Exception as e:
-                    key = "leads_failed" if entity_type == "lead" else "clients_failed"
-                    result[key] += 1
-                    result["errors"].append(f"{entity_type} {entity.get(id_field)}: {str(e)[:120]}")
-
-    # Track when the last backfill ran so the UI can show it.
     await db[CALENDAR_CONFIG_COLLECTION].update_one(
         {"company_id": user.company_id},
-        {"$set": {"last_backfill_at": datetime.now(timezone.utc).isoformat()}},
+        {"$set": {"background_sync": initial_state}},
     )
-    result["last_backfill_at"] = datetime.now(timezone.utc).isoformat()
-    # Cap errors list to keep UI payload small
-    result["errors"] = result["errors"][:20]
-    return result
+
+    background_tasks.add_task(_run_sync_all_background, user.company_id)
+
+    return JSONResponse(
+        status_code=202,
+        content={
+            "status": "started",
+            "message": "Sync started in background. Poll /sync-status for progress.",
+            "background_sync": initial_state,
+        },
+    )
+
+
+async def _run_sync_all_background(company_id: str) -> None:
+    """Background worker that actually pushes events + follow-ups to Google.
+
+    Never raises — every failure is captured in `background_sync.errors`
+    so the frontend can display the outcome. On completion the doc is
+    switched to `status: "completed"` (or `"failed"` if the whole thing
+    blew up before finishing).
+    """
+    from datetime import date as _date
+    today_iso = _date.today().isoformat()
+
+    async def _push_state(update: dict) -> None:
+        """Merge partial updates into the `background_sync` sub-doc using
+        Mongo's dotted-path `$set` so we don't clobber sibling fields."""
+        try:
+            payload = {f"background_sync.{k}": v for k, v in update.items()}
+            await db[CALENDAR_CONFIG_COLLECTION].update_one(
+                {"company_id": company_id},
+                {"$set": payload},
+            )
+        except Exception as e:
+            logger.warning(f"[calendar sync-all] failed to persist progress: {e}")
+
+    try:
+        config = await db[CALENDAR_CONFIG_COLLECTION].find_one({"company_id": company_id}) or {}
+
+        # Pre-count totals so the UI can render a progress bar.
+        events_total = await db.events.count_documents({
+            "company_id": company_id,
+            "event_date_tbd": {"$ne": True},
+            "event_date": {"$ne": None},
+        }) if config.get("auto_sync_events", True) else 0
+
+        follow_leads_total = follow_clients_total = 0
+        if config.get("auto_sync_follow_ups", True):
+            follow_leads_total = await db.leads.count_documents({
+                "company_id": company_id,
+                "next_follow_up_date": {"$ne": None, "$gte": today_iso},
+            })
+            follow_clients_total = await db.clients.count_documents({
+                "company_id": company_id,
+                "next_follow_up_date": {"$ne": None, "$gte": today_iso},
+            })
+
+        total = events_total + follow_leads_total + follow_clients_total
+        await _push_state({"total": total})
+
+        counters = {
+            "events_pushed": 0,
+            "events_failed": 0,
+            "leads_pushed": 0,
+            "leads_failed": 0,
+            "clients_pushed": 0,
+            "clients_failed": 0,
+            "processed": 0,
+        }
+        errors: list = []
+
+        async def _flush(force: bool = False) -> None:
+            # Persist every N records or when forced (end of section) to keep
+            # Mongo writes reasonable while still giving the UI live progress.
+            if force or counters["processed"] % 10 == 0:
+                await _push_state({**counters, "errors": errors[:20]})
+
+        # 1) Catering events with a real date
+        if config.get("auto_sync_events", True):
+            async for ev in db.events.find({
+                "company_id": company_id,
+                "event_date_tbd": {"$ne": True},
+                "event_date": {"$ne": None},
+            }, {"_id": 0}):
+                try:
+                    await auto_sync_event(company_id, ev["event_id"], action="upsert")
+                    counters["events_pushed"] += 1
+                except Exception as e:
+                    counters["events_failed"] += 1
+                    errors.append(f"event {ev.get('event_id')}: {str(e)[:120]}")
+                counters["processed"] += 1
+                await _flush()
+
+        # 2) CRM follow-ups (leads + clients with upcoming next_follow_up_date)
+        if config.get("auto_sync_follow_ups", True):
+            for entity_type, collection, id_field, pushed_key, failed_key in [
+                ("lead", db.leads, "lead_id", "leads_pushed", "leads_failed"),
+                ("client", db.clients, "client_id", "clients_pushed", "clients_failed"),
+            ]:
+                async for entity in collection.find({
+                    "company_id": company_id,
+                    "next_follow_up_date": {"$ne": None, "$gte": today_iso},
+                }, {"_id": 0}):
+                    try:
+                        await auto_sync_follow_up(
+                            company_id, entity_type, entity[id_field], entity
+                        )
+                        counters[pushed_key] += 1
+                    except Exception as e:
+                        counters[failed_key] += 1
+                        errors.append(f"{entity_type} {entity.get(id_field)}: {str(e)[:120]}")
+                    counters["processed"] += 1
+                    await _flush()
+
+        finished_iso = datetime.now(timezone.utc).isoformat()
+        await db[CALENDAR_CONFIG_COLLECTION].update_one(
+            {"company_id": company_id},
+            {"$set": {
+                "last_backfill_at": finished_iso,
+                "background_sync.status": "completed",
+                "background_sync.finished_at": finished_iso,
+                "background_sync.events_pushed": counters["events_pushed"],
+                "background_sync.events_failed": counters["events_failed"],
+                "background_sync.leads_pushed": counters["leads_pushed"],
+                "background_sync.leads_failed": counters["leads_failed"],
+                "background_sync.clients_pushed": counters["clients_pushed"],
+                "background_sync.clients_failed": counters["clients_failed"],
+                "background_sync.processed": counters["processed"],
+                "background_sync.total": total,
+                "background_sync.errors": errors[:20],
+            }},
+        )
+        await _audit(
+            company_id, "sync_all_completed",
+            result="success",
+            extra={"counters": counters, "total": total, "errors_count": len(errors)},
+        )
+    except Exception as e:
+        safe = _sanitize_error(e)
+        logger.error(f"[calendar sync-all] background job crashed for {company_id}: {safe}")
+        await db[CALENDAR_CONFIG_COLLECTION].update_one(
+            {"company_id": company_id},
+            {"$set": {
+                "background_sync.status": "failed",
+                "background_sync.finished_at": datetime.now(timezone.utc).isoformat(),
+                "background_sync.last_error": safe,
+            }},
+        )
+        await _audit(company_id, "sync_all_failed", result="error", error=safe)
 
 
 @router.get("/status")
