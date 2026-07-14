@@ -105,9 +105,12 @@ def test_no_endpoint_accepts_company_id_from_client():
         sig = inspect.signature(fn)
         for pname, param in sig.parameters.items():
             if pname in ("company_id", "tenant_id"):
-                # get_calendar_service is an internal helper; it may receive
-                # company_id derived from user.company_id in the caller.
-                assert name in ("get_calendar_service", "auto_sync_event", "auto_sync_follow_up", "_persist_tokens_encrypted", "_audit"), (
+                # Internal helpers may receive company_id derived from the
+                # authenticated user upstream. Public endpoints (registered
+                # on `router`) must NEVER accept company_id from the client.
+                assert name.startswith("_") or name in (
+                    "get_calendar_service", "auto_sync_event", "auto_sync_follow_up",
+                ), (
                     f"Public endpoint '{name}' must not accept '{pname}' as parameter — "
                     f"it must come from the authenticated user."
                 )

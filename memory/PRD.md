@@ -1,6 +1,50 @@
 # Kora OS — Product Requirements Document
 
 
+## Feature — Calendar Content Templates + Multi-day Split (Feb 14, 2026)
+
+**Estado:** ✅ Backend + 12 nuevos pytest tests + defaults backward-compat con Phase 1.
+
+### Alcance
+Extiende el CONTENIDO del evento Google (título + descripción + iconos + multi-día). NO toca connection / sync / mapping — el trabajo de color mapping continúa en paralelo en documento separado (`calendar_config`).
+
+### Backend (`/app/backend/routers/google_calendar.py`)
+- Nueva colección **`calendar_content_config`** (una fila por tenant, unique index en `company_id`).
+- Helpers:
+  - `_get_content_config(company_id)` — devuelve config con defaults sintetizados.
+  - `_resolve_stage_label(company_id, stage_key, lang)` — lee la verbiage del tenant desde `organization_config.pipeline_stages` (no más hardcode "Confirmado"/"Cotizado").
+  - `_render_template(tpl, ctx)` — Mustache-lite. Variables `{{primary_record}}`, `{{status}}`, `{{location}}`, `{{status_icon}}`. Colapsa separadores huérfanos (`·`, `-`, `|`) cuando una variable resuelve vacío.
+- **`_event_to_calendar_body` ahora es async y retorna LIST** `[(date_key, body), ...]` — una entrada por día de un evento multi-día.
+- Endpoints:
+  - `GET /api/oauth/calendar/content-config` → devuelve config actual o defaults sintetizados
+  - `PUT /api/oauth/calendar/content-config` → guarda parcial (title_template, multiday_suffix, description_blocks, status_icons). Validación estricta + audit log.
+
+### Multi-day rendering (1 evento por día)
+- Evento de 3 días → 3 eventos Google con títulos `Nombre (Día 1/3)`, `Nombre (Día 2/3)`, `Nombre (Día 3/3)`.
+- Día 1 honra `start_time`; día final honra `end_time`; días intermedios son all-day.
+- Mapping extendido: nuevo campo `calendar_event_ids: {date: google_id}` en `events`, `leads`, `clients`. **El campo legacy `calendar_event_id` (singular) se mantiene** apuntando al Google event del día 1 para compat con integraciones existentes.
+- Auto-migración transparente: eventos con solo `calendar_event_id` (singular) legacy se mapean como día-1 en la próxima sincronización.
+- Cuando el rango del evento se acorta, se borran los Google events huérfanos.
+
+### Defaults (retrocompatibles)
+- `title_template = "{{primary_record}}"` — un tenant sin config produce EXACTAMENTE el título original de Phase 1.
+- `multiday_suffix = " (Día {{day_index}}/{{day_total}})"`.
+- Todos los `description_blocks` = true por default (client_name, guests, location, status, open_in_kora_link).
+- `status_icons = {}` vacío — sin config = sin ícono (ni default genérico).
+
+### Validación
+- 12 pytest nuevos en `test_calendar_content_templates.py`.
+- 9 pytest de la auditoría anterior (encryption, scopes, isolation) siguen 100% verdes.
+- Curl PUT/GET `/api/oauth/calendar/content-config` funcionando.
+- Renderer maneja: variable vacía, separadores huérfanos, variable inexistente, template malformado — sin raise.
+
+### Coordinación con color mapping en paralelo
+- **Colección separada** (`calendar_content_config` vs `calendar_config`) — cero riesgo de race conditions en upsert.
+- **Sin overlap de sub-keys** — este trabajo NO agrega colores; el `_stage_to_calendar_meta` existente sigue devolviendo `colorId` (hasta que el trabajo paralelo lo reemplace).
+- Cuando el trabajo de color entre a `calendar_config.status_colors`, ambos features van a leer el mismo `stage_key` como llave — consistencia sin acoplamiento.
+
+
+
 ## Hotfix — Cesantía bug (10 vs 13 días para tenencias 6-12 meses) (Feb 13, 2026)
 
 **Estado:** ✅ Fix + 8 pytest nuevos + 14/14 tests verdes.

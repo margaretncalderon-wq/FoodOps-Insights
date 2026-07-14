@@ -46,6 +46,24 @@ CALENDAR_SCOPES = [
 # Collections
 CALENDAR_CONFIG_COLLECTION = "calendar_config"
 CALENDAR_AUDIT_COLLECTION = "calendar_audit"
+# Content templates + description toggles + status_icons per tenant.
+# Kept in its own collection so the parallel color-mapping work owns a
+# separate document and neither feature can clobber the other's writes.
+CALENDAR_CONTENT_CONFIG_COLLECTION = "calendar_content_config"
+
+# Defaults for tenants that never configured a template. These match the
+# minimum behaviour agreed in Phase 1 so existing tenants don't regress.
+DEFAULT_TITLE_TEMPLATE = "{{primary_record}}"
+DEFAULT_DESCRIPTION_BLOCKS = {
+    "client_name": True,
+    "guests": True,
+    "location": True,
+    "status": True,
+    "open_in_kora_link": True,
+}
+# Multi-day suffix — appended to titles when the event spans more than 1 day.
+# Variables: {{day_index}} (1..N), {{day_total}}, {{day_short}} ("1/3").
+DEFAULT_MULTIDAY_SUFFIX = " (Día {{day_index}}/{{day_total}})"
 
 
 # ==================== ENCRYPTION AT REST ====================
@@ -160,6 +178,73 @@ def _sanitize_error(msg: Any) -> str:
             s = "[error contained sensitive token — redacted]"
             break
     return s[:200]
+
+
+# ==================== CONTENT TEMPLATES ====================
+import re as _re
+
+
+async def _get_content_config(company_id: str) -> dict:
+    """Fetch (or synthesize) the content-config document for a tenant.
+
+    Falls back to a default that matches the pre-templates behaviour, so
+    tenants that never configured a template get the same output they had
+    before. NEVER writes; upsert lives in the PUT endpoint.
+    """
+    doc = await db[CALENDAR_CONTENT_CONFIG_COLLECTION].find_one(
+        {"company_id": company_id}, {"_id": 0}
+    ) or {}
+    return {
+        "title_template": doc.get("title_template") or DEFAULT_TITLE_TEMPLATE,
+        "multiday_suffix": doc.get("multiday_suffix") or DEFAULT_MULTIDAY_SUFFIX,
+        "description_blocks": {**DEFAULT_DESCRIPTION_BLOCKS, **(doc.get("description_blocks") or {})},
+        "status_icons": doc.get("status_icons") or {},
+    }
+
+
+async def _resolve_stage_label(company_id: str, stage_key: str, lang: str = "es") -> str:
+    """Look up the tenant's own pipeline_stages verbiage for a stage_key.
+
+    Every tenant can rename `committed` → "Firmado" or "Booked" etc. — we
+    honour that instead of hardcoding Spanish labels. Falls back to a
+    titlecased version of the key when the tenant has no verbiage configured.
+    """
+    if not stage_key:
+        return ""
+    org = await db.organization_config.find_one(
+        {"company_id": company_id}, {"_id": 0, "pipeline_stages": 1}
+    ) or {}
+    for st in org.get("pipeline_stages") or []:
+        if (st.get("stage_key") or st.get("key")) == stage_key:
+            return (st.get(f"label_{lang}") or st.get("label")
+                    or st.get("label_es") or st.get("label_en")
+                    or stage_key.replace("_", " ").title())
+    return stage_key.replace("_", " ").title()
+
+
+def _render_template(tpl: str, ctx: dict) -> str:
+    """Very small Mustache-lite resolver.
+
+    * Replaces `{{var}}` with `ctx[var]` (empty when missing).
+    * After substitution, removes orphan separator sequences that appear when
+      a variable resolved to empty — e.g. ` · ` at the start/end, or
+      ` -  · ` in the middle collapses to a single space.
+    * Never raises: the calendar sync must not break because a tenant put a
+      typo in their template.
+    """
+    if not tpl:
+        return ""
+    def _sub(m):
+        key = m.group(1).strip()
+        val = ctx.get(key)
+        return "" if val is None else str(val)
+    out = _re.sub(r"\{\{\s*([a-zA-Z0-9_]+)\s*\}\}", _sub, tpl)
+    # Collapse "  ·  " orphans left behind by empty variables.
+    out = _re.sub(r"[·\-|]+\s*(?=[·\-|]|$)", "", out)          # dangling seps
+    out = _re.sub(r"^\s*[·\-|]+\s*", "", out)                  # leading sep
+    out = _re.sub(r"\s*[·\-|]+\s*$", "", out)                  # trailing sep
+    out = _re.sub(r"\s{2,}", " ", out).strip()
+    return out
 
 
 # ==================== OAUTH FLOW ====================
@@ -873,7 +958,7 @@ async def auto_sync_follow_up(company_id: str, entity_type: str, entity_id: str,
                         calendarId=config["shared_calendar_id"],
                         eventId=entity["calendar_event_id"]
                     ).execute()
-                except:
+                except Exception:
                     pass
             # Clear event ID
             collection = db.leads if entity_type == "lead" else db.clients
@@ -894,7 +979,7 @@ async def auto_sync_follow_up(company_id: str, entity_type: str, entity_id: str,
         date_obj = datetime.strptime(follow_up_date, "%Y-%m-%d")
         start_time = date_obj.replace(hour=9, minute=0)
         end_time = start_time + timedelta(minutes=30)
-    except:
+    except (ValueError, TypeError):
         return
     
     # Color follow-ups distinctly from events so the calendar doesn't feel
@@ -984,96 +1069,193 @@ def _stage_to_calendar_meta(event: dict) -> Tuple[str, str, str]:
     return ("7", "[EVENTO]", stage_raw.replace("_", " ").title() or "Evento")
 
 
-def _event_to_calendar_body(event: dict, client_name: Optional[str] = None) -> Optional[dict]:
-    """Builds a Google Calendar event body from a Kora catering event document.
-    Returns None if the event has no scheduling info (TBD / no date)."""
+async def _event_to_calendar_body(event: dict, client_name: Optional[str] = None) -> list:
+    """Build Google Calendar body(-ies) for a Kora catering event.
+
+    Returns a LIST of `(date_key, body)` tuples — one per day of the event.
+    Single-day events yield exactly one tuple; multi-day events yield one
+    tuple per day with a "Día X/N" suffix in the title so a 3-day project
+    shows up as three legible entries instead of a single week-long banner.
+
+    Template resolution is per-tenant. Tenants that never configured a
+    template get the pre-templates behaviour via DEFAULT_TITLE_TEMPLATE.
+    Returns `[]` if the event has no scheduled date (TBD).
+    """
     if event.get("event_date_tbd"):
-        return None
-    
+        return []
+
     name = event.get("name") or "Kora Event"
     event_type = event.get("event_type") or "Event"
     venue = event.get("venue")
     guest_count = event.get("guest_count")
-    start_time_str = event.get("start_time")  # "HH:MM"
+    start_time_str = event.get("start_time")   # "HH:MM"
     end_time_str = event.get("end_time")
     event_date = event.get("event_date")
     end_date = event.get("end_date")
-    
-    if not event_date:
-        return None
-    
-    # Parse event_date (datetime or ISO string)
-    if isinstance(event_date, str):
-        try:
-            event_date = datetime.fromisoformat(event_date.replace("Z", "+00:00"))
-        except ValueError:
-            return None
-    
-    # Construct start
-    if start_time_str:
-        try:
-            hh, mm = [int(x) for x in start_time_str.split(":")[:2]]
-            start_dt = event_date.replace(hour=hh, minute=mm, second=0, microsecond=0, tzinfo=None)
-        except (ValueError, AttributeError):
-            start_dt = event_date.replace(hour=12, minute=0, second=0, microsecond=0, tzinfo=None)
-    else:
-        start_dt = event_date.replace(hour=12, minute=0, second=0, microsecond=0, tzinfo=None)
-    
-    # Construct end
-    if end_date and isinstance(end_date, str):
-        try:
-            end_date = datetime.fromisoformat(end_date.replace("Z", "+00:00"))
-        except ValueError:
-            end_date = None
-    
-    if end_time_str:
-        try:
-            hh, mm = [int(x) for x in end_time_str.split(":")[:2]]
-            base = end_date if end_date else event_date
-            end_dt = base.replace(hour=hh, minute=mm, second=0, microsecond=0, tzinfo=None)
-        except (ValueError, AttributeError):
-            end_dt = start_dt + timedelta(hours=4)
-    elif end_date:
-        end_dt = end_date.replace(hour=18, minute=0, second=0, microsecond=0, tzinfo=None)
-    else:
-        end_dt = start_dt + timedelta(hours=4)
-    
-    if end_dt <= start_dt:
-        end_dt = start_dt + timedelta(hours=4)
-    
-    # Determine visual encoding for this event's stage/status
-    color_id, prefix, stage_label = _stage_to_calendar_meta(event)
 
-    # Description
-    desc_lines = [f"Kora OS — {event_type}"]
-    desc_lines.append(f"Estado: {stage_label}")
-    if client_name:
-        desc_lines.append(f"Client: {client_name}")
-    if guest_count:
-        desc_lines.append(f"Guests: {guest_count}")
+    if not event_date:
+        return []
+
+    # Parse dates
+    def _parse_dt(v):
+        if isinstance(v, str):
+            try:
+                return datetime.fromisoformat(v.replace("Z", "+00:00"))
+            except ValueError:
+                return None
+        return v
+    event_date = _parse_dt(event_date)
+    if not event_date:
+        return []
+    end_date_parsed = _parse_dt(end_date) if end_date else None
+
+    # Compute per-day range (dates only, timezone-naive for iteration)
+    start_day = event_date.date() if hasattr(event_date, "date") else event_date
+    end_day = (end_date_parsed.date() if end_date_parsed and hasattr(end_date_parsed, "date") else start_day)
+    if end_day < start_day:
+        end_day = start_day
+    day_total = (end_day - start_day).days + 1
+    is_multiday = day_total > 1
+
+    # Fetch tenant content config + stage/label/icon
+    company_id = event.get("company_id") or ""
+    cfg = await _get_content_config(company_id) if company_id else {
+        "title_template": DEFAULT_TITLE_TEMPLATE,
+        "multiday_suffix": DEFAULT_MULTIDAY_SUFFIX,
+        "description_blocks": DEFAULT_DESCRIPTION_BLOCKS,
+        "status_icons": {},
+    }
+    stage_raw = (event.get("stage") or "").strip().lower()
+    op_raw = (event.get("operational_status") or "").strip().lower()
+    color_id, _legacy_prefix, _legacy_label = _stage_to_calendar_meta(event)
+    stage_label = (await _resolve_stage_label(company_id, stage_raw)) if company_id else stage_raw
+    if op_raw == "cancelled":
+        stage_label = stage_label or "Cancelado"
+    status_icon = cfg["status_icons"].get(stage_raw, "") or cfg["status_icons"].get(op_raw, "")
+
+    # Template variables
+    base_ctx = {
+        "primary_record": name,
+        "status": stage_label,
+        "location": venue or "",
+        "status_icon": status_icon,
+    }
+    base_title = _render_template(cfg["title_template"], base_ctx) or name
+
+    # Description blocks (only the ones toggled on that have data)
+    blocks_cfg = cfg["description_blocks"]
+    desc_lines = []
+    if status_icon:
+        desc_lines.append(status_icon)
+    desc_lines.append(f"Kora OS — {event_type}")
+    if blocks_cfg.get("status") and stage_label:
+        desc_lines.append(f"Estado: {stage_label}")
+    if blocks_cfg.get("client_name") and client_name:
+        desc_lines.append(f"Cliente: {client_name}")
+    if blocks_cfg.get("guests") and guest_count:
+        desc_lines.append(f"Invitados: {guest_count}")
+    if blocks_cfg.get("location") and venue:
+        desc_lines.append(f"Ubicación: {venue}")
     if event.get("budget"):
-        desc_lines.append(f"Budget: {event.get('budget')}")
+        desc_lines.append(f"Presupuesto: {event.get('budget')}")
     if event.get("scope_summary"):
         desc_lines.append("")
         desc_lines.append(event["scope_summary"])
+    if blocks_cfg.get("open_in_kora_link"):
+        deep = f"{FRONTEND_URL}/events/{event.get('event_id', '')}"
+        desc_lines.append("")
+        desc_lines.append(f"Abrir en Kora: {deep}")
 
-    return {
-        "summary": f"{prefix} [{event_type}] {name}",
-        "description": "\n".join(desc_lines),
-        "location": venue or "",
-        "colorId": color_id,
-        "start": {"dateTime": start_dt.isoformat(), "timeZone": "America/Santo_Domingo"},
-        "end": {"dateTime": end_dt.isoformat(), "timeZone": "America/Santo_Domingo"},
-        "extendedProperties": {
-            "private": {
-                "kora_entity_type": "event",
-                "kora_entity_id": event.get("event_id", ""),
-                "kora_company_id": event.get("company_id", ""),
-                "kora_stage": (event.get("stage") or "").lower(),
-                "kora_operational_status": (event.get("operational_status") or "").lower(),
-            }
-        }
+    description = "\n".join(desc_lines)
+    extended = {
+        "kora_entity_type": "event",
+        "kora_entity_id": event.get("event_id", ""),
+        "kora_company_id": company_id,
+        "kora_stage": stage_raw,
+        "kora_operational_status": op_raw,
     }
+
+    results = []
+    for i in range(day_total):
+        day_date = start_day + timedelta(days=i)
+        # Title with optional day suffix
+        title = base_title
+        if is_multiday:
+            suffix_ctx = {
+                "day_index": str(i + 1),
+                "day_total": str(day_total),
+                "day_short": f"{i + 1}/{day_total}",
+            }
+            rendered_suffix = _render_template(cfg["multiday_suffix"], suffix_ctx)
+            if rendered_suffix:
+                # Preserve exactly one separating space between the base title
+                # and the rendered suffix — the renderer trims whitespace so
+                # we can't rely on the leading space in DEFAULT_MULTIDAY_SUFFIX.
+                title = f"{base_title} {rendered_suffix}"
+
+        # Compute start/end datetimes for THIS day.
+        # First & last day honour start_time / end_time; middle days are all-day.
+        if is_multiday and i == 0 and start_time_str:
+            try:
+                hh, mm = [int(x) for x in start_time_str.split(":")[:2]]
+                s_dt = datetime(day_date.year, day_date.month, day_date.day, hh, mm)
+            except (ValueError, AttributeError):
+                s_dt = datetime(day_date.year, day_date.month, day_date.day, 9, 0)
+            e_dt = s_dt + timedelta(hours=4) if s_dt.date() == day_date else s_dt
+            time_kind = "dateTime"
+        elif is_multiday and i == day_total - 1 and end_time_str:
+            try:
+                hh, mm = [int(x) for x in end_time_str.split(":")[:2]]
+                e_dt = datetime(day_date.year, day_date.month, day_date.day, hh, mm)
+            except (ValueError, AttributeError):
+                e_dt = datetime(day_date.year, day_date.month, day_date.day, 18, 0)
+            s_dt = e_dt.replace(hour=9, minute=0)
+            time_kind = "dateTime"
+        elif is_multiday:
+            # Middle day → all-day event
+            s_dt = day_date
+            e_dt = day_date + timedelta(days=1)
+            time_kind = "date"
+        else:
+            # Single-day event with start/end times
+            if start_time_str:
+                try:
+                    hh, mm = [int(x) for x in start_time_str.split(":")[:2]]
+                    s_dt = datetime(day_date.year, day_date.month, day_date.day, hh, mm)
+                except (ValueError, AttributeError):
+                    s_dt = datetime(day_date.year, day_date.month, day_date.day, 12, 0)
+            else:
+                s_dt = datetime(day_date.year, day_date.month, day_date.day, 12, 0)
+            if end_time_str:
+                try:
+                    hh, mm = [int(x) for x in end_time_str.split(":")[:2]]
+                    e_dt = datetime(day_date.year, day_date.month, day_date.day, hh, mm)
+                except (ValueError, AttributeError):
+                    e_dt = s_dt + timedelta(hours=4)
+            else:
+                e_dt = s_dt + timedelta(hours=4)
+            if e_dt <= s_dt:
+                e_dt = s_dt + timedelta(hours=4)
+            time_kind = "dateTime"
+
+        if time_kind == "date":
+            start_obj = {"date": s_dt.isoformat()}
+            end_obj = {"date": e_dt.isoformat()}
+        else:
+            start_obj = {"dateTime": s_dt.isoformat(), "timeZone": "America/Santo_Domingo"}
+            end_obj = {"dateTime": e_dt.isoformat(), "timeZone": "America/Santo_Domingo"}
+
+        body = {
+            "summary": title,
+            "description": description,
+            "location": venue or "",
+            "colorId": color_id,
+            "start": start_obj,
+            "end": end_obj,
+            "extendedProperties": {"private": {**extended, "kora_day_index": str(i + 1), "kora_day_total": str(day_total)}},
+        }
+        results.append((day_date.isoformat(), body))
+    return results
 
 
 @router.post("/sync/event")
@@ -1103,42 +1285,56 @@ async def sync_event_to_calendar(
         if client_doc:
             client_name = client_doc.get("display_name") or client_doc.get("company_name")
     
-    body = _event_to_calendar_body(event, client_name)
-    if not body:
+    bodies = await _event_to_calendar_body(event, client_name)
+    if not bodies:
         raise HTTPException(status_code=400, detail="Event has no scheduled date (TBD) and cannot be synced.")
-    
+
     service = await get_calendar_service(user.company_id)
     if not service:
         raise HTTPException(status_code=400, detail="Calendar connection expired. Please reconnect.")
-    
+
+    calendar_id = config["shared_calendar_id"]
+    existing_ids = event.get("calendar_event_ids") or {}
+    legacy_id = event.get("calendar_event_id")
+    # If we have only a legacy singular id, treat it as the mapping for day 1.
+    if legacy_id and not existing_ids and bodies:
+        existing_ids = {bodies[0][0]: legacy_id}
+
+    new_ids: dict = {}
     try:
-        existing_event_id = event.get("calendar_event_id")
-        if existing_event_id:
-            gevent = service.events().update(
-                calendarId=config["shared_calendar_id"],
-                eventId=existing_event_id,
-                body=body
-            ).execute()
-            action = "updated"
-        else:
-            gevent = service.events().insert(
-                calendarId=config["shared_calendar_id"],
-                body=body
-            ).execute()
-            await db.events.update_one(
-                {"event_id": event_id},
-                {"$set": {"calendar_event_id": gevent["id"]}}
-            )
-            action = "created"
-        
+        for day_key, body in bodies:
+            gid = existing_ids.get(day_key)
+            if gid:
+                gevent = service.events().update(calendarId=calendar_id, eventId=gid, body=body).execute()
+                new_ids[day_key] = gevent["id"]
+            else:
+                gevent = service.events().insert(calendarId=calendar_id, body=body).execute()
+                new_ids[day_key] = gevent["id"]
+
+        # Delete Google events that no longer have a Kora day (e.g. range shrunk)
+        for day_key, gid in existing_ids.items():
+            if day_key not in new_ids:
+                try:
+                    service.events().delete(calendarId=calendar_id, eventId=gid).execute()
+                except Exception:
+                    pass
+
+        await db.events.update_one(
+            {"event_id": event_id},
+            {"$set": {
+                "calendar_event_ids": new_ids,
+                # Keep the legacy singular in sync with day 1 for backward compat.
+                "calendar_event_id": next(iter(new_ids.values())) if new_ids else None,
+            }}
+        )
         return {
             "success": True,
-            "event_id": gevent["id"],
-            "event_link": gevent.get("htmlLink"),
-            "action": action,
+            "days_synced": len(new_ids),
+            "event_ids": new_ids,
+            "action": "updated" if existing_ids else "created",
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to sync event: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to sync event: {_sanitize_error(e)}")
 
 
 @router.delete("/sync/event")
@@ -1153,28 +1349,36 @@ async def remove_event_from_calendar(
     
     event = await db.events.find_one(
         {"event_id": event_id, "company_id": user.company_id},
-        {"_id": 0, "calendar_event_id": 1}
+        {"_id": 0, "calendar_event_id": 1, "calendar_event_ids": 1}
     )
-    if not event or not event.get("calendar_event_id"):
+    if not event:
+        return {"success": True, "message": "Event not found"}
+
+    ids_to_delete = list((event.get("calendar_event_ids") or {}).values())
+    if event.get("calendar_event_id") and event.get("calendar_event_id") not in ids_to_delete:
+        ids_to_delete.append(event["calendar_event_id"])
+
+    if not ids_to_delete:
         return {"success": True, "message": "Not synced"}
-    
+
     service = await get_calendar_service(user.company_id)
     if not service:
         return {"success": False, "message": "Calendar connection expired"}
-    
-    try:
-        service.events().delete(
-            calendarId=config["shared_calendar_id"],
-            eventId=event["calendar_event_id"]
-        ).execute()
-    except Exception as e:
-        print(f"Calendar delete failed (ignored): {e}")
-    
+
+    for gid in ids_to_delete:
+        try:
+            service.events().delete(
+                calendarId=config["shared_calendar_id"],
+                eventId=gid
+            ).execute()
+        except Exception as e:
+            logger.warning(f"Calendar delete failed (ignored) {gid}: {_sanitize_error(e)}")
+
     await db.events.update_one(
         {"event_id": event_id},
-        {"$unset": {"calendar_event_id": ""}}
+        {"$unset": {"calendar_event_id": "", "calendar_event_ids": ""}}
     )
-    return {"success": True, "action": "removed"}
+    return {"success": True, "action": "removed", "removed_count": len(ids_to_delete)}
 
 
 # ==================== AUTO-SYNC HELPER (call from server.py event endpoints) ====================
@@ -1217,21 +1421,26 @@ async def auto_sync_event(company_id: str, event_id: str, action: str = "upsert"
         return
     
     calendar_id = config["shared_calendar_id"]
-    existing_event_id = event.get("calendar_event_id") or calendar_event_id_hint
-    
+    existing_ids = event.get("calendar_event_ids") or {}
+    legacy_id = event.get("calendar_event_id") or calendar_event_id_hint
+
     # Delete branch
     if action == "delete":
-        if existing_event_id:
+        # Try deleting every mapped Google event (multi-day) + legacy singular.
+        service_local = service
+        for gid in list(existing_ids.values()) + ([legacy_id] if legacy_id else []):
+            if not gid:
+                continue
             try:
-                service.events().delete(calendarId=calendar_id, eventId=existing_event_id).execute()
+                service_local.events().delete(calendarId=calendar_id, eventId=gid).execute()
             except Exception as e:
-                print(f"Auto-sync delete failed: {e}")
-            await db.events.update_one(
-                {"event_id": event_id},
-                {"$unset": {"calendar_event_id": ""}}
-            )
+                logger.warning(f"Auto-sync delete failed for {gid}: {_sanitize_error(e)}")
+        await db.events.update_one(
+            {"event_id": event_id},
+            {"$unset": {"calendar_event_id": "", "calendar_event_ids": ""}}
+        )
         return
-    
+
     # Upsert
     client_name = None
     if event.get("client_id"):
@@ -1241,26 +1450,126 @@ async def auto_sync_event(company_id: str, event_id: str, action: str = "upsert"
         )
         if client_doc:
             client_name = client_doc.get("display_name") or client_doc.get("company_name")
-    
-    body = _event_to_calendar_body(event, client_name)
-    if not body:
-        # TBD event: if it was synced before, remove it from calendar
-        if existing_event_id:
+
+    bodies = await _event_to_calendar_body(event, client_name)
+    if not bodies:
+        # Became TBD → remove any previously-synced Google events.
+        for gid in list(existing_ids.values()) + ([legacy_id] if legacy_id else []):
+            if not gid:
+                continue
             try:
-                service.events().delete(calendarId=calendar_id, eventId=existing_event_id).execute()
+                service.events().delete(calendarId=calendar_id, eventId=gid).execute()
             except Exception:
                 pass
-            await db.events.update_one({"event_id": event_id}, {"$unset": {"calendar_event_id": ""}})
+        await db.events.update_one(
+            {"event_id": event_id},
+            {"$unset": {"calendar_event_id": "", "calendar_event_ids": ""}}
+        )
         return
-    
+
+    # If we have only a legacy singular id, migrate it to be the day-1 mapping.
+    if legacy_id and not existing_ids and bodies:
+        existing_ids = {bodies[0][0]: legacy_id}
+
+    new_ids: dict = {}
     try:
-        if existing_event_id:
-            service.events().update(calendarId=calendar_id, eventId=existing_event_id, body=body).execute()
-        else:
-            gevent = service.events().insert(calendarId=calendar_id, body=body).execute()
-            await db.events.update_one(
-                {"event_id": event_id},
-                {"$set": {"calendar_event_id": gevent["id"]}}
-            )
+        for day_key, body in bodies:
+            gid = existing_ids.get(day_key)
+            if gid:
+                try:
+                    gevent = service.events().update(
+                        calendarId=calendar_id, eventId=gid, body=body
+                    ).execute()
+                    new_ids[day_key] = gevent["id"]
+                except Exception:
+                    # Google id disappeared / was deleted server-side — re-insert.
+                    gevent = service.events().insert(calendarId=calendar_id, body=body).execute()
+                    new_ids[day_key] = gevent["id"]
+            else:
+                gevent = service.events().insert(calendarId=calendar_id, body=body).execute()
+                new_ids[day_key] = gevent["id"]
+
+        # Purge Google events for days that fell out of the range.
+        for day_key, gid in existing_ids.items():
+            if day_key not in new_ids:
+                try:
+                    service.events().delete(calendarId=calendar_id, eventId=gid).execute()
+                except Exception:
+                    pass
+
+        await db.events.update_one(
+            {"event_id": event_id},
+            {"$set": {
+                "calendar_event_ids": new_ids,
+                "calendar_event_id": next(iter(new_ids.values())) if new_ids else None,
+            }}
+        )
     except Exception as e:
-        print(f"Auto-sync event failed: {e}")
+        logger.warning(f"Auto-sync event failed: {_sanitize_error(e)}")
+
+
+# ==================== CONTENT-CONFIG ENDPOINTS ====================
+
+@router.get("/content-config")
+async def get_content_config(user: User = Depends(get_current_user)):
+    """Return the tenant's content-template config. Materializes defaults
+    (rather than returning `null`) so the UI can render a form immediately."""
+    return await _get_content_config(user.company_id)
+
+
+@router.put("/content-config")
+async def put_content_config(data: dict, user: User = Depends(get_current_user)):
+    """Save the tenant's content-template config.
+
+    Body: { title_template?, multiday_suffix?, description_blocks?, status_icons? }
+    Only fields present in the body are updated (partial patch). Never
+    overwrites the whole document to avoid clobbering fields that a parallel
+    UI or a later feature might have added.
+    """
+    # Permission gate — reuse admin/owner/super_admin roles from the existing
+    # disconnect endpoint so tenant-admin panel stays consistent.
+    role = getattr(user, "role_id", None)
+    if role not in (None, "admin", "owner", "super_admin"):
+        raise HTTPException(status_code=403, detail="Only admins can edit calendar content templates")
+
+    allowed = {"title_template", "multiday_suffix", "description_blocks", "status_icons"}
+    patch: dict = {k: v for k, v in (data or {}).items() if k in allowed}
+
+    # Basic validation — the sync loop must never render garbage.
+    if "title_template" in patch and not isinstance(patch["title_template"], str):
+        raise HTTPException(status_code=400, detail="title_template must be a string")
+    if "multiday_suffix" in patch and not isinstance(patch["multiday_suffix"], str):
+        raise HTTPException(status_code=400, detail="multiday_suffix must be a string")
+    if "description_blocks" in patch:
+        if not isinstance(patch["description_blocks"], dict):
+            raise HTTPException(status_code=400, detail="description_blocks must be an object")
+        # Cast every value to bool so a stringy "true" from an over-eager form
+        # can't sneak through.
+        patch["description_blocks"] = {k: bool(v) for k, v in patch["description_blocks"].items()
+                                       if k in DEFAULT_DESCRIPTION_BLOCKS}
+    if "status_icons" in patch:
+        if not isinstance(patch["status_icons"], dict):
+            raise HTTPException(status_code=400, detail="status_icons must be an object")
+        # Limit icon length + strip whitespace. Keys are lowercased for
+        # consistent lookup against event.stage / operational_status.
+        patch["status_icons"] = {
+            (str(k) or "").strip().lower(): (str(v) or "").strip()[:8]
+            for k, v in patch["status_icons"].items()
+            if v
+        }
+
+    patch["updated_at"] = datetime.now(timezone.utc).isoformat()
+    patch["company_id"] = user.company_id
+
+    await db[CALENDAR_CONTENT_CONFIG_COLLECTION].update_one(
+        {"company_id": user.company_id},
+        {"$set": patch},
+        upsert=True,
+    )
+    await _audit(
+        user.company_id, "content_config_updated",
+        user_id=getattr(user, "user_id", None),
+        result="success",
+        extra={"keys": list(patch.keys())},
+    )
+    return await _get_content_config(user.company_id)
