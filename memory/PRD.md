@@ -1,6 +1,34 @@
 # Kora OS — Product Requirements Document
 
 
+## Feature — Plantillas de Iconos + Preview en Vivo (Feb 14, 2026)
+
+**Estado:** ✅ Implementado — lint limpio.
+
+### Cambios en `GoogleCalendarSettingsSection.js`
+
+#### 1. Plantillas de un click (`ICON_TEMPLATES`)
+Tres presets listos que sobreescriben `contentCfg.status_icons` en un solo click:
+- **Recomendada**: `📝 Inquiry`, `⏳ Scope Drafted`, `✅ Confirmado`, `🚀 En Curso`, `🏆 Cerrado`, `🔴 Cancelado`.
+- **Festiva**: `💐 Inquiry`, `🎁 Scope`, `🥂 Definition`, `🎉 Confirmado`, `🍾 En Curso`, `🏆 Cerrado`, `❌ Cancelado` — perfecta para catering/bodas.
+- **Minimalista**: solo `✅ Confirmado`, `🔵 En Curso`, `⚫ Cerrado`, `❌ Cancelado`.
+- Botón **Limpiar** para vaciar todos los iconos.
+
+Cada plantilla muestra un preview de los primeros 5 emojis, su nombre y una descripción corta.
+
+#### 2. Preview en vivo en Google Calendar
+Nuevo panel `data-testid="calendar-preview-panel"` que renderiza mini "chips" al estilo Google Calendar para 4 estados representativos (Confirmado, En Revisión, Solicitud, Cancelado). Cada chip:
+- Tiene el color-strip lateral que **espeja el `colorId` real** que Google aplicará (helper `stageToColorId` en JS mirror del backend `_stage_to_calendar_meta`).
+- Muestra hora simulada + título renderizado con las mismas reglas de plantilla del backend (`{{status_icon}}`, `{{primary_record}}`, `{{status}}`, `{{location}}` + limpieza de separadores).
+- Se actualiza en tiempo real mientras el usuario edita título, plantilla o iconos — sin necesidad de guardar ni sincronizar para ver el resultado.
+
+### Beneficios
+- 0 clicks para tener una configuración funcional (plantilla Recomendada aplicada).
+- Feedback visual instantáneo — el usuario ve exactamente cómo se verán sus eventos en Google antes de guardar.
+- El colorId se calcula del mismo modo que el backend, así que el preview no miente.
+
+
+
 ## Feature — Selector Visual de Emojis por Estado en Google Calendar Settings (Feb 14, 2026)
 
 **Estado:** ✅ Implementado — lint limpio.

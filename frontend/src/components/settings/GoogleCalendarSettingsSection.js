@@ -45,6 +45,77 @@ const EMOJI_PALETTE = [
   "⚠️", "❗", "❓", "🚫", "❌", "🛑", "🔒", "🔑", "🏆", "👑",
 ];
 
+// One-click emoji templates. Each preset writes its full `icons` map into
+// `contentCfg.status_icons`, replacing whatever was there. This gives users
+// a sensible starting point instead of asking them to assign 9 emojis by hand.
+const ICON_TEMPLATES = {
+  recommended: {
+    label: { es: "Recomendada", en: "Recommended" },
+    hint: { es: "Balance profesional + expresivo", en: "Balanced pro + expressive" },
+    icons: {
+      inquiry_received: "📝",
+      context_captured: "📝",
+      scope_drafted: "⏳",
+      definition_in_review: "⏳",
+      committed: "✅",
+      in_progress: "🚀",
+      closed: "🏆",
+      cancelled: "🔴",
+      archived: "🚫",
+    },
+  },
+  festive: {
+    label: { es: "Festiva", en: "Festive" },
+    hint: { es: "Ideal para catering / bodas / celebraciones", en: "Great for catering / weddings / celebrations" },
+    icons: {
+      inquiry_received: "💐",
+      context_captured: "📝",
+      scope_drafted: "🎁",
+      definition_in_review: "🥂",
+      committed: "🎉",
+      in_progress: "🍾",
+      closed: "🏆",
+      cancelled: "❌",
+      archived: "🚫",
+    },
+  },
+  minimalist: {
+    label: { es: "Minimalista", en: "Minimalist" },
+    hint: { es: "Solo estados críticos", en: "Only critical states" },
+    icons: {
+      committed: "✅",
+      in_progress: "🔵",
+      closed: "⚫",
+      cancelled: "❌",
+    },
+  },
+};
+
+// Mirror of backend `_stage_to_calendar_meta` — computes the Google Calendar
+// colorId a given stage will receive so the preview matches production.
+// Kept intentionally simple; if the backend mapping changes, update here too.
+const stageToColorId = (stageKey) => {
+  const s = (stageKey || "").toLowerCase();
+  if (["cancelled", "archived", "lost"].includes(s)) return "11";
+  if (s === "closed") return "10";
+  if (s === "in_progress") return "7";
+  if (["committed", "won", "confirmed", "approved"].includes(s)) return "10";
+  if (["scope_drafted", "definition_in_review", "definition_review", "proposal", "negotiation", "quoted"].includes(s)) return "5";
+  if (["inquiry_received", "context_captured", "lead", "contacted", "discovery", "draft"].includes(s)) return "8";
+  return "7";
+};
+
+// Google Calendar color IDs → tailwind classes that visually approximate
+// how the event will render in the user's Google Calendar. Left border
+// mimics Google's colored strip on event chips.
+const CAL_COLOR_STYLES = {
+  "5":  { bg: "bg-yellow-50",   border: "border-l-yellow-500",   dot: "bg-yellow-400" },
+  "7":  { bg: "bg-blue-50",     border: "border-l-blue-500",     dot: "bg-blue-500" },
+  "8":  { bg: "bg-slate-100",   border: "border-l-slate-500",    dot: "bg-slate-500" },
+  "10": { bg: "bg-emerald-50",  border: "border-l-emerald-600",  dot: "bg-emerald-600" },
+  "11": { bg: "bg-red-50",      border: "border-l-red-500",      dot: "bg-red-500" },
+};
+
 export default function GoogleCalendarSettingsSection() {
   const { language } = useLanguage();
   const isEs = language === "es";
@@ -634,6 +705,55 @@ export default function GoogleCalendarSettingsSection() {
                     {isEs ? "Iconos por Estado" : "Status Icons"}
                   </Label>
 
+                  {/* One-click templates. Replaces the whole `status_icons`
+                      map so users don't have to build it from scratch. */}
+                  <div className="mb-3 p-2.5 rounded-lg bg-gradient-to-r from-primary/5 to-transparent border border-primary/20">
+                    <p className="text-[11px] font-medium text-primary mb-2">
+                      {isEs ? "Aplicar plantilla rápida" : "Apply quick template"}
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {Object.entries(ICON_TEMPLATES).map(([key, tpl]) => (
+                        <button
+                          key={key}
+                          type="button"
+                          onClick={() => {
+                            setContentCfg((prev) => ({ ...prev, status_icons: { ...tpl.icons } }));
+                            setFocusedIconKey(null);
+                            toast.success(
+                              isEs
+                                ? `Plantilla "${tpl.label.es}" aplicada — recuerda guardar`
+                                : `Template "${tpl.label.en}" applied — remember to save`
+                            );
+                          }}
+                          className="flex-1 min-w-[110px] p-2 rounded border border-slate-200 bg-white hover:border-primary hover:bg-primary/5 transition-all text-left"
+                          data-testid={`icon-template-${key}`}
+                        >
+                          <div className="text-sm font-medium text-slate-800">
+                            {isEs ? tpl.label.es : tpl.label.en}
+                          </div>
+                          <div className="text-base leading-tight my-1">
+                            {Object.values(tpl.icons).slice(0, 5).join(" ")}
+                          </div>
+                          <div className="text-[10px] text-muted-foreground leading-tight">
+                            {isEs ? tpl.hint.es : tpl.hint.en}
+                          </div>
+                        </button>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setContentCfg((prev) => ({ ...prev, status_icons: {} }));
+                          setFocusedIconKey(null);
+                          toast.info(isEs ? "Iconos limpiados — recuerda guardar" : "Icons cleared — remember to save");
+                        }}
+                        className="p-2 rounded border border-slate-200 bg-white hover:border-red-400 hover:bg-red-50 transition-all text-sm text-slate-600 hover:text-red-600"
+                        data-testid="icon-template-clear"
+                      >
+                        {isEs ? "Limpiar" : "Clear"}
+                      </button>
+                    </div>
+                  </div>
+
                   {/* Preset grid: one row per Kora stage. Click a stage to
                       focus its slot, then click an emoji from the palette to
                       assign it. Also supports typing a custom emoji.
@@ -767,6 +887,59 @@ export default function GoogleCalendarSettingsSection() {
                       ? "Toca un estado para asignarle un emoji. Aparecerá antes del nombre del evento en Google Calendar."
                       : "Click a status to assign an emoji. It'll appear before the event name in Google Calendar."}
                   </p>
+
+                  {/* Live preview: renders a mini Google Calendar chip for each
+                      key stage so the user can *see* how their configuration
+                      will look before syncing. Colors are pulled from
+                      `stageToColorId` which mirrors the backend logic. */}
+                  <div className="mt-3 p-2.5 rounded-lg bg-slate-50 border border-slate-200" data-testid="calendar-preview-panel">
+                    <p className="text-[11px] font-medium text-slate-600 mb-2 flex items-center gap-1.5">
+                      <Calendar className="w-3 h-3" />
+                      {isEs ? "Vista previa en Google Calendar" : "Google Calendar preview"}
+                    </p>
+                    <div className="space-y-1.5">
+                      {[
+                        { key: "committed",             stage: isEs ? "Confirmado" : "Confirmed",   sample: isEs ? "Boda Ana & Carlos"  : "Ana & Carlos Wedding" },
+                        { key: "definition_in_review",  stage: isEs ? "En Revisión" : "In Review",   sample: isEs ? "Corporate — Banco X" : "Corporate — Bank X" },
+                        { key: "inquiry_received",      stage: isEs ? "Solicitud" : "Inquiry",       sample: isEs ? "Cumpleaños Sofía"   : "Sofia's Birthday" },
+                        { key: "cancelled",             stage: isEs ? "Cancelado" : "Cancelled",     sample: isEs ? "Evento Corporativo" : "Corporate Event" },
+                      ].map(({ key, stage, sample }) => {
+                        const colorId = stageToColorId(key);
+                        const style = CAL_COLOR_STYLES[colorId] || CAL_COLOR_STYLES["7"];
+                        const icon = (contentCfg.status_icons || {})[key] || "";
+                        // Build the title exactly as the backend would render it.
+                        // Substitute the same template variables used server-side.
+                        const raw = (contentCfg.title_template || "{{primary_record}}")
+                          .replace(/\{\{\s*primary_record\s*\}\}/g, sample)
+                          .replace(/\{\{\s*status\s*\}\}/g, stage)
+                          .replace(/\{\{\s*location\s*\}\}/g, "Casa Vieja")
+                          .replace(/\{\{\s*status_icon\s*\}\}/g, icon);
+                        // Same cleanup as `_render_title` on the backend.
+                        const rendered = raw
+                          .replace(/[·\-|]+\s*(?=[·\-|]|$)/g, "")
+                          .replace(/^\s*[·\-|]+\s*/, "")
+                          .replace(/\s*[·\-|]+\s*$/, "")
+                          .replace(/\s{2,}/g, " ")
+                          .trim();
+                        return (
+                          <div
+                            key={key}
+                            className={`flex items-center gap-2 py-1.5 px-2 rounded ${style.bg} border-l-4 ${style.border} shadow-sm`}
+                            data-testid={`preview-chip-${key}`}
+                          >
+                            <span className={`inline-block w-1.5 h-1.5 rounded-full ${style.dot} flex-shrink-0`} aria-hidden="true" />
+                            <span className="text-xs text-slate-500 font-mono w-16 flex-shrink-0">09:00</span>
+                            <span className="text-sm text-slate-800 truncate">{rendered}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <p className="text-[10px] text-muted-foreground mt-2">
+                      {isEs
+                        ? "Así se verán tus eventos en Google Calendar tras la próxima sincronización."
+                        : "This is how your events will appear on Google Calendar after the next sync."}
+                    </p>
+                  </div>
                 </div>
 
                 <div className="flex justify-end pt-2 border-t border-slate-100">
