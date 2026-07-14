@@ -10,9 +10,11 @@ import { Badge } from "../ui/badge";
 import { Checkbox } from "../ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "../ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "../ui/command";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
-import { Plus, RefreshCw, Calendar, FileText, ShoppingCart, Receipt, CreditCard } from "lucide-react";
+import { Plus, RefreshCw, Calendar, FileText, ShoppingCart, Receipt, CreditCard, Check, ChevronsUpDown } from "lucide-react";
 import { PaymentReceiptModal } from "./PaymentReceiptModal";
 
 import { API_BASE as API } from "../../utils/api";
@@ -31,6 +33,7 @@ export function PaymentsSection() {
   
   // Modal states
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+  const [clientPickerOpen, setClientPickerOpen] = useState(false);
   const [receiptModalOpen, setReceiptModalOpen] = useState(false);
   const [selectedPayment, setSelectedPayment] = useState(null);
   
@@ -307,18 +310,53 @@ export function PaymentsSection() {
             <div className="space-y-4 py-4">
               <div>
                 <Label>{isEs ? "Cliente" : "Client"} *</Label>
-                <Select value={selectedClient} onValueChange={handleClientChange}>
-                  <SelectTrigger className="mt-1">
-                    <SelectValue placeholder={isEs ? "Seleccionar cliente..." : "Select client..."} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {clients.map(c => (
-                      <SelectItem key={c.client_id} value={c.client_id}>
-                        {c.display_name || c.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Popover open={clientPickerOpen} onOpenChange={setClientPickerOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={clientPickerOpen}
+                      className="mt-1 w-full justify-between font-normal"
+                      data-testid="payment-client-picker"
+                    >
+                      <span className="truncate">
+                        {selectedClient
+                          ? (clients.find(c => c.client_id === selectedClient)?.display_name || (isEs ? "Cliente seleccionado" : "Selected client"))
+                          : (isEs ? "Buscar cliente…" : "Search client…")}
+                      </span>
+                      <ChevronsUpDown className="w-4 h-4 opacity-50 shrink-0" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[420px] p-0" align="start">
+                    <Command>
+                      <CommandInput
+                        placeholder={isEs ? "Escribir para buscar…" : "Type to search…"}
+                        data-testid="payment-client-search-input"
+                      />
+                      <CommandList>
+                        <CommandEmpty>{isEs ? "Sin resultados" : "No results"}</CommandEmpty>
+                        <CommandGroup>
+                          {clients.map(c => (
+                            <CommandItem
+                              key={c.client_id}
+                              value={`${c.display_name || ""} ${c.company_name || ""} ${c.email || ""} ${c.rnc || ""}`}
+                              onSelect={() => { handleClientChange(c.client_id); setClientPickerOpen(false); }}
+                              data-testid={`payment-client-option-${c.client_id}`}
+                            >
+                              <Check className={`mr-2 h-4 w-4 ${selectedClient === c.client_id ? "opacity-100" : "opacity-0"}`} />
+                              <div className="flex flex-col min-w-0">
+                                <span className="truncate">{c.display_name || c.company_name || c.name}</span>
+                                {(c.company_name && c.display_name !== c.company_name) && (
+                                  <span className="text-[11px] text-muted-foreground truncate">{c.company_name}</span>
+                                )}
+                              </div>
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
               </div>
             </div>
           )}

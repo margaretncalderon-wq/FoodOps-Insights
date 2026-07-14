@@ -1,6 +1,32 @@
 # Kora OS — Product Requirements Document
 
 
+## Enhancement — Business Clarity: cost_center + searchable client/vendor pickers (Feb 14, 2026)
+
+**Estado:** ✅ Implementado + smoke test end-to-end.
+
+### Cost Center como opción de "Asignar a" en Payables
+- `CreateSupplierPayableRequest` ahora acepta `cost_center_id` directo.
+- Lógica: `cost_center_id` explícito gana sobre `fixed_cost_category_id`. Resuelve `cost_center_name` automáticamente y dispara asiento contable.
+- UI: nueva opción "Centro de Costo" en el dropdown "Asignar a" + select filtrado + hint con ruta de edición.
+
+### Searchable pickers en 4 lugares
+Reemplazado el `<Select>` plano por combobox con `Command + Popover` (search-as-you-type) en:
+- **StatementsSection** → `statement-client-picker`
+- **PaymentsSection** → `payment-client-picker`
+- **SalesReportsSection** → `sales-report-client-picker`
+- **PayablesSection** → `expense-vendor-picker` (proveedores unificados Partners + Suppliers)
+
+Cada picker busca contra: `display_name`, `company_name`, `email`, `rnc`. Empty state "Sin resultados". Muestra `company_name` como subtítulo cuando difiere del `display_name`.
+
+### Smoke test verificado
+- `GET /invoices` → 200 (9 facturas)
+- `GET /payments` → 200 (4 pagos)
+- `GET /crm/clients` → 200 (13 clientes)
+- `GET /clients/{id}/financial` → 200 con "Familia García": invoiced $49,750, balance $49,750, 1 actividad.
+
+
+
 ## Feature — Calendar Content Templates + Multi-day Split (Feb 14, 2026)
 
 **Estado:** ✅ Backend + 12 nuevos pytest tests + defaults backward-compat con Phase 1.

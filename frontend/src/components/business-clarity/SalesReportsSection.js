@@ -13,6 +13,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "../ui/command";
 import {
   Table,
   TableBody,
@@ -30,7 +32,7 @@ import {
 import {
   ShoppingCart, Users, UserCheck, Package, TrendingUp,
   FileText, Download, RefreshCw, Calendar, DollarSign,
-  ArrowUpRight, ArrowDownRight, Search
+  ArrowUpRight, ArrowDownRight, Search, Check, ChevronsUpDown
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -53,6 +55,7 @@ export function SalesReportsSection() {
   const isEs = language === "es";
   
   const [activeReport, setActiveReport] = useState("general");
+  const [clientPickerOpen, setClientPickerOpen] = useState(false);
   const [reportData, setReportData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [startDate, setStartDate] = useState(() => {
@@ -380,18 +383,55 @@ export function SalesReportsSection() {
           <div className="flex items-center gap-4">
             <div className="flex-1">
               <Label>{isEs ? "Seleccionar Cliente" : "Select Client"}</Label>
-              <Select value={selectedClient} onValueChange={setSelectedClient}>
-                <SelectTrigger>
-                  <SelectValue placeholder={isEs ? "Buscar cliente..." : "Search client..."} />
-                </SelectTrigger>
-                <SelectContent>
-                  {clients.map(c => (
-                    <SelectItem key={c.client_id} value={c.client_id}>
-                      {c.name || c.company_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Popover open={clientPickerOpen} onOpenChange={setClientPickerOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={clientPickerOpen}
+                    className="w-full justify-between font-normal mt-1"
+                    data-testid="sales-report-client-picker"
+                  >
+                    <span className="truncate">
+                      {selectedClient
+                        ? (clients.find(c => c.client_id === selectedClient)?.name
+                           || clients.find(c => c.client_id === selectedClient)?.company_name
+                           || (isEs ? "Cliente seleccionado" : "Selected client"))
+                        : (isEs ? "Buscar cliente…" : "Search client…")}
+                    </span>
+                    <ChevronsUpDown className="w-4 h-4 opacity-50 shrink-0" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[420px] p-0" align="start">
+                  <Command>
+                    <CommandInput
+                      placeholder={isEs ? "Escribir para buscar…" : "Type to search…"}
+                      data-testid="sales-report-client-search-input"
+                    />
+                    <CommandList>
+                      <CommandEmpty>{isEs ? "Sin resultados" : "No results"}</CommandEmpty>
+                      <CommandGroup>
+                        {clients.map(c => (
+                          <CommandItem
+                            key={c.client_id}
+                            value={`${c.name || ""} ${c.company_name || ""} ${c.email || ""} ${c.rnc || ""}`}
+                            onSelect={() => { setSelectedClient(c.client_id); setClientPickerOpen(false); }}
+                            data-testid={`sales-report-client-option-${c.client_id}`}
+                          >
+                            <Check className={`mr-2 h-4 w-4 ${selectedClient === c.client_id ? "opacity-100" : "opacity-0"}`} />
+                            <div className="flex flex-col min-w-0">
+                              <span className="truncate">{c.name || c.company_name}</span>
+                              {(c.company_name && c.name !== c.company_name) && (
+                                <span className="text-[11px] text-muted-foreground truncate">{c.company_name}</span>
+                              )}
+                            </div>
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
             </div>
           </div>
         </CardContent>

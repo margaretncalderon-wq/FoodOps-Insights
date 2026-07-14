@@ -7,12 +7,14 @@ import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "../ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "../ui/command";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table";
 import { Label } from "../ui/label";
 import { Input } from "../ui/input";
 import { Textarea } from "../ui/textarea";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui/tooltip";
-import { FileText, RefreshCw, Calendar, Building2, AlertCircle, HelpCircle, Info, Target, Plus, DollarSign, CreditCard, CheckCircle, Clock, History, Download } from "lucide-react";
+import { FileText, RefreshCw, Calendar, Building2, AlertCircle, HelpCircle, Info, Target, Plus, DollarSign, CreditCard, CheckCircle, Clock, History, Download, Check, ChevronsUpDown } from "lucide-react";
 
 import { KoraLoader } from "../KoraLoader";
 import { API_BASE as API } from "../../utils/api";
@@ -27,6 +29,7 @@ export function PayablesSection() {
   const [fixedCostCategories, setFixedCostCategories] = useState([]);
   const [suppliers, setSuppliers] = useState([]);
   const [costCenters, setCostCenters] = useState([]);
+  const [vendorPickerOpen, setVendorPickerOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [assignDialogOpen, setAssignDialogOpen] = useState(false);
   const [selectedPayable, setSelectedPayable] = useState(null);
@@ -626,32 +629,59 @@ export function PayablesSection() {
             <div className="space-y-2">
               <Label>{isEs ? "Proveedor" : "Vendor"} *</Label>
               <div className="flex gap-2">
-                <Select 
-                  value={newExpense.vendor_id} 
-                  onValueChange={(v) => setNewExpense({ ...newExpense, vendor_id: v })}
-                >
-                  <SelectTrigger data-testid="expense-vendor-select" className="flex-1">
-                    <SelectValue placeholder={isEs ? "Selecciona proveedor..." : "Select vendor..."} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {suppliers.length === 0 ? (
-                      <SelectItem value="no-vendors" disabled>
-                        {isEs ? "No hay proveedores. Crea uno primero." : "No vendors. Create one first."}
-                      </SelectItem>
-                    ) : (
-                      suppliers.map(vendor => (
-                        <SelectItem key={vendor.vendor_id} value={vendor.vendor_id}>
-                          <div className="flex items-center gap-2">
-                            <span>{vendor.name}</span>
-                            <Badge variant="outline" className="text-xs">
-                              {vendor.source === "partners" ? "Partner" : "Supplier"}
-                            </Badge>
-                          </div>
-                        </SelectItem>
-                      ))
-                    )}
-                  </SelectContent>
-                </Select>
+                <Popover open={vendorPickerOpen} onOpenChange={setVendorPickerOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={vendorPickerOpen}
+                      className="flex-1 justify-between font-normal"
+                      data-testid="expense-vendor-picker"
+                    >
+                      <span className="truncate">
+                        {newExpense.vendor_id
+                          ? (suppliers.find(v => v.vendor_id === newExpense.vendor_id)?.name
+                             || (isEs ? "Proveedor seleccionado" : "Selected vendor"))
+                          : (suppliers.length === 0
+                              ? (isEs ? "Sin proveedores — crea uno →" : "No vendors — create one →")
+                              : (isEs ? "Buscar proveedor…" : "Search vendor…"))}
+                      </span>
+                      <ChevronsUpDown className="w-4 h-4 opacity-50 shrink-0" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[420px] p-0" align="start">
+                    <Command>
+                      <CommandInput
+                        placeholder={isEs ? "Escribir para buscar…" : "Type to search…"}
+                        data-testid="expense-vendor-search-input"
+                      />
+                      <CommandList>
+                        <CommandEmpty>{isEs ? "Sin resultados" : "No results"}</CommandEmpty>
+                        <CommandGroup>
+                          {suppliers.map(vendor => (
+                            <CommandItem
+                              key={vendor.vendor_id}
+                              value={`${vendor.name || ""} ${vendor.rnc || ""} ${vendor.email || ""}`}
+                              onSelect={() => {
+                                setNewExpense({ ...newExpense, vendor_id: vendor.vendor_id });
+                                setVendorPickerOpen(false);
+                              }}
+                              data-testid={`expense-vendor-option-${vendor.vendor_id}`}
+                            >
+                              <Check className={`mr-2 h-4 w-4 ${newExpense.vendor_id === vendor.vendor_id ? "opacity-100" : "opacity-0"}`} />
+                              <div className="flex items-center justify-between gap-2 flex-1 min-w-0">
+                                <span className="truncate">{vendor.name}</span>
+                                <Badge variant="outline" className="text-[10px] shrink-0">
+                                  {vendor.source === "partners" ? "Partner" : "Supplier"}
+                                </Badge>
+                              </div>
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
                 <Button 
                   type="button" 
                   variant="outline" 
