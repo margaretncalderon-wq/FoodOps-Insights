@@ -8,6 +8,7 @@ import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../components/ui/dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "../components/ui/popover";
 import { parseDateOnly, formatDateOnly } from "../utils/dates";
 import { 
   ChevronLeft, ChevronRight, Plus, Calendar as CalendarIcon, 
@@ -29,13 +30,13 @@ const ENGAGEMENT_STAGES = [
 
 // Status colors for events (only new engagement stages)
 const STATUS_COLORS = {
-  "Inquiry Received": { bg: "bg-slate-100", border: "border-slate-300", text: "text-slate-700", dot: "bg-slate-500" },
-  "Context Captured": { bg: "bg-blue-100", border: "border-blue-300", text: "text-blue-700", dot: "bg-blue-500" },
-  "Scope Drafted": { bg: "bg-amber-100", border: "border-amber-300", text: "text-amber-700", dot: "bg-amber-500" },
-  "Definition In Review": { bg: "bg-orange-100", border: "border-orange-300", text: "text-orange-700", dot: "bg-orange-500" },
-  "Committed": { bg: "bg-emerald-100", border: "border-emerald-300", text: "text-emerald-700", dot: "bg-emerald-500" },
-  "Archived": { bg: "bg-gray-100", border: "border-gray-300", text: "text-gray-500", dot: "bg-gray-400" },
-  "default": { bg: "bg-gray-100", border: "border-gray-200", text: "text-gray-700", dot: "bg-gray-400" }
+  "Inquiry Received": { bg: "bg-slate-100", border: "border-slate-300", text: "text-slate-700", dot: "bg-slate-500", stripe: "bg-slate-500" },
+  "Context Captured": { bg: "bg-blue-100", border: "border-blue-300", text: "text-blue-700", dot: "bg-blue-500", stripe: "bg-blue-500" },
+  "Scope Drafted": { bg: "bg-amber-100", border: "border-amber-300", text: "text-amber-700", dot: "bg-amber-500", stripe: "bg-amber-500" },
+  "Definition In Review": { bg: "bg-orange-100", border: "border-orange-300", text: "text-orange-700", dot: "bg-orange-500", stripe: "bg-orange-500" },
+  "Committed": { bg: "bg-emerald-100", border: "border-emerald-300", text: "text-emerald-700", dot: "bg-emerald-500", stripe: "bg-emerald-500" },
+  "Archived": { bg: "bg-gray-100", border: "border-gray-300", text: "text-gray-500", dot: "bg-gray-400", stripe: "bg-gray-400" },
+  "default": { bg: "bg-gray-100", border: "border-gray-200", text: "text-gray-700", dot: "bg-gray-400", stripe: "bg-gray-400" }
 };
 
 const EVENT_TYPE_COLORS = {
@@ -192,7 +193,9 @@ export default function EngagementCalendar({ embedded = false }) {
   // Get individual meal/service entries for a date so each meal (Desayuno,
   // Almuerzo, ...) renders as its own calendar block. Returns an array of
   // `{event, service}` pairs, or `{event, service: null}` when the event has
-  // no service breakdown for that date (legacy / TBD).
+  // Returns a flat list of `{event, service?}` entries for the date, sorted
+  // chronologically by earliest time-of-day so a 10:00 event appears above a
+  // 14:00 event even when many events land on the same day.
   const getEntriesForDate = (date) => {
     const dateStr = date.toISOString().split('T')[0];
     const entries = [];
@@ -214,6 +217,13 @@ export default function EngagementCalendar({ embedded = false }) {
         }
       }
     }
+    // Final sort across events + services so the full day list is chronological.
+    entries.sort((a, b) => {
+      const ta = a.service?.time || a.event.start_time || "99:99";
+      const tb = b.service?.time || b.event.start_time || "99:99";
+      if (ta !== tb) return ta.localeCompare(tb);
+      return (a.event.name || "").localeCompare(b.event.name || "");
+    });
     return entries;
   };
 
@@ -563,61 +573,120 @@ export default function EngagementCalendar({ embedded = false }) {
                 {generateMonthDays().map((dayInfo, index) => {
                   const dayEntries = getEntriesForDate(dayInfo.date);
                   const isCurrentDay = isToday(dayInfo.date);
-                  
+                  const MAX_VISIBLE = 3;
+                  const visibleEntries = dayEntries.slice(0, MAX_VISIBLE);
+                  const overflowEntries = dayEntries.slice(MAX_VISIBLE);
+
+                  // Render a single event chip. `compact` controls the truncation
+                  // level (chip vs popover row).
+                  const renderChip = ({ event, service }, entryIdx, opts = {}) => {
+                    const colors = getStatusColor(event.stage);
+                    const multiDayPos = getMultiDayPosition(event, dayInfo.date);
+                    const isMultiDay = isMultiDayEvent(event);
+                    const timePrefix = service?.time
+                      ? formatTime(service.time)
+                      : event.start_time
+                        ? formatTime(event.start_time)
+                        : "";
+                    const endPrefix = service?.end_time
+                      ? formatTime(service.end_time)
+                      : event.end_time
+                        ? formatTime(event.end_time)
+                        : "";
+                    // Show "HH:MM-HH:MM" when both, otherwise single time or none.
+                    const timeText = timePrefix && endPrefix
+                      ? `${timePrefix}-${endPrefix}`
+                      : timePrefix || "";
+                    const mealLabel = service?.title || event.name;
+                    const showEventName = service && service.title && mealLabel !== event.name;
+                    const label = service
+                      ? `${mealLabel}${showEventName ? " · " + event.name : ""}`
+                      : event.name;
+                    const tooltip = service
+                      ? `${event.name} · ${service.title || ""}${service.time ? " @ " + formatTime(service.time) : ""}`
+                      : `${event.name} - ${stageDisplay(normalizeStage(event.stage), isEs)}${event.start_time ? ` @ ${formatTime(event.start_time)}` : ""}${event.end_time ? "-" + formatTime(event.end_time) : ""}`;
+                    return (
+                      <div
+                        key={`${event.event_id}-${dayInfo.date.toISOString()}-${entryIdx}-${opts.popover ? "pop" : "cell"}`}
+                        onClick={(e) => { e.stopPropagation(); openEventDetail(event); }}
+                        className={`text-xs cursor-pointer flex items-center gap-1 group hover:opacity-90 transition-opacity ${
+                          isMultiDay && !service
+                            ? multiDayPos === "start"
+                              ? "rounded-l"
+                              : multiDayPos === "end"
+                                ? "rounded-r"
+                                : ""
+                            : "rounded"
+                        } ${opts.popover ? "p-1.5 bg-white border border-slate-200 hover:bg-slate-50" : `pl-0 pr-1 py-0.5 ${colors.bg} ${colors.text}`}`}
+                        title={tooltip}
+                        data-testid={`calendar-entry-${event.event_id}-${entryIdx}`}
+                      >
+                        {/* Left color stripe (3px) to reinforce stage color even
+                            when the chip background gets crowded */}
+                        {!opts.popover && (
+                          <span className={`inline-block w-[3px] self-stretch rounded ${colors.stripe || colors.text.replace("text-", "bg-")}`} />
+                        )}
+                        {isMultiDay && !service && multiDayPos !== "start" && (
+                          <span className="opacity-60">↔</span>
+                        )}
+                        {timeText && (
+                          <span className={`font-mono ${opts.popover ? "text-slate-500" : "opacity-80"} text-[10px] shrink-0`}>{timeText}</span>
+                        )}
+                        <span className="truncate flex-1">{label}</span>
+                        {isMultiDay && !service && (
+                          <span className="opacity-70 font-mono text-[10px] shrink-0">{getMultiDayIndex(event, dayInfo.date)}</span>
+                        )}
+                      </div>
+                    );
+                  };
+
                   return (
                     <div
                       key={index}
-                      className={`min-h-[72px] p-1 transition-colors ${
+                      className={`min-h-[108px] p-1 transition-colors ${
                         dayInfo.isCurrentMonth ? "bg-background" : "bg-muted/20"
                       } ${isCurrentDay ? "ring-1 ring-inset ring-primary" : ""}`}
                     >
-                      <div className={`text-xs font-medium mb-0.5 ${
-                        isCurrentDay ? "text-primary font-bold" : dayInfo.isCurrentMonth ? "text-foreground" : "text-muted-foreground"
-                      }`}>
-                        {dayInfo.date.getDate()}
+                      <div className="flex items-center justify-between mb-0.5">
+                        <div className={`text-xs font-medium ${
+                          isCurrentDay ? "text-primary font-bold" : dayInfo.isCurrentMonth ? "text-foreground" : "text-muted-foreground"
+                        }`}>
+                          {dayInfo.date.getDate()}
+                        </div>
+                        {dayEntries.length > 0 && (
+                          <span className="text-[9px] text-muted-foreground font-mono" title={isEs ? `${dayEntries.length} eventos` : `${dayEntries.length} events`}>
+                            {dayEntries.length}
+                          </span>
+                        )}
                       </div>
                       <div className="space-y-0.5">
-                        {dayEntries.map(({ event, service }, entryIdx) => {
-                          const colors = getStatusColor(event.stage);
-                          const multiDayPos = getMultiDayPosition(event, dayInfo.date);
-                          const isMultiDay = isMultiDayEvent(event);
-                          // Per-meal service chip shows "08:00 Desayuno · Nombre del Evento"
-                          // so the user sees the service type AND which event it belongs to.
-                          const timePrefix = service?.time ? formatTime(service.time) + " " : "";
-                          const mealLabel = service?.title || event.name;
-                          const showEventName = service && service.title && mealLabel !== event.name;
-                          const label = service
-                            ? `${timePrefix}${mealLabel}${showEventName ? " · " + event.name : ""}`
-                            : event.name;
-                          const tooltip = service
-                            ? `${event.name} · ${service.title || ""}${service.time ? " @ " + formatTime(service.time) : ""}`
-                            : `${event.name} - ${stageDisplay(normalizeStage(event.stage), isEs)}${event.start_time ? ` @ ${formatTime(event.start_time)}` : ""}`;
-                          return (
-                            <div
-                              key={`${event.event_id}-${dayInfo.date.toISOString()}-${entryIdx}`}
-                              onClick={() => openEventDetail(event)}
-                              className={`text-xs px-1 py-0.5 cursor-pointer truncate ${colors.bg} ${colors.text} hover:opacity-80 transition-opacity ${
-                                isMultiDay && !service
-                                  ? multiDayPos === "start"
-                                    ? "rounded-l"
-                                    : multiDayPos === "end"
-                                      ? "rounded-r"
-                                      : ""
-                                  : "rounded"
-                              }`}
-                              title={tooltip}
-                              data-testid={`calendar-entry-${event.event_id}-${entryIdx}`}
-                            >
-                              {isMultiDay && !service && multiDayPos !== "start" && (
-                                <span className="opacity-60 mr-0.5">↔</span>
-                              )}
-                              <span className="truncate">{label}</span>
-                              {isMultiDay && !service && (
-                                <span className="opacity-70 ml-1 font-mono text-[10px]">{getMultiDayIndex(event, dayInfo.date)}</span>
-                              )}
-                            </div>
-                          );
-                        })}
+                        {visibleEntries.map((entry, idx) => renderChip(entry, idx))}
+                        {overflowEntries.length > 0 && (
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <button
+                                type="button"
+                                className="w-full text-[10px] font-medium text-primary hover:bg-primary/10 rounded px-1 py-0.5 transition-colors text-left"
+                                data-testid={`calendar-overflow-${dayInfo.date.toISOString().split("T")[0]}`}
+                              >
+                                + {overflowEntries.length} {isEs ? "más" : "more"}
+                              </button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-72 p-2" align="start">
+                              <div className="text-xs font-medium mb-2 pb-1 border-b flex items-center justify-between">
+                                <span>
+                                  {dayInfo.date.toLocaleDateString(isEs ? "es-ES" : "en-US", { weekday: "long", day: "numeric", month: "long" })}
+                                </span>
+                                <span className="text-muted-foreground font-mono">
+                                  {dayEntries.length} {isEs ? "eventos" : "events"}
+                                </span>
+                              </div>
+                              <div className="space-y-1 max-h-80 overflow-y-auto">
+                                {dayEntries.map((entry, idx) => renderChip(entry, idx, { popover: true }))}
+                              </div>
+                            </PopoverContent>
+                          </Popover>
+                        )}
                       </div>
                     </div>
                   );
