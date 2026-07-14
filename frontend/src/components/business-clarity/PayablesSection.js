@@ -173,7 +173,8 @@ export function PayablesSection() {
         invoice_number: newExpense.invoice_number || null,
         due_date: newExpense.due_date || null,
         event_id: newExpense.assignment_type === "event" ? newExpense.event_id : null,
-        fixed_cost_category_id: newExpense.assignment_type === "fixed_cost" ? newExpense.fixed_cost_category_id : null
+        fixed_cost_category_id: newExpense.assignment_type === "fixed_cost" ? newExpense.fixed_cost_category_id : null,
+        cost_center_id: newExpense.assignment_type === "cost_center" ? newExpense.cost_center_id : null,
       };
       
       await axios.post(`${API}/api/business-clarity/supplier-payables`, payload, { withCredentials: true });
@@ -752,7 +753,7 @@ export function PayablesSection() {
               <Label>{isEs ? "Asignar a" : "Assign to"}</Label>
               <Select 
                 value={newExpense.assignment_type} 
-                onValueChange={(v) => setNewExpense({ ...newExpense, assignment_type: v, event_id: "", fixed_cost_category_id: "" })}
+                onValueChange={(v) => setNewExpense({ ...newExpense, assignment_type: v, event_id: "", fixed_cost_category_id: "", cost_center_id: "" })}
               >
                 <SelectTrigger data-testid="expense-assignment-type-select">
                   <SelectValue />
@@ -761,6 +762,7 @@ export function PayablesSection() {
                   <SelectItem value="none">{isEs ? "Sin asignar (Overhead)" : "Unassigned (Overhead)"}</SelectItem>
                   <SelectItem value="event">{isEs ? "Evento" : "Event"}</SelectItem>
                   <SelectItem value="fixed_cost">{isEs ? "Categoría de Costo Fijo" : "Fixed Cost Category"}</SelectItem>
+                  <SelectItem value="cost_center">{isEs ? "Centro de Costo" : "Cost Center"}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -806,6 +808,41 @@ export function PayablesSection() {
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+            )}
+
+            {/* Cost Center Selection — direct assignment for expenses that
+                don't belong to a fixed-cost category or an event. */}
+            {newExpense.assignment_type === "cost_center" && (
+              <div className="space-y-2">
+                <Label>{isEs ? "Centro de Costo" : "Cost Center"}</Label>
+                <Select
+                  value={newExpense.cost_center_id}
+                  onValueChange={(v) => setNewExpense({ ...newExpense, cost_center_id: v })}
+                >
+                  <SelectTrigger data-testid="expense-cost-center-select">
+                    <SelectValue placeholder={isEs ? "Selecciona centro de costo..." : "Select cost center..."} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {costCenters.length === 0 && (
+                      <div className="px-2 py-1.5 text-xs text-muted-foreground italic">
+                        {isEs
+                          ? "Sin centros de costo. Créalos en Ajustes → Equipo → Estructura Organizacional."
+                          : "No cost centers. Create them in Settings → Team → Organization Structure."}
+                      </div>
+                    )}
+                    {costCenters.map(cc => (
+                      <SelectItem key={cc.cost_center_id} value={cc.cost_center_id}>
+                        {cc.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-[11px] text-muted-foreground">
+                  {isEs
+                    ? "Edítalos en Ajustes → Equipo → Estructura Organizacional → Centros de Costo."
+                    : "Edit them in Settings → Team → Organization Structure → Cost Centers."}
+                </p>
               </div>
             )}
             

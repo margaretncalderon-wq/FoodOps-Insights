@@ -1821,6 +1821,10 @@ class CreateSupplierPayableRequest(BaseModel):
     invoice_number: Optional[str] = None
     fixed_cost_category_id: Optional[str] = None
     event_id: Optional[str] = None
+    # Direct cost-center assignment (used when the expense doesn't belong to a
+    # fixed-cost category or an event — e.g. a random supplier invoice that
+    # should still hit Kitchen, Logistics, etc. for reporting).
+    cost_center_id: Optional[str] = None
 
 
 @business_clarity_router.post("/supplier-payables")
@@ -1843,10 +1847,18 @@ async def create_supplier_payable(
         )
         supplier_name = supplier.get("name") if supplier else None
     
-    # Get cost center from fixed cost category
+    # Get cost center — either derived from a fixed_cost_category or set
+    # explicitly via `cost_center_id`. Explicit wins if both are set.
     cost_center_id = None
     cost_center_name = None
-    if data.fixed_cost_category_id:
+    if data.cost_center_id:
+        cost_center_id = data.cost_center_id
+        cc = await db.cost_centers.find_one(
+            {"cost_center_id": cost_center_id, "company_id": user.company_id},
+            {"_id": 0, "name": 1}
+        )
+        cost_center_name = cc.get("name") if cc else None
+    elif data.fixed_cost_category_id:
         fc_cat = await db.fixed_cost_categories.find_one(
             {"category_id": data.fixed_cost_category_id, "company_id": user.company_id},
             {"_id": 0, "cost_center_id": 1}
