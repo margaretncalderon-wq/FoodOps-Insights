@@ -23,6 +23,7 @@ import {
 
 import { API_BASE as API } from "../../utils/api";
 import { fmtNum } from "../../utils/format";
+import { KoraLoader } from "../KoraLoader";
 const formatCurrency = (amount) => `$${(amount || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 export function CloseReconciliationSection() {
@@ -510,7 +511,7 @@ export function CloseReconciliationSection() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <RefreshCw className="w-8 h-8 animate-spin" />
+        <KoraLoader size={48} />
       </div>
     );
   }

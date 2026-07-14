@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 
 import { API_BASE as API } from "../../utils/api";
+import { KoraLoader } from "../KoraLoader";
 
 const MONTHS = [
   "January", "February", "March", "April", "May", "June",
@@ -219,7 +220,7 @@ export default function EventCalendarTab({ eventId, isGlobal = false }) {
     setCurrentDate(nd);
   };
 
-  if (loading) return <div className="flex items-center justify-center h-64"><RefreshCw className="w-8 h-8 animate-spin" /></div>;
+  if (loading) return <div className="flex items-center justify-center h-64"><KoraLoader size={48} /></div>;
 
   const monthNames = isEs ? MONTHS_ES : MONTHS;
   const weekdayNames = isEs ? WEEKDAYS_ES : WEEKDAYS;

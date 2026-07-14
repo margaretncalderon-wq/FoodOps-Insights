@@ -19,6 +19,7 @@ import {
 import { toast } from "sonner";
 
 import { API_BASE as API } from "../../utils/api";
+import { KoraLoader } from "../KoraLoader";
 
 const POSITION_LEVELS = [
   { value: "executive", label: "Ejecutivo", labelEn: "Executive" },
@@ -196,7 +197,7 @@ export function OrgChartSection() {
   const vacantPositions = totalPositions - filledPositions;
 
   if (loading) {
-    return <div className="flex items-center justify-center h-64"><RefreshCw className="w-8 h-8 animate-spin" /></div>;
+    return <div className="flex items-center justify-center h-64"><KoraLoader size={48} /></div>;
   }
 
   return (

@@ -17,6 +17,7 @@ import { Textarea } from "../ui/textarea";
 
 import { API_BASE as API } from "../../utils/api";
 import { formatDateOnly } from "../../utils/dates";
+import { KoraLoader } from "../KoraLoader";
 
 const FOLLOW_UP_TYPES = [
   { value: "Call", labelEn: "Call", labelEs: "Llamada", icon: Phone },
@@ -228,7 +229,7 @@ export default function FollowUpsSection() {
     </Card>
   );
 
-  if (loading) return <div className="flex items-center justify-center h-64"><RefreshCw className="w-8 h-8 animate-spin" /></div>;
+  if (loading) return <div className="flex items-center justify-center h-64"><KoraLoader size={48} /></div>;
 
   return (
     <div className="space-y-6" data-testid="follow-ups-section">

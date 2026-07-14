@@ -11,6 +11,7 @@ import { Save, RefreshCw, Target, FileText, AlertTriangle, Lock, CheckCircle } f
 
 import { API_BASE as API } from "../../utils/api";
 import { formatDateOnly } from "../../utils/dates";
+import { KoraLoader } from "../KoraLoader";
 
 export default function EventBlueprintTab({ eventId, event, onUpdate }) {
   const { language } = useLanguage();
@@ -57,7 +58,7 @@ export default function EventBlueprintTab({ eventId, event, onUpdate }) {
     setSaving(false);
   };
 
-  if (loading) return <div className="flex items-center justify-center h-64"><RefreshCw className="w-8 h-8 animate-spin" /></div>;
+  if (loading) return <div className="flex items-center justify-center h-64"><KoraLoader size={48} /></div>;
 
   return (
     <div className="space-y-6" data-testid="blueprint-tab">

@@ -27,6 +27,7 @@ import UnifiedCommsTimeline from "./UnifiedCommsTimeline";
 
 import { API_BASE as API } from "../../utils/api";
 import { formatDateOnly } from "../../utils/dates";
+import { KoraLoader } from "../KoraLoader";
 
 const SOURCE_ICONS = {
   Website: Globe,
@@ -602,7 +603,7 @@ export default function LeadInboundSection() {
     return diff < 24 * 60 * 60 * 1000;
   };
 
-  if (loading) return <div className="flex items-center justify-center h-64"><RefreshCw className="w-8 h-8 animate-spin" /></div>;
+  if (loading) return <div className="flex items-center justify-center h-64"><KoraLoader size={48} /></div>;
 
   // Source badge helper
   const getSourceBadge = (source) => {

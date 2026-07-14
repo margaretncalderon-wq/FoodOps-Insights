@@ -28,6 +28,7 @@ import LeadKanbanView from "./LeadKanbanView";
 
 import { API_BASE as API } from "../../utils/api";
 import { formatDateOnly } from "../../utils/dates";
+import { KoraLoader } from "../KoraLoader";
 
 // Cities by country
 const CITIES_BY_COUNTRY = {
@@ -833,7 +834,7 @@ export default function LeadOutreachSection() {
     return <Badge className={s.color}>{isEs ? s.labelEs : s.labelEn}</Badge>;
   };
 
-  if (loading) return <div className="flex items-center justify-center h-64"><RefreshCw className="w-8 h-8 animate-spin" /></div>;
+  if (loading) return <div className="flex items-center justify-center h-64"><KoraLoader size={48} /></div>;
 
   // Source badge helper
   const getSourceBadge = (source) => {

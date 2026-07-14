@@ -17,6 +17,7 @@ import {
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 
 import { API_BASE as API } from "../../utils/api";
+import { KoraLoader } from "../KoraLoader";
 
 export default function RunOfShowTab({ eventId, eventType }) {
   const { language } = useLanguage();
@@ -162,7 +163,7 @@ export default function RunOfShowTab({ eventId, eventType }) {
     return mins > 0 ? `${hours}h ${mins}min` : `${hours}h`;
   };
 
-  if (loading) return <div className="flex items-center justify-center h-64"><RefreshCw className="w-8 h-8 animate-spin" /></div>;
+  if (loading) return <div className="flex items-center justify-center h-64"><KoraLoader size={48} /></div>;
 
   return (
     <div className="space-y-6" data-testid="run-of-show-tab">

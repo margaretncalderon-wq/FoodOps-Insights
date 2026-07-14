@@ -22,6 +22,7 @@ import {
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "../ui/dropdown-menu";
 
 import { API_BASE as API } from "../../utils/api";
+import { KoraLoader } from "../KoraLoader";
 
 const STATUS_COLORS = {
   Lead: "bg-blue-100 text-blue-700 border-blue-300",
@@ -312,7 +313,7 @@ export default function CompaniesSection() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <RefreshCw className="w-8 h-8 animate-spin" />
+        <KoraLoader size={48} />
       </div>
     );
   }

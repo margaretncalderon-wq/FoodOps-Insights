@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 
 import { API_BASE as API } from "../utils/api"; // Dynamic API URL
+import { KoraLoader } from "../components/KoraLoader";
 
 // Lazy load sections
 const LeadOutreachSection = lazy(() => import("../components/crm/LeadOutreachSection"));
@@ -49,7 +50,7 @@ function CommsLogView() {
 
   useEffect(() => { fetchEntities(); }, [fetchEntities]);
 
-  if (loading) return <div className="flex items-center justify-center h-64"><RefreshCw className="w-8 h-8 animate-spin" /></div>;
+  if (loading) return <div className="flex items-center justify-center h-64"><KoraLoader size={48} /></div>;
 
   return (
     <div className="space-y-6">
@@ -210,7 +211,7 @@ export default function CRMPage({ embedded = false }) {
 
       {/* Main Content */}
       <div className="flex-1 overflow-auto p-6">
-        <Suspense fallback={<div className="flex items-center justify-center h-64"><RefreshCw className="w-8 h-8 animate-spin" /></div>}>
+        <Suspense fallback={<div className="flex items-center justify-center h-64"><KoraLoader size={48} /></div>}>
           <Routes>
             <Route path="/" element={<Navigate to={`${basePath}/dashboard`} replace />} />
             <Route path="dashboard" element={<CrmDashboard />} />

@@ -19,6 +19,7 @@ import {
 
 import { API_BASE as API } from "../../utils/api";
 import GuestFlowSection from "./GuestFlowSection";
+import { KoraLoader } from "../KoraLoader";
 
 const PHASE_STATUSES = [
   { value: "pending", label: "Pending", labelEs: "Pendiente", color: "bg-gray-100 text-gray-700" },
@@ -165,7 +166,7 @@ export default function OperationalFlowTab({ eventId }) {
     return Math.round((completed / flow.phases.length) * 100);
   };
 
-  if (loading) return <div className="flex items-center justify-center h-64"><RefreshCw className="w-8 h-8 animate-spin" /></div>;
+  if (loading) return <div className="flex items-center justify-center h-64"><KoraLoader size={48} /></div>;
 
   return (
     <div className="space-y-6" data-testid="operational-flow-tab">

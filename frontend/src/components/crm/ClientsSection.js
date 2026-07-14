@@ -31,6 +31,7 @@ import UnifiedCommsTimeline from "./UnifiedCommsTimeline";
 
 import { API_BASE as API } from "../../utils/api";
 import { formatDateOnly } from "../../utils/dates";
+import { KoraLoader } from "../KoraLoader";
 
 const CLIENT_SOURCES = ["Website", "Instagram", "QR", "Referral", "Direct", "Other"];
 const CLIENT_INDUSTRIES = [
@@ -324,7 +325,7 @@ export default function ClientsSection() {
     return `mailto:${email}`;
   };
 
-  if (loading) return <div className="flex items-center justify-center h-64"><RefreshCw className="w-8 h-8 animate-spin" /></div>;
+  if (loading) return <div className="flex items-center justify-center h-64"><KoraLoader size={48} /></div>;
 
   return (
     <div className="space-y-6" data-testid="clients-section">

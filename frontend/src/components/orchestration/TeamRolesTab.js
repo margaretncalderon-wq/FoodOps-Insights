@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 
 import { API_BASE as API } from "../../utils/api";
+import { KoraLoader } from "../KoraLoader";
 
 const COMMON_OPERATIONAL_ROLES = [
   { value: "coordinator", label: "Event Coordinator", labelEs: "Coordinador de Evento" },
@@ -202,7 +203,7 @@ export default function TeamRolesTab({ eventId, isLocked = false }) {
 
   const effectiveLocked = isLocked || team.is_locked;
 
-  if (loading) return <div className="flex items-center justify-center h-64"><RefreshCw className="w-8 h-8 animate-spin" /></div>;
+  if (loading) return <div className="flex items-center justify-center h-64"><KoraLoader size={48} /></div>;
 
   return (
     <div className="space-y-6" data-testid="team-roles-tab">

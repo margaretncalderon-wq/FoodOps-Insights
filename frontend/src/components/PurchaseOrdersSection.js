@@ -27,6 +27,7 @@ import {
 import { API_BASE as API } from "../utils/api";
 import { formatDateOnly } from "../utils/dates";
 import { fmtNum } from "../utils/format";
+import { KoraLoader } from "./KoraLoader";
 
 const PO_STATUSES = [
   { value: "Draft", label: "Draft", labelEs: "Borrador", color: "bg-gray-100 text-gray-700" },
@@ -483,7 +484,7 @@ export default function PurchaseOrdersSection() {
   // Calculate form subtotal
   const formSubtotal = form.lines.reduce((sum, line) => sum + (line.qty_ordered * line.unit_cost), 0);
 
-  if (loading) return <div className="flex items-center justify-center h-64"><RefreshCw className="w-8 h-8 animate-spin" /></div>;
+  if (loading) return <div className="flex items-center justify-center h-64"><KoraLoader size={48} /></div>;
 
   return (
     <div className="space-y-6" data-testid="purchase-orders-section">

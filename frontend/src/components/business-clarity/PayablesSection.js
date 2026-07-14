@@ -305,7 +305,7 @@ export function PayablesSection() {
     { value: "other", label: "Other", labelEs: "Otro" }
   ];
 
-  if (loading) return <div className="flex items-center justify-center h-64"><RefreshCw className="w-8 h-8 animate-spin" /></div>;
+  if (loading) return <div className="flex items-center justify-center h-64"><KoraLoader size={48} /></div>;
 
   const unassignedRecords = (data?.records || []).filter(r => !r.event_id && !r.cost_center && !r.fixed_cost_category_id);
   const unassignedTotal = unassignedRecords.reduce((sum, r) => sum + (r.balance_due || 0), 0);

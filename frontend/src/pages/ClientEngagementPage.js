@@ -18,6 +18,7 @@ import { RefreshCw, Users, FileText, CalendarDays,
   UserPlus, Inbox, Clock, MessageSquare, UserCircle, ChevronDown, Zap, BarChart3, Building2 } from "lucide-react";
 
 import { API_BASE as API } from "../utils/api";
+import { KoraLoader } from "../components/KoraLoader";
 
 // Lazy load CRM sections
 const LeadOutreachSection = lazy(() => import("../components/crm/LeadOutreachSection"));
@@ -46,7 +47,7 @@ function CommsLogView() {
 // Loading spinner component
 const LoadingSpinner = () => (
   <div className="flex items-center justify-center h-64">
-    <RefreshCw className="w-8 h-8 animate-spin" />
+    <KoraLoader size={48} />
   </div>
 );
 

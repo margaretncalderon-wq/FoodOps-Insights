@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 
 import { API_BASE as API } from "../../utils/api";
+import { KoraLoader } from "../KoraLoader";
 
 export default function OwnerAssignmentSection() {
   const { language } = useLanguage();
@@ -136,7 +137,7 @@ export default function OwnerAssignmentSection() {
   const globalConversionRate = totalLeads > 0 ? Math.round((convertedLeads / totalLeads) * 100) : 0;
   const unassignedCount = [...leads, ...clients].filter(item => !item.owner_id).length;
 
-  if (loading) return <div className="flex items-center justify-center h-64"><RefreshCw className="w-8 h-8 animate-spin" /></div>;
+  if (loading) return <div className="flex items-center justify-center h-64"><KoraLoader size={48} /></div>;
 
   return (
     <div className="space-y-6" data-testid="owner-assignment-section">

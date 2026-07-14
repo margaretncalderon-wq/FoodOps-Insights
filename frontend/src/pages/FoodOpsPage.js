@@ -798,7 +798,7 @@ function InventorySection() {
     .sort((a, b) => b.value - a.value)
     .slice(0, 5);
 
-  if (loading) return <div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>;
+  if (loading) return <div className="flex items-center justify-center h-64"><KoraLoader size={48} /></div>;
 
   return (
     <div className="space-y-6" data-testid="inventory-section">
@@ -2162,7 +2162,7 @@ function RecipesSection() {
     return <Badge className={t.class}>{t.label}</Badge>;
   };
 
-  if (loading) return <div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>;
+  if (loading) return <div className="flex items-center justify-center h-64"><KoraLoader size={48} /></div>;
 
   return (
     <div className="space-y-6" data-testid="recipes-section">
@@ -2631,7 +2631,7 @@ function PlatedMenusSection() {
     return types[type]?.[language] || type;
   };
 
-  if (loading) return <div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>;
+  if (loading) return <div className="flex items-center justify-center h-64"><KoraLoader size={48} /></div>;
 
   return (
     <div className="space-y-6" data-testid="menus-section">
@@ -2964,7 +2964,7 @@ function PurchasesSection() {
   const stockRequisition = purchaseData?.stock_requisition || purchaseData?.available || [];
   const purchaseList = purchaseData?.purchase_list || purchaseData?.short || [];
 
-  if (loading && !selectedEvent) return <div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>;
+  if (loading && !selectedEvent) return <div className="flex items-center justify-center h-64"><KoraLoader size={48} /></div>;
 
   return (
     <div className="space-y-6" data-testid="purchases-section">
@@ -3279,7 +3279,7 @@ function ProductionSectionWrapper() {
   useEffect(() => {
     import("../components/ProductionSection").then(mod => setComponent(() => mod.default));
   }, []);
-  if (!Component) return <div className="flex items-center justify-center h-64"><RefreshCw className="w-8 h-8 animate-spin" /></div>;
+  if (!Component) return <div className="flex items-center justify-center h-64"><KoraLoader size={48} /></div>;
   return <Component />;
 }
 
@@ -3288,7 +3288,7 @@ function PurchaseOrdersSectionWrapper() {
   useEffect(() => {
     import("../components/PurchaseOrdersSection").then(mod => setComponent(() => mod.default));
   }, []);
-  if (!Component) return <div className="flex items-center justify-center h-64"><RefreshCw className="w-8 h-8 animate-spin" /></div>;
+  if (!Component) return <div className="flex items-center justify-center h-64"><KoraLoader size={48} /></div>;
   return <Component />;
 }
 
@@ -3297,6 +3297,6 @@ function ConsolidatedPurchaseSectionWrapper() {
   useEffect(() => {
     import("../components/ConsolidatedPurchaseSection").then(mod => setComponent(() => mod.default));
   }, []);
-  if (!Component) return <div className="flex items-center justify-center h-64"><RefreshCw className="w-8 h-8 animate-spin" /></div>;
+  if (!Component) return <div className="flex items-center justify-center h-64"><KoraLoader size={48} /></div>;
   return <Component />;
 }

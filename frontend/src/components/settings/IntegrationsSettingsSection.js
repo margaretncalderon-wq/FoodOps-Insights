@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 
 import { API_BASE as API } from "../../utils/api";
+import { KoraLoader } from "../KoraLoader";
 
 // Available integrations
 const AVAILABLE_INTEGRATIONS = [
@@ -191,7 +192,7 @@ export default function IntegrationsSettingsSection() {
     ? AVAILABLE_INTEGRATIONS 
     : AVAILABLE_INTEGRATIONS.filter(i => i.category === categoryFilter);
 
-  if (loading) return <div className="flex items-center justify-center h-64"><RefreshCw className="w-8 h-8 animate-spin" /></div>;
+  if (loading) return <div className="flex items-center justify-center h-64"><KoraLoader size={48} /></div>;
 
   return (
     <div className="space-y-6" data-testid="integrations-settings">

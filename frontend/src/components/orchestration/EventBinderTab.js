@@ -15,6 +15,7 @@ import {
 
 import { API_BASE as API } from "../../utils/api";
 import { formatDateOnly } from "../../utils/dates";
+import { KoraLoader } from "../KoraLoader";
 
 export default function EventBinderTab({ eventId }) {
   const { language } = useLanguage();
@@ -71,7 +72,7 @@ export default function EventBinderTab({ eventId }) {
     });
   };
 
-  if (loading) return <div className="flex items-center justify-center h-64"><RefreshCw className="w-8 h-8 animate-spin" /></div>;
+  if (loading) return <div className="flex items-center justify-center h-64"><KoraLoader size={48} /></div>;
 
   if (!binder) return (
     <div className="text-center py-12 text-muted-foreground">

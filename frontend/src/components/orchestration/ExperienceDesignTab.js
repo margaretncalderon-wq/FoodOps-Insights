@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 
 import { API_BASE as API } from "../../utils/api";
+import { KoraLoader } from "../KoraLoader";
 
 const CATERING_SETUPS = [
   { value: "buffet", label: "Buffet", labelEs: "Buffet" },
@@ -123,7 +124,7 @@ export default function ExperienceDesignTab({ eventId }) {
     setDesign({ ...design, layout_zones: design.layout_zones.filter(z => z.id !== id) });
   };
 
-  if (loading) return <div className="flex items-center justify-center h-64"><RefreshCw className="w-8 h-8 animate-spin" /></div>;
+  if (loading) return <div className="flex items-center justify-center h-64"><KoraLoader size={48} /></div>;
 
   return (
     <div className="space-y-6" data-testid="experience-design-tab">

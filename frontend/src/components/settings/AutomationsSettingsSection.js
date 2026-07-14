@@ -17,6 +17,7 @@ import {
 
 import { API_BASE as API } from "../../utils/api";
 import WorkflowBuilder from "../automation/WorkflowBuilder";
+import { KoraLoader } from "../KoraLoader";
 
 // Trigger type icons mapping
 const TRIGGER_ICONS = {
@@ -172,7 +173,7 @@ export default function AutomationsSettingsSection() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <RefreshCw className="w-8 h-8 animate-spin" />
+        <KoraLoader size={48} />
       </div>
     );
   }

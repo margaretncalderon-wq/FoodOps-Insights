@@ -36,6 +36,7 @@ import OperationalDocumentsTab from "../components/orchestration/OperationalDocu
 import RoomSetupTab from "../components/RoomSetupTab";
 
 import { API_BASE as API } from "../utils/api"; // Dynamic API URL
+import { KoraLoader } from "../components/KoraLoader";
 
 // Icon mapping for dynamic industry icons
 const MODULE_ICONS = {
@@ -172,7 +173,7 @@ function EventsList() {
     { value: "all", label: isEs ? "Todos" : "All" }
   ];
 
-  if (loading) return <div className="flex items-center justify-center h-64"><RefreshCw className="w-8 h-8 animate-spin" /></div>;
+  if (loading) return <div className="flex items-center justify-center h-64"><KoraLoader size={48} /></div>;
 
   return (
     <div className="space-y-6" data-testid="orchestration-events-list">
@@ -407,7 +408,7 @@ function EventDetail() {
     }
   };
 
-  if (loading) return <div className="flex items-center justify-center h-64"><RefreshCw className="w-8 h-8 animate-spin" /></div>;
+  if (loading) return <div className="flex items-center justify-center h-64"><KoraLoader size={48} /></div>;
   if (!event) return <div className="text-center py-12">{isEs ? `${entitySingular} no encontrado` : `${entitySingular} not found`}</div>;
 
   const isLocked = event.stage === "Closed";

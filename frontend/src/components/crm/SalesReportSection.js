@@ -22,6 +22,7 @@ import {
 
 import { API_BASE as API } from "../../utils/api";
 import PerformanceTab from "./PerformanceTab";
+import { KoraLoader } from "../KoraLoader";
 
 export default function SalesReportSection() {
   const { language } = useLanguage();
@@ -246,7 +247,7 @@ export default function SalesReportSection() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <RefreshCw className="w-8 h-8 animate-spin" />
+        <KoraLoader size={48} />
       </div>
     );
   }

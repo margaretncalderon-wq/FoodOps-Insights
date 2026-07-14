@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 
 import { API_BASE as API } from "../utils/api";
+import { KoraLoader } from "../components/KoraLoader";
 
 // Engagement Stages (OS-level progression)
 const ENGAGEMENT_STAGES = [
@@ -381,7 +382,7 @@ export default function EngagementCalendar({ embedded = false }) {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <RefreshCw className="w-8 h-8 animate-spin" />
+        <KoraLoader size={48} />
       </div>
     );
   }
