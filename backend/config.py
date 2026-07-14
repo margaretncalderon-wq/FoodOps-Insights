@@ -71,6 +71,26 @@ async def create_indexes():
         # Proposals indexes for lookups
         await db.proposals.create_index("event_id")
         await db.proposals.create_index([("event_id", 1), ("final_total", 1)])
+
+        # Google Calendar integration — guarantees one connection per tenant
+        # so cross-tenant leakage from a racy upsert is impossible.
+        await db.calendar_config.create_index("company_id", unique=True)
+        await db.calendar_audit.create_index([("company_id", 1), ("created_at", -1)])
+        await db.calendar_audit.create_index("created_at")
+        # Prevent two concurrent syncs from creating two google_event_ids for
+        # the same Kora event.
+        await db.events.create_index(
+            [("company_id", 1), ("calendar_event_id", 1)],
+            sparse=True,
+        )
+        await db.leads.create_index(
+            [("company_id", 1), ("calendar_event_id", 1)],
+            sparse=True,
+        )
+        await db.clients.create_index(
+            [("company_id", 1), ("calendar_event_id", 1)],
+            sparse=True,
+        )
         
         # Invoices indexes
         await db.invoices.create_index("company_id")

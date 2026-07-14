@@ -1,13 +1,15 @@
 # routers/google_calendar.py - Google Calendar Integration for CRM Follow-ups
 import os
 import json
+import logging
 from datetime import datetime, timezone, timedelta
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Any
 import uuid
 
 from fastapi import APIRouter, HTTPException, Depends, Request, Query
 from fastapi.responses import RedirectResponse
 import requests
+from cryptography.fernet import Fernet, InvalidToken as FernetInvalidToken
 from google.oauth2.credentials import Credentials
 from google.auth.transport.requests import Request as GoogleRequest
 from googleapiclient.discovery import build
@@ -16,6 +18,8 @@ from config import db
 from dependencies import get_current_user
 from models.auth import User
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/oauth/calendar", tags=["Google Calendar"])
 
 # Environment variables
@@ -23,11 +27,139 @@ GOOGLE_CALENDAR_CLIENT_ID = os.environ.get("GOOGLE_CALENDAR_CLIENT_ID")
 GOOGLE_CALENDAR_CLIENT_SECRET = os.environ.get("GOOGLE_CALENDAR_CLIENT_SECRET")
 FRONTEND_URL = os.environ.get("FRONTEND_URL", "https://ourkora.com")
 
-# Scopes for Calendar API
-CALENDAR_SCOPES = ["https://www.googleapis.com/auth/calendar"]
+# ==================== SCOPES ====================
+# Narrower than legacy `auth/calendar` (which grants full R/W to ALL calendars).
+# We only need:
+#   * calendar.events                 → create / update / delete events
+#   * calendar.calendarlist.readonly  → list calendars for the user to pick one
+#   * userinfo.email                  → identify which Google account was connected
+# NOTE: existing tenants connected under the broader legacy scope will keep
+# working — Google returns the granted scopes on refresh and the API rejects
+# unauthorized calls anyway. New OAuth grants after this deploy will use the
+# tighter set.
+CALENDAR_SCOPES = [
+    "https://www.googleapis.com/auth/calendar.events",
+    "https://www.googleapis.com/auth/calendar.calendarlist.readonly",
+    "https://www.googleapis.com/auth/userinfo.email",
+]
 
-# Collection for storing calendar config
+# Collections
 CALENDAR_CONFIG_COLLECTION = "calendar_config"
+CALENDAR_AUDIT_COLLECTION = "calendar_audit"
+
+
+# ==================== ENCRYPTION AT REST ====================
+_FERNET: Optional[Fernet] = None
+
+
+def _fernet() -> Optional[Fernet]:
+    """Lazy-load the token encryption key. Returns None if the key is missing
+    so the module can still import in dev / tests, but any encryption /
+    decryption call MUST require it and will raise a clear error."""
+    global _FERNET
+    if _FERNET is None:
+        key = os.environ.get("CALENDAR_TOKEN_KEY")
+        if not key:
+            return None
+        _FERNET = Fernet(key.encode() if isinstance(key, str) else key)
+    return _FERNET
+
+
+def _encrypt_tokens(tokens: dict) -> dict:
+    """Persist tokens encrypted-at-rest. Returns a shape safe to store in
+    Mongo: `{ _v: 1, ct: "<fernet-ciphertext>" }`. The plaintext dict never
+    lands on disk. Falls back to plaintext with a WARNING when the key is
+    missing (dev only) so we never silently ship insecure prod."""
+    f = _fernet()
+    if not f:
+        logger.warning(
+            "CALENDAR_TOKEN_KEY missing — storing calendar tokens in plaintext. "
+            "This is NOT safe for production."
+        )
+        return tokens
+    payload = json.dumps(tokens, default=str).encode("utf-8")
+    return {"_v": 1, "ct": f.encrypt(payload).decode("ascii")}
+
+
+def _decrypt_tokens(stored: Any) -> Optional[dict]:
+    """Reverse of `_encrypt_tokens`. Also accepts LEGACY plaintext dicts so
+    tenants connected before this migration keep working — first successful
+    read/refresh re-encrypts them via `_persist_tokens_encrypted`."""
+    if stored is None:
+        return None
+    if isinstance(stored, dict) and stored.get("_v") == 1 and "ct" in stored:
+        f = _fernet()
+        if not f:
+            raise RuntimeError(
+                "Encrypted calendar tokens found but CALENDAR_TOKEN_KEY is not set."
+            )
+        try:
+            return json.loads(f.decrypt(stored["ct"].encode("ascii")).decode("utf-8"))
+        except (FernetInvalidToken, ValueError) as e:
+            logger.error(f"Failed to decrypt calendar tokens: {e}")
+            return None
+    # Legacy plaintext shape
+    if isinstance(stored, dict):
+        return stored
+    return None
+
+
+async def _persist_tokens_encrypted(company_id: str, tokens: dict) -> None:
+    """Encrypt + save tokens for a company. Used both after OAuth callback and
+    after every token refresh."""
+    await db[CALENDAR_CONFIG_COLLECTION].update_one(
+        {"company_id": company_id},
+        {"$set": {"tokens": _encrypt_tokens(tokens)}},
+    )
+
+
+# ==================== AUDIT LOG ====================
+async def _audit(
+    company_id: Optional[str],
+    action: str,
+    *,
+    user_id: Optional[str] = None,
+    result: str = "success",
+    kora_entity_type: Optional[str] = None,
+    kora_entity_id: Optional[str] = None,
+    google_event_id: Optional[str] = None,
+    error: Optional[str] = None,
+    extra: Optional[dict] = None,
+) -> None:
+    """Structured audit log for every calendar integration state change.
+
+    NEVER logs the access_token, refresh_token, authorization_code, client
+    secret, or full OAuth response body — callers must sanitize before
+    passing anything via `error` or `extra`.
+    """
+    try:
+        doc = {
+            "company_id": company_id,
+            "user_id": user_id,
+            "action": action,
+            "result": result,
+            "kora_entity_type": kora_entity_type,
+            "kora_entity_id": kora_entity_id,
+            "google_event_id": google_event_id,
+            "error": (error or "")[:500],  # truncate to keep log bounded
+            "extra": extra or {},
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        }
+        await db[CALENDAR_AUDIT_COLLECTION].insert_one(doc)
+    except Exception as e:  # never let audit failures break the flow
+        logger.warning(f"[calendar_audit] failed to write log: {e}")
+
+
+def _sanitize_error(msg: Any) -> str:
+    """Redact tokens / codes / long stack traces before surfacing an error to
+    the frontend or the audit log."""
+    s = str(msg or "")
+    # Common secrets patterns
+    for tok in ("access_token", "refresh_token", "client_secret", "authorization_code", "id_token"):
+        if tok in s.lower():
+            s = "[error contained sensitive token — redacted]"
+            break
+    return s[:200]
 
 
 # ==================== OAUTH FLOW ====================
@@ -52,8 +184,10 @@ async def start_calendar_oauth(
     # Build redirect URI
     actual_redirect_uri = redirect_uri or f"{FRONTEND_URL}/api/oauth/calendar/callback"
     
-    # Store state for security
-    state = f"{user.company_id}:{uuid.uuid4().hex[:16]}"
+    # Store state for security. Format: `<company_id>:<user_id>:<nonce>`.
+    # user_id is included so `connected_by_user_id` can be captured in the
+    # callback where we don't have a Depends(user).
+    state = f"{user.company_id}:{getattr(user, 'user_id', '') or ''}:{uuid.uuid4().hex[:24]}"
     await db[CALENDAR_CONFIG_COLLECTION].update_one(
         {"company_id": user.company_id},
         {"$set": {"oauth_state": state, "oauth_redirect": actual_redirect_uri}},
@@ -85,20 +219,24 @@ async def calendar_oauth_callback(
     Handle OAuth callback from Google.
     """
     if error:
-        return RedirectResponse(f"{FRONTEND_URL}/settings?calendar_error={error}")
-    
+        await _audit(None, "oauth_callback", result="error", error=_sanitize_error(error))
+        return RedirectResponse(f"{FRONTEND_URL}/settings?calendar_error={_sanitize_error(error)}")
+
     # Validate state and get company_id
     company_id = state.split(":")[0] if ":" in state else None
     if not company_id:
+        await _audit(None, "oauth_callback", result="error", error="invalid_state")
         return RedirectResponse(f"{FRONTEND_URL}/settings?calendar_error=invalid_state")
-    
+
     # Get stored config
     config = await db[CALENDAR_CONFIG_COLLECTION].find_one({"company_id": company_id})
     if not config or config.get("oauth_state") != state:
+        # Do NOT include the received state in the redirect (could be attacker-controlled).
+        await _audit(company_id, "oauth_callback", result="error", error="state_mismatch")
         return RedirectResponse(f"{FRONTEND_URL}/settings?calendar_error=state_mismatch")
-    
+
     redirect_uri = config.get("oauth_redirect", f"{FRONTEND_URL}/api/oauth/calendar/callback")
-    
+
     # Exchange code for tokens
     try:
         token_response = requests.post(
@@ -112,33 +250,45 @@ async def calendar_oauth_callback(
             }
         )
         tokens = token_response.json()
-        
+
         if "error" in tokens:
-            return RedirectResponse(f"{FRONTEND_URL}/settings?calendar_error={tokens.get('error_description', tokens['error'])}")
-        
+            safe_msg = _sanitize_error(tokens.get("error_description", tokens["error"]))
+            await _audit(company_id, "oauth_callback", result="error", error=safe_msg)
+            return RedirectResponse(f"{FRONTEND_URL}/settings?calendar_error={safe_msg}")
+
         # Get user info to identify the account
         user_info = requests.get(
             "https://www.googleapis.com/oauth2/v2/userinfo",
             headers={"Authorization": f"Bearer {tokens['access_token']}"}
         ).json()
-        
-        # Save tokens and config
+
+        # Save tokens (encrypted) and config
         now = datetime.now(timezone.utc)
+        granted_scopes = (tokens.get("scope") or "").split() if isinstance(tokens.get("scope"), str) else []
         await db[CALENDAR_CONFIG_COLLECTION].update_one(
             {"company_id": company_id},
             {"$set": {
-                "tokens": tokens,
+                "tokens": _encrypt_tokens(tokens),
                 "connected_email": user_info.get("email"),
                 "connected_at": now.isoformat(),
+                "connected_by_user_id": (state.split(":")[1] if ":" in state and len(state.split(":")) > 2 else None),
+                "granted_scopes": granted_scopes,
                 "is_connected": True,
-                "oauth_state": None  # Clear state after use
+                "oauth_state": None  # Clear state after use (single-use)
             }}
         )
-        
+
+        await _audit(
+            company_id, "connected",
+            result="success",
+            extra={"email": user_info.get("email"), "scopes": granted_scopes},
+        )
         return RedirectResponse(f"{FRONTEND_URL}/settings?calendar_connected=true")
-        
+
     except Exception as e:
-        return RedirectResponse(f"{FRONTEND_URL}/settings?calendar_error={str(e)}")
+        safe = _sanitize_error(e)
+        await _audit(company_id, "oauth_callback", result="error", error=safe)
+        return RedirectResponse(f"{FRONTEND_URL}/settings?calendar_error={safe}")
 
 
 @router.get("/sync-status")
@@ -282,9 +432,9 @@ async def get_calendar_status(user: User = Depends(get_current_user)):
     """Get the current Google Calendar connection status for the company."""
     config = await db[CALENDAR_CONFIG_COLLECTION].find_one(
         {"company_id": user.company_id},
-        {"_id": 0, "tokens": 0, "oauth_state": 0}  # Don't expose sensitive data
+        {"_id": 0, "tokens": 0, "oauth_state": 0}  # Never expose sensitive data
     )
-    
+
     if not config or not config.get("is_connected"):
         return {
             "is_connected": False,
@@ -292,15 +442,18 @@ async def get_calendar_status(user: User = Depends(get_current_user)):
             "shared_calendar_id": None,
             "shared_calendar_name": None
         }
-    
+
     return {
         "is_connected": True,
         "connected_email": config.get("connected_email"),
         "connected_at": config.get("connected_at"),
+        "connected_by_user_id": config.get("connected_by_user_id"),
+        "granted_scopes": config.get("granted_scopes", []),
         "shared_calendar_id": config.get("shared_calendar_id"),
         "shared_calendar_name": config.get("shared_calendar_name"),
         "auto_sync_events": config.get("auto_sync_events", True),
         "auto_sync_follow_ups": config.get("auto_sync_follow_ups", True),
+        "needs_reauthorization": bool(config.get("needs_reauthorization")),
     }
 
 
@@ -330,12 +483,34 @@ async def update_calendar_preferences(
 
 @router.delete("/disconnect")
 async def disconnect_calendar(user: User = Depends(get_current_user)):
-    """Disconnect Google Calendar integration."""
+    """Disconnect Google Calendar integration.
+
+    Also revokes the refresh_token at Google so a stolen DB copy of a legacy
+    plaintext token cannot be reused. Best-effort — never fails the disconnect
+    just because Google's revoke endpoint is unreachable.
+    """
     # Permission check
     user_role = getattr(user, 'role_id', None)
     if user_role not in [None, "admin", "owner", "super_admin"]:
         raise HTTPException(status_code=403, detail="Only admins can disconnect the calendar")
-    
+
+    config = await db[CALENDAR_CONFIG_COLLECTION].find_one({"company_id": user.company_id})
+    revoked = False
+    if config and config.get("tokens"):
+        tokens = _decrypt_tokens(config["tokens"]) or {}
+        rt = tokens.get("refresh_token") or tokens.get("access_token")
+        if rt:
+            try:
+                r = requests.post(
+                    "https://oauth2.googleapis.com/revoke",
+                    params={"token": rt},
+                    headers={"Content-Type": "application/x-www-form-urlencoded"},
+                    timeout=5,
+                )
+                revoked = r.status_code in (200, 400)  # 400 = already invalid, treat as revoked
+            except Exception as e:
+                logger.warning(f"[calendar] revoke failed for {user.company_id}: {_sanitize_error(e)}")
+
     await db[CALENDAR_CONFIG_COLLECTION].update_one(
         {"company_id": user.company_id},
         {"$set": {
@@ -343,11 +518,19 @@ async def disconnect_calendar(user: User = Depends(get_current_user)):
             "tokens": None,
             "connected_email": None,
             "shared_calendar_id": None,
-            "shared_calendar_name": None
+            "shared_calendar_name": None,
+            "needs_reauthorization": False,
+            "disconnected_at": datetime.now(timezone.utc).isoformat(),
         }}
     )
-    
-    return {"success": True, "message": "Calendar disconnected"}
+
+    await _audit(
+        user.company_id, "disconnected",
+        user_id=getattr(user, "user_id", None),
+        result="success",
+        extra={"google_revoked": revoked},
+    )
+    return {"success": True, "message": "Calendar disconnected", "google_revoked": revoked}
 
 
 # ==================== CALENDAR MANAGEMENT ====================
@@ -355,12 +538,14 @@ async def disconnect_calendar(user: User = Depends(get_current_user)):
 async def get_calendar_service(company_id: str):
     """Get an authenticated Google Calendar service for a company."""
     config = await db[CALENDAR_CONFIG_COLLECTION].find_one({"company_id": company_id})
-    
+
     if not config or not config.get("is_connected") or not config.get("tokens"):
         return None
-    
-    tokens = config["tokens"]
-    
+
+    tokens = _decrypt_tokens(config["tokens"])
+    if not tokens:
+        return None
+
     creds = Credentials(
         token=tokens.get("access_token"),
         refresh_token=tokens.get("refresh_token"),
@@ -369,20 +554,29 @@ async def get_calendar_service(company_id: str):
         client_secret=GOOGLE_CALENDAR_CLIENT_SECRET,
         scopes=CALENDAR_SCOPES
     )
-    
+
     # Refresh if expired
     if creds.expired and creds.refresh_token:
         try:
             creds.refresh(GoogleRequest())
-            # Save new access token
+            tokens["access_token"] = creds.token
+            if creds.expiry:
+                tokens["expiry"] = creds.expiry.isoformat()
+            # Re-persist the encrypted blob so both tokens + expiry are up-to-date
+            # (and legacy-plaintext rows get transparently upgraded to encrypted).
+            await _persist_tokens_encrypted(company_id, tokens)
+            await _audit(company_id, "token_refreshed", result="success")
+        except Exception as e:
+            safe = _sanitize_error(e)
+            logger.warning(f"[calendar] refresh failed for {company_id}: {safe}")
+            await _audit(company_id, "token_refresh_failed", result="error", error=safe)
+            # Mark as requiring reauthorization so the tenant UI knows.
             await db[CALENDAR_CONFIG_COLLECTION].update_one(
                 {"company_id": company_id},
-                {"$set": {"tokens.access_token": creds.token}}
+                {"$set": {"needs_reauthorization": True}},
             )
-        except Exception as e:
-            print(f"Failed to refresh token: {e}")
             return None
-    
+
     return build("calendar", "v3", credentials=creds)
 
 
@@ -435,14 +629,22 @@ async def select_shared_calendar(
                 "shared_calendar_name": cal.get("summary", calendar_id)
             }}
         )
-        
+        await _audit(
+            user.company_id, "calendar_selected",
+            user_id=getattr(user, "user_id", None),
+            result="success",
+            extra={"calendar_id": calendar_id, "calendar_name": cal.get("summary")},
+        )
+
         return {
             "success": True,
             "calendar_id": calendar_id,
             "calendar_name": cal.get("summary")
         }
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Cannot access calendar: {str(e)}")
+        safe = _sanitize_error(e)
+        await _audit(user.company_id, "calendar_selected", result="error", error=safe)
+        raise HTTPException(status_code=400, detail=f"Cannot access calendar: {safe}")
 
 
 @router.post("/calendars/create")
