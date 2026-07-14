@@ -1,6 +1,28 @@
 # Kora OS — Product Requirements Document
 
 
+## Feature — Selector Visual de Emojis por Estado en Google Calendar Settings (Feb 14, 2026)
+
+**Estado:** ✅ Implementado — lint limpio.
+
+### Contexto
+Reemplaza el flujo antiguo "escribe el key snake_case + escribe el emoji" (propenso a errores — usuarios tecleaban `"confirmado"` en vez de `"committed"` y el icono nunca aparecía en Google Calendar) por un selector visual con presets + paleta.
+
+### Cambios en `GoogleCalendarSettingsSection.js`
+- **Constante `STAGE_PRESETS`**: 9 estados canónicos de Kora (`inquiry_received`, `context_captured`, `scope_drafted`, `definition_in_review`, `committed`, `in_progress`, `closed`, `cancelled`, `archived`) con etiquetas ES/EN y color-dot que espeja el colorId que Google Calendar aplicará.
+- **Constante `EMOJI_PALETTE`**: 40 emojis curados en 4 filas — status, event types, operations, escalations. Optimizados para leer bien junto a títulos de catering.
+- **Preset rows clickeables**: cada estado muestra su color, nombre y slot de emoji. Click al slot expande la paleta.
+- **Paleta con grid 10×4** + campo "custom" para emojis fuera de la paleta.
+- **State nuevo**: `focusedIconKey` — controla qué preset tiene la paleta abierta (compacto por default).
+- Botón × para limpiar el emoji asignado a un estado.
+
+### Beneficios
+- Sin necesidad de conocer los keys `snake_case`.
+- El color-dot en cada row previsualiza cómo se verá el evento en Google.
+- Click-to-set — 2 taps máximo para asignar un emoji.
+
+
+
 ## Bug Fix — Google Calendar: Colores por Stage No Se Aplicaban (Feb 14, 2026)
 
 **Estado:** ✅ Fix aplicado + tests unitarios (14/14 casos).

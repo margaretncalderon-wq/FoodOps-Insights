@@ -17,6 +17,34 @@ import {
 
 import { API_BASE as API } from "../../utils/api";
 
+// Kora stages the color mapping (`_stage_to_calendar_meta` in backend) knows
+// about. Keys are the canonical snake_case forms the backend normalises to,
+// so no matter what Title-Case string is stored in Mongo the icon still maps.
+// The `colorHint` mirrors the Google Calendar colorId chosen by the backend
+// (10=green, 5=yellow, 8=gray, 11=red, 7=blue) so the settings UI visually
+// matches what the user will see on Google Calendar.
+const STAGE_PRESETS = [
+  { key: "inquiry_received", label: { es: "Solicitud Recibida", en: "Inquiry Received" }, colorHint: "bg-slate-400" },
+  { key: "context_captured", label: { es: "Contexto Capturado", en: "Context Captured" }, colorHint: "bg-slate-400" },
+  { key: "scope_drafted", label: { es: "Alcance Borrador", en: "Scope Drafted" }, colorHint: "bg-yellow-400" },
+  { key: "definition_in_review", label: { es: "En Definición / Revisión", en: "Definition In Review" }, colorHint: "bg-yellow-400" },
+  { key: "committed", label: { es: "Confirmado", en: "Confirmed" }, colorHint: "bg-emerald-600" },
+  { key: "in_progress", label: { es: "En Curso", en: "In Progress" }, colorHint: "bg-blue-500" },
+  { key: "closed", label: { es: "Cerrado", en: "Closed" }, colorHint: "bg-emerald-800" },
+  { key: "cancelled", label: { es: "Cancelado", en: "Cancelled" }, colorHint: "bg-red-500" },
+  { key: "archived", label: { es: "Archivado", en: "Archived" }, colorHint: "bg-red-400" },
+];
+
+// Curated palette of emojis that read well next to catering / event titles.
+// Grouped roughly: status (row 1), event types (row 2), operations (row 3),
+// escalations (row 4). 40 emojis total — enough variety without overwhelming.
+const EMOJI_PALETTE = [
+  "✅", "⏳", "📝", "🟢", "🟡", "🔴", "🔵", "⚪", "⚫", "✨",
+  "🎉", "🎊", "🎂", "🍽️", "🥂", "🍾", "☕", "🍰", "🎁", "💐",
+  "📅", "📌", "🚀", "🔥", "⭐", "💼", "📞", "✉️", "🧾", "💰",
+  "⚠️", "❗", "❓", "🚫", "❌", "🛑", "🔒", "🔑", "🏆", "👑",
+];
+
 export default function GoogleCalendarSettingsSection() {
   const { language } = useLanguage();
   const isEs = language === "es";
@@ -38,6 +66,9 @@ export default function GoogleCalendarSettingsSection() {
   const [savingContent, setSavingContent] = useState(false);
   const [newIconKey, setNewIconKey] = useState("");
   const [newIconValue, setNewIconValue] = useState("");
+  // Which preset row is currently expanded showing the emoji palette.
+  // `null` = collapsed, keeps the settings section compact.
+  const [focusedIconKey, setFocusedIconKey] = useState(null);
 
   const fetchContentCfg = useCallback(async () => {
     try {
@@ -602,61 +633,139 @@ export default function GoogleCalendarSettingsSection() {
                   <Label className="text-xs font-medium mb-2 block">
                     {isEs ? "Iconos por Estado" : "Status Icons"}
                   </Label>
-                  <div className="space-y-1 mb-2">
-                    {Object.entries(contentCfg.status_icons || {}).map(([k, v]) => (
-                      <div key={k} className="flex items-center gap-2 text-sm p-1.5 rounded bg-slate-50" data-testid={`icon-row-${k}`}>
-                        <span className="font-mono text-xs text-muted-foreground flex-1">{k}</span>
-                        <span className="text-lg">{v}</span>
+
+                  {/* Preset grid: one row per Kora stage. Click a stage to
+                      focus its slot, then click an emoji from the palette to
+                      assign it. Also supports typing a custom emoji.
+                      This replaces the old "type the snake_case key" flow
+                      which was error-prone (users typed "confirmado" instead
+                      of "committed" and the icon never rendered). */}
+                  <div className="space-y-1.5 mb-2">
+                    {STAGE_PRESETS.map(({ key, label, colorHint }) => {
+                      const current = (contentCfg.status_icons || {})[key] || "";
+                      const isFocused = focusedIconKey === key;
+                      return (
+                        <div
+                          key={key}
+                          className={`flex items-center gap-2 text-sm p-2 rounded border transition-colors ${
+                            isFocused ? "border-primary bg-primary/5" : "border-slate-200 bg-slate-50"
+                          }`}
+                          data-testid={`icon-preset-${key}`}
+                        >
+                          <span
+                            className={`inline-block w-2 h-2 rounded-full ${colorHint}`}
+                            aria-hidden="true"
+                          />
+                          <span className="flex-1 font-medium text-slate-700">
+                            {isEs ? label.es : label.en}
+                            <span className="ml-2 text-[11px] font-mono text-muted-foreground">
+                              {key}
+                            </span>
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setFocusedIconKey(isFocused ? null : key)}
+                            className={`min-w-[2.5rem] h-9 rounded border text-lg flex items-center justify-center transition-all ${
+                              isFocused
+                                ? "border-primary bg-white"
+                                : "border-slate-300 bg-white hover:border-slate-400"
+                            }`}
+                            data-testid={`icon-slot-${key}`}
+                          >
+                            {current || <span className="text-slate-300 text-sm">+</span>}
+                          </button>
+                          {current && (
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="ghost"
+                              className="h-8 w-8 p-0 text-red-500 hover:text-red-700"
+                              onClick={() => removeStatusIcon(key)}
+                              data-testid={`icon-remove-${key}`}
+                            >
+                              ×
+                            </Button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Emoji palette — only visible when a preset slot is focused.
+                      Keeps the UI compact for users who don't want to touch
+                      icons at all. */}
+                  {focusedIconKey && (
+                    <div className="p-3 rounded-lg border border-primary/30 bg-white space-y-2 mb-2" data-testid="emoji-palette">
+                      <p className="text-xs text-muted-foreground">
+                        {isEs
+                          ? `Elige un emoji para "${STAGE_PRESETS.find(s => s.key === focusedIconKey)?.label.es}"`
+                          : `Pick an emoji for "${STAGE_PRESETS.find(s => s.key === focusedIconKey)?.label.en}"`}
+                      </p>
+                      <div className="grid grid-cols-10 gap-1">
+                        {EMOJI_PALETTE.map((emoji) => (
+                          <button
+                            key={emoji}
+                            type="button"
+                            onClick={() => {
+                              setContentCfg((prev) => ({
+                                ...prev,
+                                status_icons: { ...(prev?.status_icons || {}), [focusedIconKey]: emoji },
+                              }));
+                              setFocusedIconKey(null);
+                            }}
+                            className="h-9 w-9 rounded hover:bg-slate-100 text-xl flex items-center justify-center transition-colors"
+                            data-testid={`emoji-option-${emoji}`}
+                          >
+                            {emoji}
+                          </button>
+                        ))}
+                      </div>
+                      <div className="flex items-center gap-2 pt-2 border-t border-slate-100">
+                        <Input
+                          value={newIconValue}
+                          onChange={(e) => setNewIconValue(e.target.value)}
+                          placeholder={isEs ? "O escribe uno personalizado" : "Or type a custom one"}
+                          className="flex-1 text-sm h-8"
+                          maxLength={8}
+                          data-testid="custom-emoji-input"
+                        />
+                        <Button
+                          type="button"
+                          size="sm"
+                          className="h-8"
+                          onClick={() => {
+                            const v = newIconValue.trim();
+                            if (!v) return;
+                            setContentCfg((prev) => ({
+                              ...prev,
+                              status_icons: { ...(prev?.status_icons || {}), [focusedIconKey]: v },
+                            }));
+                            setNewIconValue("");
+                            setFocusedIconKey(null);
+                          }}
+                          disabled={!newIconValue.trim()}
+                          data-testid="apply-custom-emoji-btn"
+                        >
+                          {isEs ? "Aplicar" : "Apply"}
+                        </Button>
                         <Button
                           type="button"
                           size="sm"
                           variant="ghost"
-                          className="h-6 w-6 p-0 text-red-500 hover:text-red-700"
-                          onClick={() => removeStatusIcon(k)}
-                          data-testid={`icon-remove-${k}`}
+                          className="h-8"
+                          onClick={() => { setFocusedIconKey(null); setNewIconValue(""); }}
+                          data-testid="cancel-emoji-btn"
                         >
-                          ×
+                          {isEs ? "Cancelar" : "Cancel"}
                         </Button>
                       </div>
-                    ))}
-                    {Object.keys(contentCfg.status_icons || {}).length === 0 && (
-                      <p className="text-xs text-muted-foreground italic">
-                        {isEs
-                          ? "Sin iconos configurados. Los eventos no mostrarán prefijo de icono."
-                          : "No icons configured. Events won't show an icon prefix."}
-                      </p>
-                    )}
-                  </div>
-                  <div className="flex gap-2">
-                    <Input
-                      value={newIconKey}
-                      onChange={(e) => setNewIconKey(e.target.value)}
-                      placeholder={isEs ? "stage_key (ej. committed)" : "stage_key (e.g. committed)"}
-                      className="flex-1 text-sm"
-                      data-testid="new-icon-key-input"
-                    />
-                    <Input
-                      value={newIconValue}
-                      onChange={(e) => setNewIconValue(e.target.value)}
-                      placeholder="✅"
-                      className="w-20 text-sm text-center"
-                      maxLength={8}
-                      data-testid="new-icon-value-input"
-                    />
-                    <Button
-                      type="button"
-                      size="sm"
-                      onClick={addStatusIcon}
-                      disabled={!newIconKey.trim() || !newIconValue.trim()}
-                      data-testid="add-icon-btn"
-                    >
-                      {isEs ? "Agregar" : "Add"}
-                    </Button>
-                  </div>
-                  <p className="text-[11px] text-muted-foreground mt-1">
+                    </div>
+                  )}
+
+                  <p className="text-[11px] text-muted-foreground">
                     {isEs
-                      ? "Ejemplos: committed → ✅, definition_review → ⏳, inquiry_received → 📝"
-                      : "Examples: committed → ✅, definition_review → ⏳, inquiry_received → 📝"}
+                      ? "Toca un estado para asignarle un emoji. Aparecerá antes del nombre del evento en Google Calendar."
+                      : "Click a status to assign an emoji. It'll appear before the event name in Google Calendar."}
                   </p>
                 </div>
 
