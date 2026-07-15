@@ -6,6 +6,9 @@ from datetime import datetime, timezone, timedelta
 import uuid
 import csv
 import io
+import logging
+
+logger = logging.getLogger(__name__)
 
 from config import db
 from models.auth import User
@@ -2947,8 +2950,16 @@ async def process_payroll(
         }}
     )
     
-    # Record accounting entries for this payroll period
+    # Record accounting entries for this payroll period.
     # This creates entries in the centralized accounting_entries collection
+    # that Business Clarity reads from (P&L, cost-center breakdown, etc).
+    # We wrap in try/except so a transient DB blip during posting doesn't
+    # abort the entire "process payroll" flow — but we PERSIST the outcome
+    # on the period doc so:
+    #   1. The UI can flag periods that never reached accounting.
+    #   2. Ops can trigger a reconcile job to retry missing periods.
+    # Silent-swallowing this before produced completed periods invisible to
+    # Business Clarity (found in prod verification: 1 orphan test period).
     from services.accounting_engine import AccountingEngine
     try:
         engine = AccountingEngine(db, company_id, user.user_id)
@@ -2956,18 +2967,111 @@ async def process_payroll(
             period_id,
             period.get("period_name", f"Periodo {period_id[:8]}")
         )
+        await db.payroll_periods.update_one(
+            {"period_id": period_id},
+            {"$set": {
+                "accounting": {
+                    "status": "posted",
+                    "entries_recorded": accounting_result.get("entries_recorded", 0),
+                    "total_amount": accounting_result.get("total_amount", 0),
+                    "posted_at": now.isoformat(),
+                    "error": None,
+                }
+            }},
+        )
     except Exception as e:
-        # Log error but don't fail the payroll process
-        print(f"Warning: Failed to record accounting entries for payroll {period_id}: {e}")
-        accounting_result = {"entries_recorded": 0, "error": str(e)}
+        err_msg = str(e)[:400]
+        logger.error(f"[payroll accounting] Failed to record entries for {period_id}: {err_msg}")
+        await db.payroll_periods.update_one(
+            {"period_id": period_id},
+            {"$set": {
+                "accounting": {
+                    "status": "failed",
+                    "entries_recorded": 0,
+                    "total_amount": 0,
+                    "posted_at": None,
+                    "error": err_msg,
+                    "failed_at": now.isoformat(),
+                }
+            }},
+        )
+        accounting_result = {"entries_recorded": 0, "error": err_msg}
     
     return {
         "message": "Payroll processed",
-        "accounting": {
+        "accounting": accounting_result if accounting_result.get("error") else {
             "entries_recorded": accounting_result.get("entries_recorded", 0),
-            "total_amount": accounting_result.get("total_amount", 0)
-        }
+            "total_amount": accounting_result.get("total_amount", 0),
+        },
     }
+
+
+@people_ops_router.post("/payroll/periods/{period_id}/reconcile-accounting")
+async def reconcile_payroll_accounting(
+    period_id: str,
+    user: User = Depends(get_current_user),
+):
+    """Retry posting a completed payroll to the accounting_entries collection.
+
+    Used when the original `process_payroll` call succeeded on the payroll
+    side but the AccountingEngine hop failed (DB blip, cost-center missing,
+    etc). Idempotent: skips periods that already have their accounting rows.
+    """
+    company_id, _ = await check_people_ops_access(user, "payroll_approve")
+    period = await db.payroll_periods.find_one(
+        {"period_id": period_id, "company_id": company_id}, {"_id": 0},
+    )
+    if not period:
+        raise HTTPException(status_code=404, detail="Period not found")
+    if period.get("status") != "completed":
+        raise HTTPException(
+            status_code=400,
+            detail="Only completed periods can be reconciled to accounting.",
+        )
+
+    # Skip if already posted — this endpoint must be safe to call repeatedly.
+    existing_count = await db.accounting_entries.count_documents({
+        "company_id": company_id,
+        "source_type": "payroll_entry",
+        "metadata.period_id": period_id,
+    })
+    if existing_count > 0:
+        return {
+            "status": "already_posted",
+            "existing_entries": existing_count,
+            "message": "Accounting already recorded for this period.",
+        }
+
+    from services.accounting_engine import AccountingEngine
+    now = datetime.now(timezone.utc)
+    try:
+        engine = AccountingEngine(db, company_id, user.user_id)
+        result = await engine.record_payroll_period(
+            period_id,
+            period.get("period_name", f"Periodo {period_id[:8]}"),
+        )
+        await db.payroll_periods.update_one(
+            {"period_id": period_id},
+            {"$set": {
+                "accounting": {
+                    "status": "posted",
+                    "entries_recorded": result.get("entries_recorded", 0),
+                    "total_amount": result.get("total_amount", 0),
+                    "posted_at": now.isoformat(),
+                    "reconciled_at": now.isoformat(),
+                    "error": None,
+                }
+            }},
+        )
+        return {"status": "posted", **result}
+    except Exception as e:
+        err = str(e)[:400]
+        logger.error(f"[payroll reconcile] failed for {period_id}: {err}")
+        await db.payroll_periods.update_one(
+            {"period_id": period_id},
+            {"$set": {"accounting.error": err, "accounting.failed_at": now.isoformat()}},
+        )
+        raise HTTPException(status_code=500, detail=f"Reconcile failed: {err}")
 
 
 @people_ops_router.post("/payroll/periods/{period_id}/revert")

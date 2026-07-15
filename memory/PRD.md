@@ -1,6 +1,44 @@
 # Kora OS — Product Requirements Document
 
 
+## Verificación — Nómina → Business Clarity (Feb 15, 2026)
+
+**Solicitud del usuario:** "verifica que esta sumando todo correctamente y que esta mandando a business clarity los totales de la nomina"
+
+### Hallazgos (verificación end-to-end)
+
+1. **Suma de totales por período: ✅ 32/32 correctos.**
+   - `total_gross` recomputado desde `payroll_entries` == `payroll_periods.total_gross`.
+   - `total_net`, `total_deductions`, `total_employer_cost` también correctos.
+   - Solo diferencias de RD$0.01 por redondeo flotante (no estructurales).
+
+2. **Aritmética por entry: ✅ 78/78 correctas.**
+   - `gross_salary - total_deductions == net_salary` en todos los entries.
+
+3. **Integración con Business Clarity: ✅ funciona.**
+   - Al pasar `status="completed"`, `AccountingEngine.record_payroll_period()` crea entries en `accounting_entries`:
+     - `subtype="salary"` con monto = gross_salary por empleado.
+     - `subtype="employer_contribution"` con AFP+ARS+SRL+INFOTEP patronales.
+   - Business Clarity Financial Snapshot los suma vía query `payroll_periods` con `status="completed"`.
+   - P&L by Cost Center los suma vía `accounting_entries` filtrado por cost_center_id.
+
+4. **⚠ 1 período huérfano encontrado** (`TEST_Quincena Test 1772658398`): status="completed" pero 0 entries en accounting. Causa raíz: el `except Exception` en `process_payroll` swallowed el error silenciosamente (solo `print()` a stdout).
+
+### Fix aplicado
+1. **`process_payroll` mejorado**: cuando el `AccountingEngine` falla, persiste el error en `payroll_periods.accounting = {status: "failed", error, failed_at}` en vez de solo hacer `print()`. Cuando tiene éxito guarda `{status: "posted", entries_recorded, posted_at}`.
+2. **Nuevo endpoint** `POST /api/people-ops/payroll/periods/{id}/reconcile-accounting`:
+   - Requiere permiso `payroll_approve`.
+   - Reintenta la posting sólo si el período está completed Y no tiene entries de accounting.
+   - Idempotente — safe llamar múltiples veces.
+   - Actualiza `payroll_periods.accounting` con el nuevo estado.
+3. Cambio `print()` → `logger.error()` para que los failures aparezcan en supervisor logs.
+
+### Comportamiento actual (respondiendo directamente al usuario)
+- El período en la captura ("Solo Salario 1 – July 2026") está en **Borrador** → no llega a Business Clarity todavía (correcto — solo períodos aprobados y procesados aparecen en BC).
+- Los totales del borrador SÍ están correctos matemáticamente (bruto 133,000 - deducciones 10,574.80 = neto 122,425.20 ✓).
+
+
+
 ## Bug Fix — `invalid_scope: Bad Request` en Refresh de Token OAuth (Feb 15, 2026)
 
 **Estado:** ✅ Fix aplicado.
