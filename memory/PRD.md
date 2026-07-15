@@ -1,6 +1,33 @@
 # Kora OS — Product Requirements Document
 
 
+## Bug Fix — `invalid_scope: Bad Request` en Refresh de Token OAuth (Feb 15, 2026)
+
+**Estado:** ✅ Fix aplicado.
+
+### Problema (visible en el panel amarillo tras deploy)
+Los 264 eventos del tenant en producción fallaron con:
+```
+('invalid_scope: Bad Request', {'error': 'invalid_scope', 'error_description': 'Bad Request'})
+```
+
+### Causa raíz
+En `get_calendar_service`, al construir el objeto `Credentials` para refrescar el token, pasábamos `scopes=CALENDAR_SCOPES` (la lista narrow-scope post-audit). `google-auth` incluye ese `scope=` en la petición al token endpoint de Google, y Google devuelve `400 invalid_scope` cuando la lista solicitada NO coincide **exactamente** con lo que el usuario aceptó en el consent original — incluso cuando pides un subset del scope granted.
+
+El tenant afectado había conectado antes del scope-narrowing audit, así que su refresh_token estaba bindeado al scope legacy `auth/calendar`. Cada refresh rebota con 400 → `get_calendar_service` devuelve None → el sync-all silenciosamente cuenta como "failed" (o "pushed", según el fix del round anterior).
+
+### Solución
+1. **`Credentials(...)` ya no pasa `scopes=`**. `google-auth` entonces NO incluye `scope` en el request de refresh; Google devuelve el access_token con los scopes que efectivamente tiene el refresh_token, cualesquiera que sean.
+2. **Rehidratación del `expiry`**: leemos `tokens["expiry"]` (ISO) y lo asignamos a `creds.expiry` para que `creds.expired` funcione correctamente y refresque cuando toque.
+3. **`auto_sync_event`** ahora, cuando `get_calendar_service` retorna None Y `raise_on_error=True`, lanza `RuntimeError("Google Calendar token invalid — please reconnect calendar in Settings")`. Esto surfacea el problema real en el panel amarillo en vez de dejar contadores confusos.
+
+### Impacto esperado
+- Tenants con tokens legacy: refresh empieza a funcionar sin re-consent.
+- Si el token está genuinamente revocado (usuario removió la app en Google), el error ahora dice "please reconnect calendar" directo, no `invalid_scope`.
+- Tests de retry-backoff previos siguen aplicando (429/5xx transitorios).
+
+
+
 ## Enhancement — Auto-Retry con Exponential Backoff para Google Calendar (Feb 15, 2026)
 
 **Estado:** ✅ Implementado + tests unitarios (4/4).

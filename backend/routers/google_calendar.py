@@ -872,14 +872,41 @@ async def get_calendar_service(company_id: str):
     if not tokens:
         return None
 
+    # NOTE: we intentionally do NOT pass `scopes=` to Credentials here.
+    # google-auth would then include a `scope` param in the refresh request,
+    # and Google's token endpoint returns `invalid_scope: Bad Request` when
+    # the requested scope list differs from what was granted at consent time
+    # — even by a single entry, and even when we're asking for a subset.
+    # Tenants that connected before the scope-narrowing audit had tokens
+    # bound to the legacy `auth/calendar` grant; every refresh from them was
+    # bouncing with 400 invalid_scope, producing the "264/264 failed" reported
+    # in production. Omitting `scopes` lets Google return whatever scopes the
+    # refresh_token was actually issued with, which is always what we need.
     creds = Credentials(
         token=tokens.get("access_token"),
         refresh_token=tokens.get("refresh_token"),
         token_uri="https://oauth2.googleapis.com/token",
         client_id=GOOGLE_CALENDAR_CLIENT_ID,
         client_secret=GOOGLE_CALENDAR_CLIENT_SECRET,
-        scopes=CALENDAR_SCOPES
     )
+
+    # Re-hydrate the expiry so google-auth's `.expired` check works. Without
+    # this the library treats the token as never-expiring and skips the
+    # refresh path entirely, causing sporadic 401s on long-lived sessions.
+    if tokens.get("expiry"):
+        try:
+            exp_str = tokens["expiry"]
+            # google-auth stores naive UTC datetimes in `credentials.expiry`.
+            # Accept both ISO strings and pre-parsed datetimes.
+            if isinstance(exp_str, str):
+                dt = datetime.fromisoformat(exp_str.replace("Z", "+00:00"))
+                if dt.tzinfo is not None:
+                    dt = dt.astimezone(timezone.utc).replace(tzinfo=None)
+                creds.expiry = dt
+            elif isinstance(exp_str, datetime):
+                creds.expiry = exp_str.replace(tzinfo=None) if exp_str.tzinfo else exp_str
+        except Exception:
+            pass
 
     # Refresh if expired
     if creds.expired and creds.refresh_token:
@@ -1712,6 +1739,12 @@ async def auto_sync_event(
     
     service = await get_calendar_service(company_id)
     if not service:
+        # Token refresh failed (needs_reauthorization was flipped inside
+        # get_calendar_service). Surface this to the sync-all loop so the UI
+        # can point the operator at the real fix ("reconnect calendar") rather
+        # than silently reporting 0 pushed / 0 failed.
+        if raise_on_error:
+            raise RuntimeError("Google Calendar token invalid — please reconnect calendar in Settings")
         return
     
     calendar_id = config["shared_calendar_id"]
