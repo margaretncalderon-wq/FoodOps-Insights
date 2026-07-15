@@ -2,6 +2,8 @@
 import os
 import json
 import logging
+import asyncio
+import random
 from datetime import datetime, timezone, timedelta
 from typing import Optional, Tuple, Any
 import uuid
@@ -13,6 +15,7 @@ from cryptography.fernet import Fernet, InvalidToken as FernetInvalidToken
 from google.oauth2.credentials import Credentials
 from google.auth.transport.requests import Request as GoogleRequest
 from googleapiclient.discovery import build
+from googleapiclient.errors import HttpError
 
 from config import db
 from dependencies import get_current_user
@@ -202,6 +205,48 @@ async def _get_content_config(company_id: str) -> dict:
         # User-saved emoji presets (list of {id, name, icons}). Empty by default.
         "custom_icon_templates": doc.get("custom_icon_templates") or [],
     }
+
+
+# ==================== RETRY / BACKOFF ====================
+# Google Calendar API returns HTTP 429 (rate limit) and 5xx (server) errors
+# under bursty traffic. During a full backfill we can easily hit those limits
+# — a single tenant might push hundreds of events in ~10 seconds. Retrying
+# with jittered exponential backoff turns those transient failures into
+# eventual successes instead of counter-side "failed" rows.
+_RETRY_STATUS = {429, 500, 502, 503, 504}
+_RETRY_MAX_ATTEMPTS = 5
+
+
+async def _execute_with_backoff(request, label: str = "google-call"):
+    """Execute a Google API `request` (googleapiclient HttpRequest) with
+    exponential backoff on retryable status codes.
+
+    Retries: up to 5 attempts, delays 0.5s → 1s → 2s → 4s → 8s (± jitter).
+    Runs the blocking `.execute()` in a thread so we don't block the event
+    loop while Google is slow.
+    """
+    attempt = 0
+    while True:
+        try:
+            # `HttpRequest.execute()` is blocking → run off-loop.
+            return await asyncio.to_thread(request.execute)
+        except HttpError as e:
+            status = getattr(getattr(e, "resp", None), "status", None)
+            attempt += 1
+            if status in _RETRY_STATUS and attempt < _RETRY_MAX_ATTEMPTS:
+                # Base backoff: 0.5 * 2^(attempt-1) → 0.5, 1, 2, 4, 8.
+                # Jitter ±20% avoids many tenants hammering Google in lockstep
+                # after a shared 429 window.
+                delay = 0.5 * (2 ** (attempt - 1))
+                delay *= 0.8 + 0.4 * random.random()
+                logger.info(
+                    f"[calendar retry] {label} status={status} attempt={attempt}/{_RETRY_MAX_ATTEMPTS} "
+                    f"sleeping={delay:.2f}s"
+                )
+                await asyncio.sleep(delay)
+                continue
+            # Non-retryable or attempts exhausted → propagate.
+            raise
 
 
 # ==================== TIMEZONE RESOLUTION ====================
@@ -661,7 +706,8 @@ async def _run_sync_all_background(company_id: str) -> None:
                 }, {"_id": 0}):
                     try:
                         await auto_sync_follow_up(
-                            company_id, entity_type, entity[id_field], entity
+                            company_id, entity_type, entity[id_field], entity,
+                            raise_on_error=True,
                         )
                         counters[pushed_key] += 1
                     except Exception as e:
@@ -1135,7 +1181,7 @@ async def remove_follow_up_from_calendar(
 
 # ==================== AUTO-SYNC HELPERS ====================
 
-async def auto_sync_follow_up(company_id: str, entity_type: str, entity_id: str, entity: dict):
+async def auto_sync_follow_up(company_id: str, entity_type: str, entity_id: str, entity: dict, raise_on_error: bool = False):
     """
     Automatically sync a follow-up to calendar when created/updated.
     Called from CRM endpoints.
@@ -1201,22 +1247,30 @@ async def auto_sync_follow_up(company_id: str, entity_type: str, entity_id: str,
     try:
         existing_event_id = entity.get("calendar_event_id")
         if existing_event_id:
-            event = service.events().update(
-                calendarId=config["shared_calendar_id"],
-                eventId=existing_event_id,
-                body=event_body
-            ).execute()
+            event = await _execute_with_backoff(
+                service.events().update(
+                    calendarId=config["shared_calendar_id"],
+                    eventId=existing_event_id,
+                    body=event_body,
+                ),
+                label=f"follow-up.update({entity_type}/{entity_id})",
+            )
         else:
-            event = service.events().insert(
-                calendarId=config["shared_calendar_id"],
-                body=event_body
-            ).execute()
-            
+            event = await _execute_with_backoff(
+                service.events().insert(
+                    calendarId=config["shared_calendar_id"],
+                    body=event_body,
+                ),
+                label=f"follow-up.insert({entity_type}/{entity_id})",
+            )
+
             collection = db.leads if entity_type == "lead" else db.clients
             id_field = "lead_id" if entity_type == "lead" else "client_id"
             await collection.update_one({id_field: entity_id}, {"$set": {"calendar_event_id": event["id"]}})
     except Exception as e:
         print(f"Auto-sync to calendar failed: {e}")
+        if raise_on_error:
+            raise
 
 
 # ==================== CATERING EVENTS (engagements) ====================
@@ -1717,23 +1771,33 @@ async def auto_sync_event(
             gid = existing_ids.get(day_key)
             if gid:
                 try:
-                    gevent = service.events().update(
-                        calendarId=calendar_id, eventId=gid, body=body
-                    ).execute()
+                    gevent = await _execute_with_backoff(
+                        service.events().update(calendarId=calendar_id, eventId=gid, body=body),
+                        label=f"events.update({event_id}/{day_key})",
+                    )
                     new_ids[day_key] = gevent["id"]
                 except Exception:
                     # Google id disappeared / was deleted server-side — re-insert.
-                    gevent = service.events().insert(calendarId=calendar_id, body=body).execute()
+                    gevent = await _execute_with_backoff(
+                        service.events().insert(calendarId=calendar_id, body=body),
+                        label=f"events.insert-fallback({event_id}/{day_key})",
+                    )
                     new_ids[day_key] = gevent["id"]
             else:
-                gevent = service.events().insert(calendarId=calendar_id, body=body).execute()
+                gevent = await _execute_with_backoff(
+                    service.events().insert(calendarId=calendar_id, body=body),
+                    label=f"events.insert({event_id}/{day_key})",
+                )
                 new_ids[day_key] = gevent["id"]
 
         # Purge Google events for days that fell out of the range.
         for day_key, gid in existing_ids.items():
             if day_key not in new_ids:
                 try:
-                    service.events().delete(calendarId=calendar_id, eventId=gid).execute()
+                    await _execute_with_backoff(
+                        service.events().delete(calendarId=calendar_id, eventId=gid),
+                        label=f"events.delete-stale({event_id}/{day_key})",
+                    )
                 except Exception:
                     pass
 

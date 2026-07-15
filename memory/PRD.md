@@ -1,6 +1,32 @@
 # Kora OS — Product Requirements Document
 
 
+## Enhancement — Auto-Retry con Exponential Backoff para Google Calendar (Feb 15, 2026)
+
+**Estado:** ✅ Implementado + tests unitarios (4/4).
+
+### Contexto
+Durante un backfill grande, Google Calendar API devuelve `429` (rate limit) o `5xx` de forma transitoria. Antes eso se registraba como "failed" en los counters, forzando al usuario a re-ejecutar "Sincronizar Todo Ahora" manualmente.
+
+### Implementación
+- **Helper `_execute_with_backoff(request, label)`** en `routers/google_calendar.py`:
+  - Corre el `HttpRequest.execute()` blocking en `asyncio.to_thread` para no bloquear el event loop.
+  - Retries: hasta 5 intentos.
+  - Backoff base: `0.5s → 1s → 2s → 4s → 8s`.
+  - **Jitter ±20%** — evita que múltiples tenants en el mismo pod golpeen a Google en lockstep tras una ventana 429 compartida.
+  - Códigos retryables: `429, 500, 502, 503, 504`. Los demás (4xx no-429) propagan inmediatamente sin desperdiciar tiempo.
+- **Aplicado a las 5 llamadas críticas** del sync-all:
+  - `auto_sync_event`: update, insert-fallback, insert-nuevo, delete-stale.
+  - `auto_sync_follow_up`: update, insert.
+- **Tests unitarios** con mocks (`FailingRequest`, `FakeResp`): 4/4 pasan (retry en 429, 503, no-retry en 404, exhaustion tras 5 intentos).
+
+### Beneficio
+- Un sync de 100+ eventos ahora sobrevive rate-limits transitorios sin intervención manual.
+- El jitter reduce probabilidad de thundering-herd cuando múltiples tenants corren sync-all en paralelo.
+- Los errores permanentes (401 token vencido, 403 sin permisos, 404 calendario borrado) siguen fallando rápido — no se pierde tiempo reintentando lo irrecuperable.
+
+
+
 ## Bug Fix — Observabilidad del Backfill de Google Calendar (Feb 15, 2026)
 
 **Estado:** ✅ Fix aplicado — lint limpio.
