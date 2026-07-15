@@ -635,7 +635,13 @@ async def _run_sync_all_background(company_id: str) -> None:
                 "event_date": {"$ne": None},
             }, {"_id": 0}):
                 try:
-                    await auto_sync_event(company_id, ev["event_id"], action="upsert")
+                    # raise_on_error so the counter distinguishes real success
+                    # from a silently-swallowed Google API failure. Otherwise
+                    # `events_pushed` lies and the UI reports "10/10 synced"
+                    # while nothing actually reached Google.
+                    await auto_sync_event(
+                        company_id, ev["event_id"], action="upsert", raise_on_error=True
+                    )
                     counters["events_pushed"] += 1
                 except Exception as e:
                     counters["events_failed"] += 1
@@ -1608,13 +1614,22 @@ async def remove_event_from_calendar(
 
 # ==================== AUTO-SYNC HELPER (call from server.py event endpoints) ====================
 
-async def auto_sync_event(company_id: str, event_id: str, action: str = "upsert", calendar_event_id_hint: Optional[str] = None):
+async def auto_sync_event(
+    company_id: str,
+    event_id: str,
+    action: str = "upsert",
+    calendar_event_id_hint: Optional[str] = None,
+    raise_on_error: bool = False,
+):
     """Auto-sync a catering event to Google Calendar. Silently no-ops if calendar not configured.
     Use from create_event / update_event / delete_event in server.py.
-    
+
     action: 'upsert' (create or update) | 'delete'
     calendar_event_id_hint: pass the calendar_event_id directly when the Kora event has already
         been deleted from db.events (so we can still remove it from Google Calendar).
+    raise_on_error: default False (silent-fail suits create/update/delete hooks).
+        Set True from the sync-all backfill so upstream counters distinguish
+        real success from a swallowed Google API error.
     """
     config = await db[CALENDAR_CONFIG_COLLECTION].find_one({"company_id": company_id})
     if not config or not config.get("is_connected") or not config.get("shared_calendar_id"):
@@ -1731,6 +1746,8 @@ async def auto_sync_event(company_id: str, event_id: str, action: str = "upsert"
         )
     except Exception as e:
         logger.warning(f"Auto-sync event failed: {_sanitize_error(e)}")
+        if raise_on_error:
+            raise
 
 
 # ==================== CONTENT-CONFIG ENDPOINTS ====================

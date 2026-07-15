@@ -543,6 +543,53 @@ export default function GoogleCalendarSettingsSection() {
                     {isEs ? "Última sincronización falló" : "Last sync failed"}: {syncStatus.background_sync.last_error || (isEs ? "error desconocido" : "unknown error")}
                   </p>
                 )}
+                {/* Post-completion detail: if the last backfill finished but
+                    some records failed silently against Google, list the
+                    first N so the operator can debug without needing server
+                    logs (which they can't access in production). */}
+                {syncStatus.background_sync
+                  && syncStatus.background_sync.status === "completed"
+                  && (
+                    (syncStatus.background_sync.events_failed || 0)
+                    + (syncStatus.background_sync.leads_failed || 0)
+                    + (syncStatus.background_sync.clients_failed || 0)
+                  ) > 0 && (
+                  <details className="mt-2 p-2 rounded bg-amber-50 border border-amber-200" data-testid="sync-errors-panel">
+                    <summary className="text-xs font-medium text-amber-800 cursor-pointer">
+                      {isEs
+                        ? `⚠️ Detalles: ${
+                            (syncStatus.background_sync.events_pushed || 0)
+                            + (syncStatus.background_sync.leads_pushed || 0)
+                            + (syncStatus.background_sync.clients_pushed || 0)
+                          } publicado(s), ${
+                            (syncStatus.background_sync.events_failed || 0)
+                            + (syncStatus.background_sync.leads_failed || 0)
+                            + (syncStatus.background_sync.clients_failed || 0)
+                          } falló/fallaron`
+                        : `⚠️ Details: ${
+                            (syncStatus.background_sync.events_pushed || 0)
+                            + (syncStatus.background_sync.leads_pushed || 0)
+                            + (syncStatus.background_sync.clients_pushed || 0)
+                          } pushed, ${
+                            (syncStatus.background_sync.events_failed || 0)
+                            + (syncStatus.background_sync.leads_failed || 0)
+                            + (syncStatus.background_sync.clients_failed || 0)
+                          } failed`}
+                    </summary>
+                    <ul className="mt-2 space-y-0.5 text-[11px] font-mono text-amber-900 max-h-40 overflow-y-auto">
+                      {(syncStatus.background_sync.errors || []).map((err, i) => (
+                        <li key={i} className="truncate">• {err}</li>
+                      ))}
+                      {(syncStatus.background_sync.errors || []).length === 0 && (
+                        <li className="italic text-amber-700">
+                          {isEs
+                            ? "Sin detalles capturados (el servidor no reportó errores individuales)."
+                            : "No details captured (server didn't report per-record errors)."}
+                        </li>
+                      )}
+                    </ul>
+                  </details>
+                )}
                 {((syncStatus.events?.pending ?? 0) > 0 ||
                   (syncStatus.follow_ups?.leads_upcoming ?? 0) > (syncStatus.follow_ups?.leads_synced ?? 0)) && (
                   <p className="text-xs text-amber-700 pt-1">

@@ -1,6 +1,45 @@
 # Kora OS — Product Requirements Document
 
 
+## Bug Fix — Observabilidad del Backfill de Google Calendar (Feb 15, 2026)
+
+**Estado:** ✅ Fix aplicado — lint limpio.
+
+### Problema (reportado por usuario)
+Tras hacer Deploy + presionar "Sincronizar Todo Ahora", los eventos existentes NO se actualizaban con el nuevo formato (colores, iconos, plantillas). El sync-status decía "completado" con `events_pushed > 0` pero nada cambiaba en Google.
+
+### Causa raíz
+`auto_sync_event` hacía **silent-fail** ante errores del API de Google (429, 401, 500, etc):
+
+```python
+except Exception as e:
+    logger.warning(f"Auto-sync event failed: {_sanitize_error(e)}")
+    # ← no re-raise, la excepción muere aquí
+```
+
+El loop de sync-all quedaba engañado:
+```python
+try:
+    await auto_sync_event(...)
+    counters["events_pushed"] += 1  # ← incrementa aunque Google haya rechazado
+except Exception:
+    counters["events_failed"] += 1  # ← nunca dispara porque auto_sync_event no re-lanza
+```
+
+Resultado: la UI mostraba "10/10 sincronizados" mientras Google no recibía ni un solo update.
+
+### Solución
+1. **`auto_sync_event`** ahora acepta `raise_on_error: bool = False`. Default silencioso (para create/update/delete hooks que no deben tumbar el request del usuario). Set True cuando el sync-all lo llama.
+2. **Sync-all** pasa `raise_on_error=True` — así los counters cuentan honestamente y los errores individuales se acumulan en `background_sync.errors`.
+3. **UI**: nuevo panel `<details data-testid="sync-errors-panel">` que aparece post-completación cuando hubo failures. Muestra el count "X pushed, Y failed" + lista scroll-able de los primeros 20 errores. El usuario puede copiar y compartir sin necesitar logs del servidor (que no tiene acceso en producción).
+
+### Test manual
+- Después del deploy, al presionar "Sincronizar Todo Ahora":
+  - Si todo va bien → toast "Sincronización completa: X publicados".
+  - Si algo falla → toast + panel expandible amarillo con los errores exactos ("event evt_123: Invalid credentials" o similar).
+
+
+
 ## Feature — Plantillas Personalizadas + Preview Multi-día + Orden Cronológico (Feb 14, 2026)
 
 **Estado:** ✅ Implementado y verificado con curl (backend) + lint limpio.
