@@ -8,7 +8,6 @@ import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../components/ui/dialog";
-import { Popover, PopoverContent, PopoverTrigger } from "../components/ui/popover";
 import { parseDateOnly, formatDateOnly } from "../utils/dates";
 import { 
   ChevronLeft, ChevronRight, Plus, Calendar as CalendarIcon, 
@@ -573,9 +572,14 @@ export default function EngagementCalendar({ embedded = false }) {
                 {generateMonthDays().map((dayInfo, index) => {
                   const dayEntries = getEntriesForDate(dayInfo.date);
                   const isCurrentDay = isToday(dayInfo.date);
-                  const MAX_VISIBLE = 3;
-                  const visibleEntries = dayEntries.slice(0, MAX_VISIBLE);
-                  const overflowEntries = dayEntries.slice(MAX_VISIBLE);
+                  // Show ALL events per day (previously capped at 3 with a
+                  // "+X más" popover). Ops was unable to see the status
+                  // color of hidden events at a glance, which defeated the
+                  // whole purpose of color-coding. The cell now grows to fit
+                  // its content; if it gets truly gigantic, tailwind's
+                  // `max-h-...` + `overflow-y-auto` keeps it usable.
+                  const visibleEntries = dayEntries;
+                  const overflowEntries = [];
 
                   // Render a single event chip. `compact` controls the truncation
                   // level (chip vs popover row).
@@ -659,34 +663,8 @@ export default function EngagementCalendar({ embedded = false }) {
                           </span>
                         )}
                       </div>
-                      <div className="space-y-0.5">
+                      <div className="space-y-0.5 max-h-52 overflow-y-auto pr-0.5">
                         {visibleEntries.map((entry, idx) => renderChip(entry, idx))}
-                        {overflowEntries.length > 0 && (
-                          <Popover>
-                            <PopoverTrigger asChild>
-                              <button
-                                type="button"
-                                className="w-full text-[10px] font-medium text-primary hover:bg-primary/10 rounded px-1 py-0.5 transition-colors text-left"
-                                data-testid={`calendar-overflow-${dayInfo.date.toISOString().split("T")[0]}`}
-                              >
-                                + {overflowEntries.length} {isEs ? "más" : "more"}
-                              </button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-72 p-2" align="start">
-                              <div className="text-xs font-medium mb-2 pb-1 border-b flex items-center justify-between">
-                                <span>
-                                  {dayInfo.date.toLocaleDateString(isEs ? "es-ES" : "en-US", { weekday: "long", day: "numeric", month: "long" })}
-                                </span>
-                                <span className="text-muted-foreground font-mono">
-                                  {dayEntries.length} {isEs ? "eventos" : "events"}
-                                </span>
-                              </div>
-                              <div className="space-y-1 max-h-80 overflow-y-auto">
-                                {dayEntries.map((entry, idx) => renderChip(entry, idx, { popover: true }))}
-                              </div>
-                            </PopoverContent>
-                          </Popover>
-                        )}
                       </div>
                     </div>
                   );

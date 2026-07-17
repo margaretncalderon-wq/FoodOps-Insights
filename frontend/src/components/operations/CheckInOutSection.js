@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { toast } from "sonner";
 import { 
   Plus, Edit, Trash2, AlertTriangle, Truck, ClipboardList, Calendar, 
-  Clock, CheckCircle2, Save, Printer, Package
+  Clock, CheckCircle2, Save, Printer, Package, Search, X
 } from "lucide-react";
 
 import { API_BASE as API } from "../../utils/api";
@@ -30,6 +30,9 @@ export function CheckInOutSection() {
   const [selectedEvent, setSelectedEvent] = useState("");
   const [packingListItems, setPackingListItems] = useState([]);
   const [selectedItems, setSelectedItems] = useState([]);
+  // Free-text filter for the "Agregar artículo" combobox in the create
+  // delivery-note dialog. Matches on `name` (case-insensitive).
+  const [itemPickerSearch, setItemPickerSearch] = useState("");
   const [viewingNote, setViewingNote] = useState(null);
   const [checkInDialogOpen, setCheckInDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
@@ -69,21 +72,67 @@ export function CheckInOutSection() {
     setSelectedEvent(eventId);
     if (!eventId) {
       setPackingListItems([]);
+      setSelectedItems([]);
+      setItemPickerSearch("");
       return;
     }
     
     try {
       const res = await axios.get(`${API}/api/events/${eventId}/packing-list-supplies`, { withCredentials: true }).catch(() => ({ data: [] }));
       setPackingListItems(res.data || []);
-      setSelectedItems(res.data?.map(item => ({
-        ...item,
-        qty_out: item.quantity || 1,
-        qty_returned: 0,
-        status: "pending"
-      })) || []);
+      // Start with an EMPTY delivery note. Users complained they had to
+      // delete up to 100 items to build a small conduce — now the pattern
+      // is additive: pick only what actually goes out.
+      setSelectedItems([]);
+      setItemPickerSearch("");
     } catch (error) {
       setPackingListItems([]);
+      setSelectedItems([]);
     }
+  };
+
+  // ---- Add-item flow ------------------------------------------------------
+  // Users can add individual items from the packing list one-by-one, or
+  // bulk-add everything from the packing list with a single click. Every
+  // added item can then have its qty edited or be removed with the × button.
+
+  const addItemToDeliveryNote = (item) => {
+    // De-dupe: if the same inventory_item_id is already in the note, just
+    // bump its qty by 1 (matches how the packing-list would treat it).
+    const key = item.inventory_item_id || item.ingredient_id;
+    setSelectedItems((prev) => {
+      const idx = prev.findIndex((p) => (p.inventory_item_id || p.ingredient_id) === key);
+      if (idx >= 0) {
+        const copy = [...prev];
+        copy[idx] = { ...copy[idx], qty_out: (copy[idx].qty_out || 1) + 1 };
+        return copy;
+      }
+      return [
+        ...prev,
+        {
+          ...item,
+          qty_out: item.quantity || 1,
+          qty_returned: 0,
+          status: "pending",
+        },
+      ];
+    });
+  };
+
+  const addAllFromPackingList = () => {
+    if (packingListItems.length === 0) return;
+    // Merge — additive semantics so users can add from packing then extras
+    // from inventory without losing their picks.
+    packingListItems.forEach((it) => addItemToDeliveryNote(it));
+    toast.success(
+      language === "es"
+        ? `${packingListItems.length} artículo(s) agregado(s) del packing list`
+        : `${packingListItems.length} item(s) added from packing list`
+    );
+  };
+
+  const removeItemFromDeliveryNote = (idx) => {
+    setSelectedItems((prev) => prev.filter((_, i) => i !== idx));
   };
 
   const handleCreateDeliveryNote = async () => {
@@ -684,6 +733,120 @@ export function CheckInOutSection() {
               />
             </div>
 
+            {selectedEvent && (
+              <div className="rounded-lg border border-emerald-200 bg-emerald-50/40 p-3 space-y-2" data-testid="dn-item-picker">
+                <div className="flex items-center justify-between gap-2">
+                  <Label className="text-sm font-medium">
+                    {language === "es" ? "Agregar artículos" : "Add articles"}
+                  </Label>
+                  {packingListItems.length > 0 && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={addAllFromPackingList}
+                      className="h-7 text-xs border-emerald-300 text-emerald-700 hover:bg-emerald-100"
+                      data-testid="dn-add-all-btn"
+                    >
+                      <Plus className="w-3 h-3 mr-1" />
+                      {language === "es"
+                        ? `Agregar todos (${packingListItems.length})`
+                        : `Add all (${packingListItems.length})`}
+                    </Button>
+                  )}
+                </div>
+                {/* Combined pool: packing-list items first (higher signal),
+                    then inventory extras. Users can filter to find fast. */}
+                {(() => {
+                  const pool = [];
+                  const seen = new Set();
+                  for (const it of packingListItems) {
+                    const k = it.inventory_item_id || it.ingredient_id;
+                    if (!seen.has(k)) { pool.push({ ...it, _fromPacking: true }); seen.add(k); }
+                  }
+                  for (const it of inventory) {
+                    const k = it.ingredient_id || it.item_id;
+                    if (!seen.has(k)) {
+                      pool.push({
+                        ...it,
+                        inventory_item_id: k,
+                        _fromPacking: false,
+                      });
+                      seen.add(k);
+                    }
+                  }
+                  const q = itemPickerSearch.trim().toLowerCase();
+                  const filtered = q
+                    ? pool.filter((p) => (p.name || "").toLowerCase().includes(q))
+                    : pool;
+                  return (
+                    <>
+                      <div className="relative">
+                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+                        <Input
+                          value={itemPickerSearch}
+                          onChange={(e) => setItemPickerSearch(e.target.value)}
+                          placeholder={language === "es"
+                            ? "Buscar artículo…"
+                            : "Search article…"}
+                          className="pl-8 h-8 text-sm"
+                          data-testid="dn-item-picker-search"
+                        />
+                      </div>
+                      {itemPickerSearch && (
+                        <div className="max-h-40 overflow-y-auto space-y-0.5" data-testid="dn-item-picker-results">
+                          {filtered.length === 0 && (
+                            <p className="text-xs text-muted-foreground italic py-2 text-center">
+                              {language === "es" ? "Sin coincidencias" : "No matches"}
+                            </p>
+                          )}
+                          {filtered.slice(0, 30).map((it) => {
+                            const key = it.inventory_item_id || it.ingredient_id || it.item_id;
+                            return (
+                              <button
+                                key={key}
+                                type="button"
+                                onClick={() => {
+                                  addItemToDeliveryNote(it);
+                                  setItemPickerSearch("");
+                                }}
+                                className="w-full flex items-center justify-between gap-2 px-2 py-1.5 text-xs text-left rounded hover:bg-white hover:shadow-sm transition-all"
+                                data-testid={`dn-item-add-${key}`}
+                              >
+                                <span className="flex-1 truncate">
+                                  <span className="font-medium">{it.name}</span>
+                                  {it._fromPacking && (
+                                    <Badge variant="outline" className="ml-2 text-[9px] border-emerald-400 text-emerald-700 bg-white">
+                                      {language === "es" ? "packing" : "packing"}
+                                    </Badge>
+                                  )}
+                                </span>
+                                <Plus className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                              </button>
+                            );
+                          })}
+                          {filtered.length > 30 && (
+                            <p className="text-[10px] text-muted-foreground italic px-2 py-1">
+                              {language === "es"
+                                ? `Mostrando 30 de ${filtered.length}. Refina la búsqueda.`
+                                : `Showing 30 of ${filtered.length}. Refine your search.`}
+                            </p>
+                          )}
+                        </div>
+                      )}
+                      {!itemPickerSearch && (
+                        <p className="text-[11px] text-muted-foreground">
+                          {language === "es"
+                            ? "Escribe para buscar entre packing list + inventario. Click en un artículo para agregarlo al conduce."
+                            : "Type to search across packing list + inventory. Click an article to add it to the delivery note."}
+                        </p>
+                      )}
+                    </>
+                  );
+                })()}
+              </div>
+            )}
+
             {selectedItems.length > 0 && (
               <div className="border rounded-lg max-h-64 overflow-y-auto">
                 <Table>
@@ -693,6 +856,7 @@ export function CheckInOutSection() {
                       <TableHead>{language === "es" ? "Tipo" : "Type"}</TableHead>
                       <TableHead className="text-center">{language === "es" ? "Cantidad" : "Qty"}</TableHead>
                       <TableHead className="text-right">{language === "es" ? "Costo Rep." : "Rep. Cost"}</TableHead>
+                      <TableHead className="w-10"></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -723,6 +887,19 @@ export function CheckInOutSection() {
                             ? `$${fmtNum((item.replacement_cost || 0))}`
                             : <span className="text-muted-foreground">N/A</span>}
                         </TableCell>
+                        <TableCell>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-red-500 hover:text-red-700 hover:bg-red-50"
+                            onClick={() => removeItemFromDeliveryNote(idx)}
+                            data-testid={`dn-item-remove-${idx}`}
+                            aria-label="remove item"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </Button>
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -731,9 +908,18 @@ export function CheckInOutSection() {
             )}
 
             {selectedEvent && selectedItems.length === 0 && (
-              <div className="text-center py-8 text-muted-foreground border rounded-lg">
+              <div className="text-center py-6 text-muted-foreground border rounded-lg border-dashed">
                 <Package className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                <p>{language === "es" ? "No hay items de suministros en el packing list" : "No supply items in packing list"}</p>
+                <p className="text-sm">
+                  {language === "es"
+                    ? "Aún no has agregado artículos al conduce."
+                    : "You haven't added any articles yet."}
+                </p>
+                <p className="text-xs mt-1">
+                  {language === "es"
+                    ? "Usa el buscador de arriba o el botón \"Agregar todos\"."
+                    : "Use the search box above or the \"Add all\" button."}
+                </p>
               </div>
             )}
           </div>

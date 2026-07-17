@@ -608,6 +608,169 @@ async def sync_all_to_calendar(
     )
 
 
+@router.post("/reset-and-sync-all")
+async def reset_and_sync_all(
+    background_tasks: BackgroundTasks,
+    user: User = Depends(get_current_user),
+):
+    """Nuclear-reset the calendar sync: delete every Google event Kora
+    previously created (best-effort), clear the local `calendar_event_id(s)`
+    mappings, then trigger a fresh backfill.
+
+    Use when the user changes templates/colors/icons and wants existing Google
+    events REPLACED with the new format (Google `events.update` occasionally
+    fails to persist deep changes after a re-connect — this endpoint sidesteps
+    that by starting from a clean slate).
+    """
+    config = await db[CALENDAR_CONFIG_COLLECTION].find_one({"company_id": user.company_id})
+    if not config or not config.get("is_connected"):
+        raise HTTPException(status_code=400, detail="Calendar not connected")
+    if not config.get("shared_calendar_id"):
+        raise HTTPException(status_code=400, detail="No shared calendar selected")
+
+    bg = config.get("background_sync") or {}
+    if bg.get("status") == "running":
+        return JSONResponse(
+            status_code=202,
+            content={
+                "status": "already_running",
+                "message": "A sync is already in progress. Wait for it before resetting.",
+                "background_sync": bg,
+            },
+        )
+
+    now_iso = datetime.now(timezone.utc).isoformat()
+    initial_state = {
+        "status": "running",
+        "started_at": now_iso,
+        "finished_at": None,
+        "events_pushed": 0, "events_failed": 0,
+        "leads_pushed": 0, "leads_failed": 0,
+        "clients_pushed": 0, "clients_failed": 0,
+        "events_deleted": 0, "events_delete_failed": 0,
+        "processed": 0, "total": 0,
+        "errors": [], "last_error": None,
+        "mode": "reset-and-resync",
+        "started_by_user_id": getattr(user, "user_id", None),
+    }
+    await db[CALENDAR_CONFIG_COLLECTION].update_one(
+        {"company_id": user.company_id},
+        {"$set": {"background_sync": initial_state}},
+    )
+
+    background_tasks.add_task(_run_reset_and_sync_background, user.company_id)
+    return JSONResponse(
+        status_code=202,
+        content={
+            "status": "started",
+            "message": "Reset + resync started in background.",
+            "background_sync": initial_state,
+        },
+    )
+
+
+async def _run_reset_and_sync_background(company_id: str) -> None:
+    """Two-phase background worker:
+    Phase 1 — delete every Google event Kora previously created (via the
+              `calendar_event_ids` map on each Kora event) and clear the
+              mapping so the next sync creates fresh events.
+    Phase 2 — call the normal `_run_sync_all_background` to re-push
+              everything with the current templates + colors.
+
+    Best-effort: 404s and other delete failures are recorded but do not
+    abort — a stale/orphan Google id is fine, the fresh insert will still
+    happen in phase 2.
+    """
+    async def _push_state(update: dict) -> None:
+        try:
+            payload = {f"background_sync.{k}": v for k, v in update.items()}
+            await db[CALENDAR_CONFIG_COLLECTION].update_one(
+                {"company_id": company_id}, {"$set": payload},
+            )
+        except Exception as e:
+            logger.warning(f"[calendar reset] failed to persist progress: {e}")
+
+    try:
+        service = await get_calendar_service(company_id)
+        if not service:
+            await _push_state({
+                "status": "failed",
+                "finished_at": datetime.now(timezone.utc).isoformat(),
+                "last_error": "Google Calendar token invalid — please reconnect calendar in Settings",
+            })
+            return
+
+        config = await db[CALENDAR_CONFIG_COLLECTION].find_one({"company_id": company_id}) or {}
+        calendar_id = config.get("shared_calendar_id")
+
+        # Phase 1: delete every Kora-mapped Google event.
+        deleted = failed = 0
+        errors: list = []
+        async for ev in db.events.find(
+            {"company_id": company_id,
+             "$or": [{"calendar_event_id": {"$exists": True, "$ne": None}},
+                     {"calendar_event_ids": {"$exists": True, "$ne": None}}]},
+            {"_id": 0, "event_id": 1, "calendar_event_id": 1, "calendar_event_ids": 1},
+        ):
+            gids = list((ev.get("calendar_event_ids") or {}).values())
+            if ev.get("calendar_event_id"):
+                gids.append(ev["calendar_event_id"])
+            for gid in [g for g in gids if g]:
+                try:
+                    await _execute_with_backoff(
+                        service.events().delete(calendarId=calendar_id, eventId=gid),
+                        label=f"reset-delete({gid})",
+                    )
+                    deleted += 1
+                except Exception as e:
+                    # 404 / already-deleted is fine — count as deleted for UX.
+                    err_str = str(e)
+                    if "404" in err_str or "notFound" in err_str.lower() or "deleted" in err_str.lower():
+                        deleted += 1
+                    else:
+                        failed += 1
+                        if len(errors) < 20:
+                            errors.append(f"delete {gid}: {err_str[:120]}")
+            # Clear the mapping regardless of delete outcome — next insert is
+            # unconditional so we don't want to update a stale/gone id.
+            await db.events.update_one(
+                {"event_id": ev["event_id"]},
+                {"$unset": {"calendar_event_id": "", "calendar_event_ids": ""}},
+            )
+
+        # Also wipe follow-up calendar ids on leads + clients so they re-insert.
+        for coll in (db.leads, db.clients):
+            await coll.update_many(
+                {"company_id": company_id, "calendar_event_id": {"$exists": True}},
+                {"$unset": {"calendar_event_id": ""}},
+            )
+
+        await _push_state({
+            "events_deleted": deleted,
+            "events_delete_failed": failed,
+            "errors": errors[:20],
+        })
+        await _audit(
+            company_id, "sync_reset_phase1",
+            result="success",
+            extra={"deleted": deleted, "failed": failed},
+        )
+
+        # Phase 2 — hand off to the regular backfill, which will now insert
+        # fresh events with the current templates/colors.
+        await _run_sync_all_background(company_id)
+
+    except Exception as e:
+        safe = _sanitize_error(e)
+        logger.error(f"[calendar reset] job crashed for {company_id}: {safe}")
+        await _push_state({
+            "status": "failed",
+            "finished_at": datetime.now(timezone.utc).isoformat(),
+            "last_error": safe if isinstance(safe, str) else str(safe),
+        })
+        await _audit(company_id, "sync_reset_failed", result="error", error=safe)
+
+
 async def _run_sync_all_background(company_id: str) -> None:
     """Background worker that actually pushes events + follow-ups to Google.
 

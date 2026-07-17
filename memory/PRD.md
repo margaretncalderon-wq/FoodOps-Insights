@@ -1,6 +1,32 @@
 # Kora OS — Product Requirements Document
 
 
+## Fixes Combinados — Feb 15, 2026
+
+### #1 Calendario Kora — Sin "+X más"
+- `EngagementCalendar.js`: removido el cap de `MAX_VISIBLE = 3` que forzaba la vista "+X más" con popover. Ahora **todos los eventos del día se muestran** con sus colores por status. Si hay muchos, la celda tiene `max-h-52 overflow-y-auto` para no explotar visualmente.
+- Popover import limpio (ya no se usa).
+
+### #2 Google Calendar — Nuevo endpoint "Borrar y Re-sincronizar"
+- **Problema:** después de cambiar plantillas / colores, `events.update()` no aplicaba cambios profundos (especialmente tras un desconectar+reconectar). Los eventos viejos quedaban con formato viejo.
+- **Solución:** endpoint `POST /api/oauth/calendar/reset-and-sync-all` que hace 2 fases en background:
+  - **Fase 1** — delete de todos los eventos Google mapeados en `calendar_event_ids` + limpieza de las mappings en Mongo (eventos, leads, clients). 404s/orphan cuentan como éxito.
+  - **Fase 2** — corre `_run_sync_all_background` para insertar fresco con las plantillas + colores actuales.
+- Botón amarillo "Borrar y Re-sincronizar" en Settings → Google Calendar con confirmación destructiva. Reusa el mismo polling / progress panel.
+
+### #3 Conduces — Agregar artículos en vez de borrar
+- `CheckInOutSection.js`: antes el diálogo "Nuevo Conduce" auto-poblaba TODOS los ítems del packing list. Usuarios se quejaban de tener que borrar 100 para hacer un conduce pequeño.
+- **Fix:** ahora empieza VACÍO. Panel verde "Agregar artículos" con:
+  - Buscador en tiempo real sobre packing list + inventario general.
+  - Click en resultado → agrega ítem al conduce.
+  - Badge "packing" identifica ítems que sí vienen del packing list.
+  - Botón "Agregar todos (N)" atajo para quienes quieran el comportamiento antiguo.
+  - Botón × por fila para remover fácil.
+  - Auto-dedupe: agregar el mismo artículo 2 veces incrementa qty en vez de duplicar fila.
+- Empty state contextual: "Aún no has agregado artículos al conduce. Usa el buscador o Agregar todos".
+
+
+
 ## Feature + Bug Fix — Búsqueda en Picklist + Asociación con Inventario (Feb 15, 2026)
 
 **Estado:** ✅ Implementado y verificado E2E.

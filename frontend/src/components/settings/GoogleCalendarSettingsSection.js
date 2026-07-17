@@ -12,7 +12,7 @@ import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { 
   Calendar, RefreshCw, CheckCircle, XCircle, ExternalLink, 
-  Plus, Link2, Unlink, Settings2
+  Plus, Link2, Unlink, Settings2, RotateCcw
 } from "lucide-react";
 
 import { API_BASE as API } from "../../utils/api";
@@ -238,6 +238,36 @@ export default function GoogleCalendarSettingsSection() {
       await fetchSyncStatus();
     } catch (err) {
       toast.error(err.response?.data?.detail || (isEs ? "Error al sincronizar" : "Sync error"));
+      setSyncing(false);
+    }
+  };
+
+  const handleResetAndSync = async () => {
+    // Destructive: wipes existing Google events for this tenant. Require
+    // explicit confirmation before firing — this is the "clean slate" tool
+    // to apply new templates/colors when a plain resync isn't reflecting.
+    const confirmed = window.confirm(
+      isEs
+        ? "⚠ Esta acción BORRARÁ todos los eventos actuales en Google Calendar (los que Kora creó) y los volverá a crear con los colores, emojis y plantilla actuales.\n\nEsto es útil cuando cambiaste la plantilla y los cambios no se reflejan.\n\n¿Continuar?"
+        : "⚠ This will DELETE all current Google Calendar events that Kora created, and recreate them with the current colors, emojis and template.\n\nUse this when template changes aren't applying.\n\nContinue?"
+    );
+    if (!confirmed) return;
+    setSyncing(true);
+    try {
+      const res = await axios.post(`${API}/api/oauth/calendar/reset-and-sync-all`, {}, { withCredentials: true });
+      const d = res.data || {};
+      if (d.status === "already_running") {
+        toast.info(isEs
+          ? "Ya hay una sincronización en progreso. Espera a que termine."
+          : "A sync is already in progress. Wait for it to finish.");
+      } else {
+        toast.success(isEs
+          ? "Borrado + re-sincronización iniciado. Esto puede tardar varios minutos."
+          : "Reset + resync started. This may take several minutes.");
+      }
+      await fetchSyncStatus();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || (isEs ? "Error al reiniciar sincronización" : "Reset failed"));
       setSyncing(false);
     }
   };
@@ -471,6 +501,21 @@ export default function GoogleCalendarSettingsSection() {
                   {syncing
                     ? (isEs ? "Sincronizando en segundo plano…" : "Syncing in background…")
                     : (isEs ? "Sincronizar Todo Ahora" : "Sync Everything Now")}
+                </Button>
+              )}
+              {status.shared_calendar_id && (
+                <Button
+                  variant="outline"
+                  onClick={handleResetAndSync}
+                  disabled={syncing}
+                  className="border-amber-300 text-amber-700 hover:bg-amber-50"
+                  data-testid="reset-and-sync-btn"
+                  title={isEs
+                    ? "Borra los eventos actuales en Google y los recrea con los colores/emojis/plantillas actuales. Úsalo cuando cambies la plantilla o los colores no se actualicen."
+                    : "Deletes current Google events and recreates them with the current colors/emojis/templates. Use when template changes don't apply."}
+                >
+                  <RotateCcw className="w-4 h-4 mr-2" />
+                  {isEs ? "Borrar y Re-sincronizar" : "Reset & Resync"}
                 </Button>
               )}
               <Button variant="ghost" className="text-red-600 hover:text-red-700 hover:bg-red-50" onClick={handleDisconnect}>
