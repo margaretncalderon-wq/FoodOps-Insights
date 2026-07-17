@@ -32,7 +32,7 @@ import {
   DropdownMenuTrigger,
 } from "../components/ui/dropdown-menu";
 import { toast } from "sonner";
-import { Building2, Palette, Globe, DollarSign, FileText, Check, Plus, Trash2, Tag, ListChecks, Percent, Package, FormInput, Copy, ExternalLink, Edit, ToggleLeft, Utensils, Calculator, FileStack, ChefHat, ShoppingCart, Users, Shield, Zap, Plug, Clock, Languages, Upload, MapPin, Phone, Mail, Globe2, Eye, CreditCard, Landmark, X, Pencil, RefreshCw, ChevronDown, ChevronRight, Settings, Database, TrendingUp, Sliders } from "lucide-react";
+import { Building2, Palette, Globe, DollarSign, FileText, Check, Plus, Trash2, Tag, ListChecks, Percent, Package, FormInput, Copy, ExternalLink, Edit, ToggleLeft, Utensils, Calculator, FileStack, ChefHat, ShoppingCart, Users, Shield, Zap, Plug, Clock, Languages, Upload, MapPin, Phone, Mail, Globe2, Eye, CreditCard, Landmark, X, Pencil, RefreshCw, ChevronDown, ChevronRight, Settings, Database, TrendingUp, Sliders, Search } from "lucide-react";
 import { KoraLoader } from "../components/KoraLoader";
 import { Textarea } from "../components/ui/textarea";
 import { Badge } from "../components/ui/badge";
@@ -120,6 +120,11 @@ export default function SettingsPage() {
   const [categories, setCategories] = useState([]);
   const [itemTypes, setItemTypes] = useState([]);
   const [picklist, setPicklist] = useState([]);
+  const [picklistSearch, setPicklistSearch] = useState("");
+  // Active type filter for the picklist page. `null` = "All". Persists
+  // while the operator is browsing so it survives soft re-renders.
+  const [picklistTypeFilter, setPicklistTypeFilter] = useState(null);
+  const [showInactivePicklist, setShowInactivePicklist] = useState(true);
   const [inventoryItems, setInventoryItems] = useState([]);
   const [menus, setMenus] = useState([]);
   const [taxes, setTaxes] = useState([]);
@@ -3332,29 +3337,103 @@ return (
                     ? "Ítems predefinidos para selección rápida. Vincula con recetas o inventario para cálculo automático de costos."
                     : "Predefined items for quick selection. Link to recipes or inventory for auto cost calculation."}
                 </p>
-                
-                {/* Filter by Type */}
-                <div className="flex gap-2 mb-4 flex-wrap">
-                  <Badge 
-                    variant="outline" 
-                    className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors"
-                  >
-                    {language === "es" ? "Todos" : "All"}
-                  </Badge>
-                  {itemTypes.map(itype => (
-                    <Badge 
-                      key={itype.type_id}
-                      variant="outline" 
-                      className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors"
-                    >
-                      {language === "es" ? itype.name_es || itype.name : itype.name}
-                    </Badge>
-                  ))}
+
+                {/* Search + filters row. Adding the search box was the top ask
+                    from operations — the previous UI made you scroll through
+                    hundreds of items to find "Silla Chiavari" or "Filete". */}
+                <div className="flex flex-col sm:flex-row gap-3 mb-4">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+                    <Input
+                      value={picklistSearch}
+                      onChange={(e) => setPicklistSearch(e.target.value)}
+                      placeholder={language === "es"
+                        ? "Buscar por nombre, descripción, receta o inventario…"
+                        : "Search by name, description, recipe or inventory…"}
+                      className="pl-9 pr-9"
+                      data-testid="picklist-search-input"
+                    />
+                    {picklistSearch && (
+                      <button
+                        type="button"
+                        onClick={() => setPicklistSearch("")}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground text-lg leading-none"
+                        aria-label="clear search"
+                        data-testid="picklist-search-clear"
+                      >
+                        ×
+                      </button>
+                    )}
+                  </div>
+                  <label className="flex items-center gap-2 text-xs text-muted-foreground whitespace-nowrap px-2">
+                    <Switch
+                      checked={showInactivePicklist}
+                      onCheckedChange={setShowInactivePicklist}
+                      data-testid="picklist-show-inactive"
+                    />
+                    {language === "es" ? "Mostrar inactivos" : "Show inactive"}
+                  </label>
                 </div>
 
-                {picklist.length > 0 ? (
-                  <div className="space-y-2">
-                    {picklist.map(item => (
+                {/* Filter by Type — now clickable (was purely cosmetic before). */}
+                <div className="flex gap-2 mb-4 flex-wrap items-center">
+                  <Badge
+                    variant={picklistTypeFilter === null ? "default" : "outline"}
+                    onClick={() => setPicklistTypeFilter(null)}
+                    className="cursor-pointer transition-colors"
+                    data-testid="picklist-type-filter-all"
+                  >
+                    {language === "es" ? "Todos" : "All"}
+                    <span className="ml-1.5 text-[10px] opacity-70">
+                      ({picklist.filter(i => showInactivePicklist || i.is_active !== false).length})
+                    </span>
+                  </Badge>
+                  {itemTypes.map(itype => {
+                    const count = picklist.filter(i =>
+                      i.item_type === itype.type_id && (showInactivePicklist || i.is_active !== false)
+                    ).length;
+                    if (count === 0) return null;
+                    return (
+                      <Badge
+                        key={itype.type_id}
+                        variant={picklistTypeFilter === itype.type_id ? "default" : "outline"}
+                        onClick={() => setPicklistTypeFilter(picklistTypeFilter === itype.type_id ? null : itype.type_id)}
+                        className="cursor-pointer transition-colors"
+                        data-testid={`picklist-type-filter-${itype.type_id}`}
+                      >
+                        {language === "es" ? itype.name_es || itype.name : itype.name}
+                        <span className="ml-1.5 text-[10px] opacity-70">({count})</span>
+                      </Badge>
+                    );
+                  })}
+                </div>
+
+                {(() => {
+                  // Live filter combining: text search + type badge + active toggle.
+                  // Search matches name, description, recipe_name, inventory_item_name
+                  // so a user typing "silla" finds it even if the name is
+                  // "Alquiler Silla Chiavari".
+                  const q = picklistSearch.trim().toLowerCase();
+                  const filtered = picklist.filter(item => {
+                    if (!showInactivePicklist && item.is_active === false) return false;
+                    if (picklistTypeFilter && item.item_type !== picklistTypeFilter) return false;
+                    if (!q) return true;
+                    const hay = [
+                      item.name, item.description,
+                      item.recipe_name, item.inventory_item_name,
+                    ].filter(Boolean).join(" ").toLowerCase();
+                    return hay.includes(q);
+                  });
+                  return filtered.length > 0 ? (
+                    <div className="space-y-2" data-testid="picklist-results">
+                      {q && (
+                        <p className="text-xs text-muted-foreground mb-2">
+                          {language === "es"
+                            ? `${filtered.length} de ${picklist.length} ítems coinciden con "${picklistSearch}"`
+                            : `${filtered.length} of ${picklist.length} items match "${picklistSearch}"`}
+                        </p>
+                      )}
+                      {filtered.map(item => (
                       <div 
                         key={item.item_id} 
                         className={`flex items-center justify-between p-3 border rounded-lg ${item.is_active === false ? 'opacity-50' : ''}`} 
@@ -3413,11 +3492,18 @@ return (
                           </Button>
                         </div>
                       </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-center py-8 text-muted-foreground">{t("noResults")}</p>
-                )}
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-center py-8 text-muted-foreground" data-testid="picklist-empty">
+                      {picklist.length === 0
+                        ? t("noResults")
+                        : (language === "es"
+                            ? "Sin coincidencias. Prueba con otro término o quita los filtros."
+                            : "No matches. Try another term or clear the filters.")}
+                    </p>
+                  );
+                })()}
               </CardContent>
             </Card>
 
@@ -3601,16 +3687,34 @@ return (
                         value={newPicklist.inventory_item_id || "none"} 
                         onValueChange={(v) => setNewPicklist({ ...newPicklist, inventory_item_id: v === "none" ? "" : v })}
                       >
-                        <SelectTrigger><SelectValue placeholder={language === "es" ? "Sin inventario" : "No inventory"} /></SelectTrigger>
+                        <SelectTrigger data-testid="picklist-inventory-select"><SelectValue placeholder={language === "es" ? "Sin inventario" : "No inventory"} /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="none">{language === "es" ? "Sin inventario" : "No inventory"}</SelectItem>
-                          {inventoryItems.map(inv => (
-                            <SelectItem key={inv.item_id} value={inv.item_id}>
-                              {inv.name} - ${fmtNum((inv.unit_cost || 0))}
-                            </SelectItem>
-                          ))}
+                          {inventoryItems.map(inv => {
+                            // /api/inventory returns rows keyed by `ingredient_id` (not `item_id`)
+                            // and unit-priced under `cost_per_unit` (not `unit_cost`). The
+                            // legacy code used `inv.item_id` / `inv.unit_cost` — undefined
+                            // for all 922 rows in production, which is why users reported
+                            // "algunos ítems no me deja asociarlo al inventario".
+                            const invId = inv.ingredient_id || inv.item_id;
+                            const invCost = inv.cost_per_unit ?? inv.unit_cost ?? 0;
+                            if (!invId) return null;  // defensive — skip malformed rows
+                            return (
+                              <SelectItem key={invId} value={invId}>
+                                {inv.name} — ${fmtNum(invCost)}
+                                {inv.pack_unit ? ` / ${inv.pack_unit}` : ""}
+                              </SelectItem>
+                            );
+                          })}
                         </SelectContent>
                       </Select>
+                      {inventoryItems.length === 0 && (
+                        <p className="text-xs text-amber-600 mt-1">
+                          {language === "es"
+                            ? "No hay ingredientes en inventario. Créalos en Food Ops → Inventario."
+                            : "No inventory items yet. Create them in Food Ops → Inventory."}
+                        </p>
+                      )}
                     </div>
 
                     {/* Active Toggle */}

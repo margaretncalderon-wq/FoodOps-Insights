@@ -1,6 +1,47 @@
 # Kora OS — Product Requirements Document
 
 
+## Feature + Bug Fix — Búsqueda en Picklist + Asociación con Inventario (Feb 15, 2026)
+
+**Estado:** ✅ Implementado y verificado E2E.
+
+### (1) Búsqueda + Filtros funcionales en Settings → Datos → Tipos de Ítems
+- Input `data-testid="picklist-search-input"` con placeholder "Buscar por nombre, descripción, receta o inventario…". Botón × para limpiar.
+- Los badges de tipo (Comida/Servicio/Renta/Tarifa) que antes eran puramente cosméticos ahora son clickeables con highlight activo + contador por tipo. "Todos" también.
+- Toggle "Mostrar inactivos" (default: mostrar).
+- Filtro combinado en cliente: search AND type AND active-toggle.
+- Mensaje empty-state contextual ("Sin coincidencias — prueba con otro término").
+
+### (2) Bug crítico: "algunos items no me deja asociarlo al inventario"
+**Causa raíz:** dos mismatches de schema.
+- **Frontend** usaba `inv.item_id` y `inv.unit_cost` — pero los 922 ingredientes reales en producción usan `ingredient_id` y `cost_per_unit`. Resultado: cada `<SelectItem value={undefined}>` — Radix Select no permite valores undefined, así que hacía silent-fail al guardar.
+- **Backend enrichment** (server.py L3130) consultaba `db.inventory.find_one({"item_id": ...})` — colección vacía + campo inexistente. Aún cuando el link se guardaba, `inventory_item_name`, `calculated_cost` y `margin_percentage` no aparecían.
+
+**Fix:**
+- Frontend: `const invId = inv.ingredient_id || inv.item_id; const invCost = inv.cost_per_unit ?? inv.unit_cost ?? 0;` — con fallback a legacy y `pack_unit` mostrado ("$0.51 / unit"). Guarda defensivo: `if (!invId) return null`.
+- Backend: `db.ingredients.find_one({"ingredient_id": ...}, ...)` — colección correcta, campo correcto, fallback a `unit_cost` legacy.
+- Empty-state en el Select: si `inventoryItems.length === 0` → hint amarillo "Créalos en Food Ops → Inventario".
+
+### Test E2E verificado
+```
+POST /api/settings/picklist con inventory_item_id="ing_8d333c5c3909"
+→ Item guardado ✓
+GET /api/settings/picklist:
+  inventory_item_name: "Aceite de Oliva Extra Virgen"  ✓
+  calculated_cost: 0.51                                ✓
+  cost_source: "inventory"                             ✓
+  margin_percentage: 99.49                             ✓
+```
+
+### Sobre el "costo de proveedor" para calcular margen al cotizar
+El picklist ya soporta el flujo de costo → margen automático:
+- **Opción A**: vincular con **inventario** (usa `cost_per_unit` del ingrediente) — ahora funciona.
+- **Opción B**: vincular con **receta** o **formato de receta** (usa `cost_per_portion`).
+- **Opción C**: campo `internal_cost` (Costo Interno Manual) — se usa como fallback cuando no hay receta/inventario.
+Cuando cotizas, la propuesta enriquece cada línea con `calculated_cost` + `margin_percentage` para que veas el margen antes de enviar la cotización.
+
+
+
 ## Verificación — Nómina → Business Clarity (Feb 15, 2026)
 
 **Solicitud del usuario:** "verifica que esta sumando todo correctamente y que esta mandando a business clarity los totales de la nomina"

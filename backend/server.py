@@ -3126,12 +3126,23 @@ async def get_picklist_items(category_id: Optional[str] = None, item_type: Optio
                         calculated_cost = fmt_cost if not item.get("internal_cost") else calculated_cost
                         cost_source = "recipe_format" if not item.get("internal_cost") else cost_source
         
-        # If linked to inventory, get inventory cost
+        # If linked to inventory, get inventory cost.
+        # Inventory items live in `db.ingredients` (keyed by `ingredient_id`
+        # with unit price under `cost_per_unit`). The old query hit a
+        # non-existent `db.inventory` collection with the wrong field name,
+        # so every inventory-linked picklist item showed "Costo: —" and no
+        # margin — matches the user report "no me deja asociarlo al inventario"
+        # (the link was saved but the enrichment silently failed).
         if item.get("inventory_item_id"):
-            inv_item = await db.inventory.find_one({"item_id": item["inventory_item_id"]}, {"_id": 0, "name": 1, "unit_cost": 1})
+            inv_item = await db.ingredients.find_one(
+                {"ingredient_id": item["inventory_item_id"]},
+                {"_id": 0, "name": 1, "cost_per_unit": 1, "unit_cost": 1, "pack_unit": 1},
+            )
             if inv_item:
                 item["inventory_item_name"] = inv_item.get("name")
-                inv_cost = inv_item.get("unit_cost") or 0
+                # `cost_per_unit` is the current schema; `unit_cost` is legacy —
+                # fall back to legacy so pre-migration tenants also enrich.
+                inv_cost = inv_item.get("cost_per_unit") or inv_item.get("unit_cost") or 0
                 if not calculated_cost:
                     calculated_cost = inv_cost
                     cost_source = "inventory"
