@@ -1203,6 +1203,61 @@ export default function GoogleCalendarSettingsSection() {
                     We auto-trigger a background sync 2s AFTER the last
                     toggle so multiple rapid clicks debounce into one sync. */}
                 <div className="pt-3 mt-2 border-t border-slate-100" data-testid="sync-stages-panel">
+                  {/* Compact last-sync pill. Reads from syncStatus.background_sync
+                      so the operator sees at-a-glance if the last auto-sync
+                      landed. Renders three colors: green=completed, blue=running,
+                      red=failed, gray=never synced. */}
+                  {(() => {
+                    const bg = syncStatus?.background_sync;
+                    if (!bg) {
+                      return (
+                        <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground mb-2">
+                          <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+                          {isEs ? "Sin sincronización previa" : "No previous sync"}
+                        </div>
+                      );
+                    }
+                    // Compute "hace X" from finished_at (or started_at while running).
+                    const iso = bg.finished_at || bg.started_at;
+                    let ago = "";
+                    if (iso) {
+                      const ts = new Date(iso).getTime();
+                      const diffMs = Date.now() - ts;
+                      const mins = Math.max(1, Math.round(diffMs / 60000));
+                      if (mins < 60) ago = isEs ? `hace ${mins} min` : `${mins} min ago`;
+                      else if (mins < 60 * 24) ago = isEs ? `hace ${Math.round(mins / 60)} h` : `${Math.round(mins / 60)} h ago`;
+                      else ago = isEs ? `hace ${Math.round(mins / (60 * 24))} d` : `${Math.round(mins / (60 * 24))} d ago`;
+                    }
+                    const pushed = (bg.events_pushed || 0) + (bg.leads_pushed || 0) + (bg.clients_pushed || 0);
+                    const failed = (bg.events_failed || 0) + (bg.leads_failed || 0) + (bg.clients_failed || 0);
+                    if (bg.status === "running") {
+                      return (
+                        <div className="flex items-center gap-1.5 text-[11px] text-blue-700 mb-2" data-testid="last-sync-pill">
+                          <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
+                          {isEs
+                            ? `Sincronizando… ${bg.processed || 0}/${bg.total || 0}`
+                            : `Syncing… ${bg.processed || 0}/${bg.total || 0}`}
+                        </div>
+                      );
+                    }
+                    if (bg.status === "failed") {
+                      return (
+                        <div className="flex items-center gap-1.5 text-[11px] text-red-700 mb-2" data-testid="last-sync-pill">
+                          <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
+                          {isEs ? `Última sync falló · ${ago}` : `Last sync failed · ${ago}`}
+                        </div>
+                      );
+                    }
+                    // completed
+                    return (
+                      <div className="flex items-center gap-1.5 text-[11px] text-emerald-800 mb-2" data-testid="last-sync-pill">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                        {isEs
+                          ? `Última sync ${ago} · ${pushed} eventos${failed > 0 ? ` · ${failed} fallaron` : ""}`
+                          : `Last sync ${ago} · ${pushed} events${failed > 0 ? ` · ${failed} failed` : ""}`}
+                      </div>
+                    );
+                  })()}
                   <p className="text-sm font-medium mb-1">
                     {isEs ? "¿Cuáles estados sincronizar?" : "Which stages to sync?"}
                   </p>
