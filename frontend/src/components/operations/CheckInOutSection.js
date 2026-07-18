@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { toast } from "sonner";
 import { 
   Plus, Edit, Trash2, AlertTriangle, Truck, ClipboardList, Calendar, 
-  Clock, CheckCircle2, Save, Printer, Package, Search, X, Camera
+  Clock, CheckCircle2, Save, Printer, Package, Search, X, Camera, LayoutTemplate
 } from "lucide-react";
 
 import { API_BASE as API } from "../../utils/api";
@@ -37,6 +37,17 @@ export function CheckInOutSection() {
   // Free-text filter for the "Agregar artículo" combobox in the create
   // delivery-note dialog. Matches on `name` (case-insensitive).
   const [itemPickerSearch, setItemPickerSearch] = useState("");
+  // Type-based filter chip. `null` = all types.
+  const [itemPickerType, setItemPickerType] = useState(null);
+  // Packing templates the tenant has created. Loaded lazily when the
+  // create-conduce dialog opens.
+  const [templates, setTemplates] = useState([]);
+  const [applyingTemplateId, setApplyingTemplateId] = useState(null);
+  // Photos pulled from an applied template. Rendered as an extra strip in
+  // the "Fotos del montaje" panel so the operator sees the reference photos.
+  // On save, these URLs are copied to the delivery note's `setup_photos`
+  // (they already live in /api/uploads/ so no re-upload is needed).
+  const [selectedTemplatePhotos, setSelectedTemplatePhotos] = useState([]);
 
   const uploadNotePhoto = async (file, noteId) => {
     if (!file || !noteId) return null;
@@ -72,10 +83,11 @@ export function CheckInOutSection() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [notesRes, eventsRes, invRes] = await Promise.all([
+      const [notesRes, eventsRes, invRes, tplRes] = await Promise.all([
         axios.get(`${API}/api/delivery-notes`, { withCredentials: true }).catch(() => ({ data: [] })),
         axios.get(`${API}/api/events/confirmed`, { withCredentials: true }).catch(() => ({ data: [] })),
-        axios.get(`${API}/api/inventory/ingredients`, { withCredentials: true }).catch(() => ({ data: [] }))
+        axios.get(`${API}/api/inventory/ingredients`, { withCredentials: true }).catch(() => ({ data: [] })),
+        axios.get(`${API}/api/packing-templates`, { withCredentials: true }).catch(() => ({ data: [] })),
       ]);
       setDeliveryNotes(notesRes.data || []);
       setEvents(eventsRes.data || []);
@@ -85,6 +97,7 @@ export function CheckInOutSection() {
       // Ops need to be able to reference food supplies from a delivery note
       // too (e.g. an ice cream cart delivering both the machine AND cones).
       setInventory(invRes.data || []);
+      setTemplates(tplRes.data || []);
     } catch (error) {
       console.error("Error:", error);
     }
@@ -164,6 +177,71 @@ export function CheckInOutSection() {
     setSelectedItems((prev) => prev.filter((_, i) => i !== idx));
   };
 
+  // ---- Apply template ------------------------------------------------------
+  // Pulls items + pre-setup photos from a saved packing template and stages
+  // them into the current delivery-note draft. Closes the P2 loop: template
+  // in Resource Management → conduce with the same items + photos, in 1 tap.
+  const applyTemplateToNote = async (templateId) => {
+    if (!templateId || !selectedEvent) {
+      toast.error(language === "es" ? "Selecciona un evento primero" : "Select an event first");
+      return;
+    }
+    setApplyingTemplateId(templateId);
+    try {
+      // /preview computes suggested qty by guest_count without reserving stock.
+      // Perfect for delivery-note staging where we just need the items list.
+      const res = await axios.post(
+        `${API}/api/packing-templates/${templateId}/preview`,
+        { event_id: selectedEvent },
+        { withCredentials: true }
+      );
+      const data = res.data || {};
+      const items = data.items || [];
+      const photos = data.setup_photos || [];
+
+      // Enrich each preview item with the inventory row so we can render
+      // the right badge + carry replacement_cost forward. Falls back to
+      // stubs when the ingredient was deleted from inventory.
+      const invById = new Map(
+        inventory.map((i) => [i.ingredient_id || i.item_id, i])
+      );
+      let added = 0;
+      items.forEach((it) => {
+        const inv = invById.get(it.inventory_item_id) || {};
+        addItemToDeliveryNote({
+          ...inv,
+          inventory_item_id: it.inventory_item_id,
+          ingredient_id: it.inventory_item_id,
+          name: it.item_name || inv.name,
+          quantity: it.suggested_qty,
+          unit: it.unit || inv.unit,
+          inventory_type: inv.inventory_type || "item",
+          replacement_cost: inv.replacement_cost || 0,
+        });
+        added += 1;
+      });
+
+      // Show template photos in the "Fotos del montaje" panel by fetching
+      // them and staging as File-like references. Simpler: keep them as
+      // URLs the user sees BUT don't try to re-upload (that would duplicate).
+      // We surface them read-only as "de la plantilla" preview.
+      setSelectedTemplatePhotos(photos);
+
+      toast.success(
+        language === "es"
+          ? `${added} artículo(s) agregado(s) de la plantilla${photos.length ? ` · ${photos.length} foto(s) adjuntas` : ""}`
+          : `${added} article(s) added from template${photos.length ? ` · ${photos.length} photo(s) attached` : ""}`
+      );
+    } catch (e) {
+      toast.error(
+        e.response?.data?.detail ||
+        (language === "es" ? "Error al aplicar plantilla" : "Failed to apply template")
+      );
+    } finally {
+      setApplyingTemplateId(null);
+    }
+  };
+
   const handleCreateDeliveryNote = async () => {
     if (!selectedEvent || selectedItems.length === 0) {
       toast.error(language === "es" ? "Selecciona un evento e items" : "Select an event and items");
@@ -176,6 +254,10 @@ export function CheckInOutSection() {
         checkout_date: checkoutDate,
         expected_return_date: expectedReturnDate,
         notes: notes,
+        // Copy the applied-template photos into the delivery note's own
+        // `setup_photos`. They already live under /api/uploads/ so we're just
+        // pointing at the same file — no duplication on disk.
+        setup_photos: selectedTemplatePhotos,
         items: selectedItems.map(item => ({
           inventory_item_id: item.inventory_item_id || item.ingredient_id,
           name: item.name,
@@ -201,6 +283,7 @@ export function CheckInOutSection() {
       setSelectedEvent("");
       setSelectedItems([]);
       setPendingPhotos([]);
+      setSelectedTemplatePhotos([]);
       setCheckoutDate(new Date().toISOString().split('T')[0]);
       setExpectedReturnDate("");
       setNotes("");
@@ -828,10 +911,75 @@ export function CheckInOutSection() {
                     : "Optional. Upload or snap a photo of the ideal setup. Attached to the delivery note."}
                 </p>
               )}
+              {/* Photos inherited from the applied template. Rendered as a
+                  distinct strip so the operator knows these come FROM the
+                  template (not photos they snapped themselves). They copy
+                  over to the delivery note on save without re-upload. */}
+              {selectedTemplatePhotos.length > 0 && (
+                <div className="pt-2 border-t border-sky-100">
+                  <p className="text-[10px] font-medium text-sky-700 mb-1.5 uppercase tracking-wide">
+                    {language === "es" ? "De la plantilla" : "From template"}
+                  </p>
+                  <div className="grid grid-cols-4 gap-2">
+                    {selectedTemplatePhotos.map((url, i) => (
+                      <div key={i} className="relative group aspect-square rounded overflow-hidden border border-sky-200">
+                        <img
+                          src={`${API}${url}`}
+                          alt="template setup"
+                          className="w-full h-full object-cover cursor-pointer"
+                          onClick={() => window.open(`${API}${url}`, "_blank")}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setSelectedTemplatePhotos((prev) => prev.filter((_, k) => k !== i))}
+                          className="absolute top-0.5 right-0.5 w-5 h-5 rounded-full bg-red-500 text-white text-xs opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+                          aria-label="drop template photo"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
             {selectedEvent && (
               <div className="rounded-lg border border-emerald-200 bg-emerald-50/40 p-3 space-y-2" data-testid="dn-item-picker">
+                {/* Template applier — one-click hydration from a saved packing
+                    template. Populates items + photos + suggested quantities
+                    computed from the event's guest_count. */}
+                {templates.length > 0 && (
+                  <div className="pb-2 mb-1 border-b border-emerald-100">
+                    <Label className="text-xs font-medium mb-1.5 block">
+                      {language === "es" ? "O aplicar una plantilla" : "Or apply a template"}
+                    </Label>
+                    <div className="flex flex-wrap gap-1.5">
+                      {templates.map((tpl) => (
+                        <Button
+                          key={tpl.template_id}
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          disabled={applyingTemplateId === tpl.template_id}
+                          onClick={() => applyTemplateToNote(tpl.template_id)}
+                          className="h-7 text-xs border-emerald-300 hover:bg-emerald-100"
+                          data-testid={`dn-apply-tpl-${tpl.template_id}`}
+                        >
+                          <LayoutTemplate className="w-3 h-3 mr-1" />
+                          {tpl.name}
+                          {(tpl.setup_photos || []).length > 0 && (
+                            <Camera className="w-3 h-3 ml-1 text-emerald-600" />
+                          )}
+                          {applyingTemplateId === tpl.template_id && (
+                            <span className="ml-1 animate-pulse">…</span>
+                          )}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 <div className="flex items-center justify-between gap-2">
                   <Label className="text-sm font-medium">
                     {language === "es" ? "Agregar artículos" : "Add articles"}
@@ -872,12 +1020,56 @@ export function CheckInOutSection() {
                       seen.add(k);
                     }
                   }
+                  // Type-based counts for the filter chip labels — computed
+                  // once BEFORE the search filter so counts don't change as
+                  // the user types (would feel jumpy).
+                  const typeCounts = pool.reduce((acc, p) => {
+                    const t = p.inventory_type || "item";
+                    acc[t] = (acc[t] || 0) + 1;
+                    return acc;
+                  }, {});
+                  const typeChips = [
+                    { key: null, label: language === "es" ? "Todos" : "All" },
+                    { key: "equipment", label: language === "es" ? "Equipos" : "Equipment" },
+                    { key: "food", label: language === "es" ? "Alimentos" : "Food" },
+                    { key: "disposable", label: language === "es" ? "Desechables" : "Disposable" },
+                    { key: "event_supply", label: language === "es" ? "Suministros" : "Supplies" },
+                  ];
                   const q = itemPickerSearch.trim().toLowerCase();
-                  const filtered = q
-                    ? pool.filter((p) => (p.name || "").toLowerCase().includes(q))
-                    : pool;
+                  const filtered = pool.filter((p) => {
+                    if (itemPickerType && (p.inventory_type || "item") !== itemPickerType) return false;
+                    if (!q) return true;
+                    return (p.name || "").toLowerCase().includes(q);
+                  });
                   return (
                     <>
+                      {/* Type filter chips — only show categories that
+                          actually have items in the pool. Keeps the row
+                          tight and avoids empty-click dead ends. */}
+                      <div className="flex flex-wrap gap-1">
+                        {typeChips.map((chip) => {
+                          const count = chip.key === null
+                            ? pool.length
+                            : (typeCounts[chip.key] || 0);
+                          if (chip.key !== null && count === 0) return null;
+                          const isActive = itemPickerType === chip.key;
+                          return (
+                            <button
+                              key={chip.key || "all"}
+                              type="button"
+                              onClick={() => setItemPickerType(chip.key)}
+                              className={`px-2 py-0.5 rounded-full text-[10px] font-medium border transition-colors ${
+                                isActive
+                                  ? "bg-emerald-600 text-white border-emerald-600"
+                                  : "bg-white text-slate-600 border-slate-200 hover:border-emerald-400"
+                              }`}
+                              data-testid={`dn-type-chip-${chip.key || "all"}`}
+                            >
+                              {chip.label} ({count})
+                            </button>
+                          );
+                        })}
+                      </div>
                       <div className="relative">
                         <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
                         <Input
@@ -890,7 +1082,7 @@ export function CheckInOutSection() {
                           data-testid="dn-item-picker-search"
                         />
                       </div>
-                      {itemPickerSearch && (
+                      {(itemPickerSearch || itemPickerType) && (
                         <div className="max-h-40 overflow-y-auto space-y-0.5" data-testid="dn-item-picker-results">
                           {filtered.length === 0 && (
                             <p className="text-xs text-muted-foreground italic py-2 text-center">
@@ -956,11 +1148,11 @@ export function CheckInOutSection() {
                           )}
                         </div>
                       )}
-                      {!itemPickerSearch && (
+                      {!itemPickerSearch && !itemPickerType && (
                         <p className="text-[11px] text-muted-foreground">
                           {language === "es"
-                            ? "Escribe para buscar entre packing list + inventario. Click en un artículo para agregarlo al conduce."
-                            : "Type to search across packing list + inventory. Click an article to add it to the delivery note."}
+                            ? "Escribe para buscar o filtra por tipo. Click en un artículo para agregarlo al conduce."
+                            : "Type to search or filter by type. Click an article to add it to the delivery note."}
                         </p>
                       )}
                     </>

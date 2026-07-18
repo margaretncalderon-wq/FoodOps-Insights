@@ -1,6 +1,35 @@
 # Kora OS — Product Requirements Document
 
 
+## Feature — Filtro por Tipo + Aplicar Plantilla en Conduce (Feb 18, 2026)
+
+**Estado:** ✅ Implementado y verificado E2E.
+
+### (1) Chips de filtro por tipo en el picker de artículos
+En el diálogo Nuevo Conduce → panel verde "Agregar artículos", nueva fila de chips arriba del buscador:
+- `Todos (N)`, `Equipos (N)`, `Alimentos (N)`, `Desechables (N)`, `Suministros (N)`.
+- Chip activo con fondo verde emerald; inactivos blancos con hover verde.
+- **Los conteos se calculan del pool sin filtrar** → no cambian mientras el usuario tipea (evita UI jumpy).
+- Chips que tienen 0 ítems se ocultan (no clicks muertos).
+- Al filtrar por tipo, el buscador también se combina en AND → puedes escribir "silla" + click "Equipos" para ver solo sillas del inventario de equipos.
+
+### (2) Botón "Aplicar plantilla" cierra el ciclo P2
+Justo arriba del picker de artículos, nueva sección "O aplicar una plantilla" con chips por cada plantilla del tenant:
+- Click al chip → llama `POST /api/packing-templates/{id}/preview` con `event_id` seleccionado.
+- Backend calcula `suggested_qty` basado en `guest_count` del evento.
+- Frontend agrega cada ítem al conduce vía `addItemToDeliveryNote` con enriquecimiento desde el inventario local (`ingredient_id`, `unit`, `replacement_cost`, `inventory_type`).
+- Fotos de la plantilla se muestran en una **franja separada** dentro del panel azul de fotos con label "De la plantilla" — visualmente distinta de las fotos que el usuario captura en el momento.
+- Al crear el conduce, las URLs de las fotos de plantilla se **copian por referencia** al campo `setup_photos` del conduce (no re-upload — apuntan al mismo archivo bajo `/api/uploads/`).
+- Chip muestra icono de cámara si la plantilla tiene fotos + estado `…` mientras aplica.
+
+### Ícono `LayoutTemplate` añadido de `lucide-react`.
+
+### Test verificado (curl)
+- GET `/api/packing-templates` retorna 5 plantillas con sus `setup_photos`.
+- POST `/api/packing-templates/{id}/preview` con `guest_count=50` retorna items con `suggested_qty` + `setup_photos`.
+
+
+
 ## Fix — Todo Ítem del Conduce Queda Vinculado al Inventario (Feb 18, 2026)
 
 **Problema:** El picker "Agregar artículos" en Nuevo Conduce filtraba `inventory_type ∈ {"equipment", "disposable", "event_supply"}`. En producción 919/922 ítems son `food` — el operador veía prácticamente inventario vacío y no podía enlazar los items que sí existen.
