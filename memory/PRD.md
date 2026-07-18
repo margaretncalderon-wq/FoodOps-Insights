@@ -1,6 +1,23 @@
 # Kora OS — Product Requirements Document
 
 
+## Fix — Todo Ítem del Conduce Queda Vinculado al Inventario (Feb 18, 2026)
+
+**Problema:** El picker "Agregar artículos" en Nuevo Conduce filtraba `inventory_type ∈ {"equipment", "disposable", "event_supply"}`. En producción 919/922 ítems son `food` — el operador veía prácticamente inventario vacío y no podía enlazar los items que sí existen.
+
+**Fix aplicado en `CheckInOutSection.js`:**
+1. Eliminado el filtro restrictivo — ahora se muestra el inventario completo (`invRes.data`).
+2. Badge por tipo en cada resultado del picker (colores diferentes: Equipo azul / Desechable naranja / Alimento morado / Suministro gris) para que el operador identifique rápido a qué categoría pertenece.
+3. `addItemToDeliveryNote` ahora fuerza `inventory_item_id = ingredient_id = key` al momento de agregar — garantiza que TODO ítem seleccionado quede enlazado al inventario sin depender de fallbacks al POST.
+4. Guard defensivo: `if (!key) return` — rechaza ítems "fantasma" sin id.
+
+**Resultado:**
+- El operador puede ahora agregar cualquier ítem del inventario (comida, equipos, desechables, suministros) al conduce.
+- Cada línea del conduce persiste con `inventory_item_id` explícito, apuntando a un ingrediente real de `db.ingredients`.
+- La badge por tipo hace evidente cuáles ítems necesitarán check-in (equipos) vs cuáles se consumen (alimentos/desechables).
+
+
+
 ## Feature — Fotos de Pre-Montaje en Plantillas + Fotos en Conduces (Feb 18, 2026)
 
 **Estado:** ✅ Backend E2E verificado. Frontend implementado.

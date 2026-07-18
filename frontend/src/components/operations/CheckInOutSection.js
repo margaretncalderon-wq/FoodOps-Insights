@@ -79,10 +79,12 @@ export function CheckInOutSection() {
       ]);
       setDeliveryNotes(notesRes.data || []);
       setEvents(eventsRes.data || []);
-      const opsItems = (invRes.data || []).filter(i => 
-        ["equipment", "disposable", "event_supply"].includes(i.inventory_type)
-      );
-      setInventory(opsItems);
+      // Show the ENTIRE inventory in the picker — the previous filter
+      // ["equipment", "disposable", "event_supply"] was hiding 919 of 922
+      // rows because 99.7% of tenant data is `inventory_type: "food"`.
+      // Ops need to be able to reference food supplies from a delivery note
+      // too (e.g. an ice cream cart delivering both the machine AND cones).
+      setInventory(invRes.data || []);
     } catch (error) {
       console.error("Error:", error);
     }
@@ -118,9 +120,12 @@ export function CheckInOutSection() {
   // added item can then have its qty edited or be removed with the × button.
 
   const addItemToDeliveryNote = (item) => {
-    // De-dupe: if the same inventory_item_id is already in the note, just
-    // bump its qty by 1 (matches how the packing-list would treat it).
+    // Always resolve the canonical inventory id — prefer explicit
+    // inventory_item_id, else fall back to ingredient_id (for items coming
+    // from db.ingredients). This guarantees every selected line is
+    // linked back to inventory when the note is created.
     const key = item.inventory_item_id || item.ingredient_id;
+    if (!key) return;  // defensive — never accept a "phantom" item
     setSelectedItems((prev) => {
       const idx = prev.findIndex((p) => (p.inventory_item_id || p.ingredient_id) === key);
       if (idx >= 0) {
@@ -132,6 +137,9 @@ export function CheckInOutSection() {
         ...prev,
         {
           ...item,
+          // Force the canonical id so downstream POST doesn't need fallbacks.
+          inventory_item_id: key,
+          ingredient_id: key,
           qty_out: item.quantity || 1,
           qty_returned: 0,
           status: "pending",
@@ -891,6 +899,28 @@ export function CheckInOutSection() {
                           )}
                           {filtered.slice(0, 30).map((it) => {
                             const key = it.inventory_item_id || it.ingredient_id || it.item_id;
+                            // Prefer the tenant-provided `inventory_type`
+                            // ("equipment" / "disposable" / "food" / etc.) — falls
+                            // back to a neutral "item" for legacy rows. This
+                            // is what the UI badge shows so the operator knows
+                            // whether the picked line will need a return check-in.
+                            const itype = it.inventory_type || "item";
+                            const typeLabel = itype === "equipment"
+                              ? (language === "es" ? "Equipo" : "Equipment")
+                              : itype === "disposable"
+                              ? (language === "es" ? "Desechable" : "Disposable")
+                              : itype === "food"
+                              ? (language === "es" ? "Alimento" : "Food")
+                              : itype === "event_supply"
+                              ? (language === "es" ? "Suministro" : "Supply")
+                              : itype;
+                            const typeColor = itype === "equipment"
+                              ? "border-blue-400 text-blue-700 bg-blue-50"
+                              : itype === "disposable"
+                              ? "border-orange-400 text-orange-700 bg-orange-50"
+                              : itype === "food"
+                              ? "border-purple-400 text-purple-700 bg-purple-50"
+                              : "border-slate-300 text-slate-600 bg-slate-50";
                             return (
                               <button
                                 key={key}
@@ -902,11 +932,14 @@ export function CheckInOutSection() {
                                 className="w-full flex items-center justify-between gap-2 px-2 py-1.5 text-xs text-left rounded hover:bg-white hover:shadow-sm transition-all"
                                 data-testid={`dn-item-add-${key}`}
                               >
-                                <span className="flex-1 truncate">
+                                <span className="flex-1 truncate flex items-center gap-1.5">
                                   <span className="font-medium">{it.name}</span>
+                                  <Badge variant="outline" className={`text-[9px] py-0 px-1 ${typeColor}`}>
+                                    {typeLabel}
+                                  </Badge>
                                   {it._fromPacking && (
-                                    <Badge variant="outline" className="ml-2 text-[9px] border-emerald-400 text-emerald-700 bg-white">
-                                      {language === "es" ? "packing" : "packing"}
+                                    <Badge variant="outline" className="text-[9px] py-0 px-1 border-emerald-400 text-emerald-700 bg-white">
+                                      packing
                                     </Badge>
                                   )}
                                 </span>
