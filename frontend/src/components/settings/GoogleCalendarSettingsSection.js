@@ -1168,7 +1168,7 @@ export default function GoogleCalendarSettingsSection() {
                   value={status.auto_sync_events !== false}
                   onChange={async (v) => {
                     try {
-                      await axios.put(`${API}/api/oauth/calendar/preferences?auto_sync_events=${v}`, {}, { withCredentials: true });
+                      await axios.put(`${API}/api/oauth/calendar/preferences`, { auto_sync_events: v }, { withCredentials: true });
                       setStatus({ ...status, auto_sync_events: v });
                       toast.success(isEs ? "Preferencia actualizada" : "Preference updated");
                     } catch (err) {
@@ -1183,7 +1183,7 @@ export default function GoogleCalendarSettingsSection() {
                   value={status.auto_sync_follow_ups !== false}
                   onChange={async (v) => {
                     try {
-                      await axios.put(`${API}/api/oauth/calendar/preferences?auto_sync_follow_ups=${v}`, {}, { withCredentials: true });
+                      await axios.put(`${API}/api/oauth/calendar/preferences`, { auto_sync_follow_ups: v }, { withCredentials: true });
                       setStatus({ ...status, auto_sync_follow_ups: v });
                       toast.success(isEs ? "Preferencia actualizada" : "Preference updated");
                     } catch (err) {
@@ -1191,6 +1191,114 @@ export default function GoogleCalendarSettingsSection() {
                     }
                   }}
                 />
+
+                {/* Per-stage filter. `sync_stages: null` = sync everything
+                    (default). When the user disables a stage the backend will
+                    ALSO delete those events from Google on the next auto-sync
+                    tick, so the calendar mirrors the toggles exactly. */}
+                <div className="pt-3 mt-2 border-t border-slate-100" data-testid="sync-stages-panel">
+                  <p className="text-sm font-medium mb-1">
+                    {isEs ? "¿Cuáles estados sincronizar?" : "Which stages to sync?"}
+                  </p>
+                  <p className="text-xs text-muted-foreground mb-2">
+                    {isEs
+                      ? "Solo los estados marcados se publicarán en Google Calendar. Al desmarcar uno, esos eventos se eliminan automáticamente del calendario en la próxima sincronización."
+                      : "Only checked stages will publish to Google Calendar. Unchecking a stage removes those events on the next sync."}
+                  </p>
+                  {(() => {
+                    // Stage list mirrors the backend `_stage_to_calendar_meta`.
+                    // Uses the same emoji language as the color mapping so the
+                    // toggle UI feels consistent with what the operator sees
+                    // on Google.
+                    const STAGE_OPTIONS = [
+                      { key: "inquiry_received", labelEs: "Solicitud Recibida", labelEn: "Inquiry Received", color: "bg-slate-400" },
+                      { key: "context_captured", labelEs: "Contexto Capturado", labelEn: "Context Captured", color: "bg-slate-400" },
+                      { key: "scope_drafted", labelEs: "Alcance Borrador", labelEn: "Scope Drafted", color: "bg-yellow-400" },
+                      { key: "definition_in_review", labelEs: "En Definición / Revisión", labelEn: "Definition In Review", color: "bg-yellow-400" },
+                      { key: "committed", labelEs: "Confirmado", labelEn: "Confirmed", color: "bg-emerald-600" },
+                      { key: "in_progress", labelEs: "En Curso", labelEn: "In Progress", color: "bg-blue-500" },
+                      { key: "closed", labelEs: "Cerrado", labelEn: "Closed", color: "bg-emerald-800" },
+                      { key: "cancelled", labelEs: "Cancelado", labelEn: "Cancelled", color: "bg-red-500" },
+                      { key: "archived", labelEs: "Archivado", labelEn: "Archived", color: "bg-red-400" },
+                    ];
+                    // `null` in DB means "sync all" — reflect that by
+                    // treating every stage as enabled by default.
+                    const cur = status.sync_stages;
+                    const isAllEnabled = cur === null || cur === undefined;
+                    const isEnabled = (k) => isAllEnabled || (Array.isArray(cur) && cur.includes(k));
+                    const persist = async (next) => {
+                      try {
+                        await axios.put(
+                          `${API}/api/oauth/calendar/preferences`,
+                          { sync_stages: next },
+                          { withCredentials: true }
+                        );
+                        setStatus({ ...status, sync_stages: next });
+                      } catch (err) {
+                        toast.error(err.response?.data?.detail || "Error");
+                      }
+                    };
+                    return (
+                      <>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
+                          {STAGE_OPTIONS.map((s) => {
+                            const on = isEnabled(s.key);
+                            return (
+                              <label
+                                key={s.key}
+                                className={`flex items-center gap-2 p-1.5 rounded border cursor-pointer text-xs transition-colors ${
+                                  on ? "border-emerald-300 bg-emerald-50" : "border-slate-200 bg-slate-50"
+                                }`}
+                                data-testid={`sync-stage-${s.key}`}
+                              >
+                                <input
+                                  type="checkbox"
+                                  className="accent-emerald-600"
+                                  checked={on}
+                                  onChange={(e) => {
+                                    const checked = e.target.checked;
+                                    // Materialize current selection into a
+                                    // concrete list before mutating so
+                                    // "unchecking one" starting from "all"
+                                    // switches from null → explicit list.
+                                    const base = Array.isArray(cur)
+                                      ? [...cur]
+                                      : STAGE_OPTIONS.map((x) => x.key);
+                                    const next = checked
+                                      ? Array.from(new Set([...base, s.key]))
+                                      : base.filter((k) => k !== s.key);
+                                    persist(next);
+                                  }}
+                                />
+                                <span className={`inline-block w-2 h-2 rounded-full ${s.color}`} aria-hidden="true" />
+                                <span className="flex-1">{isEs ? s.labelEs : s.labelEn}</span>
+                              </label>
+                            );
+                          })}
+                        </div>
+                        <div className="flex items-center justify-end gap-2 mt-2 text-[11px]">
+                          <button
+                            type="button"
+                            onClick={() => persist(null)}
+                            className="text-emerald-700 hover:underline"
+                            data-testid="sync-stages-select-all"
+                          >
+                            {isEs ? "Todos" : "All"}
+                          </button>
+                          <span className="text-muted-foreground">·</span>
+                          <button
+                            type="button"
+                            onClick={() => persist([])}
+                            className="text-red-600 hover:underline"
+                            data-testid="sync-stages-select-none"
+                          >
+                            {isEs ? "Ninguno" : "None"}
+                          </button>
+                        </div>
+                      </>
+                    );
+                  })()}
+                </div>
               </div>
             )}
 

@@ -942,27 +942,57 @@ async def get_calendar_status(user: User = Depends(get_current_user)):
         "shared_calendar_name": config.get("shared_calendar_name"),
         "auto_sync_events": config.get("auto_sync_events", True),
         "auto_sync_follow_ups": config.get("auto_sync_follow_ups", True),
+        # Per-stage sync filter. When null / empty → all stages sync (backwards
+        # compatible default). When populated → only listed stage keys (as
+        # returned by `_stage_to_calendar_meta`, e.g. "committed", "cancelled",
+        # "inquiry_received"…) are pushed to Google. Stages EXCLUDED here are
+        # also *deleted* from Google if they had been previously synced.
+        "sync_stages": config.get("sync_stages"),
         "needs_reauthorization": bool(config.get("needs_reauthorization")),
     }
 
 
 @router.put("/preferences")
 async def update_calendar_preferences(
-    auto_sync_events: Optional[bool] = None,
-    auto_sync_follow_ups: Optional[bool] = None,
+    payload: dict,
     user: User = Depends(get_current_user)
 ):
-    """Toggle which entities sync automatically to Google Calendar."""
+    """Toggle which entities sync automatically to Google Calendar.
+
+    Body: any of
+      { auto_sync_events?: bool, auto_sync_follow_ups?: bool,
+        sync_stages?: string[] | null }
+    Set `sync_stages` to null (or omit) → sync everything.
+    Set `sync_stages` to [] → sync nothing (extreme but supported).
+    """
     config = await db[CALENDAR_CONFIG_COLLECTION].find_one({"company_id": user.company_id})
     if not config:
         raise HTTPException(status_code=400, detail="Calendar not connected")
-    
+
     update_data: dict = {"updated_at": datetime.now(timezone.utc).isoformat()}
-    if auto_sync_events is not None:
-        update_data["auto_sync_events"] = auto_sync_events
-    if auto_sync_follow_ups is not None:
-        update_data["auto_sync_follow_ups"] = auto_sync_follow_ups
-    
+    if "auto_sync_events" in payload:
+        update_data["auto_sync_events"] = bool(payload["auto_sync_events"])
+    if "auto_sync_follow_ups" in payload:
+        update_data["auto_sync_follow_ups"] = bool(payload["auto_sync_follow_ups"])
+    if "sync_stages" in payload:
+        v = payload["sync_stages"]
+        if v is None:
+            update_data["sync_stages"] = None
+        elif isinstance(v, list):
+            # Normalize + de-dupe. Keep just the canonical keys we recognise;
+            # random typos would silently exclude everything otherwise.
+            normalized = []
+            seen = set()
+            for s in v:
+                if not isinstance(s, str): continue
+                k = s.strip().lower().replace(" ", "_")
+                if k and k not in seen:
+                    seen.add(k)
+                    normalized.append(k)
+            update_data["sync_stages"] = normalized
+        else:
+            raise HTTPException(status_code=400, detail="sync_stages must be a list or null")
+
     await db[CALENDAR_CONFIG_COLLECTION].update_one(
         {"company_id": user.company_id},
         {"$set": update_data}
@@ -1896,9 +1926,21 @@ async def auto_sync_event(
         except Exception as e:
             print(f"Auto-sync orphan delete failed: {e}")
         return
-    
+
     if not event:
         return
+
+    # Stage filter: users can pick which stages sync via the settings UI.
+    # If sync_stages is set AND the current event's stage is NOT in the
+    # whitelist, we treat this like a "delete" — remove any Google event
+    # that might have been created before the filter existed, so the
+    # calendar reflects the filter accurately.
+    allowed_stages = config.get("sync_stages")
+    if action == "upsert" and isinstance(allowed_stages, list):
+        stage_key = (event.get("stage") or "").strip().lower().replace(" ", "_")
+        op_key = (event.get("operational_status") or "").strip().lower().replace(" ", "_")
+        if stage_key not in allowed_stages and op_key not in allowed_stages:
+            action = "delete"
     
     service = await get_calendar_service(company_id)
     if not service:

@@ -1,6 +1,42 @@
 # Kora OS — Product Requirements Document
 
 
+## Feature — Filtro por Estado en Google Calendar Sync + Foto Verificada en Plantillas (Feb 18, 2026)
+
+**Estado:** ✅ Regresión smoke test completo. Sin rupturas.
+
+### #1 Foto de plantilla se transfiere al conduce (confirmado, ya implementado)
+El flujo ya estaba funcionando desde el push anterior:
+- `POST /api/packing-templates/{id}/preview` retorna `setup_photos` en el response.
+- Frontend `applyTemplateToNote` guarda las URLs en `selectedTemplatePhotos` (state).
+- Al crear el conduce, `handleCreateDeliveryNote` envía `setup_photos: selectedTemplatePhotos` en el body → backend guarda en `delivery_notes.setup_photos`.
+- El panel azul "Fotos del montaje" muestra las fotos de la plantilla bajo la etiqueta "De la plantilla" con miniatura clickeable.
+
+### #2 Filtro por estado en Google Calendar
+**Backend** (`routers/google_calendar.py`):
+- Nuevo campo `sync_stages: Optional[List[str]]` en `calendar_config`.
+  - `null` = sincronizar todos los estados (backward compatible).
+  - `[]` = ninguno.
+  - `["committed", "in_progress"]` = solo esos.
+- `PUT /api/oauth/calendar/preferences` migrado de query-params a JSON body. Valida y normaliza (`strip().lower().replace(" ", "_")` + de-dupe).
+- `GET /api/oauth/calendar/status` ahora expone `sync_stages`.
+- `auto_sync_event`: si `stage_key` (ni `op_key`) no está en el whitelist, la acción `upsert` se **degrada a `delete`** — el evento se remueve de Google si estaba antes.
+
+**Frontend** (`GoogleCalendarSettingsSection.js`):
+- Nuevo panel `sync-stages-panel` bajo "Sincronización Automática".
+- 9 checkboxes con dot de color (mirror del colorId de Google): Solicitud Recibida, Contexto Capturado, Alcance Borrador, En Definición/Revisión, Confirmado, En Curso, Cerrado, Cancelado, Archivado.
+- Cuando `sync_stages = null`, todos aparecen checked (visible que están todos activos).
+- Al descheckear el primero, se materializa la lista completa antes de quitar el elemento (transición null → lista explícita).
+- Links atajos "Todos" y "Ninguno".
+
+### #3 Regresión — nothing broken
+Curl E2E sobre endpoints core:
+- ✅ `/api/oauth/calendar/preferences` PUT con `sync_stages` (lista, null, inválido → 400 correcto).
+- ✅ `/api/packing-templates`, `/api/delivery-notes`, `/api/inventory/ingredients`, `/api/settings/picklist` — todos HTTP 200.
+- ✅ `/api/delivery-notes/check-conflicts` sigue funcionando (verificado con items vacíos y con shortage).
+
+
+
 ## Feature — Plantillas Temáticas + Detección de Conflictos con Alternativas (Feb 18, 2026)
 
 **Estado:** ✅ E2E verificado con curl. Lint limpio.
