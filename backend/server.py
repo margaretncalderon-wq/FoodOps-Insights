@@ -7605,6 +7605,162 @@ async def get_delivery_notes(user: User = Depends(get_current_user)):
         n.setdefault("direction", "outbound")
     return notes
 
+
+class ConflictCheckRequest(BaseModel):
+    event_id: Optional[str] = None
+    items: List[dict]  # [{inventory_item_id, qty_out}]
+    checkout_date: Optional[str] = None
+    expected_return_date: Optional[str] = None
+
+
+@delivery_notes_router.post("/check-conflicts")
+async def check_delivery_conflicts(
+    data: ConflictCheckRequest, user: User = Depends(get_current_user)
+):
+    """Return per-item conflict analysis for a *proposed* delivery note.
+
+    For each requested (inventory_item_id, qty_out) tuple, computes:
+      * `current_stock`       — total qty in inventory.
+      * `already_reserved`    — qty locked to other future events.
+      * `currently_checked_out` — qty on active (non-returned) delivery notes.
+      * `available`           — max(current_stock - reserved - checked_out, 0).
+      * `shortage`            — max(qty_out - available, 0). 0 means no conflict.
+      * `alternatives`        — up to 3 same-inventory-type items with the
+                                requested qty in stock, so ops can substitute.
+      * `blocking_notes`      — brief snapshot of notes that hold the item now.
+      * `blocking_events`     — future events reserving the item.
+
+    This endpoint is purely read-only: no reservation, no side effects. The UI
+    calls it before creating a conduce to surface conflicts + alternatives.
+    """
+    company_id = user.company_id
+
+    # Load current stock rows once — cheaper than N find_one calls.
+    item_ids = [x.get("inventory_item_id") for x in (data.items or []) if x.get("inventory_item_id")]
+    if not item_ids:
+        return {"items": [], "has_conflict": False}
+    ings = await db.ingredients.find(
+        {"company_id": company_id, "ingredient_id": {"$in": item_ids}}, {"_id": 0},
+    ).to_list(len(item_ids))
+    ings_map = {i["ingredient_id"]: i for i in ings}
+
+    # Aggregate active delivery-note checkouts by item id — an item is "out"
+    # if there's a note with status pending/in_use/late and qty_returned <
+    # qty_out. We exclude the proposed event's own past notes (if any).
+    checkout_pipeline = [
+        {"$match": {
+            "company_id": company_id,
+            "status": {"$in": ["pending", "in_use", "late", "overdue"]},
+            "direction": {"$ne": "return"},
+        }},
+        {"$unwind": "$items"},
+        {"$match": {"items.inventory_item_id": {"$in": item_ids}}},
+        {"$group": {
+            "_id": "$items.inventory_item_id",
+            "qty_out_total": {"$sum": {"$subtract": [
+                {"$ifNull": ["$items.qty_out", 0]},
+                {"$ifNull": ["$items.qty_returned", 0]},
+            ]}},
+            "notes": {"$push": {
+                "note_id": "$note_id",
+                "note_number": "$note_number",
+                "event_id": "$event_id",
+                "checkout_date": "$checkout_date",
+                "expected_return_date": "$expected_return_date",
+                "qty": "$items.qty_out",
+            }},
+        }},
+    ]
+    checkout_map = {r["_id"]: r async for r in db.delivery_notes.aggregate(checkout_pipeline)}
+
+    # Reservations: sum outstanding reservations across other events, EXCLUDING
+    # the current event so a user editing his own reservation doesn't flag a
+    # false conflict. Reservations live on `inventory_reservations`.
+    reservation_pipeline = [
+        {"$match": {
+            "company_id": company_id,
+            "status": {"$in": ["reserved", "pending"]},
+            "inventory_item_id": {"$in": item_ids},
+            **({"event_id": {"$ne": data.event_id}} if data.event_id else {}),
+        }},
+        {"$group": {
+            "_id": "$inventory_item_id",
+            "qty_reserved_total": {"$sum": "$qty"},
+            "events": {"$push": {
+                "event_id": "$event_id",
+                "event_name": "$event_name",
+                "qty": "$qty",
+                "reserved_until": "$reserved_until",
+            }},
+        }},
+    ]
+    reserv_map = {r["_id"]: r async for r in db.inventory_reservations.aggregate(reservation_pipeline)}
+
+    results = []
+    has_conflict = False
+    for req in data.items or []:
+        iid = req.get("inventory_item_id")
+        qty_want = float(req.get("qty_out") or 0)
+        if not iid:
+            continue
+        inv = ings_map.get(iid, {}) or {}
+        stock = float(inv.get("stock_quantity") or 0)
+        reserved = float((reserv_map.get(iid) or {}).get("qty_reserved_total", 0) or 0)
+        checked_out = float((checkout_map.get(iid) or {}).get("qty_out_total", 0) or 0)
+        available = max(stock - reserved - checked_out, 0)
+        shortage = max(qty_want - available, 0)
+
+        # Alternatives: same inventory_type with enough available stock.
+        alternatives = []
+        if shortage > 0:
+            itype = inv.get("inventory_type") or "item"
+            candidate_ings = await db.ingredients.find(
+                {"company_id": company_id,
+                 "ingredient_id": {"$ne": iid},
+                 "inventory_type": itype,
+                 "stock_quantity": {"$gt": 0}},
+                {"_id": 0, "ingredient_id": 1, "name": 1, "stock_quantity": 1,
+                 "unit": 1, "cost_per_unit": 1, "replacement_cost": 1},
+            ).limit(20).to_list(20)
+            for c in candidate_ings:
+                # Compute available for the candidate too so the UI shows a
+                # meaningful "you can substitute with 20 of these" figure.
+                cand_id = c["ingredient_id"]
+                cand_reserved = float((reserv_map.get(cand_id) or {}).get("qty_reserved_total", 0) or 0)
+                cand_checked = float((checkout_map.get(cand_id) or {}).get("qty_out_total", 0) or 0)
+                cand_avail = max(float(c.get("stock_quantity") or 0) - cand_reserved - cand_checked, 0)
+                if cand_avail >= qty_want:
+                    alternatives.append({
+                        "inventory_item_id": cand_id,
+                        "name": c.get("name"),
+                        "available": cand_avail,
+                        "unit": c.get("unit"),
+                        "replacement_cost": c.get("replacement_cost") or c.get("cost_per_unit") or 0,
+                    })
+                if len(alternatives) >= 3:
+                    break
+
+        if shortage > 0:
+            has_conflict = True
+
+        results.append({
+            "inventory_item_id": iid,
+            "name": inv.get("name") or req.get("name"),
+            "qty_requested": qty_want,
+            "current_stock": stock,
+            "already_reserved": reserved,
+            "currently_checked_out": checked_out,
+            "available": available,
+            "shortage": shortage,
+            "conflict": shortage > 0,
+            "blocking_notes": (checkout_map.get(iid) or {}).get("notes", [])[:5],
+            "blocking_events": (reserv_map.get(iid) or {}).get("events", [])[:5],
+            "alternatives": alternatives,
+        })
+
+    return {"has_conflict": has_conflict, "items": results}
+
+
 @delivery_notes_router.post("")
 async def create_delivery_note(data: DeliveryNoteCreate, user: User = Depends(get_current_user)):
     """Create a new delivery note (conduce) for an event"""

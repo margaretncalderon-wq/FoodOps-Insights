@@ -42,6 +42,10 @@ class TemplateItem(BaseModel):
 class PackingTemplateCreate(BaseModel):
     name: str
     event_type: str  # buffet, brunch_box, picadera, brand_moment, etc.
+    # Optional theme — free-text (e.g. "boho", "tropical", "clásico"). Used
+    # by the delivery-note dialog to auto-highlight templates that match
+    # the event's theme, not just event_type. Multi-word themes OK.
+    theme: Optional[str] = None
     description: Optional[str] = None
     # Pre-setup photos so ops staff know how the layout should look when the
     # manager isn't on-site. Simple list of URLs (served via /api/uploads/*).
@@ -53,6 +57,7 @@ class PackingTemplateCreate(BaseModel):
 class PackingTemplateUpdate(BaseModel):
     name: Optional[str] = None
     event_type: Optional[str] = None
+    theme: Optional[str] = None
     description: Optional[str] = None
     setup_photos: Optional[List[str]] = None
     items: Optional[List[TemplateItem]] = None
@@ -90,6 +95,7 @@ async def create_template(data: PackingTemplateCreate, user: User = Depends(get_
         "company_id": user.company_id,
         "name": data.name,
         "event_type": data.event_type,
+        "theme": (data.theme or "").strip() or None,
         "description": data.description,
         "setup_photos": list(data.setup_photos or []),
         "items": [i.model_dump() for i in data.items],
@@ -114,6 +120,8 @@ async def update_template(template_id: str, data: PackingTemplateUpdate, user: U
         updates["name"] = data.name
     if data.event_type is not None:
         updates["event_type"] = data.event_type
+    if data.theme is not None:
+        updates["theme"] = (data.theme or "").strip() or None
     if data.description is not None:
         updates["description"] = data.description
     if data.setup_photos is not None:

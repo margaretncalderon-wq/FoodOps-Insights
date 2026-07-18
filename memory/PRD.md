@@ -1,6 +1,58 @@
 # Kora OS — Product Requirements Document
 
 
+## Feature — Plantillas Temáticas + Detección de Conflictos con Alternativas (Feb 18, 2026)
+
+**Estado:** ✅ E2E verificado con curl. Lint limpio.
+
+### (1) Campo `theme` en Plantillas de Packing
+**Backend** (`routers/packing_templates.py`):
+- Nuevo campo `theme: Optional[str]` en `PackingTemplateCreate/Update`.
+- Se sanitiza (strip + None si vacío) y persiste en `packing_templates.theme`.
+- Editable via PUT.
+
+**Frontend** (`PackingTemplatesSection.js`):
+- Nuevo input "Tema" en el editor con placeholder `"Ej: boho, tropical, clásico, moderno, halloween…"` y hint contextual.
+
+### (2) Smart matching de plantillas por evento
+En el diálogo Nuevo Conduce → sección "O aplicar una plantilla":
+- Helper `matchScore(tpl, event)` puntúa cada plantilla:
+  - +2 si `event_type` coincide exacto.
+  - +2 si `theme` coincide (exacto, o uno contiene al otro).
+  - +1 fallback si el theme del evento aparece en `name`/`description` de la plantilla.
+- Plantillas se ordenan por score DESC.
+- Score ≥ 2 → chip con **fondo amarillo + icono ✨ Sparkles + tooltip explicativo** ("Recomendada: coincide con tipo/tema del evento").
+- Score bajo → chip verde normal con icono LayoutTemplate.
+
+### (3) Endpoint de detección de conflictos `POST /api/delivery-notes/check-conflicts`
+Análisis completo por ítem sin efectos secundarios:
+- **`current_stock`** — total en inventario.
+- **`already_reserved`** — reservas para otros eventos (excluye el propio).
+- **`currently_checked_out`** — sum de `qty_out - qty_returned` en conduces activos (pending/in_use/late/overdue).
+- **`available`** = stock − reserved − checked_out (clamped ≥ 0).
+- **`shortage`** = qty_out − available.
+- **`alternatives`** — hasta 3 ítems del mismo `inventory_type` con `available ≥ qty_want`.
+- **`blocking_notes`** — snapshot de conduces que retienen el ítem (número + evento + fechas).
+- **`blocking_events`** — reservas futuras.
+
+Implementado con 2 pipelines de aggregation (delivery_notes + inventory_reservations) → un solo round-trip a Mongo por request.
+
+### (4) UI de conflictos con sustitución de 1-click
+En el diálogo Nuevo Conduce:
+- **Botón "Verificar disponibilidad"** justo antes de guardar. Amarillo con icono AlertTriangle.
+- Al fetch → toast informativo (verde si sin conflictos, amarillo si hay).
+- Panel expandible verde/amarillo según `has_conflict`.
+- Por cada ítem con conflicto: nombre + qty pedida vs disponible + faltante + desglose de quién retiene (📌 reservados / 🚚 en uso con número de conduce).
+- Debajo: hasta 3 alternativas con `available + unit`. Click en cualquiera → helper `substituteWithAlternative` remueve el original y lo reemplaza con el sustituto en el mismo qty.
+- Empty state: "Sin alternativas con stock suficiente" cuando no hay reemplazos.
+
+### Tests verificados (curl)
+- ✅ Create template con `theme=boho` → persiste correctamente.
+- ✅ PUT `theme=tropical` → actualiza sin borrar otros campos.
+- ✅ check-conflicts con mix de items (uno OK, uno con shortage) → retorna análisis correcto por ítem con `has_conflict: true`.
+
+
+
 ## Feature — Filtro por Tipo + Aplicar Plantilla en Conduce (Feb 18, 2026)
 
 **Estado:** ✅ Implementado y verificado E2E.

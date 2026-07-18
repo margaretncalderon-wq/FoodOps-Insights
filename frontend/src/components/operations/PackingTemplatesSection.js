@@ -106,6 +106,7 @@ export function PackingTemplatesSection() {
           {
             name: editing.name,
             event_type: editing.event_type,
+            theme: editing.theme || null,
             description: editing.description,
             setup_photos: editing.setup_photos || [],
             items: (editing.items || []).map((i) => ({
@@ -124,6 +125,7 @@ export function PackingTemplatesSection() {
           {
             name: editing.name,
             event_type: editing.event_type,
+            theme: editing.theme || null,
             description: editing.description,
             setup_photos: editing.setup_photos || [],
             items: (editing.items || []).map((i) => ({
@@ -377,6 +379,25 @@ export function PackingTemplatesSection() {
                 value={editing?.description || ""}
                 onChange={(e) => setEditing((p) => ({ ...p, description: e.target.value }))}
               />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label>{t("Tema", "Theme")}</Label>
+              <Input
+                value={editing?.theme || ""}
+                onChange={(e) => setEditing((p) => ({ ...p, theme: e.target.value }))}
+                placeholder={t(
+                  "Ej: boho, tropical, clásico, moderno, halloween…",
+                  "e.g. boho, tropical, classic, modern, halloween…"
+                )}
+                data-testid="template-theme-input"
+              />
+              <p className="text-[10px] text-muted-foreground">
+                {t(
+                  "Opcional. Ayuda a que la plantilla aparezca resaltada cuando el evento tenga el mismo tema.",
+                  "Optional. Helps this template surface when the event matches the theme."
+                )}
+              </p>
             </div>
 
             {/* Pre-setup photos. Ops staff pull these open at the venue to

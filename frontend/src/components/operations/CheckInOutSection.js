@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { toast } from "sonner";
 import { 
   Plus, Edit, Trash2, AlertTriangle, Truck, ClipboardList, Calendar, 
-  Clock, CheckCircle2, Save, Printer, Package, Search, X, Camera, LayoutTemplate
+  Clock, CheckCircle2, Save, Printer, Package, Search, X, Camera, LayoutTemplate, Sparkles
 } from "lucide-react";
 
 import { API_BASE as API } from "../../utils/api";
@@ -48,6 +48,10 @@ export function CheckInOutSection() {
   // On save, these URLs are copied to the delivery note's `setup_photos`
   // (they already live in /api/uploads/ so no re-upload is needed).
   const [selectedTemplatePhotos, setSelectedTemplatePhotos] = useState([]);
+  // Conflict analysis for the currently-staged items. `null` = not yet
+  // checked; empty array = no conflicts; populated = show alert panel.
+  const [conflictReport, setConflictReport] = useState(null);
+  const [checkingConflicts, setCheckingConflicts] = useState(false);
 
   const uploadNotePhoto = async (file, noteId) => {
     if (!file || !noteId) return null;
@@ -175,6 +179,105 @@ export function CheckInOutSection() {
 
   const removeItemFromDeliveryNote = (idx) => {
     setSelectedItems((prev) => prev.filter((_, i) => i !== idx));
+    // Any change to selection invalidates the conflict report — force
+    // re-check before saving.
+    setConflictReport(null);
+  };
+
+  // ---- Smart template matching --------------------------------------------
+  // Rank templates by how well they match the selected event's event_type
+  // and theme. Rank 2 = both match, 1 = one matches, 0 = neither.
+  const matchScore = (tpl, event) => {
+    if (!event) return 0;
+    let score = 0;
+    const et = (event.event_type || "").toLowerCase();
+    const eth = (event.theme || event.event_theme || "").toLowerCase();
+    const tt = (tpl.event_type || "").toLowerCase();
+    const th = (tpl.theme || "").toLowerCase();
+    if (et && tt && et === tt) score += 2;
+    if (eth && th && (eth === th || eth.includes(th) || th.includes(eth))) score += 2;
+    // Fuzzy fallback: name/description contains the event theme text.
+    if (eth && !th) {
+      const hay = `${tpl.name || ""} ${tpl.description || ""}`.toLowerCase();
+      if (hay.includes(eth)) score += 1;
+    }
+    return score;
+  };
+
+  // ---- Conflict check ------------------------------------------------------
+  const checkConflicts = async () => {
+    if (selectedItems.length === 0) {
+      setConflictReport({ has_conflict: false, items: [] });
+      return;
+    }
+    setCheckingConflicts(true);
+    try {
+      const payload = {
+        event_id: selectedEvent || null,
+        checkout_date: checkoutDate,
+        expected_return_date: expectedReturnDate,
+        items: selectedItems.map((it) => ({
+          inventory_item_id: it.inventory_item_id || it.ingredient_id,
+          qty_out: Number(it.qty_out) || 0,
+        })),
+      };
+      const res = await axios.post(
+        `${API}/api/delivery-notes/check-conflicts`,
+        payload,
+        { withCredentials: true }
+      );
+      setConflictReport(res.data || { has_conflict: false, items: [] });
+      if (res.data?.has_conflict) {
+        toast.warning(
+          language === "es"
+            ? "Hay conflictos de disponibilidad. Revisa el panel amarillo."
+            : "Availability conflicts detected. See the yellow panel."
+        );
+      } else {
+        toast.success(
+          language === "es" ? "Todos los ítems están disponibles" : "All items available"
+        );
+      }
+    } catch (e) {
+      toast.error(
+        e.response?.data?.detail ||
+        (language === "es" ? "Error al verificar conflictos" : "Conflict check failed")
+      );
+    } finally {
+      setCheckingConflicts(false);
+    }
+  };
+
+  // Substitute an item with an alternative from the conflict report.
+  // Removes the original from the note, adds the substitute at the same qty.
+  const substituteWithAlternative = (originalItemId, alternative, qty) => {
+    setSelectedItems((prev) => {
+      // Remove all lines that had the original id.
+      const filtered = prev.filter(
+        (p) => (p.inventory_item_id || p.ingredient_id) !== originalItemId
+      );
+      // Add the alternative — mimic addItemToDeliveryNote shape.
+      return [
+        ...filtered,
+        {
+          inventory_item_id: alternative.inventory_item_id,
+          ingredient_id: alternative.inventory_item_id,
+          name: alternative.name,
+          unit: alternative.unit,
+          inventory_type: "item",
+          replacement_cost: alternative.replacement_cost || 0,
+          qty_out: qty,
+          qty_returned: 0,
+          status: "pending",
+        },
+      ];
+    });
+    setConflictReport(null);
+    toast.success(
+      language === "es"
+        ? `Sustituido con ${alternative.name}`
+        : `Substituted with ${alternative.name}`
+    );
   };
 
   // ---- Apply template ------------------------------------------------------
@@ -948,34 +1051,57 @@ export function CheckInOutSection() {
               <div className="rounded-lg border border-emerald-200 bg-emerald-50/40 p-3 space-y-2" data-testid="dn-item-picker">
                 {/* Template applier — one-click hydration from a saved packing
                     template. Populates items + photos + suggested quantities
-                    computed from the event's guest_count. */}
+                    computed from the event's guest_count.
+                    Templates are RANKED by match against the selected event's
+                    event_type + theme so the operator sees the best fit first,
+                    starred visually. */}
                 {templates.length > 0 && (
                   <div className="pb-2 mb-1 border-b border-emerald-100">
                     <Label className="text-xs font-medium mb-1.5 block">
                       {language === "es" ? "O aplicar una plantilla" : "Or apply a template"}
                     </Label>
                     <div className="flex flex-wrap gap-1.5">
-                      {templates.map((tpl) => (
-                        <Button
-                          key={tpl.template_id}
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          disabled={applyingTemplateId === tpl.template_id}
-                          onClick={() => applyTemplateToNote(tpl.template_id)}
-                          className="h-7 text-xs border-emerald-300 hover:bg-emerald-100"
-                          data-testid={`dn-apply-tpl-${tpl.template_id}`}
-                        >
-                          <LayoutTemplate className="w-3 h-3 mr-1" />
-                          {tpl.name}
-                          {(tpl.setup_photos || []).length > 0 && (
-                            <Camera className="w-3 h-3 ml-1 text-emerald-600" />
-                          )}
-                          {applyingTemplateId === tpl.template_id && (
-                            <span className="ml-1 animate-pulse">…</span>
-                          )}
-                        </Button>
-                      ))}
+                      {[...templates]
+                        .map((tpl) => ({
+                          ...tpl,
+                          _score: matchScore(tpl, events.find((e) => e.event_id === selectedEvent)),
+                        }))
+                        .sort((a, b) => b._score - a._score)
+                        .map((tpl) => (
+                          <Button
+                            key={tpl.template_id}
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            disabled={applyingTemplateId === tpl.template_id}
+                            onClick={() => applyTemplateToNote(tpl.template_id)}
+                            className={`h-7 text-xs transition-all ${
+                              tpl._score >= 2
+                                ? "border-yellow-400 bg-yellow-50 hover:bg-yellow-100 shadow-sm"
+                                : "border-emerald-300 hover:bg-emerald-100"
+                            }`}
+                            data-testid={`dn-apply-tpl-${tpl.template_id}`}
+                            title={tpl._score >= 2
+                              ? (language === "es"
+                                  ? `Recomendada: coincide con tipo/tema del evento (${tpl.event_type}${tpl.theme ? " · " + tpl.theme : ""})`
+                                  : `Recommended: matches event type/theme (${tpl.event_type}${tpl.theme ? " · " + tpl.theme : ""})`)
+                              : (tpl.theme ? `${tpl.event_type} · ${tpl.theme}` : tpl.event_type)}
+                          >
+                            {tpl._score >= 2 && (
+                              <Sparkles className="w-3 h-3 mr-1 text-yellow-600" />
+                            )}
+                            {tpl._score < 2 && (
+                              <LayoutTemplate className="w-3 h-3 mr-1" />
+                            )}
+                            {tpl.name}
+                            {(tpl.setup_photos || []).length > 0 && (
+                              <Camera className="w-3 h-3 ml-1 text-emerald-600" />
+                            )}
+                            {applyingTemplateId === tpl.template_id && (
+                              <span className="ml-1 animate-pulse">…</span>
+                            )}
+                          </Button>
+                        ))}
                     </div>
                   </div>
                 )}
@@ -1218,6 +1344,133 @@ export function CheckInOutSection() {
                     ))}
                   </TableBody>
                 </Table>
+              </div>
+            )}
+
+            {selectedItems.length > 0 && (
+              <div className="flex items-center justify-between px-1">
+                <p className="text-[11px] text-muted-foreground">
+                  {language === "es"
+                    ? `${selectedItems.length} artículo(s) en el conduce`
+                    : `${selectedItems.length} article(s) in the delivery note`}
+                </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={checkConflicts}
+                  disabled={checkingConflicts}
+                  className="h-7 text-xs border-amber-300 text-amber-800 hover:bg-amber-50"
+                  data-testid="dn-check-conflicts-btn"
+                >
+                  <AlertTriangle className={`w-3 h-3 mr-1 ${checkingConflicts ? "animate-pulse" : ""}`} />
+                  {checkingConflicts
+                    ? (language === "es" ? "Verificando…" : "Checking…")
+                    : (language === "es" ? "Verificar disponibilidad" : "Check availability")}
+                </Button>
+              </div>
+            )}
+
+            {conflictReport && (
+              <div
+                className={`rounded-lg border p-3 space-y-2 ${
+                  conflictReport.has_conflict
+                    ? "border-amber-300 bg-amber-50"
+                    : "border-emerald-300 bg-emerald-50"
+                }`}
+                data-testid="dn-conflict-panel"
+              >
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-medium">
+                    {conflictReport.has_conflict ? (
+                      <span className="text-amber-800">
+                        ⚠ {language === "es"
+                          ? "Conflictos detectados. Revisa cada ítem:"
+                          : "Conflicts detected. Review each item:"}
+                      </span>
+                    ) : (
+                      <span className="text-emerald-800">
+                        ✓ {language === "es"
+                          ? "Todos los ítems están disponibles."
+                          : "All items are available."}
+                      </span>
+                    )}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setConflictReport(null)}
+                    className="text-xs text-muted-foreground hover:text-foreground"
+                    aria-label="dismiss"
+                  >
+                    ×
+                  </button>
+                </div>
+                {conflictReport.has_conflict && (
+                  <div className="space-y-2">
+                    {(conflictReport.items || []).filter((it) => it.conflict).map((it) => (
+                      <div key={it.inventory_item_id} className="rounded bg-white border border-amber-200 p-2 text-xs">
+                        <div className="flex justify-between items-start gap-2">
+                          <div>
+                            <p className="font-medium text-slate-800">{it.name}</p>
+                            <p className="text-[11px] text-muted-foreground">
+                              {language === "es"
+                                ? `Pedido: ${it.qty_requested} · Disponible: ${it.available} · Faltante: ${it.shortage}`
+                                : `Requested: ${it.qty_requested} · Available: ${it.available} · Short: ${it.shortage}`}
+                            </p>
+                            {(it.currently_checked_out > 0 || it.already_reserved > 0) && (
+                              <p className="text-[10px] text-amber-700 mt-0.5">
+                                {it.currently_checked_out > 0 && (
+                                  <span>
+                                    🚚 {it.currently_checked_out} {language === "es" ? "en uso" : "checked out"}
+                                    {it.blocking_notes?.length > 0 && ` (${it.blocking_notes.map(n => n.note_number).filter(Boolean).slice(0, 2).join(", ")})`}
+                                  </span>
+                                )}
+                                {it.currently_checked_out > 0 && it.already_reserved > 0 && " · "}
+                                {it.already_reserved > 0 && (
+                                  <span>
+                                    📌 {it.already_reserved} {language === "es" ? "reservados" : "reserved"}
+                                  </span>
+                                )}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        {(it.alternatives || []).length > 0 ? (
+                          <div className="mt-2 pt-2 border-t border-amber-100 space-y-1">
+                            <p className="text-[10px] font-medium text-amber-800 uppercase tracking-wide">
+                              {language === "es" ? "Alternativas sugeridas" : "Suggested alternatives"}
+                            </p>
+                            {it.alternatives.map((alt) => (
+                              <button
+                                key={alt.inventory_item_id}
+                                type="button"
+                                onClick={() => substituteWithAlternative(it.inventory_item_id, alt, it.qty_requested)}
+                                className="w-full flex items-center justify-between gap-2 px-2 py-1 rounded text-xs hover:bg-amber-100 transition-colors text-left"
+                                data-testid={`dn-alt-${alt.inventory_item_id}`}
+                              >
+                                <span>
+                                  <span className="font-medium">{alt.name}</span>
+                                  <span className="text-muted-foreground ml-1">
+                                    ({alt.available} {alt.unit || ""} {language === "es" ? "disponibles" : "available"})
+                                  </span>
+                                </span>
+                                <span className="text-emerald-700 font-medium">
+                                  {language === "es" ? "Sustituir →" : "Substitute →"}
+                                </span>
+                              </button>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="mt-2 text-[10px] italic text-muted-foreground">
+                            {language === "es"
+                              ? "Sin alternativas con stock suficiente en el inventario."
+                              : "No alternatives with enough stock in inventory."}
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 
