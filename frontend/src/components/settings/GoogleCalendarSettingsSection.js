@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useLanguage } from "../../contexts/LanguageContext";
 import { useSearchParams } from "react-router-dom";
 import axios from "axios";
@@ -142,6 +142,10 @@ export default function GoogleCalendarSettingsSection() {
   const [focusedIconKey, setFocusedIconKey] = useState(null);
   // Name input for the "save current config as custom template" flow.
   const [newTemplateName, setNewTemplateName] = useState("");
+  // Debounce handle for auto-syncing after stage-filter toggles. Kept as a
+  // ref so re-renders don't blow away the pending timer.
+  const autoSyncTimerRef = useRef(null);
+  useEffect(() => () => { if (autoSyncTimerRef.current) clearTimeout(autoSyncTimerRef.current); }, []);
 
   const fetchContentCfg = useCallback(async () => {
     try {
@@ -1195,7 +1199,9 @@ export default function GoogleCalendarSettingsSection() {
                 {/* Per-stage filter. `sync_stages: null` = sync everything
                     (default). When the user disables a stage the backend will
                     ALSO delete those events from Google on the next auto-sync
-                    tick, so the calendar mirrors the toggles exactly. */}
+                    tick, so the calendar mirrors the toggles exactly.
+                    We auto-trigger a background sync 2s AFTER the last
+                    toggle so multiple rapid clicks debounce into one sync. */}
                 <div className="pt-3 mt-2 border-t border-slate-100" data-testid="sync-stages-panel">
                   <p className="text-sm font-medium mb-1">
                     {isEs ? "¿Cuáles estados sincronizar?" : "Which stages to sync?"}
@@ -1234,6 +1240,33 @@ export default function GoogleCalendarSettingsSection() {
                           { withCredentials: true }
                         );
                         setStatus({ ...status, sync_stages: next });
+                        // Debounce auto-sync: if the user toggles multiple
+                        // stages in quick succession, wait 2s after the LAST
+                        // change before firing sync-all. The backend already
+                        // rejects concurrent syncs, so this is belt-and-suspenders.
+                        if (autoSyncTimerRef.current) clearTimeout(autoSyncTimerRef.current);
+                        autoSyncTimerRef.current = setTimeout(async () => {
+                          try {
+                            const r = await axios.post(
+                              `${API}/api/oauth/calendar/sync-all`,
+                              {},
+                              { withCredentials: true }
+                            );
+                            if (r.data?.status !== "already_running") {
+                              toast.info(
+                                isEs
+                                  ? "Aplicando cambios en Google Calendar…"
+                                  : "Applying changes to Google Calendar…"
+                              );
+                            }
+                            await fetchSyncStatus();
+                          } catch (err) {
+                            toast.error(
+                              err.response?.data?.detail ||
+                              (isEs ? "No se pudo aplicar el filtro" : "Could not apply filter")
+                            );
+                          }
+                        }, 2000);
                       } catch (err) {
                         toast.error(err.response?.data?.detail || "Error");
                       }
