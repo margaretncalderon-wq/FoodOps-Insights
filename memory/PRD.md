@@ -1,6 +1,48 @@
 # Kora OS — Product Requirements Document
 
 
+## Feature — Fotos de Pre-Montaje en Plantillas + Fotos en Conduces (Feb 18, 2026)
+
+**Estado:** ✅ Backend E2E verificado. Frontend implementado.
+
+### (1) Plantillas de Planning con foto de pre-montaje
+**Modelo/API** (`routers/packing_templates.py`):
+- Nuevo campo `setup_photos: List[str]` en `packing_templates`.
+- `POST /api/packing-templates/{id}/photos` — upload multipart, guarda en `UPLOADS_DIR/tpl_{id}_{hex}.{ext}`, retorna `photo_url` + array actualizado. Máx 10 fotos por plantilla.
+- `DELETE /api/packing-templates/{id}/photos?photo_url=…` — remueve del array y borra el archivo local si es propiedad de la plantilla.
+- Endpoints `preview` y `apply` ahora incluyen `setup_photos` en el response para que downstream (conduce) pueda mostrarlas sin refetch.
+
+**Frontend** (`PackingTemplatesSection.js`):
+- Sección "Fotos de pre-montaje" en el editor de plantilla.
+- Botón "Subir foto" (label + input hidden). Auto-save si la plantilla es nueva (necesita template_id para adjuntar).
+- Grid 4-col con hover-to-delete (× rojo). Click amplia en tab nueva.
+- Empty state contextual: "Sube una foto del montaje ideal para que el equipo lo replique".
+
+### (2) Conduces con foto de montaje rápido
+**Modelo/API** (`server.py`):
+- Nuevo campo `setup_photos: List[str]` + `template_id: Optional[str]` en `delivery_notes`.
+- `DeliveryNoteCreate` acepta `setup_photos` + `template_id` (provenance).
+- `DeliveryNoteUpdate` acepta `setup_photos` para editar la galería sin re-crear.
+- `POST /api/delivery-notes/{id}/photos` — upload multipart (JPEG/PNG/WebP/GIF/HEIC), guarda en `UPLOADS_DIR/dn_{id}_{hex}.{ext}`. Máx 10.
+- `DELETE /api/delivery-notes/{id}/photos?photo_url=…` — cleanup local si es propiedad del note.
+
+**Frontend** (`CheckInOutSection.js`):
+- Nuevo panel azul "Fotos del montaje" en el diálogo Nuevo Conduce con:
+  - Botón "Agregar foto" que abre `<input type="file" capture="environment">` — cámara nativa en móvil, file picker en desktop.
+  - Grid preview con thumbnails (URL.createObjectURL) + × para quitar antes de guardar.
+- Las fotos se stagean en `pendingPhotos` (state) porque no existe `note_id` hasta crear. Al crear el conduce, se hace flush: iteración `POST /photos` una por una.
+
+### Test E2E verificado (curl)
+```
+POST /api/packing-templates → template_id
+POST /api/packing-templates/{id}/photos (image/png)
+  → photo_url: /api/uploads/tpl_pkt_..._....png
+  → setup_photos: [<url>]  ✓
+GET /api/packing-templates/{id} → setup_photos array persiste ✓
+```
+
+
+
 ## Fixes Combinados — Feb 15, 2026
 
 ### #1 Calendario Kora — Sin "+X más"

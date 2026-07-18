@@ -19,13 +19,14 @@ from typing import List, Optional
 from math import ceil
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from pydantic import BaseModel, Field
 import uuid
+import shutil
 
 from dependencies import get_current_user
 from models.auth import User
-from config import db
+from config import db, UPLOADS_DIR
 
 packing_templates_router = APIRouter(prefix="/packing-templates", tags=["Packing Templates"])
 
@@ -42,6 +43,10 @@ class PackingTemplateCreate(BaseModel):
     name: str
     event_type: str  # buffet, brunch_box, picadera, brand_moment, etc.
     description: Optional[str] = None
+    # Pre-setup photos so ops staff know how the layout should look when the
+    # manager isn't on-site. Simple list of URLs (served via /api/uploads/*).
+    # Uploaded through POST /packing-templates/{id}/photos.
+    setup_photos: List[str] = []
     items: List[TemplateItem] = []
 
 
@@ -49,6 +54,7 @@ class PackingTemplateUpdate(BaseModel):
     name: Optional[str] = None
     event_type: Optional[str] = None
     description: Optional[str] = None
+    setup_photos: Optional[List[str]] = None
     items: Optional[List[TemplateItem]] = None
 
 
@@ -85,6 +91,7 @@ async def create_template(data: PackingTemplateCreate, user: User = Depends(get_
         "name": data.name,
         "event_type": data.event_type,
         "description": data.description,
+        "setup_photos": list(data.setup_photos or []),
         "items": [i.model_dump() for i in data.items],
         "created_at": now.isoformat(),
         "created_by": user.user_id,
@@ -109,6 +116,8 @@ async def update_template(template_id: str, data: PackingTemplateUpdate, user: U
         updates["event_type"] = data.event_type
     if data.description is not None:
         updates["description"] = data.description
+    if data.setup_photos is not None:
+        updates["setup_photos"] = list(data.setup_photos)
     if data.items is not None:
         updates["items"] = [i.model_dump() for i in data.items]
 
@@ -126,6 +135,77 @@ async def delete_template(template_id: str, user: User = Depends(get_current_use
     if r.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Template not found")
     return {"ok": True}
+
+
+_ALLOWED_IMG_TYPES = {"image/jpeg", "image/png", "image/webp", "image/gif", "image/heic", "image/heif"}
+
+
+@packing_templates_router.post("/{template_id}/photos")
+async def upload_template_photo(
+    template_id: str,
+    file: UploadFile = File(...),
+    user: User = Depends(get_current_user),
+):
+    """Attach a pre-setup photo to a packing template. Multiple photos are
+    supported — each call appends to `setup_photos`. Ops staff see these
+    photos on the delivery note so they know how to lay out the space
+    even when the account manager isn't on-site.
+    """
+    tmpl = await db.packing_templates.find_one(
+        {"template_id": template_id, "company_id": user.company_id}, {"_id": 0, "setup_photos": 1},
+    )
+    if not tmpl:
+        raise HTTPException(status_code=404, detail="Template not found")
+    if file.content_type not in _ALLOWED_IMG_TYPES:
+        raise HTTPException(status_code=400, detail="Invalid file type. Allowed: JPEG/PNG/WebP/GIF/HEIC")
+
+    ext = (file.filename or "").split(".")[-1].lower() if "." in (file.filename or "") else "jpg"
+    ext = ext if ext.isalnum() and len(ext) <= 5 else "jpg"
+    filename = f"tpl_{template_id}_{uuid.uuid4().hex[:8]}.{ext}"
+    filepath = UPLOADS_DIR / filename
+    with open(filepath, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+    photo_url = f"/api/uploads/{filename}"
+
+    existing = list((tmpl or {}).get("setup_photos") or [])
+    if len(existing) >= 10:
+        raise HTTPException(status_code=400, detail="Max 10 photos per template")
+    existing.append(photo_url)
+    await db.packing_templates.update_one(
+        {"template_id": template_id, "company_id": user.company_id},
+        {"$set": {"setup_photos": existing, "updated_at": datetime.now(timezone.utc).isoformat()}},
+    )
+    return {"photo_url": photo_url, "setup_photos": existing}
+
+
+@packing_templates_router.delete("/{template_id}/photos")
+async def remove_template_photo(
+    template_id: str,
+    photo_url: str,
+    user: User = Depends(get_current_user),
+):
+    """Remove a photo from a template. `photo_url` must match exactly the
+    stored URL (client passes it back). Also cleans the on-disk file if it
+    belongs to this template — leaves it alone if the URL points elsewhere
+    (defensive; someone may have manually linked an external image)."""
+    tmpl = await db.packing_templates.find_one(
+        {"template_id": template_id, "company_id": user.company_id}, {"_id": 0, "setup_photos": 1},
+    )
+    if not tmpl:
+        raise HTTPException(status_code=404, detail="Template not found")
+    existing = list((tmpl or {}).get("setup_photos") or [])
+    new_photos = [p for p in existing if p != photo_url]
+    await db.packing_templates.update_one(
+        {"template_id": template_id, "company_id": user.company_id},
+        {"$set": {"setup_photos": new_photos, "updated_at": datetime.now(timezone.utc).isoformat()}},
+    )
+    # Best-effort file cleanup: only unlink if it's a local upload we own.
+    if photo_url.startswith("/api/uploads/") and f"tpl_{template_id}_" in photo_url:
+        try:
+            (UPLOADS_DIR / photo_url.split("/")[-1]).unlink(missing_ok=True)
+        except Exception:
+            pass
+    return {"setup_photos": new_photos}
 
 
 @packing_templates_router.post("/{template_id}/preview")
@@ -191,6 +271,7 @@ async def preview_template(template_id: str, data: dict, user: User = Depends(ge
         "guest_count": guest_count,
         "event_id": event_id,
         "event_name": (event or {}).get("event_name") or (event or {}).get("name"),
+        "setup_photos": list(tmpl.get("setup_photos") or []),
         "items": suggestions,
     }
 
@@ -231,6 +312,10 @@ async def apply_template(template_id: str, data: dict, user: User = Depends(get_
     result = await reserve_inventory(reserve_payload, user)
     result["template_id"] = template_id
     result["template_name"] = preview.get("template_name")
+    # Propagate the pre-setup photos so any downstream flow (e.g. auto-creating
+    # a delivery note from an application) can display them without a
+    # second round-trip to fetch the template again.
+    result["setup_photos"] = preview.get("setup_photos") or []
     result["preview_items"] = preview["items"]
     return result
 

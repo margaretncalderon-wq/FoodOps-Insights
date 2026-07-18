@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { toast } from "sonner";
 import { 
   Plus, Edit, Trash2, AlertTriangle, Truck, ClipboardList, Calendar, 
-  Clock, CheckCircle2, Save, Printer, Package, Search, X
+  Clock, CheckCircle2, Save, Printer, Package, Search, X, Camera
 } from "lucide-react";
 
 import { API_BASE as API } from "../../utils/api";
@@ -30,9 +30,30 @@ export function CheckInOutSection() {
   const [selectedEvent, setSelectedEvent] = useState("");
   const [packingListItems, setPackingListItems] = useState([]);
   const [selectedItems, setSelectedItems] = useState([]);
+  // Photos: quick capture for the delivery note itself (feature 2).
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  // Photos captured before the note exists — flushed to /photos after create.
+  const [pendingPhotos, setPendingPhotos] = useState([]);
   // Free-text filter for the "Agregar artículo" combobox in the create
   // delivery-note dialog. Matches on `name` (case-insensitive).
   const [itemPickerSearch, setItemPickerSearch] = useState("");
+
+  const uploadNotePhoto = async (file, noteId) => {
+    if (!file || !noteId) return null;
+    const fd = new FormData();
+    fd.append("file", file);
+    try {
+      const res = await axios.post(
+        `${API}/api/delivery-notes/${noteId}/photos`,
+        fd,
+        { withCredentials: true, headers: { "Content-Type": "multipart/form-data" } }
+      );
+      return res.data.photo_url;
+    } catch (e) {
+      toast.error(e.response?.data?.detail || (language === "es" ? "Error al subir foto" : "Upload failed"));
+      return null;
+    }
+  };
   const [viewingNote, setViewingNote] = useState(null);
   const [checkInDialogOpen, setCheckInDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
@@ -142,7 +163,7 @@ export function CheckInOutSection() {
     }
 
     try {
-      await axios.post(`${API}/api/delivery-notes`, {
+      const created = await axios.post(`${API}/api/delivery-notes`, {
         event_id: selectedEvent,
         checkout_date: checkoutDate,
         expected_return_date: expectedReturnDate,
@@ -158,10 +179,20 @@ export function CheckInOutSection() {
         }))
       }, { withCredentials: true });
 
+      // Flush any photos the user snapped BEFORE saving. We couldn't upload
+      // them earlier because we didn't have a note_id — now we do.
+      const newNoteId = created.data?.note_id;
+      if (newNoteId && pendingPhotos.length > 0) {
+        for (const f of pendingPhotos) {
+          await uploadNotePhoto(f, newNoteId);
+        }
+      }
+
       toast.success(language === "es" ? "Conduce creado" : "Delivery note created");
       setCreateDialogOpen(false);
       setSelectedEvent("");
       setSelectedItems([]);
+      setPendingPhotos([]);
       setCheckoutDate(new Date().toISOString().split('T')[0]);
       setExpectedReturnDate("");
       setNotes("");
@@ -731,6 +762,64 @@ export function CheckInOutSection() {
                 onChange={(e) => setNotes(e.target.value)}
                 placeholder={language === "es" ? "Instrucciones especiales, contacto, etc." : "Special instructions, contact, etc."}
               />
+            </div>
+
+            {/* Photo capture — feature 2. For quick jobs where the operator
+                snaps a picture of the setup right on their phone. Multiple
+                photos supported. They're staged locally until the note is
+                created, then uploaded server-side. */}
+            <div className="rounded-lg border border-sky-200 bg-sky-50/40 p-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <Label className="text-sm font-medium flex items-center gap-1.5">
+                  <Camera className="w-4 h-4 text-sky-600" />
+                  {language === "es" ? "Fotos del montaje" : "Setup photos"}
+                </Label>
+                <label className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-sky-300 bg-white text-sky-700 text-xs font-medium cursor-pointer hover:bg-sky-100 transition-colors" data-testid="dn-photo-upload-label">
+                  <Plus className="w-3.5 h-3.5" />
+                  {language === "es" ? "Agregar foto" : "Add photo"}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    className="hidden"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) {
+                        setPendingPhotos((prev) => [...prev, f]);
+                        toast.success(language === "es" ? "Foto lista para subir" : "Photo queued");
+                      }
+                      e.target.value = "";
+                    }}
+                    data-testid="dn-photo-input"
+                  />
+                </label>
+              </div>
+              {pendingPhotos.length > 0 ? (
+                <div className="grid grid-cols-4 gap-2">
+                  {pendingPhotos.map((f, i) => (
+                    <div key={i} className="relative group aspect-square rounded overflow-hidden border">
+                      <img
+                        src={URL.createObjectURL(f)}
+                        alt="preview"
+                        className="w-full h-full object-cover"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setPendingPhotos((prev) => prev.filter((_, k) => k !== i))}
+                        className="absolute top-0.5 right-0.5 w-5 h-5 rounded-full bg-red-500 text-white text-xs opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-[11px] text-muted-foreground">
+                  {language === "es"
+                    ? "Opcional. Sube o toma una foto del montaje ideal. Se guardarán con el conduce."
+                    : "Optional. Upload or snap a photo of the ideal setup. Attached to the delivery note."}
+                </p>
+              )}
             </div>
 
             {selectedEvent && (

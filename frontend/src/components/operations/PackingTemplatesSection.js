@@ -17,7 +17,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "../ui/table";
 import {
-  LayoutTemplate, Plus, Trash2, Pencil, Sparkles, PackagePlus, AlertTriangle,
+  LayoutTemplate, Plus, Trash2, Pencil, Sparkles, PackagePlus, AlertTriangle, Camera,
 } from "lucide-react";
 import { toast } from "sonner";
 import { API_BASE as API } from "../../utils/api";
@@ -107,6 +107,7 @@ export function PackingTemplatesSection() {
             name: editing.name,
             event_type: editing.event_type,
             description: editing.description,
+            setup_photos: editing.setup_photos || [],
             items: (editing.items || []).map((i) => ({
               inventory_item_id: i.inventory_item_id,
               item_name: i.item_name,
@@ -124,6 +125,7 @@ export function PackingTemplatesSection() {
             name: editing.name,
             event_type: editing.event_type,
             description: editing.description,
+            setup_photos: editing.setup_photos || [],
             items: (editing.items || []).map((i) => ({
               inventory_item_id: i.inventory_item_id,
               item_name: i.item_name,
@@ -140,6 +142,57 @@ export function PackingTemplatesSection() {
       fetchAll();
     } catch (e) {
       toast.error(e.response?.data?.detail || t("Error al guardar", "Save failed"));
+    }
+  };
+
+  // Photo helpers. Templates must exist server-side before we can attach a
+  // photo (we need the template_id to write the URL to the right doc), so
+  // for new templates we save first, then upload.
+  const uploadTemplatePhoto = async (file) => {
+    if (!file) return;
+    let tplId = editing?.template_id;
+    if (!tplId) {
+      toast.info(t("Guardando plantilla antes de subir foto…", "Saving template before uploading…"));
+      await saveTemplate();
+      // Re-fetch to grab the freshly-created template_id.
+      const list = await axios.get(`${API}/api/packing-templates`, { withCredentials: true });
+      const match = (list.data || []).find((x) => x.name === editing.name);
+      tplId = match?.template_id;
+      if (!tplId) {
+        toast.error(t("No se pudo obtener id de plantilla", "Could not resolve template id"));
+        return;
+      }
+      setEditing((p) => ({ ...p, template_id: tplId, setup_photos: match?.setup_photos || [] }));
+    }
+    const fd = new FormData();
+    fd.append("file", file);
+    try {
+      const res = await axios.post(
+        `${API}/api/packing-templates/${tplId}/photos`,
+        fd,
+        { withCredentials: true, headers: { "Content-Type": "multipart/form-data" } }
+      );
+      setEditing((p) => ({ ...p, setup_photos: res.data.setup_photos || [] }));
+      toast.success(t("Foto subida", "Photo uploaded"));
+    } catch (e) {
+      toast.error(e.response?.data?.detail || t("Error al subir foto", "Upload failed"));
+    }
+  };
+
+  const removeTemplatePhoto = async (photoUrl) => {
+    if (!editing?.template_id) {
+      // Not-yet-saved template: just strip locally.
+      setEditing((p) => ({ ...p, setup_photos: (p.setup_photos || []).filter((u) => u !== photoUrl) }));
+      return;
+    }
+    try {
+      const res = await axios.delete(
+        `${API}/api/packing-templates/${editing.template_id}/photos`,
+        { withCredentials: true, params: { photo_url: photoUrl } }
+      );
+      setEditing((p) => ({ ...p, setup_photos: res.data.setup_photos || [] }));
+    } catch (e) {
+      toast.error(t("Error al borrar foto", "Delete failed"));
     }
   };
 
@@ -324,6 +377,60 @@ export function PackingTemplatesSection() {
                 value={editing?.description || ""}
                 onChange={(e) => setEditing((p) => ({ ...p, description: e.target.value }))}
               />
+            </div>
+
+            {/* Pre-setup photos. Ops staff pull these open at the venue to
+                mirror the exact layout even when the account manager is not
+                on site. Photos also flow through to the delivery note when
+                this template is applied. */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <Label>{t("Fotos de pre-montaje", "Pre-setup photos")}</Label>
+                <label className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-emerald-300 bg-emerald-50 text-emerald-700 text-xs font-medium cursor-pointer hover:bg-emerald-100 transition-colors" data-testid="template-photo-upload-label">
+                  <Camera className="w-3.5 h-3.5" />
+                  {t("Subir foto", "Upload photo")}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) uploadTemplatePhoto(f);
+                      e.target.value = "";
+                    }}
+                    data-testid="template-photo-upload"
+                  />
+                </label>
+              </div>
+              {(editing?.setup_photos || []).length > 0 ? (
+                <div className="grid grid-cols-4 gap-2">
+                  {(editing.setup_photos || []).map((url) => (
+                    <div key={url} className="relative group aspect-square rounded-lg overflow-hidden border" data-testid={`template-photo-${url.split("/").pop()}`}>
+                      <img
+                        src={`${API}${url}`}
+                        alt="setup"
+                        className="w-full h-full object-cover cursor-pointer hover:scale-105 transition-transform"
+                        onClick={() => window.open(`${API}${url}`, "_blank")}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeTemplatePhoto(url)}
+                        className="absolute top-1 right-1 w-6 h-6 rounded-full bg-red-500 text-white text-sm opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center hover:bg-red-600"
+                        aria-label="remove photo"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground italic p-2 rounded bg-slate-50 border border-dashed">
+                  {t(
+                    "Aún no hay fotos. Sube una foto del montaje ideal para que el equipo lo replique.",
+                    "No photos yet. Upload a reference photo so the team can replicate the setup."
+                  )}
+                </p>
+              )}
             </div>
 
             <div className="space-y-2">

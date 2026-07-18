@@ -7585,6 +7585,10 @@ class DeliveryNoteCreate(BaseModel):
     checkout_date: Optional[str] = None
     expected_return_date: Optional[str] = None
     direction: Optional[str] = "outbound"  # Sprint C: "outbound" | "return"
+    # Optional pre-setup photos. Copied over from the source packing template
+    # (when a template is applied) or captured on-the-fly for quick jobs.
+    setup_photos: Optional[List[str]] = None
+    template_id: Optional[str] = None  # provenance — the template this note came from, if any
 
 class DeliveryNoteCheckIn(BaseModel):
     items: List[dict]  # [{inventory_item_id, qty_returned, notes}]
@@ -7641,6 +7645,8 @@ async def create_delivery_note(data: DeliveryNoteCreate, user: User = Depends(ge
         "checkin_date": None,
         "total_loss_cost": 0,
         "notes": data.notes,
+        "setup_photos": list(data.setup_photos or []),
+        "template_id": data.template_id,
         "created_by": user.user_id,
         "created_at": now.isoformat(),
         "updated_at": now.isoformat()
@@ -8218,6 +8224,7 @@ async def bill_damage_manually(log_id: str, user: User = Depends(get_current_use
 class DeliveryNoteUpdate(BaseModel):
     items: List[dict] = []  # Updated items list
     notes: Optional[str] = None
+    setup_photos: Optional[List[str]] = None  # allow editing the photo gallery inline
 
 @delivery_notes_router.put("/{note_id}")
 async def update_delivery_note(note_id: str, data: DeliveryNoteUpdate, user: User = Depends(get_current_user)):
@@ -8296,6 +8303,8 @@ async def update_delivery_note(note_id: str, data: DeliveryNoteUpdate, user: Use
     
     if data.notes is not None:
         update_data["notes"] = data.notes
+    if data.setup_photos is not None:
+        update_data["setup_photos"] = list(data.setup_photos)
     
     await db.delivery_notes.update_one(
         {"note_id": note_id},
@@ -8307,6 +8316,70 @@ async def update_delivery_note(note_id: str, data: DeliveryNoteUpdate, user: Use
         "note_id": note_id,
         "items_count": len(updated_items)
     }
+
+
+@delivery_notes_router.post("/{note_id}/photos")
+async def upload_delivery_note_photo(
+    note_id: str,
+    file: UploadFile = File(...),
+    user: User = Depends(get_current_user),
+):
+    """Attach a setup / on-site photo to a delivery note. Called from the
+    conduce UI so ops staff can snap a picture of the assembled setup
+    (or the pre-setup reference) directly against the delivery note.
+    """
+    note = await db.delivery_notes.find_one(
+        {"note_id": note_id, "company_id": user.company_id}, {"_id": 0, "setup_photos": 1},
+    )
+    if not note:
+        raise HTTPException(status_code=404, detail="Delivery note not found")
+    allowed = {"image/jpeg", "image/png", "image/webp", "image/gif", "image/heic", "image/heif"}
+    if file.content_type not in allowed:
+        raise HTTPException(status_code=400, detail="Invalid file type. Allowed: JPEG/PNG/WebP/GIF/HEIC")
+
+    ext = (file.filename or "").split(".")[-1].lower() if "." in (file.filename or "") else "jpg"
+    ext = ext if ext.isalnum() and len(ext) <= 5 else "jpg"
+    filename = f"dn_{note_id}_{uuid.uuid4().hex[:8]}.{ext}"
+    filepath = UPLOADS_DIR / filename
+    with open(filepath, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+    photo_url = f"/api/uploads/{filename}"
+
+    existing = list((note or {}).get("setup_photos") or [])
+    if len(existing) >= 10:
+        raise HTTPException(status_code=400, detail="Max 10 photos per delivery note")
+    existing.append(photo_url)
+    await db.delivery_notes.update_one(
+        {"note_id": note_id, "company_id": user.company_id},
+        {"$set": {"setup_photos": existing, "updated_at": datetime.now(timezone.utc).isoformat()}},
+    )
+    return {"photo_url": photo_url, "setup_photos": existing}
+
+
+@delivery_notes_router.delete("/{note_id}/photos")
+async def remove_delivery_note_photo(
+    note_id: str,
+    photo_url: str,
+    user: User = Depends(get_current_user),
+):
+    note = await db.delivery_notes.find_one(
+        {"note_id": note_id, "company_id": user.company_id}, {"_id": 0, "setup_photos": 1},
+    )
+    if not note:
+        raise HTTPException(status_code=404, detail="Delivery note not found")
+    existing = list((note or {}).get("setup_photos") or [])
+    new_photos = [p for p in existing if p != photo_url]
+    await db.delivery_notes.update_one(
+        {"note_id": note_id, "company_id": user.company_id},
+        {"$set": {"setup_photos": new_photos, "updated_at": datetime.now(timezone.utc).isoformat()}},
+    )
+    # Only unlink locally-owned uploads for this delivery note.
+    if photo_url.startswith("/api/uploads/") and f"dn_{note_id}_" in photo_url:
+        try:
+            (UPLOADS_DIR / photo_url.split("/")[-1]).unlink(missing_ok=True)
+        except Exception:
+            pass
+    return {"setup_photos": new_photos}
 
 # Delete/Cancel Delivery Note
 @delivery_notes_router.delete("/{note_id}")
