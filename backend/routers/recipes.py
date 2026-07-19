@@ -441,6 +441,76 @@ async def check_circular_dependency(parent_id: str, child_id: str, company_id: s
     
     return False
 
+
+async def _recalc_parents_of_recipe(
+    recipe_id: str,
+    company_id: str,
+    _seen: Optional[set] = None,
+) -> Dict[str, Any]:
+    """Recompute every recipe that uses `recipe_id` as a sub-recipe, recursively
+    up the graph. Fixes the "cascade drift" bug: when you edit a sub-recipe,
+    its parent recipes are recomputed too so `total_cost` stays consistent
+    with the sum of its lines.
+
+    Guards:
+    - `_seen` prevents re-computing the same recipe twice in one call and
+      breaks cycles (which are also blocked at write-time by
+      `check_circular_dependency`).
+    - Never touches proposals/order_items — those keep their `internal_cost`
+      snapshot per the existing contract.
+    """
+    if _seen is None:
+        _seen = set()
+    if recipe_id in _seen:
+        return {"recalculated": 0, "affected_recipe_ids": []}
+    _seen.add(recipe_id)
+
+    # Find direct parents (both storage shapes: dedicated sub_recipes[] and
+    # legacy ingredients[] with item_type=recipe).
+    parents = await db.recipes.find(
+        {
+            "company_id": company_id,
+            "$or": [
+                {"sub_recipes.child_recipe_id": recipe_id},
+                {"ingredients.item_id": recipe_id, "ingredients.item_type": "recipe"},
+            ],
+        },
+        {"_id": 0},
+    ).to_list(2000)
+
+    affected: List[str] = []
+    for parent in parents:
+        pid = parent.get("recipe_id")
+        if not pid or pid in _seen:
+            continue
+        try:
+            ings = [RecipeIngredient(**i) for i in parent.get("ingredients", [])]
+        except Exception:
+            continue
+        subs = parent.get("sub_recipes", [])
+        new_total, updated_ings, updated_subs = await calculate_recipe_cost(
+            ings, subs, company_id,
+        )
+        full_costing = await compute_full_recipe_costing(parent, new_total, company_id)
+        await db.recipes.update_one(
+            {"recipe_id": pid, "company_id": company_id},
+            {"$set": {
+                "ingredients": updated_ings,
+                "sub_recipes": updated_subs,
+                "total_cost": new_total,
+                **full_costing,
+                "last_cost_recalc_at": datetime.now(timezone.utc).isoformat(),
+                "last_cost_recalc_trigger": f"child_recipe:{recipe_id}",
+            }},
+        )
+        affected.append(pid)
+        # Recurse to grandparents.
+        upstream = await _recalc_parents_of_recipe(pid, company_id, _seen)
+        affected.extend(upstream.get("affected_recipe_ids", []))
+
+    return {"recalculated": len(affected), "affected_recipe_ids": affected}
+
+
 @recipes_router.post("", response_model=Recipe)
 async def create_recipe(data: RecipeCreate, user: User = Depends(get_current_user)):
     import logging
@@ -547,6 +617,55 @@ async def get_recipe(recipe_id: str, user: User = Depends(get_current_user)):
         )
         return recipe
 
+@recipes_router.get("/{recipe_id}/cost-breakdown")
+async def get_recipe_cost_breakdown(recipe_id: str, user: User = Depends(get_current_user)):
+    """Derived breakdown of a recipe's food cost.
+
+    Returns: `{ ingredients_total, sub_recipes_total, food_cost_total,
+                consistency: {ok, delta_vs_stored} }`
+
+    Consumed by the UI to show "Ingredientes: $X + Sub-recetas: $Y = $Total"
+    below the "Costo Total Receta" label. Any silent drift becomes visible
+    immediately.
+    """
+    recipe = await db.recipes.find_one(
+        {"recipe_id": recipe_id, "company_id": user.company_id}, {"_id": 0},
+    )
+    if not recipe:
+        raise HTTPException(status_code=404, detail="Recipe not found")
+
+    ingredients_total = 0.0
+    for ing in recipe.get("ingredients") or []:
+        if (ing.get("item_type") == "recipe"):
+            continue  # sub-recipe rows counted below
+        ingredients_total += float(ing.get("total_cost") or ing.get("cost") or 0)
+
+    sub_recipes_total = 0.0
+    # inline sub-recipes in ingredients[] (legacy shape)
+    for ing in recipe.get("ingredients") or []:
+        if ing.get("item_type") == "recipe":
+            sub_recipes_total += float(ing.get("total_cost") or ing.get("cost") or 0)
+    # dedicated sub_recipes[]
+    for sub in recipe.get("sub_recipes") or []:
+        sub_recipes_total += float(sub.get("total_cost") or 0)
+
+    derived_total = round(ingredients_total + sub_recipes_total, 4)
+    stored_total = float(recipe.get("food_cost") or recipe.get("total_cost") or 0)
+    delta = round(stored_total - derived_total, 4)
+
+    return {
+        "recipe_id": recipe_id,
+        "ingredients_total": round(ingredients_total, 4),
+        "sub_recipes_total": round(sub_recipes_total, 4),
+        "food_cost_total": derived_total,
+        "stored_food_cost": round(stored_total, 4),
+        "consistency": {
+            "ok": abs(delta) <= 0.01,
+            "delta_vs_stored": delta,
+        },
+    }
+
+
 @recipes_router.put("/{recipe_id}")
 async def update_recipe(recipe_id: str, data: RecipeCreate, user: User = Depends(get_current_user)):
     import logging
@@ -602,6 +721,15 @@ async def update_recipe(recipe_id: str, data: RecipeCreate, user: User = Depends
         result = await db.recipes.update_one({"recipe_id": recipe_id, "company_id": user.company_id}, {"$set": update_data})
         if result.matched_count == 0:
             raise HTTPException(status_code=404, detail="Recipe not found")
+
+        # CASCADE FIX — recompute all parent recipes that use this recipe as a
+        # sub-recipe (recursively). This closes the drift documented in the
+        # bug report: editing a sub-recipe no longer leaves parents stale.
+        # Proposals are NOT touched (they keep their `internal_cost` snapshot).
+        try:
+            await _recalc_parents_of_recipe(recipe_id, user.company_id)
+        except Exception as parent_err:
+            _log.warning(f"cascade recalc parents failed for {recipe_id}: {parent_err}")
 
         # Fase 2 SHADOW MODE — enqueue non-blocking cascade walk.
         # Zero mutations to recipes/menus outside `cost_staleness` collection.

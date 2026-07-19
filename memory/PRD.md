@@ -1,6 +1,38 @@
 # Kora OS — Product Requirements Document
 
 
+## Feature — Recipe Cost Cascade FIX (Feb 19, 2026)
+
+**Estado:** ✅ Fix desplegado. Test de regresión pasa 2/2 en cada corrida.
+
+### Cambios de código
+- **`backend/routers/recipes.py`**
+  - Nueva `_recalc_parents_of_recipe(recipe_id, company_id, _seen)`: recomputa
+    recursivamente los padres cuando se guarda una sub-receta.
+  - `update_recipe` invoca la cascada después de persistir el update.
+  - Nuevo `GET /api/recipes/{id}/cost-breakdown` — desglose derivado sin
+    tocar DB.
+- **`frontend/src/components/RecipeBuilder.js`**
+  - `calculateTotalCost` separado en `calculateIngredientsCost` +
+    `calculateSubRecipesCost`.
+  - Desglose visible bajo "Costo Total Receta": `Ing: $X + Sub: $Y = $Total`.
+- **`backend/tests/test_recipe_cost_cascade_regression.py`** (nuevo)
+  - `test_recipe_total_matches_line_sum`: invariante $0.01 sobre las 27
+    recetas actuales.
+  - `test_editing_child_recomputes_parent`: verifica cascada end-to-end.
+
+### Cotizaciones intactas
+Los line items de proposals siguen usando `internal_cost` como snapshot
+guardado al momento de crearse (`routers/proposals.py:399,417`). La cascada
+NO altera cotizaciones existentes.
+
+### Respaldo pre-fix (por si hay que rollback)
+- Colección Mongo: `recipes_backup_20260719_204111` (27 docs).
+- JSON: `/app/backend/backups/recipes_20260719_204111.json` (62 KB).
+- Plus `plated_menus_20260719_204111.json` y `menus_20260719_204111.json`.
+
+
+
 ## Feature — Cost Cascade Recalc · Phase 2 (Shadow Mode) (Feb 19, 2026)
 
 **Estado:** ✅ Fase 2 desplegada corriendo en paralelo. Awaiting user sign-off para Fase 3.

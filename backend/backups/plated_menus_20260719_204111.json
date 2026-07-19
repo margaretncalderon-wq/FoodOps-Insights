@@ -1,0 +1,264 @@
+[
+  {
+    "_id": "697dbcdf2362cc27354d70cd",
+    "menu_id": "pmenu_ab23476c473a",
+    "company_id": "company_98d8b4725822",
+    "name": "Menu Degustaci\u00f3n",
+    "description": "Menu de 5 tiempos",
+    "menu_type": "plated",
+    "pricing_model": "per_guest",
+    "serving_style": "plated",
+    "courses": [
+      {
+        "course_id": "c1",
+        "course_name": "appetizer",
+        "course_order": 0,
+        "items": []
+      },
+      {
+        "course_id": "c2",
+        "course_name": "entree",
+        "course_order": 1,
+        "items": []
+      }
+    ],
+    "buffer_percentage": 10.0,
+    "cost_per_guest": 0.0,
+    "cost_with_buffer": 0.0,
+    "notes": "",
+    "status": "active",
+    "created_at": "2026-01-31T08:27:11.769664+00:00",
+    "updated_at": "2026-01-31T08:27:11.769664+00:00"
+  },
+  {
+    "_id": "697dbce72362cc27354d70ce",
+    "menu_id": "pmenu_16587adb4287",
+    "company_id": "company_98d8b4725822",
+    "name": "Menu Degustacion",
+    "description": "Menu de 5 tiempos",
+    "menu_type": "plated",
+    "pricing_model": "per_guest",
+    "serving_style": "plated",
+    "courses": [
+      {
+        "course_id": "c1",
+        "course_name": "appetizer",
+        "course_order": 0,
+        "items": []
+      },
+      {
+        "course_id": "c2",
+        "course_name": "entree",
+        "course_order": 1,
+        "items": []
+      }
+    ],
+    "buffer_percentage": 10.0,
+    "cost_per_guest": 0.0,
+    "cost_with_buffer": 0.0,
+    "notes": "",
+    "status": "active",
+    "created_at": "2026-01-31T08:27:19.631927+00:00",
+    "updated_at": "2026-01-31T08:27:19.631927+00:00"
+  },
+  {
+    "_id": "697e3812c66dd833dd71fb8e",
+    "menu_id": "pmenu_738f8a91ba55",
+    "company_id": "company_98d8b4725822",
+    "name": "Spring",
+    "description": "",
+    "menu_type": "buffet",
+    "pricing_model": "per_guest",
+    "serving_style": "stations",
+    "courses": [
+      {
+        "course_id": "course_1769879442436",
+        "course_name": "salad",
+        "course_order": 0,
+        "items": [
+          {
+            "recipe_id": "recipe_a7e06da432d5",
+            "recipe_name": "Catibia Pernil con Cebolla Encurtida",
+            "portions_per_guest": 1,
+            "cost_per_portion": 105,
+            "portion_format_id": "pformat_bde87189125b",
+            "portion_format_name": "Und",
+            "notes": ""
+          }
+        ]
+      },
+      {
+        "course_id": "course_1769879447945",
+        "course_name": "soup",
+        "course_order": 1,
+        "items": [
+          {
+            "recipe_id": "recipe_a7e06da432d5",
+            "recipe_name": "Catibia Pernil con Cebolla Encurtida",
+            "portions_per_guest": 1,
+            "cost_per_portion": 105,
+            "portion_format_id": "pformat_bde87189125b",
+            "portion_format_name": "Und",
+            "notes": ""
+          }
+        ]
+      }
+    ],
+    "buffer_percentage": 10.0,
+    "cost_per_guest": 210.0,
+    "cost_with_buffer": 231.0,
+    "notes": "",
+    "status": "active",
+    "created_at": "2026-01-31T17:12:50.755509+00:00",
+    "updated_at": "2026-05-17T17:04:33.594761+00:00",
+    "default_guest_count": 12,
+    "sell_price_per_guest": 2311.0,
+    "suggested_sell_price_per_guest": 355.38,
+    "target_margin_pct": 35.0,
+    "tax_included": false
+  },
+  {
+    "_id": "69ab84393d958c1cf7663f44",
+    "menu_id": "pmenu_15fd5674fa65",
+    "company_id": "company_3ab116c0994d",
+    "name": "Men\u00fa de Boda - 3 Tiempos",
+    "description": "Men\u00fa elegante para bodas",
+    "menu_type": "plated",
+    "pricing_model": "per_guest",
+    "serving_style": "plated",
+    "courses": [
+      {
+        "course_id": "course_001",
+        "course_name": "Entrada",
+        "course_order": 0,
+        "items": [
+          {
+            "recipe_id": "recipe_8d95bf9a2f56",
+            "recipe_name": "Ensalada Caprese",
+            "portions_per_guest": 1
+          }
+        ]
+      },
+      {
+        "course_id": "course_002",
+        "course_name": "Plato Fuerte",
+        "course_order": 1,
+        "items": [
+          {
+            "recipe_id": "recipe_aa7baa59096a",
+            "recipe_name": "Filete Mignon",
+            "portions_per_guest": 1
+          }
+        ]
+      },
+      {
+        "course_id": "course_003",
+        "course_name": "Postre",
+        "course_order": 2,
+        "items": [
+          {
+            "recipe_id": "recipe_52395dfc1766",
+            "recipe_name": "Pastel de Chocolate",
+            "portions_per_guest": 1
+          }
+        ]
+      }
+    ],
+    "buffer_percentage": 0,
+    "cost_per_guest": 3.528,
+    "cost_with_buffer": 3.528,
+    "notes": null,
+    "status": "active",
+    "created_at": "2026-03-07T01:49:45.301137+00:00",
+    "updated_at": "2026-05-15T03:18:40.113340+00:00"
+  },
+  {
+    "_id": "6a09feaa78e58de1044a9b5c",
+    "menu_id": "pmenu_db77441e5a82",
+    "company_id": "company_3ab116c0994d",
+    "name": "Test Buffet Ciano 1779039914",
+    "description": null,
+    "menu_type": "buffet",
+    "pricing_model": "per_guest",
+    "serving_style": "stations",
+    "courses": [
+      {
+        "course_id": "c_484587",
+        "course_name": "salad",
+        "course_order": 0,
+        "items": [
+          {
+            "recipe_id": "recipe_8d95bf9a2f56",
+            "recipe_name": "Ensalada Caprese",
+            "portions_per_guest": 1,
+            "cost_per_portion": 0.0
+          },
+          {
+            "recipe_id": "recipe_aa7baa59096a",
+            "recipe_name": "Filete Mignon con Risotto",
+            "portions_per_guest": 1,
+            "cost_per_portion": 3.165
+          }
+        ],
+        "min_choices": 1,
+        "max_choices": 1,
+        "extra_choice_price": 5.0
+      },
+      {
+        "course_id": "c_0c3fd7",
+        "course_name": "entree",
+        "course_order": 1,
+        "items": [
+          {
+            "recipe_id": "recipe_8d95bf9a2f56",
+            "recipe_name": "Ensalada Caprese",
+            "portions_per_guest": 1,
+            "cost_per_portion": 0.0
+          },
+          {
+            "recipe_id": "recipe_aa7baa59096a",
+            "recipe_name": "Filete Mignon con Risotto",
+            "portions_per_guest": 1,
+            "cost_per_portion": 3.165
+          },
+          {
+            "recipe_id": "recipe_52395dfc1766",
+            "recipe_name": "Pastel de Chocolate",
+            "portions_per_guest": 1,
+            "cost_per_portion": 0.363
+          }
+        ],
+        "min_choices": 2,
+        "max_choices": 2,
+        "extra_choice_price": 10.0
+      }
+    ],
+    "buffer_percentage": 10.0,
+    "cost_per_guest": 6.693,
+    "cost_with_buffer": 7.3623,
+    "base_price_per_guest": 75.0,
+    "notes": null,
+    "status": "active",
+    "created_at": "2026-05-17T17:45:14.147073+00:00",
+    "updated_at": "2026-05-17T17:45:14.147073+00:00"
+  },
+  {
+    "_id": "6a4dda0d35c62d02711aafc3",
+    "menu_id": "pmenu_d99eeaff0c3d",
+    "company_id": "company_3ab116c0994d",
+    "name": "P1TEST_ef4151_pm",
+    "description": null,
+    "menu_type": "plated",
+    "pricing_model": "per_guest",
+    "serving_style": "plated",
+    "courses": [],
+    "buffer_percentage": 0,
+    "cost_per_guest": 0.0,
+    "cost_with_buffer": 0.0,
+    "base_price_per_guest": 0.0,
+    "notes": null,
+    "status": "active",
+    "created_at": "2026-07-08T05:03:09.304937+00:00",
+    "updated_at": "2026-07-08T05:03:09.304937+00:00"
+  }
+]

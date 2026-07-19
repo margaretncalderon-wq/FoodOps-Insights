@@ -1,6 +1,71 @@
 # Kora OS - Changelog
 
 
+## February 2026 — Recipe Cost Cascade · FIX aplicado
+
+### Bug
+El total de una receta no se recalculaba en cascada cuando se editaba una
+sub-receta. La receta padre quedaba con `total_cost` viejo, generando drift
+silencioso.
+
+### Paso 0 — Investigación (findings)
+- **Cotizaciones ya congeladas:** `proposal_items` guardan `internal_cost`
+  como snapshot al momento de agregarse. No requieren migración retroactiva.
+- **15 archivos leen** `total_cost / food_cost / cost_per_portion / cost_per_yield`
+  (backend), pero el fix se contuvo en 2 archivos porque los lectores confían
+  en el valor almacenado.
+- **Ciclos:** protección ya existente (`check_circular_dependency`) + guard
+  en el nuevo helper.
+- **Profundidad real en DB:** 1 nivel máximo (solo "Salsa Madre"). Recomputo
+  síncrono es sub-milisegundo.
+
+### Paso 1 — Backup
+- Colección Mongo: `recipes_backup_20260719_204111` (27 docs).
+- JSON files en `/app/backend/backups/`:
+  - `recipes_20260719_204111.json` (62 KB)
+  - `plated_menus_20260719_204111.json` (6 docs)
+  - `menus_20260719_204111.json` (1 doc)
+
+### Paso 2 — Fix
+**`backend/routers/recipes.py`**:
+- Nueva función `_recalc_parents_of_recipe(recipe_id, company_id, _seen)`:
+  recorre recursivamente hacia arriba todos los padres que usan esta receta
+  como sub-receta (ambas shapes: `sub_recipes[]` y legacy
+  `ingredients[item_type=recipe]`). Guarda ciclos con set `_seen`. Recompute
+  usa las funciones existentes ya auditadas (`calculate_recipe_cost` +
+  `compute_full_recipe_costing`) para no divergir de la lógica canónica.
+- `update_recipe` ahora llama a `_recalc_parents_of_recipe` después de
+  persistir. Falla silente (log warning) si algo raro pasa — nunca rompe la
+  respuesta al usuario.
+- Nuevo endpoint `GET /api/recipes/{id}/cost-breakdown` — devuelve
+  `{ingredients_total, sub_recipes_total, food_cost_total, stored_food_cost,
+  consistency: {ok, delta_vs_stored}}`.
+
+### Paso 3 — Validación
+- **Test de regresión** `backend/tests/test_recipe_cost_cascade_regression.py`:
+  1. `test_recipe_total_matches_line_sum`: todas las recetas en la DB deben
+     cumplir `total_cost == sum(lines) ±$0.01`. **PASA** ✅ (27/27 recetas).
+  2. `test_editing_child_recomputes_parent`: crea 2 ingredientes + 1 sub-receta
+     + 1 receta padre → edita la sub-receta ($6→$10) → verifica que el
+     padre suba de $16 a $20 automáticamente. **PASA** ✅.
+- Corre en cada `pytest` del backend.
+
+### Paso 4 — UI
+- `frontend/src/components/RecipeBuilder.js`: función `calculateTotalCost`
+  refactorizada en `calculateIngredientsCost` + `calculateSubRecipesCost`.
+- Debajo del número "Costo Total Receta" ahora aparece un desglose en
+  monospace: `Ing: $X + Sub: $Y = $Total`. `data-testid`s:
+  `breakdown-ingredients`, `breakdown-subrecipes`, `breakdown-total`.
+- Cualquier drift futuro se ve al instante.
+
+### Testing
+- Pytest: 2 pass, 0 fail, 2 warnings (irrelevantes).
+- curl endpoint: `GET /api/recipes/{id}/cost-breakdown` → 200 OK con datos correctos.
+- Lint Python + JS: sin errores.
+- Se conserva el snapshot de proposals: **NO** se tocaron cotizaciones.
+
+
+
 ## February 2026 — Cost Cascade Recalc · Phase 2 (Shadow Mode)
 
 ### Context

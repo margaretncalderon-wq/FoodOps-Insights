@@ -1,0 +1,82 @@
+[
+  {
+    "_id": "697d8b3fc04208409cceada1",
+    "menu_id": "menu_d44e6d56f76f",
+    "company_id": "company_2b5ed438fc79",
+    "name": "Men\u00fa Bodas Premium",
+    "name_es": "Men\u00fa Bodas Premium",
+    "description": "Servicio completo para bodas de 100 personas",
+    "description_es": null,
+    "menu_type": "Package",
+    "category_id": null,
+    "items": [
+      {
+        "picklist_item_id": "pli_7e39eb1e9609",
+        "recipe_id": null,
+        "custom_name": null,
+        "custom_description": null,
+        "quantity": 100.0,
+        "unit_price_override": null,
+        "internal_cost_override": null,
+        "sort_order": 0,
+        "item_id": "mi_c7c5c0d4"
+      },
+      {
+        "picklist_item_id": "pli_fcada7fd99a5",
+        "recipe_id": null,
+        "custom_name": null,
+        "custom_description": null,
+        "quantity": 100.0,
+        "unit_price_override": null,
+        "internal_cost_override": null,
+        "sort_order": 1,
+        "item_id": "mi_bcfb8e5c"
+      },
+      {
+        "picklist_item_id": "pli_818e59f54f34",
+        "recipe_id": null,
+        "custom_name": null,
+        "custom_description": null,
+        "quantity": 12.0,
+        "unit_price_override": null,
+        "internal_cost_override": null,
+        "sort_order": 2,
+        "item_id": "mi_d2fab0ac"
+      }
+    ],
+    "default_price": null,
+    "is_fixed_price": false,
+    "is_active": true,
+    "created_at": "2026-01-31T04:55:27.996756+00:00",
+    "updated_at": "2026-01-31T05:04:56.215090+00:00",
+    "variants": [
+      {
+        "variant_id": "var_340cae2a",
+        "name": "Gold",
+        "name_es": "Oro",
+        "description": null,
+        "discount_type": "percentage",
+        "discount_value": 0.0,
+        "is_default": true
+      },
+      {
+        "variant_id": "var_628ed09e",
+        "name": "Silver",
+        "name_es": "Plata",
+        "description": null,
+        "discount_type": "percentage",
+        "discount_value": 10.0,
+        "is_default": false
+      },
+      {
+        "variant_id": "var_28eacb70",
+        "name": "Bronze",
+        "name_es": "Bronce",
+        "description": null,
+        "discount_type": "percentage",
+        "discount_value": 20.0,
+        "is_default": false
+      }
+    ]
+  }
+]

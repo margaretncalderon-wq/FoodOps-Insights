@@ -496,8 +496,8 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
     return translations[key]?.[language] || translations[key]?.en || key;
   };
 
-  // Calculate total cost
-  const calculateTotalCost = () => {
+  // Calculate total cost — separated so UI can show breakdown
+  const calculateIngredientsCost = () => {
     let total = 0;
     for (const ing of form.ingredients) {
       const invItem = ingredients.find(i => i.ingredient_id === ing.item_id);
@@ -509,6 +509,11 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
         total += (ing.quantity || 0) * effectiveCost;
       }
     }
+    return total;
+  };
+
+  const calculateSubRecipesCost = () => {
+    let total = 0;
     for (const sub of form.sub_recipes) {
       const subRecipe = allRecipes.find(r => r.recipe_id === sub.child_recipe_id);
       if (subRecipe) {
@@ -517,6 +522,10 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
     }
     return total;
   };
+
+  const calculateTotalCost = () => calculateIngredientsCost() + calculateSubRecipesCost();
+  const ingredientsCost = calculateIngredientsCost();
+  const subRecipesCost = calculateSubRecipesCost();
 
   const totalCost = calculateTotalCost();
   // Total portions = yield_quantity × portions_per_yield  (matches backend compute_full_recipe_costing)
@@ -1554,9 +1563,20 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
                     {language === "es" ? "Costo Total Receta" : "Total Recipe Cost"}
                   </p>
                   <p className="text-2xl font-bold text-slate-800" data-testid="recipe-total-cost">${fmtNum(totalCost)}</p>
-                  <p className="text-[10px] text-muted-foreground mt-0.5">
-                    {language === "es" ? "Solo ingredientes" : "Ingredients only"}
-                  </p>
+                  {/* Breakdown — makes any future drift instantly visible */}
+                  <div className="mt-1.5 text-[10px] text-muted-foreground font-mono" data-testid="recipe-cost-breakdown">
+                    <span data-testid="breakdown-ingredients">
+                      {language === "es" ? "Ing." : "Ing."}: ${fmtNum(ingredientsCost)}
+                    </span>
+                    <span className="mx-1">+</span>
+                    <span data-testid="breakdown-subrecipes">
+                      {language === "es" ? "Sub" : "Sub"}: ${fmtNum(subRecipesCost)}
+                    </span>
+                    <span className="mx-1">=</span>
+                    <span className="font-semibold" data-testid="breakdown-total">
+                      ${fmtNum(totalCost)}
+                    </span>
+                  </div>
                 </div>
                 <div className="p-4 rounded-lg border bg-white">
                   <p className="text-[10px] uppercase text-muted-foreground tracking-wide">
