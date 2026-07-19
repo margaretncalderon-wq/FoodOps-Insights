@@ -602,6 +602,25 @@ async def update_recipe(recipe_id: str, data: RecipeCreate, user: User = Depends
         result = await db.recipes.update_one({"recipe_id": recipe_id, "company_id": user.company_id}, {"$set": update_data})
         if result.matched_count == 0:
             raise HTTPException(status_code=404, detail="Recipe not found")
+
+        # Fase 2 SHADOW MODE — enqueue non-blocking cascade walk.
+        # Zero mutations to recipes/menus outside `cost_staleness` collection.
+        try:
+            from services.cost_cascade import enqueue_cascade
+            enqueue_cascade(
+                company_id=user.company_id,
+                root_type="recipe",
+                root_id=recipe_id,
+                trigger={
+                    "kind": "recipe_update",
+                    "recipe_id": recipe_id,
+                    "new_food_cost": float(update_data.get("food_cost") or 0),
+                    "user_id": getattr(user, "user_id", None),
+                },
+            )
+        except Exception as e:
+            _log.debug(f"shadow cascade enqueue skipped: {e}")
+
         return await get_recipe(recipe_id, user)
     except HTTPException:
         raise

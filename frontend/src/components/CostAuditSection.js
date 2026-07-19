@@ -18,10 +18,12 @@ import { Badge } from "./ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./ui/table";
 import { Input } from "./ui/input";
 import { Checkbox } from "./ui/checkbox";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import {
   ShieldAlert, RefreshCw, Download, AlertTriangle, CheckCircle2,
-  Play, ChevronRight, DollarSign, FileWarning, Loader2,
+  Play, ChevronRight, DollarSign, FileWarning, Loader2, Activity,
 } from "lucide-react";
+import CostShadowPanel from "./CostShadowPanel";
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
@@ -59,9 +61,45 @@ function SummaryCard({ label, value, icon: Icon, tone = "default", testId }) {
 // ---------- main ----------
 export default function CostAuditSection() {
   const { language } = useLanguage();
-  const { user, token } = useAuth();
+  const { user } = useAuth();
   const isEs = language === "es";
   const isSuper = !!user?.is_super_admin;
+
+  if (!isSuper) {
+    return (
+      <Card className="border-amber-200 bg-amber-50" data-testid="cost-audit-forbidden">
+        <CardContent className="p-8 flex items-center gap-3 text-amber-800">
+          <ShieldAlert className="w-5 h-5" />
+          <p>{isEs
+            ? "Auditoría de Costos disponible solo para super administradores de plataforma."
+            : "Cost Audit is available for platform super admins only."}</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Tabs defaultValue="audit" className="space-y-4" data-testid="cost-intelligence-tabs">
+      <TabsList>
+        <TabsTrigger value="audit" data-testid="cost-tab-audit">
+          <ShieldAlert className="w-4 h-4 mr-2"/>
+          {isEs ? "Auditoría · Fase 1" : "Audit · Phase 1"}
+        </TabsTrigger>
+        <TabsTrigger value="shadow" data-testid="cost-tab-shadow">
+          <Activity className="w-4 h-4 mr-2"/>
+          {isEs ? "Shadow Mode · Fase 2" : "Shadow Mode · Phase 2"}
+        </TabsTrigger>
+      </TabsList>
+      <TabsContent value="audit"><CostAuditReport /></TabsContent>
+      <TabsContent value="shadow"><CostShadowPanel /></TabsContent>
+    </Tabs>
+  );
+}
+
+function CostAuditReport() {
+  const { language } = useLanguage();
+  const { token } = useAuth();
+  const isEs = language === "es";
 
   const [latest, setLatest] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -91,7 +129,7 @@ export default function CostAuditSection() {
     }
   }, [token, onlyDrift]);
 
-  useEffect(() => { if (isSuper) fetchLatest(); }, [fetchLatest, isSuper]);
+  useEffect(() => { fetchLatest(); }, [fetchLatest]);
 
   // Poll while a run is in progress
   useEffect(() => {
@@ -138,20 +176,7 @@ export default function CostAuditSection() {
     } finally { setLoading(false); }
   };
 
-  // ---------- guard: super-admin only ----------
-  if (!isSuper) {
-    return (
-      <Card className="border-amber-200 bg-amber-50" data-testid="cost-audit-forbidden">
-        <CardContent className="p-8 flex items-center gap-3 text-amber-800">
-          <ShieldAlert className="w-5 h-5" />
-          <p>{isEs
-            ? "Auditoría de Costos disponible solo para super administradores de plataforma."
-            : "Cost Audit is available for platform super admins only."}</p>
-        </CardContent>
-      </Card>
-    );
-  }
-
+  // ---------- guard: no-op (parent renders auth-gate) ----------
   const summary = latest?.summary || {};
   const status = latest?.status || "none";
   const isRunning = status === "running";

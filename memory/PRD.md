@@ -1,7 +1,53 @@
 # Kora OS — Product Requirements Document
 
 
+## Feature — Cost Cascade Recalc · Phase 2 (Shadow Mode) (Feb 19, 2026)
+
+**Estado:** ✅ Fase 2 desplegada corriendo en paralelo. Awaiting user sign-off para Fase 3.
+
+### Cambios respetando reglas de seguridad
+- **CERO cambios de schema** en colecciones existentes. Flags viven en
+  colecciones nuevas: `cost_staleness` y `cost_cascade_runs`.
+- **Reversible**: `POST /api/cost-audit/shadow/clear` vacía todo.
+- **Kill-switch**: env var `COST_SHADOW_MODE_ENABLED` (default true).
+
+### Backend (`backend/services/cost_cascade.py` — nuevo)
+- Grafo de dependencias: ingredient → recipe → parent-recipe → plated_menu /
+  menu → proposal.
+- `run_cascade_walk` recomputa deep cost por receta afectada, escribe en
+  `cost_staleness`. Downstream (menus/proposals) se marca sin recomputar.
+- Hook fire-and-forget: `enqueue_cascade` via `asyncio.create_task`.
+
+### Hooks
+- `routers/inventory.py :: update_ingredient` → enqueue tras cambio de precio/waste.
+- `routers/recipes.py :: update_recipe` → enqueue tras guardar receta.
+
+### Endpoints admin (super-admin only)
+- `GET  /api/cost-audit/shadow/dashboard`
+- `GET  /api/cost-audit/shadow/entries` (paginado)
+- `POST /api/cost-audit/shadow/simulate`
+- `POST /api/cost-audit/shadow/clear`
+
+### Frontend
+- `components/CostShadowPanel.js` (nuevo): tiles, top drift, recent runs,
+  simulate manual, reset.
+- `components/CostAuditSection.js` → Tabs wrapper con Audit + Shadow.
+
+### Testing
+- E2E via curl: `simulate → dashboard → entries → clear` ✅
+- 403 non-super-admin ✅
+- Screenshot del tab ✅
+- Duration observada: ~17ms por walk.
+
+### Fases pendientes
+- **Fase 3 — Activación controlada:** feature flag `cascade_recalc_enabled`,
+  rollout por lotes de 50 recetas con revert habilitado.
+- **Fase 4 — UI/Prevención:** desglose "Ingredientes: $X + Sub-recetas: $Y" +
+  aviso visual `cost_stale` + test de regresión automatizado.
+
+
 ## Feature — Cost Cascade Recalc · Phase 1 (Read-Only Audit) (Feb 19, 2026)
+
 
 **Estado:** ✅ Fase 1 desplegada. Awaiting user sign-off para avanzar a Fase 2.
 

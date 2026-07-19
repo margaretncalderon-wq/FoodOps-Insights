@@ -387,7 +387,27 @@ async def update_ingredient(ingredient_id: str, data: dict, user: User = Depends
             await _recalc_recipes_using_ingredient(ingredient_id, user.company_id)
         except Exception as e:
             logger.warning(f"Auto-recalc on ingredient {ingredient_id} change failed: {e}")
-    
+
+        # Fase 2 SHADOW MODE — fire-and-forget cascade walk that observes what
+        # the *correct* cost should be and records drift in `cost_staleness`.
+        # Never mutates ingredients/recipes; safe on failure.
+        try:
+            from services.cost_cascade import enqueue_cascade
+            enqueue_cascade(
+                company_id=user.company_id,
+                root_type="ingredient",
+                root_id=ingredient_id,
+                trigger={
+                    "kind": "ingredient_update",
+                    "item_id": ingredient_id,
+                    "from_cost_per_unit": float(current.get("cost_per_unit") or 0),
+                    "to_cost_per_unit": float(new_cpu or 0),
+                    "user_id": getattr(user, "user_id", None),
+                },
+            )
+        except Exception as e:
+            logger.debug(f"shadow cascade enqueue skipped: {e}")
+
     return await get_ingredient(ingredient_id, user)
 
 

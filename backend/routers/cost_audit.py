@@ -39,6 +39,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
 
 from config import db
 from dependencies import get_current_user
@@ -532,3 +533,121 @@ async def download_audit_csv(
         media_type="text/csv",
         headers={"Content-Disposition": f'attachment; filename="cost_audit_{audit_id}.csv"'},
     )
+
+
+# =========================================================================
+# FASE 2 — Shadow Mode admin endpoints
+# =========================================================================
+@cost_audit_router.get("/shadow/dashboard")
+async def shadow_dashboard(user: User = Depends(require_super_admin)):
+    """Aggregate view of the shadow mode observations across all tenants."""
+    from services.cost_cascade import SHADOW_ENABLED, DRIFT_TOLERANCE_USD
+
+    total = await db.cost_staleness.count_documents({})
+    stale = await db.cost_staleness.count_documents({"is_stale": True})
+    by_type_cursor = db.cost_staleness.aggregate([
+        {"$group": {
+            "_id": "$entity_type",
+            "total": {"$sum": 1},
+            "stale": {"$sum": {"$cond": ["$is_stale", 1, 0]}},
+            "drift_sum_abs": {"$sum": {"$abs": {"$ifNull": ["$drift_abs", 0]}}},
+        }},
+    ])
+    by_type = [{"entity_type": d["_id"], **{k: v for k, v in d.items() if k != "_id"}}
+               async for d in by_type_cursor]
+
+    recent_runs = await db.cost_cascade_runs.find(
+        {}, {"_id": 0}
+    ).sort("started_at", -1).to_list(25)
+
+    top_drift = await db.cost_staleness.find(
+        {"is_stale": True, "entity_type": "recipe"},
+        {"_id": 0}
+    ).sort("drift_abs", -1).to_list(20)
+
+    # Enrich top_drift with recipe & company names for the FE table
+    enriched: List[dict] = []
+    for row in top_drift:
+        rid = row.get("entity_id")
+        recipe = await db.recipes.find_one(
+            {"recipe_id": rid, "company_id": row.get("company_id")},
+            {"_id": 0, "name": 1},
+        )
+        company = await db.companies.find_one(
+            {"company_id": row.get("company_id")}, {"_id": 0, "name": 1}
+        )
+        enriched.append({
+            **row,
+            "recipe_name": (recipe or {}).get("name") or "?",
+            "company_name": (company or {}).get("name") or row.get("company_id"),
+        })
+
+    return {
+        "shadow_enabled": SHADOW_ENABLED,
+        "tolerance_usd": DRIFT_TOLERANCE_USD,
+        "totals": {
+            "observations": total,
+            "stale_entries": stale,
+            "by_type": by_type,
+        },
+        "recent_runs": recent_runs,
+        "top_drift": enriched,
+    }
+
+
+@cost_audit_router.get("/shadow/entries")
+async def shadow_entries(
+    entity_type: Optional[str] = None,
+    company_id: Optional[str] = None,
+    only_stale: bool = Query(True),
+    limit: int = Query(100, le=1000),
+    offset: int = 0,
+    user: User = Depends(require_super_admin),
+):
+    q: Dict[str, Any] = {}
+    if entity_type:
+        q["entity_type"] = entity_type
+    if company_id:
+        q["company_id"] = company_id
+    if only_stale:
+        q["is_stale"] = True
+
+    total = await db.cost_staleness.count_documents(q)
+    rows = await db.cost_staleness.find(q, {"_id": 0}).sort(
+        "last_marked_at", -1
+    ).skip(offset).limit(limit).to_list(limit)
+    return {"total": total, "offset": offset, "limit": limit, "rows": rows}
+
+
+class ShadowSimulateBody(BaseModel):
+    company_id: str
+    root_type: str  # "ingredient" | "recipe"
+    root_id: str
+
+
+@cost_audit_router.post("/shadow/simulate")
+async def shadow_simulate(
+    body: ShadowSimulateBody,
+    user: User = Depends(require_super_admin),
+):
+    """Manually trigger a shadow walk for testing (super-admin only)."""
+    from services.cost_cascade import run_cascade_walk
+    if body.root_type not in ("ingredient", "recipe"):
+        raise HTTPException(status_code=400, detail="root_type must be ingredient|recipe")
+    result = await run_cascade_walk(
+        company_id=body.company_id,
+        trigger={"kind": "manual_simulate", "user_id": user.user_id},
+        root_type=body.root_type,
+        root_id=body.root_id,
+    )
+    return result
+
+
+@cost_audit_router.post("/shadow/clear")
+async def shadow_clear(user: User = Depends(require_super_admin)):
+    """Reset the shadow footprint. Drops staleness records AND run history.
+    Never touches recipes/ingredients."""
+    stale_deleted = (await db.cost_staleness.delete_many({})).deleted_count
+    runs_deleted = (await db.cost_cascade_runs.delete_many({})).deleted_count
+    return {"cost_staleness_deleted": stale_deleted,
+            "cost_cascade_runs_deleted": runs_deleted}

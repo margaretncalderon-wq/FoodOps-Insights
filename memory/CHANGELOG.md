@@ -1,6 +1,69 @@
 # Kora OS - Changelog
 
 
+## February 2026 — Cost Cascade Recalc · Phase 2 (Shadow Mode)
+
+### Context
+Fase 2 del workstream de cascade recalculation. El usuario aprobó Fase 1
+(baseline: 0 drift en 27 recetas, 5 huérfanos). Ahora corremos en paralelo al
+sistema actual: cada edición de ingrediente/receta dispara un walk del grafo
+de dependencia y compara vs. lo que la app almacena. Sin tocar producción.
+
+### Reglas de seguridad respetadas
+- **Cero cambios de schema en colecciones existentes.** Los flags
+  `cost_stale`/`last_marked_at` viven en dos colecciones NUEVAS:
+  `cost_staleness` y `cost_cascade_runs`.
+- **Reversible en 1 click**: `POST /api/cost-audit/shadow/clear` vacía todo
+  (0 impacto en `recipes`/`ingredients`/`menus`/`plated_menus`/`proposals`).
+- **Kill-switch**: env var `COST_SHADOW_MODE_ENABLED` (default `true`).
+
+### Backend (`backend/services/cost_cascade.py` — nuevo)
+- `build_dependency_map(company_id)` → adjacency: ingredient→recipe,
+  recipe→parent, recipe→plated_menu, recipe→menu, plated→proposal,
+  menu→proposal.
+- `_walk_impact(...)` → BFS con `MAX_HOPS=12`.
+- `run_cascade_walk(...)` → recomputa deep cost por cada receta afectada
+  (usa la función de Fase 1) y upserts en `cost_staleness`. Downstream
+  (plated/menu/proposal) se marca sin recomputar valor.
+- `enqueue_cascade(...)` → hook fire-and-forget vía `asyncio.create_task`.
+
+### Hooks agregados
+- `routers/inventory.py :: update_ingredient` — después de un cambio de precio
+  o waste, encola walk desde el ingrediente.
+- `routers/recipes.py :: update_recipe` — después de guardar receta, encola
+  walk desde la receta.
+- Ambos fire-and-forget; jamás bloquean la respuesta al usuario.
+
+### Endpoints (`backend/routers/cost_audit.py`)
+- `GET /api/cost-audit/shadow/dashboard` — resumen + totals + recent_runs +
+  top_drift enriquecido con nombres.
+- `GET /api/cost-audit/shadow/entries` — listado paginado + filtros.
+- `POST /api/cost-audit/shadow/simulate` — walk manual (super-admin).
+- `POST /api/cost-audit/shadow/clear` — reset completo.
+
+### Frontend (`components/CostShadowPanel.js` — nuevo)
+- Tab "Shadow Mode · Phase 2" dentro de Cost Audit.
+- Badge de estado (enabled/disabled), 5 tiles (observations, stale, recipes,
+  menus, proposals), formulario manual "Trigger a walk", tabla "Top drift",
+  tabla "Recent runs", botón Reset.
+- `CostAuditSection` refactorizado como `Tabs` wrapper con Audit (Fase 1) +
+  Shadow (Fase 2).
+
+### Testing
+- `simulate → dashboard → entries → clear` end-to-end via curl ✅
+- 403 non-super-admin ✅
+- Screenshot smoke test del tab Shadow ✅
+- Duration observada: 17ms para un walk de 1 receta impactada.
+- Lint Python + JS: sin errores.
+
+### Pending user sign-off
+- Dejar Fase 2 corriendo en producción durante la semana. Revisar el
+  dashboard periódicamente. Si aparece drift > 20% de recetas, detenerse.
+- Aprobar avance a **Fase 3** (activación controlada con feature flag
+  `cascade_recalc_enabled` + rollout por lotes).
+
+
+
 ## February 2026 — Cost Cascade Recalc · Phase 1 (Read-Only Audit)
 
 ### Context
