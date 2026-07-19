@@ -22,8 +22,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import {
   ShieldAlert, RefreshCw, Download, AlertTriangle, CheckCircle2,
   Play, ChevronRight, DollarSign, FileWarning, Loader2, Activity,
-} from "lucide-react";
-import CostShadowPanel from "./CostShadowPanel";
+} from "lucide-react";import CostShadowPanel from "./CostShadowPanel";
+import PriceOutliersPanel from "./PriceOutliersPanel";
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
@@ -89,9 +89,14 @@ export default function CostAuditSection() {
           <Activity className="w-4 h-4 mr-2"/>
           {isEs ? "Shadow Mode · Fase 2" : "Shadow Mode · Phase 2"}
         </TabsTrigger>
+        <TabsTrigger value="outliers" data-testid="cost-tab-outliers">
+          <DollarSign className="w-4 h-4 mr-2"/>
+          {isEs ? "Precios sospechosos" : "Suspicious prices"}
+        </TabsTrigger>
       </TabsList>
       <TabsContent value="audit"><CostAuditReport /></TabsContent>
       <TabsContent value="shadow"><CostShadowPanel /></TabsContent>
+      <TabsContent value="outliers"><PriceOutliersPanel /></TabsContent>
     </Tabs>
   );
 }

@@ -1,6 +1,32 @@
 # Kora OS — Product Requirements Document
 
 
+## Feature — Prioridad 1: Label reactivo + Panel de precios sospechosos (Feb 19, 2026)
+
+**Estado:** ✅ Paso 1.1 aplicado y Paso 1.2 disponible. Falta: usuario revisa los 168 outliers uno a uno.
+
+### Paso 1.1 — Label reactivo
+`frontend/src/pages/FoodOpsPage.js:1324` ahora reacciona a `purchase_quantity_per_unit` + `base_unit` además de `purchase_unit`.
+- Con qty+base: "Precio total de 120 lb (saco)"
+- Sólo formato: "Precio total del saco"
+- Vacío: "Precio total del pack"
+
+### Paso 1.2 — Panel de revisión manual
+**Endpoints** (super-admin):
+- `GET  /api/cost-audit/prices/outliers`
+- `POST /api/cost-audit/prices/outliers/{id}/fix`
+- `POST /api/cost-audit/prices/outliers/{id}/ignore`
+- `POST /api/cost-audit/prices/outliers/reviews/clear`
+
+**Frontend:** `components/PriceOutliersPanel.js` (tab "Suspicious prices").
+
+**Colecciones nuevas** (aislado, reversible via drop):
+- `ingredient_price_reviews` — audit trail (fix/ignore/note/reviewed_by).
+
+**168 outliers pendientes** en `company_98d8b4725822` (Kora OS Test / Ciano Gourmet). Sin cambios en producción — usuario debe aprobar cada precio manualmente.
+
+
+
 ## Feature — Recipe Cost Cascade FIX (Feb 19, 2026)
 
 **Estado:** ✅ Fix desplegado. Test de regresión pasa 2/2 en cada corrida.

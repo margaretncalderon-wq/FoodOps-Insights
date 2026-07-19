@@ -651,3 +651,251 @@ async def shadow_clear(user: User = Depends(require_super_admin)):
     runs_deleted = (await db.cost_cascade_runs.delete_many({})).deleted_count
     return {"cost_staleness_deleted": stale_deleted,
             "cost_cascade_runs_deleted": runs_deleted}
+
+
+# =========================================================================
+# PRIORIDAD 1 · Paso 1.2 — Outliers de precio por categoría (revisión manual)
+# =========================================================================
+import statistics as _stats
+
+_TO_KG = {
+    "kg": 1.0, "g": 0.001, "mg": 0.000001,
+    "lb": 0.453592, "oz": 0.0283495,
+    "L": 1.0, "l": 1.0, "ml": 0.001,
+    "gal": 3.78541, "qt": 0.946353, "fl_oz": 0.02957,
+}
+
+
+def _cost_per_kg(ing: dict) -> Optional[float]:
+    base = (ing.get("base_unit") or ing.get("unit") or "").lower().strip()
+    factor = _TO_KG.get(base)
+    if factor is None or factor <= 0:
+        return None
+    cost = float(ing.get("cost_per_base_unit") or ing.get("cost_per_unit") or 0)
+    if cost <= 0:
+        return None
+    return round(cost / factor, 4)
+
+
+@cost_audit_router.get("/prices/outliers")
+async def list_price_outliers(
+    company_id: Optional[str] = None,
+    outlier_factor: float = Query(3.0, ge=1.5, le=100),
+    include_reviewed: bool = Query(False),
+    user: User = Depends(require_super_admin),
+):
+    """
+    Detect price outliers across ingredients: any ingredient with cost/kg
+    > outlier_factor × median of its category OR < median / outlier_factor.
+    Read-only. Never mutates ingredients.
+
+    Filters test rows (name contains "Test E2E" / "test_") automatically.
+    """
+    q: Dict[str, Any] = {}
+    if company_id:
+        q["company_id"] = company_id
+    ingredients = await db.ingredients.find(q, {"_id": 0}).to_list(50000)
+
+    # Filter obvious test rows
+    def _is_test(row):
+        n = (row.get("name") or "").lower()
+        return "test e2e" in n or n.startswith("test_") or "test ingredient" in n
+
+    ingredients = [i for i in ingredients if not _is_test(i)]
+
+    # Read set of "reviewed_at" markers (stored in ingredient_price_reviews collection)
+    reviewed_ids = set()
+    if not include_reviewed:
+        async for r in db.ingredient_price_reviews.find({}, {"_id": 0, "ingredient_id": 1}):
+            reviewed_ids.add(r["ingredient_id"])
+
+    # Group by category
+    by_cat: Dict[str, List[dict]] = {}
+    for ing in ingredients:
+        cpk = _cost_per_kg(ing)
+        if cpk is None:
+            continue
+        cat = (ing.get("category") or "Sin categoría").strip() or "Sin categoría"
+        ing["_cost_per_kg"] = cpk
+        by_cat.setdefault(cat, []).append(ing)
+
+    outliers: List[dict] = []
+    category_summary: List[dict] = []
+    for cat, items in by_cat.items():
+        prices = [i["_cost_per_kg"] for i in items]
+        if len(prices) < 2:
+            median = prices[0]
+        else:
+            median = _stats.median(prices)
+        category_summary.append({
+            "category": cat, "count": len(prices), "median_per_kg": round(median, 2),
+            "min": round(min(prices), 2), "max": round(max(prices), 2),
+        })
+        for ing in items:
+            cpk = ing["_cost_per_kg"]
+            is_high = cpk > outlier_factor * median
+            is_low = cpk < median / outlier_factor
+            if is_high or is_low:
+                if ing.get("ingredient_id") in reviewed_ids:
+                    continue
+                outliers.append({
+                    "ingredient_id": ing.get("ingredient_id"),
+                    "company_id": ing.get("company_id"),
+                    "name": ing.get("name"),
+                    "category": cat,
+                    "base_unit": (ing.get("base_unit") or ing.get("unit") or "").lower(),
+                    "cost_per_base_unit": round(float(ing.get("cost_per_base_unit") or
+                                                     ing.get("cost_per_unit") or 0), 6),
+                    "cost_per_kg": cpk,
+                    "category_median_per_kg": round(median, 2),
+                    "ratio_vs_median": round(cpk / median, 2) if median else None,
+                    "direction": "high" if is_high else "low",
+                    "purchase_unit": ing.get("purchase_unit"),
+                    "purchase_quantity_per_unit": ing.get("purchase_quantity_per_unit"),
+                    "purchase_cost": ing.get("purchase_cost"),
+                })
+
+    outliers.sort(key=lambda x: -(x["ratio_vs_median"] or 0))
+    return {
+        "total_ingredients_scanned": len(ingredients),
+        "outliers_count": len(outliers),
+        "outlier_factor": outlier_factor,
+        "outliers": outliers,
+        "category_summary": sorted(category_summary, key=lambda x: -x["count"]),
+    }
+
+
+class OutlierFixBody(BaseModel):
+    """One-off manual price correction by a super-admin.
+    - `new_purchase_cost`  → new price of one Formato / pack.
+    - `new_cost_per_unit`  → new price per base unit (if user prefers this shape).
+    Provide either of the two.
+    - `note` → reason (audited).
+    """
+    new_purchase_cost: Optional[float] = None
+    new_cost_per_unit: Optional[float] = None
+    note: Optional[str] = None
+
+
+@cost_audit_router.post("/prices/outliers/{ingredient_id}/fix")
+async def fix_outlier(
+    ingredient_id: str,
+    body: OutlierFixBody,
+    user: User = Depends(require_super_admin),
+):
+    """Update ONE ingredient's price. Persists an audit trail entry in
+    `ingredient_price_reviews` so the outlier no longer appears in the list.
+    Triggers the existing recipe recalc via the standard update path.
+    """
+    ing = await db.ingredients.find_one({"ingredient_id": ingredient_id}, {"_id": 0})
+    if not ing:
+        raise HTTPException(status_code=404, detail="Ingredient not found")
+
+    prev = {
+        "cost_per_unit": ing.get("cost_per_unit"),
+        "cost_per_base_unit": ing.get("cost_per_base_unit"),
+        "purchase_cost": ing.get("purchase_cost"),
+    }
+
+    update: Dict[str, Any] = {}
+    if body.new_purchase_cost is not None:
+        pc = float(body.new_purchase_cost)
+        qty = float(ing.get("purchase_quantity_per_unit") or 0)
+        update["purchase_cost"] = round(pc, 4)
+        if qty > 0:
+            per_base = round(pc / qty, 6)
+            update["cost_per_unit"] = per_base
+            update["cost_per_base_unit"] = per_base
+    elif body.new_cost_per_unit is not None:
+        pc = float(body.new_cost_per_unit)
+        update["cost_per_unit"] = round(pc, 6)
+        update["cost_per_base_unit"] = round(pc, 6)
+        qty = float(ing.get("purchase_quantity_per_unit") or 0)
+        if qty > 0:
+            update["purchase_cost"] = round(pc * qty, 4)
+    else:
+        raise HTTPException(
+            status_code=400,
+            detail="Provide new_purchase_cost or new_cost_per_unit",
+        )
+
+    now = datetime.now(timezone.utc).isoformat()
+    update["updated_at"] = now
+    # Log price change into ingredient's own history
+    history = ing.get("price_history") or []
+    history.append({
+        "price": update.get("cost_per_unit", prev["cost_per_unit"]),
+        "previous": prev["cost_per_unit"],
+        "date": now,
+        "source": "outlier_review",
+        "reviewed_by": user.email,
+    })
+    update["price_history"] = history
+
+    await db.ingredients.update_one(
+        {"ingredient_id": ingredient_id},
+        {"$set": update},
+    )
+
+    # Audit trail (also used to exclude from outlier list on next query)
+    await db.ingredient_price_reviews.update_one(
+        {"ingredient_id": ingredient_id},
+        {"$set": {
+            "ingredient_id": ingredient_id,
+            "company_id": ing.get("company_id"),
+            "action": "fixed",
+            "previous_values": prev,
+            "new_values": update,
+            "note": body.note,
+            "reviewed_by": user.email,
+            "reviewed_at": now,
+        }},
+        upsert=True,
+    )
+
+    # Trigger downstream recipe recomputation using the same helper the
+    # inventory route uses (so recipes/menus/plated_menus stay consistent).
+    try:
+        from routers.inventory import _recalc_recipes_using_ingredient
+        await _recalc_recipes_using_ingredient(ingredient_id, ing.get("company_id"))
+    except Exception as e:
+        logger.warning(f"recalc after outlier fix failed for {ingredient_id}: {e}")
+
+    return {"ingredient_id": ingredient_id, "previous": prev, "applied": update}
+
+
+@cost_audit_router.post("/prices/outliers/{ingredient_id}/ignore")
+async def ignore_outlier(
+    ingredient_id: str,
+    body: OutlierFixBody = OutlierFixBody(),
+    user: User = Depends(require_super_admin),
+):
+    """Mark an outlier as reviewed WITHOUT changing the price.
+    Useful when the current price is actually correct (rare exotic ingredient,
+    special import, etc.). It will stop appearing in the outlier list.
+    """
+    ing = await db.ingredients.find_one({"ingredient_id": ingredient_id}, {"_id": 0})
+    if not ing:
+        raise HTTPException(status_code=404, detail="Ingredient not found")
+    now = datetime.now(timezone.utc).isoformat()
+    await db.ingredient_price_reviews.update_one(
+        {"ingredient_id": ingredient_id},
+        {"$set": {
+            "ingredient_id": ingredient_id,
+            "company_id": ing.get("company_id"),
+            "action": "ignored",
+            "note": body.note,
+            "reviewed_by": user.email,
+            "reviewed_at": now,
+        }},
+        upsert=True,
+    )
+    return {"ingredient_id": ingredient_id, "status": "ignored"}
+
+
+@cost_audit_router.post("/prices/outliers/reviews/clear")
+async def clear_outlier_reviews(user: User = Depends(require_super_admin)):
+    """Reset the outlier review audit trail (all ignored/fixed markers).
+    Never touches ingredients. Useful for restarting the review process."""
+    n = (await db.ingredient_price_reviews.delete_many({})).deleted_count
+    return {"reviews_cleared": n}

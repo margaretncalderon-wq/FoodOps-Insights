@@ -1,6 +1,51 @@
 # Kora OS - Changelog
 
 
+## February 2026 — Prioridad 1 · Label reactivo + Panel de precios sospechosos
+
+### Bug del label (Paso 1.0 confirmado, Paso 1.1 aplicado)
+El label "Precio total del [X]" en el formulario de ingrediente sólo
+referenciaba `purchase_unit` (Formato). Fix: reactivo a `qty × base_unit`.
+
+- `FoodOpsPage.js:1324` — label ahora:
+  - Con qty+base: `Precio total de 120 lb (saco)`
+  - Sólo formato: `Precio total del saco`
+  - Sin nada: `Precio total del pack`
+
+### Auditoría de precios sospechosos (Paso 1.0)
+- Ingredientes reales escaneados: **868** (excluyendo test rows).
+- Outliers detectados (>3× ó <0.3× mediana de categoría): **168**.
+- Concentración: 99% en `company_98d8b4725822` (Kora OS Test / Ciano Gourmet).
+- Ejemplos: harina/azúcar saco → $3.4M/kg; filete res → $680K/kg; queso
+  parmesano → $978K/kg. Patrón: usuario capturó precio del paquete completo
+  mientras `base_unit=g`.
+
+### Paso 1.2 — Panel de revisión manual
+Nuevo endpoint suite (super-admin only, en `routers/cost_audit.py`):
+- `GET  /api/cost-audit/prices/outliers?company_id&outlier_factor`
+- `POST /api/cost-audit/prices/outliers/{ingredient_id}/fix`  → corrige
+  precio + persiste `price_history` + escribe `ingredient_price_reviews`
+  audit trail + recalcula recetas afectadas via helper existente.
+- `POST /api/cost-audit/prices/outliers/{ingredient_id}/ignore`  →
+  marca revisado sin cambiar precio.
+- `POST /api/cost-audit/prices/outliers/reviews/clear`  → reset audit trail.
+
+Frontend: `components/PriceOutliersPanel.js` (tab "Suspicious prices" en
+Cost Audit). Selector de empresa, factor umbral configurable, tabla con
+✓ FIX / ✗ IGNORE por fila, sin acciones masivas.
+
+Ninguna corrección automática: cada ingrediente requiere acción manual del
+super-admin. Nada se toca en Ciano Gourmet hasta que el usuario apruebe
+precios uno por uno.
+
+### Testing
+- Endpoints validados via curl: 868 escaneados → 168 outliers → ignore
+  reduce a 167 → clear restaura → 168 otra vez ✅
+- Screenshot: panel activo con Kora OS Test seleccionado ✅
+- Lint Python + JS: sin errores.
+
+
+
 ## February 2026 — Recipe Cost Cascade · FIX aplicado
 
 ### Bug

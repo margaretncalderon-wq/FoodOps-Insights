@@ -1321,7 +1321,28 @@ function InventorySection() {
               </div>
               <div className="grid grid-cols-2 gap-3 mt-3">
                 <div>
-                  <Label className="text-xs">{language === "es" ? `Precio total del ${itemForm.purchase_unit || "pack"}` : `Total price per ${itemForm.purchase_unit || "pack"}`}</Label>
+                  {(() => {
+                    // Reactive label — reflects quantity + base_unit (what user is actually pricing)
+                    // Falls back to purchase_unit (format) when qty/base are missing.
+                    const qty = itemForm.purchase_quantity_per_unit;
+                    const base = itemForm.base_unit;
+                    const fmt = itemForm.purchase_unit;
+                    let label;
+                    if (qty && base) {
+                      const qtyStr = Number(qty) % 1 === 0 ? String(Number(qty)) : Number(qty).toFixed(2);
+                      label = language === "es"
+                        ? `Precio total de ${qtyStr} ${base}`
+                        : `Total price for ${qtyStr} ${base}`;
+                      if (fmt) {
+                        label += language === "es" ? ` (${fmt})` : ` (${fmt})`;
+                      }
+                    } else if (fmt) {
+                      label = language === "es" ? `Precio total del ${fmt}` : `Total price per ${fmt}`;
+                    } else {
+                      label = language === "es" ? "Precio total del pack" : "Total price per pack";
+                    }
+                    return <Label className="text-xs" data-testid="item-purchase-cost-label">{label}</Label>;
+                  })()}
                   <Input
                     type="number" min="0" step="0.01"
                     value={itemForm.purchase_cost || ""}
