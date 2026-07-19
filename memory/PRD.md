@@ -71,11 +71,11 @@ NO altera cotizaciones existentes.
 - Screenshot del tab ✅
 - Duration observada: ~17ms por walk.
 
-### Fases pendientes
-- **Fase 3 — Activación controlada:** feature flag `cascade_recalc_enabled`,
-  rollout por lotes de 50 recetas con revert habilitado.
-- **Fase 4 — UI/Prevención:** desglose "Ingredientes: $X + Sub-recetas: $Y" +
-  aviso visual `cost_stale` + test de regresión automatizado.
+### Fases posteriores — descartadas
+Fase 3 (rollout por lotes con feature flag) y Fase 4 se descartaron: el fix
+se aplicó directamente en `routers/recipes.py` sin necesidad de flag ni
+rollout gradual. El desglose UI y el test de regresión sí se
+implementaron en la entrada "Recipe Cost Cascade FIX (Feb 19, 2026)".
 
 
 ## Feature — Cost Cascade Recalc · Phase 1 (Read-Only Audit) (Feb 19, 2026)
@@ -115,13 +115,12 @@ ser reversible. Si >20% de recetas están afectadas, detener y revisar.
 desalineado · **5 ingredientes huérfanos** detectados (referencias a
 ingredientes borrados). Tiempo total <15s.
 
-### Backlog secuencial (bloqueado por aprobación del usuario)
-- **Fase 2 — Modo sombra:** dependency graph + queue asíncrona con flag
-  `cost_stale`/`cost_last_verified_at`, correr en paralelo al cálculo actual.
-- **Fase 3 — Activación controlada:** feature flag `cascade_recalc_enabled`,
-  rollout por lotes.
-- **Fase 4 — UI/Prevención:** desglose "Ingredientes: $X + Sub-recetas: $Y",
-  aviso visual `cost_stale`, test de regresión automatizado en cada deploy.
+### Estado posterior (histórico)
+- Fase 2 (Shadow Mode) se implementó — ver entrada del 19/Feb/2026.
+- Fase 3 (feature flag para rollout gradual) fue descartada a pedido del
+  usuario: el fix se aplicó directamente sin flag.
+- Fase 4 (desglose UI + test regresión) se implementó — ver entrada
+  "Recipe Cost Cascade FIX".
 
 
 

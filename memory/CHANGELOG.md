@@ -124,8 +124,9 @@ de dependencia y compara vs. lo que la app almacena. Sin tocar producción.
 ### Pending user sign-off
 - Dejar Fase 2 corriendo en producción durante la semana. Revisar el
   dashboard periódicamente. Si aparece drift > 20% de recetas, detenerse.
-- Aprobar avance a **Fase 3** (activación controlada con feature flag
-  `cascade_recalc_enabled` + rollout por lotes).
+- Fase 3 fue descartada por decisión del usuario (19/Feb/2026): el fix
+  se aplicó directamente en `routers/recipes.py` sin flag intermedio.
+  Ver entrada "Recipe Cost Cascade · FIX aplicado" para detalles.
 
 
 
