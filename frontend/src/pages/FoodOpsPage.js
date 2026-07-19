@@ -35,9 +35,11 @@ import MenuEngineeringDialog from "../components/MenuEngineeringDialog";
 import CostVarianceDialog from "../components/CostVarianceDialog";
 import CulinaryDigestDialog from "../components/CulinaryDigestDialog";
 import RecipeImportDialog from "../components/RecipeImportDialog";
+import CostAuditSection from "../components/CostAuditSection";
+import { useAuth } from "../contexts/AuthContext";
 
 // Icons
-import { Package, Plus, Search, AlertTriangle, Truck, Edit, Trash2, ArrowUpDown, ArrowUp, ArrowDown, DollarSign, Archive, ShoppingCart, ChefHat, UtensilsCrossed, RefreshCw, Copy, BookOpen, Layers, Beaker, Utensils, Menu as MenuIcon, ArrowLeft, History, Printer, CheckCircle, Factory, ClipboardList, FileUp, Sparkles, Wand2, Sliders, TrendingUp, FileText, Mail, ChevronDown } from "lucide-react";
+import { Package, Plus, Search, AlertTriangle, Truck, Edit, Trash2, ArrowUpDown, ArrowUp, ArrowDown, DollarSign, Archive, ShoppingCart, ChefHat, UtensilsCrossed, RefreshCw, Copy, BookOpen, Layers, Beaker, Utensils, Menu as MenuIcon, ArrowLeft, History, Printer, CheckCircle, Factory, ClipboardList, FileUp, Sparkles, Wand2, Sliders, TrendingUp, FileText, Mail, ChevronDown, ShieldAlert } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../components/ui/dropdown-menu";
 
 import { KoraLoader } from "../components/KoraLoader";
@@ -3148,6 +3150,8 @@ export default function FoodOpsPage() {
   const isEs = language === "es";
   const location = useLocation();
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const isSuperAdmin = !!user?.is_super_admin;
   
   // Culinary Intelligence — grouped navigation to prevent overflow (9 tabs → 4 groups)
   const tabs = {
@@ -3160,6 +3164,7 @@ export default function FoodOpsPage() {
     physical_count: { path: "/food-ops/physical-count", label: isEs ? "Conteo Físico" : "Physical Count", icon: ClipboardList },
     kitchen_sheets: { path: "/food-ops/kitchen-sheets", label: isEs ? "Hojas de Cocina" : "Kitchen Sheets", icon: Printer },
     import_export: { path: "/food-ops/import-export", label: isEs ? "Importar/Exportar" : "Import/Export", icon: FileUp },
+    cost_audit: { path: "/food-ops/cost-audit", label: isEs ? "Auditoría de Costos" : "Cost Audit", icon: ShieldAlert },
   };
 
   const navGroups = [
@@ -3168,6 +3173,7 @@ export default function FoodOpsPage() {
     { id: "kitchen", label: isEs ? "Cocina" : "Kitchen", items: [tabs.production, tabs.kitchen_sheets] },
     { id: "purchasing", label: isEs ? "Purchasing" : "Purchasing", items: [tabs.consolidated, tabs.purchase_orders] },
     { id: "data", label: isEs ? "Datos" : "Data", items: [tabs.import_export] },
+    ...(isSuperAdmin ? [{ id: "admin", label: "Admin", items: [tabs.cost_audit] }] : []),
   ];
 
   const activeGroupId = navGroups.find(g => g.items.some(t => location.pathname.startsWith(t.path)))?.id;
@@ -3267,6 +3273,7 @@ export default function FoodOpsPage() {
           <Route path="physical-count" element={<PhysicalCountSection />} />
           <Route path="kitchen-sheets" element={<KitchenSheetsBatch />} />
           <Route path="import-export" element={<ImportExportSection filter="culinary" />} />
+          {isSuperAdmin && <Route path="cost-audit" element={<CostAuditSection />} />}
         </Routes>
       </div>
     </Layout>

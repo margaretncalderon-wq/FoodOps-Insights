@@ -1,6 +1,60 @@
 # Kora OS - Changelog
 
 
+## February 2026 — Cost Cascade Recalc · Phase 1 (Read-Only Audit)
+
+### Context
+Fase 1 del workstream de "recálculo de costos en cascada" pedido por el
+usuario, con 4 fases secuenciales bloqueadas por aprobación. Objetivo: detectar
+drift entre el costo almacenado de cada receta y el que se obtendría al
+recalcular en cascada, SIN tocar producción.
+
+### Backend (`backend/routers/cost_audit.py` — nuevo)
+- Endpoints (todos gate `is_super_admin`):
+  - `POST /api/cost-audit/run` → dispara un audit en `BackgroundTasks`, devuelve
+    `audit_id`. Bloquea corridas paralelas.
+  - `GET  /api/cost-audit/latest`
+  - `GET  /api/cost-audit/{id}` (paginación + `only_drift` + `company_id`)
+  - `GET  /api/cost-audit/{id}/report.csv`
+- Recomputo doble: `recalc_one_level` (usa `cost_per_yield` almacenado del hijo,
+  mirror del save-time) y `recalc_deep` (recursión completa con memoización,
+  detección de ciclos, `MAX_DEPTH=10`).
+- Diff clasificado en `direct_drift` (esta receta) vs `cascade_drift` (por
+  descendiente stale). Tolerancia $0.01.
+- Detecta y cuenta: ingredientes huérfanos, sub-recetas huérfanas, ciclos,
+  overflow de profundidad. Alerta cuando `percent_affected > 20%`.
+- Resultado persistido en nueva colección `db.cost_audit_reports` (metadata
+  puro, cero mutación a `recipes`/`ingredients`).
+
+### Frontend (`frontend/src/components/CostAuditSection.js` — nuevo)
+- Panel accesible bajo Culinary Intelligence → tab "Cost Audit" (visible solo
+  para super-admins).
+- Tiles de resumen (recetas, drift directo/cascada, USD desalineado,
+  huérfanos, ciclos, % afectado).
+- Tabla ordenada por magnitud de drift con búsqueda + filtro `Only drifting`.
+- Alerta visual si `>20%` de recetas están desalineadas.
+- Descarga CSV con las mismas filas + filtro.
+
+### Admin gating
+- `App.js → ModuleProtectedRoute` ahora bypassa el gate de módulo para
+  super-admins (operan cross-tenant).
+
+### Resultados producción (primera corrida)
+- 50 empresas · 27 recetas · 0 drift directo · 0 drift cascada · $0.00
+  desalineado · **5 ingredientes huérfanos** silenciosos detectados.
+- Nada escrito a producción.
+
+### Testing
+- Curl E2E: run → poll latest → get rows → csv → 403 non-super-admin ✅
+- Screenshot smoke test del panel ✅
+- Lint: sin errores
+
+### Pending user sign-off
+- Revisar reporte y aprobar avance a **Fase 2** (modo sombra con dependency
+  graph + colas asíncronas).
+
+
+
 ## February 2026 — Inventory Total Value · Outlier Detection
 
 ### Feedback

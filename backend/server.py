@@ -84,6 +84,7 @@ from routers.people_ops import people_ops_router
 from routers.launch import launch_router
 from routers.buffet_factors import buffet_factors_router, _resolve_buffet_factor, BuffetFactorCreate
 from routers.kitchen_beo import kitchen_beo_router
+from routers.cost_audit import cost_audit_router
 from routers.suppliers import suppliers_router
 from routers.supplier_contracts import supplier_contracts_router
 from routers.inventory import inventory_router
@@ -8617,6 +8618,7 @@ api_router.include_router(orchestration_router)
 api_router.include_router(production_router)
 api_router.include_router(buffet_factors_router)
 api_router.include_router(kitchen_beo_router)
+api_router.include_router(cost_audit_router)
 # menu_engineering_router included later after import from routers/menu_engineering.py
 api_router.include_router(cost_variance_router)
 api_router.include_router(delivery_notes_router)

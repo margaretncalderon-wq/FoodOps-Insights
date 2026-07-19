@@ -278,7 +278,8 @@ const ModuleProtectedRoute = ({ children, modulePath }) => {
 
   // Only enforce module check when modules are loaded and not empty
   // If modules array is empty (API failed or no modules configured), allow access
-  if (modulePath && modules && modules.length > 0) {
+  // Super admins bypass module gating (they operate cross-tenant).
+  if (modulePath && modules && modules.length > 0 && !user?.is_super_admin) {
     const hasAccess = modules.some(m => {
       const mPath = m.path || "";
       return mPath === modulePath || modulePath.startsWith(mPath + "/") || mPath.startsWith(modulePath);

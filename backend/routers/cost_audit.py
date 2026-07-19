@@ -1,0 +1,534 @@
+"""
+Cost Audit — FASE 1 (Read-Only Audit) of the cascade recalculation workstream.
+
+Purpose:
+    Detect drift between stored recipe costs and freshly recomputed costs, without
+    writing anything back to production data. Super-admin only.
+
+Design:
+    For every recipe in every tenant we compute TWO numbers on the fly and compare
+    them to what's stored:
+
+    - `recalc_one_level`: uses stored `cost_per_yield` of any child recipe (this is
+      what the current `calculate_recipe_cost` function does at save time). Diff vs.
+      stored ⇒ "direct drift" — this recipe alone is stale even without the
+      cascade.
+
+    - `recalc_deep`: recursively recomputes the cost of every child recipe from
+      its own ingredients (ignoring the child's stored value). Diff vs.
+      `recalc_one_level` ⇒ "cascade drift" — stale because a descendant is stale.
+
+Nothing here mutates recipes/ingredients. Audit runs persist to a new collection
+`cost_audit_reports` so the FE can download the CSV any time. This collection is
+metadata only; deleting it wipes reports but never touches costs.
+
+Endpoints (all require is_super_admin):
+    POST /api/cost-audit/run           → kicks off a background audit
+    GET  /api/cost-audit/latest        → most recent audit summary
+    GET  /api/cost-audit/{id}          → full report (rows paginated)
+    GET  /api/cost-audit/{id}/report.csv
+"""
+from __future__ import annotations
+
+import csv
+import io
+import logging
+import uuid
+from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional, Tuple
+
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
+from fastapi.responses import StreamingResponse
+
+from config import db
+from dependencies import get_current_user
+from models.auth import User
+from utils.legacy_units import convert_units
+from utils.units import cost_for_recipe_line, normalize_unit
+
+logger = logging.getLogger(__name__)
+
+cost_audit_router = APIRouter(prefix="/cost-audit", tags=["Cost Audit"])
+
+# ---------- config ----------
+DRIFT_TOLERANCE_USD = 0.01     # user-approved threshold ($0.01)
+MAX_DEPTH = 10                 # protection against runaway recursion
+AFFECTED_ALERT_PCT = 20.0      # if >20% of recipes drift, we surface an alert
+
+
+# ---------- guard ----------
+async def require_super_admin(user: User = Depends(get_current_user)) -> User:
+    if not getattr(user, "is_super_admin", False):
+        raise HTTPException(status_code=403, detail="Super admin required")
+    return user
+
+
+# ---------- helpers ----------
+def _num(value: Any, default: float = 0.0) -> float:
+    """Coerce loosely-typed Mongo values to a finite float."""
+    try:
+        f = float(value)
+        if f != f or f in (float("inf"), float("-inf")):  # NaN / Inf guard
+            return default
+        return f
+    except (TypeError, ValueError):
+        return default
+
+
+def _stored_total(recipe: dict) -> float:
+    """
+    Pick the field the user *currently sees* as recipe total.
+    The FE reads `food_cost` if present, falling back to `total_cost` (legacy).
+    """
+    for key in ("food_cost", "total_cost"):
+        if key in recipe and recipe[key] is not None:
+            return round(_num(recipe[key]), 4)
+    return 0.0
+
+
+async def _resolve_ingredient_line(
+    ing: dict, company_id: str, warnings: List[Dict[str, Any]]
+) -> float:
+    """Cost of a single ingredient row. Same logic as calculate_recipe_cost."""
+    item_type = ing.get("item_type")
+    item_id = ing.get("item_id") or ing.get("ingredient_id")
+    if not item_id or item_type == "recipe":
+        return 0.0
+
+    ingredient = await db.ingredients.find_one(
+        {"ingredient_id": item_id, "company_id": company_id}, {"_id": 0}
+    )
+    if not ingredient:
+        warnings.append({"kind": "orphan_ingredient", "item_id": item_id,
+                         "name": ing.get("name") or "?"})
+        return 0.0
+
+    quantity = _num(ing.get("quantity"), 0)
+    line_unit = ing.get("unit") or ingredient.get("base_unit") or ingredient.get("unit") or "g"
+    raw_waste = ing.get("waste_factor_pct")
+    if raw_waste is None or raw_waste == "":
+        applied_waste = _num(ingredient.get("yield_waste_percent"), 0)
+    else:
+        applied_waste = _num(raw_waste, 0)
+    effective = quantity * (1 + applied_waste / 100.0) if applied_waste > 0 else quantity
+    try:
+        return cost_for_recipe_line(effective, normalize_unit(line_unit), ingredient)
+    except Exception as e:  # ultra-safe: never crash the audit on one bad line
+        warnings.append({"kind": "line_calc_error", "item_id": item_id,
+                         "error": str(e)[:120]})
+        return 0.0
+
+
+async def _cost_per_yield_deep(
+    child_id: str,
+    company_id: str,
+    memo: Dict[str, Tuple[float, List[dict]]],
+    visiting: set,
+    depth: int,
+) -> Tuple[float, List[dict]]:
+    """Return (cost_per_yield_recomputed, warnings) for a child recipe, fully
+    recursive. Guards against cycles and excessive depth."""
+    key = f"{company_id}:{child_id}"
+    if key in memo:
+        return memo[key]
+    if depth > MAX_DEPTH:
+        return 0.0, [{"kind": "max_depth_exceeded", "recipe_id": child_id}]
+    if key in visiting:
+        return 0.0, [{"kind": "cycle_detected", "recipe_id": child_id}]
+
+    child = await db.recipes.find_one(
+        {"recipe_id": child_id, "company_id": company_id}, {"_id": 0}
+    )
+    if not child:
+        return 0.0, [{"kind": "orphan_sub_recipe", "recipe_id": child_id}]
+
+    visiting.add(key)
+    total, warnings = await _recompute_recipe_food_cost(
+        child, company_id, memo, visiting, depth + 1, mode="deep"
+    )
+    visiting.discard(key)
+
+    yield_qty = _num(child.get("yield_quantity"), 1) or 1
+    cpy = round(total / yield_qty, 6)
+    memo[key] = (cpy, warnings)
+    return cpy, warnings
+
+
+async def _recompute_recipe_food_cost(
+    recipe: dict,
+    company_id: str,
+    memo: Dict[str, Tuple[float, List[dict]]],
+    visiting: set,
+    depth: int,
+    mode: str = "one_level",
+) -> Tuple[float, List[dict]]:
+    """
+    Recompute a recipe's food_cost.
+
+    mode='one_level' → children read stored `cost_per_yield` (fast, mirrors save-time).
+    mode='deep'      → children recomputed recursively via `_cost_per_yield_deep`.
+    """
+    total = 0.0
+    warnings: List[dict] = []
+
+    for ing in recipe.get("ingredients", []) or []:
+        item_type = ing.get("item_type")
+        item_id = ing.get("item_id") or ing.get("ingredient_id")
+        if not item_id:
+            continue
+
+        if item_type == "recipe":
+            # inline sub-recipe (legacy shape: sub-recipe as ingredient row)
+            if mode == "deep":
+                child_cpy, warn = await _cost_per_yield_deep(
+                    item_id, company_id, memo, visiting, depth
+                )
+                warnings.extend(warn)
+            else:
+                child = await db.recipes.find_one(
+                    {"recipe_id": item_id, "company_id": company_id}, {"_id": 0}
+                )
+                if not child:
+                    warnings.append({"kind": "orphan_sub_recipe", "recipe_id": item_id})
+                    continue
+                child_cpy = _num(child.get("cost_per_yield"), 0)
+
+            q = _num(ing.get("quantity"), 0)
+            parent_unit = ing.get("unit")
+            child_yield_unit = None
+            if mode == "one_level":
+                # need yield unit of child to convert
+                _c = await db.recipes.find_one(
+                    {"recipe_id": item_id, "company_id": company_id},
+                    {"_id": 0, "yield_unit": 1},
+                )
+                child_yield_unit = (_c or {}).get("yield_unit")
+            else:
+                _c = await db.recipes.find_one(
+                    {"recipe_id": item_id, "company_id": company_id},
+                    {"_id": 0, "yield_unit": 1},
+                )
+                child_yield_unit = (_c or {}).get("yield_unit")
+
+            converted = q
+            if parent_unit and child_yield_unit and parent_unit != child_yield_unit:
+                try:
+                    converted = convert_units(q, parent_unit, child_yield_unit)
+                except Exception:
+                    converted = q
+            total += converted * child_cpy
+        else:
+            total += await _resolve_ingredient_line(ing, company_id, warnings)
+
+    # dedicated sub_recipes[] array (new shape)
+    for sub in recipe.get("sub_recipes", []) or []:
+        child_id = sub.get("child_recipe_id") or sub.get("recipe_id")
+        if not child_id:
+            continue
+
+        if mode == "deep":
+            child_cpy, warn = await _cost_per_yield_deep(
+                child_id, company_id, memo, visiting, depth
+            )
+            warnings.extend(warn)
+        else:
+            child = await db.recipes.find_one(
+                {"recipe_id": child_id, "company_id": company_id}, {"_id": 0}
+            )
+            if not child:
+                warnings.append({"kind": "orphan_sub_recipe", "recipe_id": child_id})
+                continue
+            child_cpy = _num(child.get("cost_per_yield"), 0)
+
+        q_used = _num(sub.get("quantity_used"), 0)
+        parent_unit = sub.get("unit")
+        _c = await db.recipes.find_one(
+            {"recipe_id": child_id, "company_id": company_id},
+            {"_id": 0, "yield_unit": 1},
+        )
+        child_yield_unit = (_c or {}).get("yield_unit")
+        converted = q_used
+        if parent_unit and child_yield_unit and parent_unit != child_yield_unit:
+            try:
+                converted = convert_units(q_used, parent_unit, child_yield_unit)
+            except Exception:
+                converted = q_used
+        total += converted * child_cpy
+
+    return round(total, 4), warnings
+
+
+def _classify(stored: float, recalc_one: float, recalc_deep: float) -> Dict[str, Any]:
+    """Compute both drift metrics and classify severity."""
+    direct_abs = round(recalc_one - stored, 4)
+    cascade_abs = round(recalc_deep - recalc_one, 4)
+    direct_pct = round((direct_abs / stored * 100.0), 2) if stored else (0.0 if direct_abs == 0 else 100.0)
+    cascade_pct = round((cascade_abs / recalc_one * 100.0), 2) if recalc_one else (0.0 if cascade_abs == 0 else 100.0)
+    has_direct = abs(direct_abs) > DRIFT_TOLERANCE_USD
+    has_cascade = abs(cascade_abs) > DRIFT_TOLERANCE_USD
+    return {
+        "direct_drift_abs": direct_abs,
+        "direct_drift_pct": direct_pct,
+        "cascade_drift_abs": cascade_abs,
+        "cascade_drift_pct": cascade_pct,
+        "has_direct_drift": has_direct,
+        "has_cascade_drift": has_cascade,
+    }
+
+
+async def _run_audit(audit_id: str, triggered_by: str) -> None:
+    """Background worker: iterate every company × every recipe."""
+    logger.info(f"[cost-audit] {audit_id} start (super-admin={triggered_by})")
+    started_at = datetime.now(timezone.utc)
+
+    try:
+        companies = await db.companies.find({}, {"_id": 0, "company_id": 1, "name": 1}).to_list(2000)
+        rows: List[dict] = []
+        memo: Dict[str, Tuple[float, List[dict]]] = {}
+        recipes_scanned = 0
+        recipes_direct = 0
+        recipes_cascade = 0
+        drift_sum_abs = 0.0
+        orphans_ing = 0
+        orphans_sub = 0
+        cycles = 0
+        max_depth_hits = 0
+
+        for company in companies:
+            company_id = company.get("company_id")
+            company_name = company.get("name") or company_id
+            if not company_id:
+                continue
+
+            recipes = await db.recipes.find(
+                {"company_id": company_id}, {"_id": 0}
+            ).to_list(20000)
+
+            for recipe in recipes:
+                recipes_scanned += 1
+                stored = _stored_total(recipe)
+
+                try:
+                    one_lvl, warn_one = await _recompute_recipe_food_cost(
+                        recipe, company_id, memo, set(), 0, mode="one_level"
+                    )
+                    deep, warn_deep = await _recompute_recipe_food_cost(
+                        recipe, company_id, memo, set(), 0, mode="deep"
+                    )
+                except Exception as e:  # never let one recipe kill the run
+                    logger.exception(f"[cost-audit] recipe failed: {recipe.get('recipe_id')}")
+                    rows.append({
+                        "company_id": company_id,
+                        "company_name": company_name,
+                        "recipe_id": recipe.get("recipe_id"),
+                        "recipe_name": recipe.get("name"),
+                        "error": str(e)[:200],
+                    })
+                    continue
+
+                metrics = _classify(stored, one_lvl, deep)
+                if metrics["has_direct_drift"]:
+                    recipes_direct += 1
+                    drift_sum_abs += abs(metrics["direct_drift_abs"])
+                if metrics["has_cascade_drift"]:
+                    recipes_cascade += 1
+
+                all_warnings = warn_one + warn_deep
+                orphan_ing_list = [w for w in all_warnings if w["kind"] == "orphan_ingredient"]
+                orphan_sub_list = [w for w in all_warnings if w["kind"] == "orphan_sub_recipe"]
+                cycle_hit = any(w["kind"] == "cycle_detected" for w in all_warnings)
+                depth_hit = any(w["kind"] == "max_depth_exceeded" for w in all_warnings)
+                orphans_ing += len(orphan_ing_list)
+                orphans_sub += len(orphan_sub_list)
+                if cycle_hit:
+                    cycles += 1
+                if depth_hit:
+                    max_depth_hits += 1
+
+                rows.append({
+                    "company_id": company_id,
+                    "company_name": company_name,
+                    "recipe_id": recipe.get("recipe_id"),
+                    "recipe_name": recipe.get("name") or "?",
+                    "stored_total": stored,
+                    "recalc_one_level": one_lvl,
+                    "recalc_deep": deep,
+                    **metrics,
+                    "num_ingredients": len(recipe.get("ingredients") or []),
+                    "num_sub_recipes": len(recipe.get("sub_recipes") or []),
+                    "orphan_ingredients": orphan_ing_list[:20],
+                    "orphan_sub_recipes": orphan_sub_list[:20],
+                    "cycle_detected": cycle_hit,
+                    "max_depth_exceeded": depth_hit,
+                    "updated_at": recipe.get("updated_at"),
+                    "updated_by": recipe.get("updated_by") or recipe.get("last_edited_by"),
+                })
+
+        # Highest impact first: direct drift $ desc, then cascade drift $ desc
+        rows.sort(
+            key=lambda r: (
+                abs(r.get("direct_drift_abs", 0)),
+                abs(r.get("cascade_drift_abs", 0)),
+            ),
+            reverse=True,
+        )
+
+        percent_affected = round(
+            ((recipes_direct + recipes_cascade) / recipes_scanned * 100.0), 2
+        ) if recipes_scanned else 0.0
+
+        completed_at = datetime.now(timezone.utc)
+        await db.cost_audit_reports.update_one(
+            {"audit_id": audit_id},
+            {"$set": {
+                "status": "completed",
+                "completed_at": completed_at.isoformat(),
+                "duration_sec": round((completed_at - started_at).total_seconds(), 2),
+                "summary": {
+                    "companies_scanned": len([c for c in companies if c.get("company_id")]),
+                    "recipes_scanned": recipes_scanned,
+                    "recipes_with_direct_drift": recipes_direct,
+                    "recipes_with_cascade_drift": recipes_cascade,
+                    "drift_sum_abs_usd": round(drift_sum_abs, 2),
+                    "orphan_ingredients_count": orphans_ing,
+                    "orphan_sub_recipes_count": orphans_sub,
+                    "cycles_detected": cycles,
+                    "max_depth_hits": max_depth_hits,
+                    "percent_affected": percent_affected,
+                    "alert_over_20_pct": percent_affected > AFFECTED_ALERT_PCT,
+                    "tolerance_usd": DRIFT_TOLERANCE_USD,
+                    "max_depth": MAX_DEPTH,
+                },
+                "rows": rows,
+            }},
+        )
+        logger.info(f"[cost-audit] {audit_id} done: {recipes_scanned} recipes, "
+                    f"{recipes_direct} direct, {recipes_cascade} cascade")
+    except Exception as e:
+        logger.exception(f"[cost-audit] {audit_id} FAILED")
+        await db.cost_audit_reports.update_one(
+            {"audit_id": audit_id},
+            {"$set": {
+                "status": "failed",
+                "error": str(e)[:500],
+                "completed_at": datetime.now(timezone.utc).isoformat(),
+            }},
+        )
+
+
+# ---------- endpoints ----------
+@cost_audit_router.post("/run")
+async def start_audit(
+    background: BackgroundTasks,
+    user: User = Depends(require_super_admin),
+):
+    """Trigger a new multi-tenant read-only audit. Returns 202 with audit_id."""
+    # Prevent parallel runs on top of each other — return the running one if any.
+    running = await db.cost_audit_reports.find_one(
+        {"status": "running"}, {"_id": 0, "audit_id": 1, "started_at": 1}
+    )
+    if running:
+        return {"audit_id": running["audit_id"], "status": "running",
+                "message": "An audit is already running"}
+
+    audit_id = str(uuid.uuid4())
+    doc = {
+        "audit_id": audit_id,
+        "triggered_by": user.user_id,
+        "triggered_by_email": user.email,
+        "started_at": datetime.now(timezone.utc).isoformat(),
+        "status": "running",
+        "scope": "all",
+        "summary": None,
+        "rows": [],
+    }
+    await db.cost_audit_reports.insert_one(doc)
+    background.add_task(_run_audit, audit_id, user.user_id)
+    return {"audit_id": audit_id, "status": "running"}
+
+
+@cost_audit_router.get("/latest")
+async def latest_audit(user: User = Depends(require_super_admin)):
+    doc = await db.cost_audit_reports.find_one(
+        {}, {"_id": 0, "rows": 0}, sort=[("started_at", -1)]
+    )
+    if not doc:
+        return {"audit_id": None, "status": "none"}
+    return doc
+
+
+@cost_audit_router.get("/{audit_id}")
+async def get_audit(
+    audit_id: str,
+    limit: int = Query(200, le=2000),
+    offset: int = 0,
+    only_drift: bool = Query(False, description="Return only rows above tolerance"),
+    company_id: Optional[str] = None,
+    user: User = Depends(require_super_admin),
+):
+    doc = await db.cost_audit_reports.find_one({"audit_id": audit_id}, {"_id": 0})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Audit not found")
+
+    rows = doc.get("rows") or []
+    if company_id:
+        rows = [r for r in rows if r.get("company_id") == company_id]
+    if only_drift:
+        rows = [r for r in rows
+                if r.get("has_direct_drift") or r.get("has_cascade_drift")]
+
+    total = len(rows)
+    page = rows[offset: offset + limit]
+    doc["rows"] = page
+    doc["pagination"] = {"total": total, "offset": offset, "limit": limit}
+    return doc
+
+
+@cost_audit_router.get("/{audit_id}/report.csv")
+async def download_audit_csv(
+    audit_id: str,
+    only_drift: bool = Query(False),
+    user: User = Depends(require_super_admin),
+):
+    doc = await db.cost_audit_reports.find_one({"audit_id": audit_id}, {"_id": 0})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Audit not found")
+    if doc.get("status") != "completed":
+        raise HTTPException(status_code=409, detail=f"Audit status: {doc.get('status')}")
+
+    rows = doc.get("rows") or []
+    if only_drift:
+        rows = [r for r in rows
+                if r.get("has_direct_drift") or r.get("has_cascade_drift")]
+
+    buf = io.StringIO()
+    writer = csv.writer(buf)
+    writer.writerow([
+        "company_id", "company_name", "recipe_id", "recipe_name",
+        "stored_total", "recalc_one_level", "recalc_deep",
+        "direct_drift_abs", "direct_drift_pct",
+        "cascade_drift_abs", "cascade_drift_pct",
+        "num_ingredients", "num_sub_recipes",
+        "orphan_ingredients", "orphan_sub_recipes",
+        "cycle_detected", "max_depth_exceeded",
+        "updated_at", "updated_by",
+    ])
+    for r in rows:
+        writer.writerow([
+            r.get("company_id"), r.get("company_name"),
+            r.get("recipe_id"), r.get("recipe_name"),
+            r.get("stored_total"), r.get("recalc_one_level"), r.get("recalc_deep"),
+            r.get("direct_drift_abs"), r.get("direct_drift_pct"),
+            r.get("cascade_drift_abs"), r.get("cascade_drift_pct"),
+            r.get("num_ingredients"), r.get("num_sub_recipes"),
+            len(r.get("orphan_ingredients") or []),
+            len(r.get("orphan_sub_recipes") or []),
+            r.get("cycle_detected"), r.get("max_depth_exceeded"),
+            r.get("updated_at"), r.get("updated_by"),
+        ])
+    buf.seek(0)
+    return StreamingResponse(
+        iter([buf.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="cost_audit_{audit_id}.csv"'},
+    )

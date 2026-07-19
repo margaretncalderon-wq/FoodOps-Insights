@@ -1,6 +1,52 @@
 # Kora OS — Product Requirements Document
 
 
+## Feature — Cost Cascade Recalc · Phase 1 (Read-Only Audit) (Feb 19, 2026)
+
+**Estado:** ✅ Fase 1 desplegada. Awaiting user sign-off para avanzar a Fase 2.
+
+### Contexto del workstream
+Usuario pidió un plan estructurado de 4 fases secuenciales para corregir el
+recalculo de costos en cascada de recetas → sub-recetas → menús → cotizaciones,
+sin tocar producción hasta validar el impacto. Cada fase está bloqueada por
+aprobación explícita.
+
+**Regla:** no escribir a producción durante Fase 1 ni Fase 2. Todo cambio debe
+ser reversible. Si >20% de recetas están afectadas, detener y revisar.
+
+### Fase 1 entregada
+- Nuevo router aislado `backend/routers/cost_audit.py` (super-admin only).
+- Recomputo doble por receta:
+  - `recalc_one_level` — usa `cost_per_yield` del hijo (mirror del save-time
+    actual). Diff vs stored → drift directo.
+  - `recalc_deep` — recursión total con memo/ciclos/`MAX_DEPTH=10`. Diff vs
+    one-level → drift por cascada.
+- Persistencia en colección nueva `cost_audit_reports` (metadata, NO se
+  toca `recipes`/`ingredients`).
+- Endpoints:
+  - `POST /api/cost-audit/run` (202 + audit_id, corre en `BackgroundTasks`)
+  - `GET  /api/cost-audit/latest`
+  - `GET  /api/cost-audit/{id}` (paginado, filtro `only_drift`, `company_id`)
+  - `GET  /api/cost-audit/{id}/report.csv`
+- Panel FE `components/CostAuditSection.js` bajo Culinary Intelligence tab
+  "Cost Audit" (visible solo super-admin, con badge de alerta si >20%).
+- Bypass de `ModuleProtectedRoute` para super-admins (operan cross-tenant).
+
+### Primera corrida (baseline)
+50 empresas · 27 recetas · 0 drift directo · 0 drift cascada · $0.00
+desalineado · **5 ingredientes huérfanos** detectados (referencias a
+ingredientes borrados). Tiempo total <15s.
+
+### Backlog secuencial (bloqueado por aprobación del usuario)
+- **Fase 2 — Modo sombra:** dependency graph + queue asíncrona con flag
+  `cost_stale`/`cost_last_verified_at`, correr en paralelo al cálculo actual.
+- **Fase 3 — Activación controlada:** feature flag `cascade_recalc_enabled`,
+  rollout por lotes.
+- **Fase 4 — UI/Prevención:** desglose "Ingredientes: $X + Sub-recetas: $Y",
+  aviso visual `cost_stale`, test de regresión automatizado en cada deploy.
+
+
+
 ## Feature — Filtro por Estado en Google Calendar Sync + Foto Verificada en Plantillas (Feb 18, 2026)
 
 **Estado:** ✅ Regresión smoke test completo. Sin rupturas.
