@@ -190,7 +190,13 @@ async def calculate_recipe_cost(ingredients: List[RecipeIngredient], sub_recipes
                     applied_waste = float(ingredient.get("yield_waste_percent") or 0)
                 else:
                     applied_waste = float(raw_line_waste or 0)
-                effective_qty = quantity * (1 + applied_waste / 100) if applied_waste > 0 else quantity
+                # Standard AP/EP method: yield% = (1 - waste%),
+                #                        EP cost = AP cost / yield%
+                # → effective_qty = qty / (1 - waste/100). Guarded against
+                # division-by-zero and non-sensical values (waste ≥ 100%).
+                applied_waste = max(0.0, min(applied_waste, 99.99))
+                yield_frac = 1.0 - applied_waste / 100.0
+                effective_qty = quantity / yield_frac if yield_frac > 0 else quantity
                 line_cost = cost_for_recipe_line(effective_qty, line_unit, ingredient)
 
                 updated_ingredients.append({

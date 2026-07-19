@@ -1,6 +1,67 @@
 # Kora OS - Changelog
 
 
+## February 2026 — Prioridad 2 · Fórmula waste (AP/EP) corregida
+
+### Cambio
+`backend/routers/recipes.py :: calculate_recipe_cost` — waste factor ahora
+usa la metodología estándar AP/EP:
+```
+yield% = 1 - waste%
+effective_qty = qty / (1 - waste/100)
+```
+Antes usaba `qty * (1 + waste/100)`, que subestimaba el costo con waste alto
+(hasta 25% menos a waste=50%).
+
+### Validación de rango
+- waste capado a [0, 99.99] para evitar división por cero y valores absurdos.
+
+### Impacto en producción
+Escaneo de las 27 recetas actuales: **1 línea afectada** (Yuca al Moho con
+waste=5% en la yuca). Diferencia efectiva: **0.25%** — imperceptible.
+Recipe recomputada y persistida. Ninguna otra receta cambia.
+
+### Tests de regresión
+`backend/tests/test_recipe_waste_formula_regression.py` (nuevo):
+- `test_waste_15pct_ap_ep_formula` — 1 kg × $10/kg con 15% waste debe dar $11.76.
+- `test_waste_zero_is_noop` — waste=0 conserva `qty × cost`.
+- `test_waste_extreme_capped` — waste=150% no explota (cap 99.99).
+
+`backend/tests/conftest.py` + `backend/pytest.ini` (nuevos):
+- Fixture de session-scoped event loop para compatibilidad con motor.
+
+Total tests activos: 5/5 PASS.
+
+### Prioridad 3 estado
+Sigue aplicada. Test invariante `total_cost == sum(lines)` corre en la misma suite.
+
+
+
+## February 2026 — Prioridad 1 · Bulk fix aplicado
+
+### Acción
+Usuario pidió "solo arregla todo". Se corrieron 2 iteraciones de bulk
+normalization sobre outliers HIGH (>3× mediana de categoría).
+
+### Resultado
+- **73 ingredientes normalizados** (~$3.4M/kg → media de su categoría).
+- 0 HIGH outliers restantes.
+- 97 LOW outliers dejados intactos (precios reales bajos, no bugs).
+- 0 recetas afectadas (los outliers eran items dormidos del catálogo).
+- Audit trail completo en `ingredient_price_reviews` — cada fix reversible.
+- Backup pre-fix en `/app/backend/backups/ingredients_pre_bulkfix_20260719_220824.json`.
+
+### Limitación reconocida
+El bulk fix quita divergencias intra-categoría pero las medianas ABSOLUTAS
+del tenant siguen sospechosas (~$100K-$500K/kg para categorías comunes).
+Esto sugiere que el tenant `company_98d8b4725822` capturó todos sus precios
+con `base_unit=g` interpretando el número como "precio del pack" en vez de
+"precio por gramo". Solo el chef/dueño puede aportar los precios absolutos
+correctos. El bug del label reactivo (Paso 1.1) previene que esto vuelva a
+pasar.
+
+
+
 ## February 2026 — Prioridad 1 · Label reactivo + Panel de precios sospechosos
 
 ### Bug del label (Paso 1.0 confirmado, Paso 1.1 aplicado)

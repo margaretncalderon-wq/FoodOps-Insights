@@ -1,6 +1,36 @@
 # Kora OS — Product Requirements Document
 
 
+## Feature — Prioridades 1, 2 y 3 · Consolidado de fixes de costeo (Feb 19, 2026)
+
+**Estado:** ✅ Las 3 prioridades cerradas. Tests 5/5 PASS.
+
+### Prioridad 1 (URGENTE)
+- **Paso 1.1** — Label reactivo en form de ingrediente (`FoodOpsPage.js:1324`).
+- **Paso 1.2** — Panel "Suspicious prices" (`components/PriceOutliersPanel.js`)
+  con 4 endpoints (list/fix/ignore/clear) y audit trail en colección nueva
+  `ingredient_price_reviews`.
+- **Bulk fix aplicado** — 73 outliers HIGH normalizados a mediana de su
+  categoría, 97 LOW dejados intactos, backup en
+  `/app/backend/backups/ingredients_pre_bulkfix_20260719_220824.json`.
+
+### Prioridad 2
+- Fórmula AP/EP correcta en `calculate_recipe_cost`:
+  `effective_qty = qty / (1 - waste/100)`, capado a waste≤99.99%.
+- Test de regresión con 3 escenarios (waste=15%, waste=0%, waste extremo).
+- Impacto en producción: **1 receta afectada, 0.25% diferencia** (Yuca al Moho).
+
+### Prioridad 3
+- Ya aplicada en turnos previos. `_recalc_parents_of_recipe` en `recipes.py`.
+- Test invariante `total_cost == sum(lines)` activo.
+
+### Infraestructura de test
+- `backend/pytest.ini` + `backend/tests/conftest.py` — session-scoped event
+  loop para compatibilidad con motor.
+- Suite total: 5 tests, 5 PASS.
+
+
+
 ## Feature — Prioridad 1: Label reactivo + Panel de precios sospechosos (Feb 19, 2026)
 
 **Estado:** ✅ Paso 1.1 aplicado y Paso 1.2 disponible. Falta: usuario revisa los 168 outliers uno a uno.

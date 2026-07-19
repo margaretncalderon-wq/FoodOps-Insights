@@ -13,28 +13,17 @@ are cleaned up in `finally`.
 Invoke:
     cd /app/backend && python -m pytest tests/test_recipe_cost_cascade_regression.py -v
 """
-import asyncio
 import os
 import uuid
 from datetime import datetime, timezone
 
 import pytest
-import pytest_asyncio
 from dotenv import load_dotenv
 
 load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
 
-from motor.motor_asyncio import AsyncIOMotorClient  # noqa: E402
-
 TOLERANCE = 0.01
 TENANT = f"test_cascade_{uuid.uuid4().hex[:8]}"
-
-
-@pytest_asyncio.fixture
-async def db():
-    client = AsyncIOMotorClient(os.environ["MONGO_URL"])
-    yield client[os.environ["DB_NAME"]]
-    client.close()
 
 
 async def _seed(db):
@@ -91,9 +80,10 @@ async def _cleanup(db):
 
 
 @pytest.mark.asyncio
-async def test_recipe_total_matches_line_sum(db):
+async def test_recipe_total_matches_line_sum():
     """total_cost == sum(ingredient lines) + sum(sub-recipe lines) ±$0.01
     across ALL recipes in the DB."""
+    from config import db
     async for recipe in db.recipes.find({}, {"_id": 0}):
         line_total = 0.0
         for ing in recipe.get("ingredients") or []:
@@ -111,9 +101,10 @@ async def test_recipe_total_matches_line_sum(db):
 
 
 @pytest.mark.asyncio
-async def test_editing_child_recomputes_parent(db):
+async def test_editing_child_recomputes_parent():
     """The core cascade guarantee: after editing a child recipe, the parent
     recipe's total_cost reflects the child's new cost_per_yield."""
+    from config import db
     from routers.recipes import _recalc_parents_of_recipe, calculate_recipe_cost
     from models.recipes import RecipeIngredient
 
