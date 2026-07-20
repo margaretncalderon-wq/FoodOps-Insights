@@ -481,7 +481,7 @@ async def _recalc_recipes_using_ingredient(ingredient_id: str, company_id: str) 
         except Exception:
             continue
         sub_recipes = recipe.get("sub_recipes", [])
-        new_total, updated_ings, updated_subs = await calculate_recipe_cost(
+        new_total, updated_ings, updated_subs, conv_errs = await calculate_recipe_cost(
             ingredients, sub_recipes, company_id,
         )
         # Compute full costing (labor + overhead + suggested price + contribution) — Sprint P0
@@ -495,6 +495,9 @@ async def _recalc_recipes_using_ingredient(ingredient_id: str, company_id: str) 
                 "sub_recipes": updated_subs,
                 "total_cost": new_total,
                 **full_costing,
+                "conversion_errors": conv_errs,
+                "conversion_errors_count": len(conv_errs),
+                "has_conversion_errors": len(conv_errs) > 0,
                 "last_cost_recalc_at": datetime.now(timezone.utc).isoformat(),
                 "last_cost_recalc_trigger": f"ingredient:{ingredient_id}",
             }},

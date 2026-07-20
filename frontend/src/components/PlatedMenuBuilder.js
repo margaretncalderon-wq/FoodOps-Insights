@@ -281,6 +281,27 @@ export default function PlatedMenuBuilder({ onClose, onSave, initialMenu = null,
 
   const costPerGuest = calculateCostPerGuest();
   const costWithBuffer = costPerGuest * (1 + (form.buffer_percentage || 0) / 100);
+
+  // "Costo incompleto" — count recipes in the menu whose backend flag
+  // `has_conversion_errors` is true (bubbled up from unresolved unit conversions).
+  const recipesWithConvError = (() => {
+    const seen = new Set();
+    const out = [];
+    for (const course of form.courses) {
+      for (const item of course.items) {
+        const recipe = recipes.find((r) => r.recipe_id === item.recipe_id);
+        if (recipe && recipe.has_conversion_errors && !seen.has(recipe.recipe_id)) {
+          seen.add(recipe.recipe_id);
+          out.push(recipe);
+        }
+      }
+    }
+    return out;
+  })();
+  const menuHasConvErrors = recipesWithConvError.length > 0;
+  const menuConvErrorTooltip = recipesWithConvError
+    .map((r) => `• ${r.name}`)
+    .join("\n");
   
   // Calculate suggested price based on target margin
   const suggestedPricePerGuest = form.target_margin_pct > 0 && form.target_margin_pct < 100
@@ -590,6 +611,31 @@ export default function PlatedMenuBuilder({ onClose, onSave, initialMenu = null,
 
       {/* ENHANCED PRICING SECTION */}
       <div className="border rounded-lg p-4 space-y-4">
+        {menuHasConvErrors && (
+          <div
+            className="flex items-start gap-2 rounded-md border border-rose-300 bg-rose-50 px-3 py-2 text-xs text-rose-800"
+            data-testid="menu-cost-incomplete-banner"
+            title={menuConvErrorTooltip}
+          >
+            <span aria-hidden="true">⚠️</span>
+            <div>
+              <p className="font-semibold">
+                {language === "es"
+                  ? `Costo incompleto — ${recipesWithConvError.length} ${
+                      recipesWithConvError.length === 1 ? "receta" : "recetas"
+                    } con conversiones sin resolver`
+                  : `Incomplete cost — ${recipesWithConvError.length} ${
+                      recipesWithConvError.length === 1 ? "recipe" : "recipes"
+                    } with unresolved conversions`}
+              </p>
+              <p className="text-[11px] opacity-80 mt-0.5">
+                {language === "es"
+                  ? "Edita cada receta afectada y define la densidad (g/ml) o el peso por unidad (g) de sus ingredientes."
+                  : "Edit each affected recipe and set the density (g/ml) or weight per unit (g) of its ingredients."}
+              </p>
+            </div>
+          </div>
+        )}
         <div className="flex items-center gap-2 mb-2">
           <Target className="w-5 h-5 text-primary" />
           <h3 className="font-semibold">{t("pricing")}</h3>
@@ -697,6 +743,13 @@ export default function PlatedMenuBuilder({ onClose, onSave, initialMenu = null,
             <div className="flex items-center justify-center gap-1 text-xs text-muted-foreground mb-1">
               <DollarSign className="w-3 h-3" />
               {t("costPerGuest")}
+              {menuHasConvErrors && (
+                <span
+                  className="text-rose-700"
+                  title={menuConvErrorTooltip}
+                  data-testid="menu-cost-per-guest-warning"
+                >⚠️</span>
+              )}
             </div>
             <p className="text-xl font-bold">${fmtNum(costPerGuest)}</p>
           </div>

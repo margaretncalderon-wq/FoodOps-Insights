@@ -1,0 +1,48 @@
+{
+  "summary": "Verified conversion-error propagation E2E. Backend flag persistence + sub-recipe bubble-up + UI banner in Recipe Builder all WORK. Found ONE bug: PUT /api/inventory/ingredients/{id} that ONLY changes density_g_per_ml does not trigger the recipe recalc cascade (cascade gate requires cost_changed or waste_changed), so has_conversion_errors stays stale on recipes even after the ingredient's density is populated.",
+  "backend_issues": {
+    "critical": [
+      {
+        "endpoint": "PUT /api/inventory/ingredients/{id}",
+        "issue": "Setting density_g_per_ml on an ingredient does NOT trigger _recalc_recipes_using_ingredient. The cascade condition (routers/inventory.py ~line 413) is `if cost_changed or waste_changed:` — density change is not included. Consequence: a recipe that previously had has_conversion_errors=true because of missing density stays flagged True forever until the recipe is manually re-saved or another cost/waste change on the same ingredient triggers the cascade. This directly breaks the acceptance criterion 'flag flips back to false after density set'. Repro: create ingredient base=kg no density, create recipe with unit=L on that ingredient (flag=true), PUT density_g_per_ml=1.2 on the ingredient → GET recipe still shows has_conversion_errors=true.",
+        "priority": "HIGH"
+      }
+    ],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {
+        "screen": "Recipe Builder → Costing tab",
+        "issues": [
+          "Banner text is in English ('Incomplete cost — 1 ingredient with unresolved conversion') even though UI language toggle is Spanish in some places. Not blocking — actual text depends on `language` state; requirement mentioned Spanish 'Costo incompleto — 1 ingrediente...'. In current session the UI happened to be English. The line-level inline warning IS in Spanish ('Sin conversión disponible... missing density_g_per_ml'), which is a mild inconsistency."
+        ]
+      }
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_conversion_error_propagation.py",
+    "/app/backend/tests/test_conversion_error_e2e_api.py"
+  ],
+  "action_items": [
+    "In /app/backend/routers/inventory.py update_ingredient (~line 379-413): also detect density_g_per_ml change and weight_per_unit_g change and include them in the cascade trigger. Something like: density_changed = float(current.get('density_g_per_ml') or 0) != float(new_density or 0); wpu_changed = same for weight_per_unit_g; then `if cost_changed or waste_changed or density_changed or wpu_changed:` call _recalc_recipes_using_ingredient.",
+    "Optional: also refresh the recipe when the ingredient's base_unit changes (edge case)."
+  ],
+  "critical_code_review_comments": [
+    "Cascade trigger in inventory.update_ingredient is too narrow — should include unit-conversion metadata (density_g_per_ml, weight_per_unit_g, base_unit) changes, otherwise the has_conversion_errors flag becomes sticky.",
+    "Banner label mixes languages between the inline error and the summary banner — recommend routing both through the same i18n key."
+  ],
+  "updated_files": [],
+  "success_rate": {
+    "backend": "3/4 acceptance criteria pass — density override, initial flag persistence, sub-recipe bubble-up, cost-breakdown fields all work; flag-flip-back-to-false FAILS.",
+    "frontend": "recipe-cost-incomplete-banner + recipe-total-cost-warning + recipe-cost-per-portion-warning verified in Recipe Builder → Costing. menu banners, per-menu inline, and ProposalEditor window.confirm code-reviewed only (not executed E2E)."
+  },
+  "test_credentials": "demo.agency@kora.com / Evoque2024!",
+  "seed_data_creation": "Created 1 ingredient (TEST_UIMystery_*) and 1 recipe (TEST_UIBroken_*) in tenant company_3ab116c0994d via API for UI verification. Also created and cleaned up TEST_MysteryPasteAAA_*, TEST_MysteryPasteBBB_*, TEST_BrokenRecipe_*, TEST_BrokenChild_*, TEST_Parent_* during pytest run.",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Pytest test_conversion_error_e2e_api.py::test_recipe_with_missing_density_gets_has_conversion_errors is currently RED specifically on the assertion that has_conversion_errors flips back to False after PUT density on ingredient. Root cause identified in inventory.update_ingredient cascade gate. Once main agent adds density_changed/wpu_changed to that gate, re-run: `cd /app/backend && pytest tests/test_conversion_error_e2e_api.py -v`.",
+  "rca of the issue": "In /app/backend/routers/inventory.py update_ingredient the recalc cascade is guarded by `if cost_changed or waste_changed:`. When a user only sets density_g_per_ml (to resolve a conversion error) neither branch is true, so _recalc_recipes_using_ingredient is never called and the recipe's has_conversion_errors, conversion_errors and conversion_errors_count remain stale. Fix: add density_changed and weight_per_unit_g_changed detection and include them in the trigger."
+}

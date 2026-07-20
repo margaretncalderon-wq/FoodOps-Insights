@@ -127,6 +127,11 @@ async def get_recipes(recipe_type: Optional[str] = None, user: User = Depends(ge
             r.setdefault("work_category", None)
             r.setdefault("recipe_code", None)
             r.setdefault("verified_status", "Draft")
+            # Cost completeness flags — legacy recipes default to no errors
+            # until they're re-saved (which repopulates them).
+            r.setdefault("conversion_errors", [])
+            r.setdefault("conversion_errors_count", 0)
+            r.setdefault("has_conversion_errors", False)
             # Map old field names to new ones for backwards compatibility
             r.setdefault("prep_time", r.get("prep_time_minutes", 0))
             r.setdefault("cook_time", r.get("cook_time_minutes", 0))
@@ -155,12 +160,19 @@ async def calculate_recipe_cost(ingredients: List[RecipeIngredient], sub_recipes
     Also collects `missing_refs` — a list of item_ids that couldn't be resolved
     against the tenant's ingredient/recipe collections. Callers can use this to
     surface actionable diagnostics ("Ingredient X was deleted; re-link or remove").
+
+    Additionally collects `conversion_errors` — a list of unresolved unit
+    conversions for direct lines AND bubbled up from child sub-recipes. Callers
+    should store `has_conversion_errors`/`conversion_errors_count` at the recipe
+    level so menus/plated menus can propagate the "Costo incompleto" warning
+    without re-walking every line.
     """
     from utils.units import cost_for_recipe_line, normalize_unit, UnitConversionError
     total_cost = 0.0
     updated_ingredients = []
     updated_sub_recipes = []
     missing_refs = []  # (item_id, kind, name_from_line)
+    conversion_errors = []  # aggregate of unresolved conversions (direct + bubbled)
 
     for ing in ingredients:
         ing_dict = ing.model_dump() if hasattr(ing, 'model_dump') else dict(ing)
@@ -210,6 +222,14 @@ async def calculate_recipe_cost(ingredients: List[RecipeIngredient], sub_recipes
                         "from_unit": ce.from_unit, "to_unit": ce.to_unit,
                         "reason": ce.reason, "ingredient_name": ce.ingredient_name,
                     }
+                    conversion_errors.append({
+                        "source": "ingredient",
+                        "item_id": item_id,
+                        "name": ingredient.get("name") or ing_dict.get("name") or "?",
+                        "from_unit": ce.from_unit,
+                        "to_unit": ce.to_unit,
+                        "reason": ce.reason,
+                    })
 
                 updated_ingredients.append({
                     **ing_dict,
@@ -256,6 +276,16 @@ async def calculate_recipe_cost(ingredients: List[RecipeIngredient], sub_recipes
                 except Exception:
                     converted_qty = quantity  # fallback to raw
             line_cost = converted_qty * cost_per_yield
+            # Bubble up conversion errors from the child sub-recipe so parents
+            # can surface "Costo incompleto" without re-walking every leaf.
+            if sub_recipe.get("has_conversion_errors"):
+                conversion_errors.append({
+                    "source": "sub_recipe",
+                    "item_id": item_id,
+                    "name": sub_recipe.get("name") or ing_dict.get("name") or "?",
+                    "child_errors_count": int(sub_recipe.get("conversion_errors_count") or 1),
+                    "reason": "sub-recipe has unresolved conversions",
+                })
             updated_ingredients.append({
                 **ing_dict,
                 "item_type": "recipe",
@@ -291,6 +321,15 @@ async def calculate_recipe_cost(ingredients: List[RecipeIngredient], sub_recipes
                     except Exception:
                         converted_used = q_used
                 line_cost = converted_used * cost_per_yield
+                # Bubble up conversion errors from the child sub-recipe.
+                if child_recipe.get("has_conversion_errors"):
+                    conversion_errors.append({
+                        "source": "sub_recipe",
+                        "item_id": child_recipe_id,
+                        "name": child_recipe.get("name") or sub_dict.get("child_recipe_name") or "?",
+                        "child_errors_count": int(child_recipe.get("conversion_errors_count") or 1),
+                        "reason": "sub-recipe has unresolved conversions",
+                    })
                 updated_sub_recipes.append({
                     **sub_dict,
                     "cost_per_unit": cost_per_yield,
@@ -300,7 +339,7 @@ async def calculate_recipe_cost(ingredients: List[RecipeIngredient], sub_recipes
             else:
                 updated_sub_recipes.append(sub_dict)
 
-    return round(total_cost, 4), updated_ingredients, updated_sub_recipes
+    return round(total_cost, 4), updated_ingredients, updated_sub_recipes, conversion_errors
 
 
 async def compute_full_recipe_costing(
@@ -507,7 +546,7 @@ async def _recalc_parents_of_recipe(
         except Exception:
             continue
         subs = parent.get("sub_recipes", [])
-        new_total, updated_ings, updated_subs = await calculate_recipe_cost(
+        new_total, updated_ings, updated_subs, conv_errs = await calculate_recipe_cost(
             ings, subs, company_id,
         )
         full_costing = await compute_full_recipe_costing(parent, new_total, company_id)
@@ -518,6 +557,9 @@ async def _recalc_parents_of_recipe(
                 "sub_recipes": updated_subs,
                 "total_cost": new_total,
                 **full_costing,
+                "conversion_errors": conv_errs,
+                "conversion_errors_count": len(conv_errs),
+                "has_conversion_errors": len(conv_errs) > 0,
                 "last_cost_recalc_at": datetime.now(timezone.utc).isoformat(),
                 "last_cost_recalc_trigger": f"child_recipe:{recipe_id}",
             }},
@@ -551,7 +593,7 @@ async def create_recipe(data: RecipeCreate, user: User = Depends(get_current_use
             (s if isinstance(s, dict) else s.model_dump()) for s in (data.sub_recipes or [])
         ]
         try:
-            food_cost, updated_ingredients, updated_sub_recipes = await calculate_recipe_cost(
+            food_cost, updated_ingredients, updated_sub_recipes, conv_errs = await calculate_recipe_cost(
                 data.ingredients, sub_recipes_data, user.company_id
             )
         except Exception as calc_err:
@@ -561,6 +603,7 @@ async def create_recipe(data: RecipeCreate, user: User = Depends(get_current_use
                 (i if isinstance(i, dict) else i.model_dump()) for i in (data.ingredients or [])
             ]
             updated_sub_recipes = sub_recipes_data
+            conv_errs = []
 
         # Full costing (labor + overhead + suggested price + contribution)
         try:
@@ -577,6 +620,9 @@ async def create_recipe(data: RecipeCreate, user: User = Depends(get_current_use
             "sub_recipes": updated_sub_recipes,
             "total_cost": food_cost,  # legacy: food cost only
             **costing,  # spreads food_cost, labor_cost, overhead_cost, total_cost_full, cost_per_portion, etc.
+            "conversion_errors": conv_errs,
+            "conversion_errors_count": len(conv_errs),
+            "has_conversion_errors": len(conv_errs) > 0,
             # Extended fields with defaults
             "allergens": [],
             "work_category": None,
@@ -624,6 +670,10 @@ async def get_recipe(recipe_id: str, user: User = Depends(get_current_user)):
     recipe.setdefault("yield_unit", "portion")
     recipe.setdefault("ingredients", [])
     recipe.setdefault("sub_recipes", [])
+    # Cost-completeness flags (populated on save; legacy recipes default to no errors).
+    recipe.setdefault("conversion_errors", [])
+    recipe.setdefault("conversion_errors_count", 0)
+    recipe.setdefault("has_conversion_errors", False)
     try:
         return Recipe(**recipe).model_dump()
     except Exception as ve:
@@ -672,6 +722,22 @@ async def get_recipe_cost_breakdown(recipe_id: str, user: User = Depends(get_cur
     stored_total = float(recipe.get("food_cost") or recipe.get("total_cost") or 0)
     delta = round(stored_total - derived_total, 4)
 
+    # Enumerate direct + bubbled conversion errors. Consumed by menus/plated
+    # menus and by the "Costo incompleto" banner in the recipe UI.
+    direct_conv_errors = []
+    for ing in recipe.get("ingredients") or []:
+        ce = ing.get("conversion_error")
+        if ce:
+            direct_conv_errors.append({
+                "source": "ingredient",
+                "item_id": ing.get("item_id") or ing.get("ingredient_id"),
+                "name": ing.get("item_name") or ing.get("name") or ce.get("ingredient_name") or "?",
+                "from_unit": ce.get("from_unit"),
+                "to_unit": ce.get("to_unit"),
+                "reason": ce.get("reason"),
+            })
+    stored_conv_errors = recipe.get("conversion_errors") or []
+
     return {
         "recipe_id": recipe_id,
         "ingredients_total": round(ingredients_total, 4),
@@ -682,6 +748,17 @@ async def get_recipe_cost_breakdown(recipe_id: str, user: User = Depends(get_cur
             "ok": abs(delta) <= 0.01,
             "delta_vs_stored": delta,
         },
+        "conversion_errors": stored_conv_errors or direct_conv_errors,
+        "conversion_errors_count": (
+            recipe.get("conversion_errors_count")
+            if recipe.get("conversion_errors_count") is not None
+            else len(direct_conv_errors)
+        ),
+        "has_conversion_errors": bool(
+            recipe.get("has_conversion_errors")
+            or (stored_conv_errors and len(stored_conv_errors) > 0)
+            or direct_conv_errors
+        ),
     }
 
 
@@ -705,7 +782,7 @@ async def update_recipe(recipe_id: str, data: RecipeCreate, user: User = Depends
             (s if isinstance(s, dict) else s.model_dump()) for s in (data.sub_recipes or [])
         ]
         try:
-            food_cost, updated_ingredients, updated_sub_recipes = await calculate_recipe_cost(
+            food_cost, updated_ingredients, updated_sub_recipes, conv_errs = await calculate_recipe_cost(
                 data.ingredients, sub_recipes_data, user.company_id
             )
         except Exception as calc_err:
@@ -716,6 +793,7 @@ async def update_recipe(recipe_id: str, data: RecipeCreate, user: User = Depends
                 (i if isinstance(i, dict) else i.model_dump()) for i in (data.ingredients or [])
             ]
             updated_sub_recipes = sub_recipes_data
+            conv_errs = []
 
         # Full costing (labor + overhead + suggested price + contribution)
         try:
@@ -730,6 +808,9 @@ async def update_recipe(recipe_id: str, data: RecipeCreate, user: User = Depends
             "sub_recipes": updated_sub_recipes,
             "total_cost": food_cost,  # legacy
             **costing,
+            "conversion_errors": conv_errs,
+            "conversion_errors_count": len(conv_errs),
+            "has_conversion_errors": len(conv_errs) > 0,
             "updated_at": now.isoformat()
         }
 
@@ -1329,7 +1410,7 @@ async def recalculate_all_recipes(
             # be permissive — skip the legacy line we cannot parse but still attempt
             continue
         sub_recipes = recipe.get("sub_recipes", [])
-        new_total, updated_ingredients, updated_sub_recipes = await calculate_recipe_cost(
+        new_total, updated_ingredients, updated_sub_recipes, conv_errs = await calculate_recipe_cost(
             ingredients, sub_recipes, user.company_id,
         )
 
@@ -1357,6 +1438,9 @@ async def recalculate_all_recipes(
                     "sub_recipes": updated_sub_recipes,
                     "total_cost": new_total,
                     **full_costing,
+                    "conversion_errors": conv_errs,
+                    "conversion_errors_count": len(conv_errs),
+                    "has_conversion_errors": len(conv_errs) > 0,
                     "last_cost_recalc_at": datetime.now(timezone.utc).isoformat(),
                 }}
             )

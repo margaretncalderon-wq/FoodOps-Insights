@@ -36,7 +36,7 @@ async def test_waste_15pct_ap_ep_formula():
             item_id="ing_chicken", item_type="ingredient",
             quantity=1.0, unit="kg", waste_factor_pct=15,
         )
-        total, updated_ings, _ = await calculate_recipe_cost([line], [], tenant)
+        total, updated_ings, _, _ = await calculate_recipe_cost([line], [], tenant)
         assert abs(total - 11.7647) <= TOL, f"expected ~$11.76, got {total}"
         assert abs(updated_ings[0]["total_cost"] - 11.7647) <= TOL
     finally:
@@ -61,7 +61,7 @@ async def test_waste_zero_is_noop():
             item_id="ing_x", item_type="ingredient",
             quantity=2.0, unit="kg", waste_factor_pct=0,
         )
-        total, _, _ = await calculate_recipe_cost([line], [], tenant)
+        total, _, _, _ = await calculate_recipe_cost([line], [], tenant)
         assert abs(total - 10.0) <= TOL, f"expected $10.00, got {total}"
     finally:
         await db.ingredients.delete_many({"company_id": tenant})
@@ -86,7 +86,7 @@ async def test_waste_extreme_capped():
             item_id="ing_y", item_type="ingredient",
             quantity=1.0, unit="kg", waste_factor_pct=150,
         )
-        total, _, _ = await calculate_recipe_cost([line], [], tenant)
+        total, _, _, _ = await calculate_recipe_cost([line], [], tenant)
         assert total > 0 and total < 1e6, f"got {total}"
     finally:
         await db.ingredients.delete_many({"company_id": tenant})

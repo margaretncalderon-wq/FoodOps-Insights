@@ -1233,6 +1233,37 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
     // pick comes from RecipePicker.onPick: { recipe, portionFormat, internal_cost, unit_price, suggested_price, allergens, description, long_description }
     const { recipe, portionFormat, internal_cost, unit_price, allergens, description, long_description } = pick;
 
+    // Requirement 3.1 — Do not silently freeze an incomplete cost into the
+    // proposal snapshot. If the recipe (or any of its child sub-recipes) has
+    // unresolved unit conversions, force the user to explicitly acknowledge
+    // it. We don't hard-block — chefs sometimes need to send a placeholder
+    // quote urgently — but the acknowledgment must be recorded on the item.
+    if (recipe?.has_conversion_errors) {
+      const count = Number(recipe?.conversion_errors_count) || 0;
+      const msg =
+        language === "es"
+          ? `⚠️ Costo incompleto — la receta "${recipe.name}" tiene ` +
+            `${count || "algunos"} ingrediente(s) sin conversión resuelta.\n\n` +
+            `El costo se congelará en la cotización con un valor posiblemente ` +
+            `menor al real. ¿Confirmas agregarla igualmente?\n\n` +
+            `(Cancelar y edita la receta para completar la conversión — ` +
+            `define la densidad g/ml o el peso por unidad g del ingrediente.)`
+          : `⚠️ Incomplete cost — the recipe "${recipe.name}" has ` +
+            `${count || "some"} ingredient(s) with unresolved unit conversions.\n\n` +
+            `The cost will be frozen into the proposal with a value that may ` +
+            `be lower than the real one. Add it anyway?\n\n` +
+            `(Cancel and edit the recipe to complete the conversion — set the ` +
+            `ingredient's density g/ml or weight per unit g.)`;
+      if (!window.confirm(msg)) {
+        return;
+      }
+      toast.warning(
+        language === "es"
+          ? `Agregada con costo incompleto: revisa la receta antes de enviar.`
+          : `Added with incomplete cost — review the recipe before sending.`,
+      );
+    }
+
     setNewItem({
       ...newItem,
       item_type: "Food",
@@ -1244,6 +1275,9 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
       reference_id: recipe.recipe_id,
       _recipe_allergens: allergens || [],
       _portion_format_name: portionFormat ? portionFormat.format_name : null,
+      // Persist the ack so the proposal document records that the incomplete
+      // cost was accepted knowingly (useful for later audit).
+      cost_incomplete_acknowledged: !!recipe?.has_conversion_errors,
     });
 
     const fmtMsg = portionFormat

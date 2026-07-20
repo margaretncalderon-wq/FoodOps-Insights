@@ -124,7 +124,7 @@ async def test_editing_child_recomputes_parent():
         )
         child["ingredients"][0]["quantity"] = 5.0  # was 3 → now 5 units → cost 10
         ings = [RecipeIngredient(**i) for i in child["ingredients"]]
-        new_total, updated_ings, _ = await calculate_recipe_cost(
+        new_total, updated_ings, _, _ = await calculate_recipe_cost(
             ings, [], TENANT,
         )
         assert abs(new_total - 10.0) <= TOLERANCE

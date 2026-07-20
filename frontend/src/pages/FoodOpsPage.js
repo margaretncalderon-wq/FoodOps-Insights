@@ -2868,6 +2868,39 @@ function PlatedMenusSection() {
                         <span className="text-sm">{language === "es" ? "Costo/Comensal" : "Cost/Guest"}</span>
                         <span className="font-semibold text-green-600">${fmtNum((menu.cost_per_guest || 0))}</span>
                       </div>
+                      {(() => {
+                        // "Costo incompleto" — surface if any recipe in this
+                        // menu has unresolved unit conversions.
+                        const badRecipes = new Set();
+                        for (const c of menu.courses || []) {
+                          for (const it of c.items || []) {
+                            const r = recipes.find((x) => x.recipe_id === it.recipe_id);
+                            if (r && r.has_conversion_errors) badRecipes.add(r.recipe_id);
+                          }
+                        }
+                        if (badRecipes.size === 0) return null;
+                        const names = [...badRecipes]
+                          .map((id) => recipes.find((r) => r.recipe_id === id)?.name || id)
+                          .join("\n• ");
+                        return (
+                          <div
+                            className="rounded-md border border-rose-300 bg-rose-50 px-2 py-1.5 text-[11px] text-rose-800"
+                            data-testid={`menu-cost-incomplete-${menu.menu_id}`}
+                            title={`• ${names}`}
+                          >
+                            <span aria-hidden="true">⚠️</span>{" "}
+                            <span className="font-medium">
+                              {language === "es"
+                                ? `Costo incompleto — ${badRecipes.size} ${
+                                    badRecipes.size === 1 ? "receta" : "recetas"
+                                  } sin conversión`
+                                : `Incomplete cost — ${badRecipes.size} ${
+                                    badRecipes.size === 1 ? "recipe" : "recipes"
+                                  } missing conversion`}
+                            </span>
+                          </div>
+                        );
+                      })()}
                       {menu.buffer_percentage > 0 && (
                         <div className="flex items-center justify-between">
                           <span className="text-sm text-muted-foreground">+{menu.buffer_percentage}% buffer</span>

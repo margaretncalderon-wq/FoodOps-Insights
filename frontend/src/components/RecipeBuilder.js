@@ -218,6 +218,9 @@ function IngredientRow({ ing, onChange, onRemove, isEs }) {
           onChange("total_cost", res.data.cost);
           onChange("cost", res.data.cost);
         }
+        // Propagate conversion_error up to the parent form so the recipe-level
+        // "Costo incompleto" banner can count unresolved lines.
+        onChange("conversion_error", res.data.conversion_error || null);
       } catch {
         // ignore — keep last preview
       } finally {
@@ -541,6 +544,28 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
   const subRecipesCost = calculateSubRecipesCost();
 
   const totalCost = calculateTotalCost();
+
+  // "Costo incompleto" — count lines with an unresolved conversion so the UI
+  // can surface a red banner near the cost totals (blocks silent $0 drift).
+  const ingredientsWithConvError = (form.ingredients || []).filter(
+    (i) => i && i.conversion_error,
+  );
+  const subRecipesWithConvError = (form.sub_recipes || []).filter((s) => {
+    const rec = allRecipes.find((r) => r.recipe_id === s.child_recipe_id);
+    return rec && rec.has_conversion_errors;
+  });
+  const conversionErrorCount =
+    ingredientsWithConvError.length + subRecipesWithConvError.length;
+  const hasConversionErrors = conversionErrorCount > 0;
+  const conversionErrorTooltip = [
+    ...ingredientsWithConvError.map((i) => {
+      const ce = i.conversion_error || {};
+      return `• ${i.item_name || i.name || "Ingrediente"}: ${ce.from_unit || "?"}→${ce.to_unit || "?"} (${ce.reason || "conv."})`;
+    }),
+    ...subRecipesWithConvError.map(
+      (s) => `• Sub-receta: ${s.child_recipe_name || s.child_recipe_id}`,
+    ),
+  ].join("\n");
   // Total portions = yield_quantity × portions_per_yield  (matches backend compute_full_recipe_costing)
   const totalPortions = Math.max(
     1,
@@ -1556,6 +1581,39 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
           {/* Cost Summary — Sprint P0: Full breakdown (food + labor + overhead + contribution) */}
           <Card className="bg-muted/30" data-testid="recipe-cost-summary">
             <CardContent className="pt-4 space-y-4">
+              {/* "Costo incompleto" banner — surfaces any unresolved unit
+                  conversion or child sub-recipe with unresolved conversions.
+                  Prevents users from trusting a total that silently missed lines. */}
+              {hasConversionErrors && (
+                <div
+                  className="flex items-start gap-2 rounded-md border border-rose-300 bg-rose-50 px-3 py-2 text-xs text-rose-800"
+                  data-testid="recipe-cost-incomplete-banner"
+                  title={conversionErrorTooltip}
+                >
+                  <span aria-hidden="true">⚠️</span>
+                  <div>
+                    <p className="font-semibold" data-testid="recipe-cost-incomplete-message">
+                      {language === "es"
+                        ? `Costo incompleto — ${conversionErrorCount} ${
+                            conversionErrorCount === 1
+                              ? "ingrediente sin conversión resuelta"
+                              : "ingredientes sin conversión resuelta"
+                          }`
+                        : `Incomplete cost — ${conversionErrorCount} ${
+                            conversionErrorCount === 1
+                              ? "ingredient with unresolved conversion"
+                              : "ingredients with unresolved conversions"
+                          }`}
+                    </p>
+                    <p className="text-[11px] opacity-80 mt-0.5">
+                      {language === "es"
+                        ? "Define la densidad (g/ml) o el peso por unidad (g) del ingrediente para completar el cálculo."
+                        : "Set density (g/ml) or weight per unit (g) on the ingredient to complete the calculation."}
+                    </p>
+                  </div>
+                </div>
+              )}
+
               {/* Simple financial view — matches Gastrokaisen approach.
                   Advanced parameters (presets, chef rate, overhead %, target %, prime %, margin %)
                   moved to Settings → Recipe Costing. */}
@@ -1574,6 +1632,13 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
                 <div className="p-4 rounded-lg border bg-white">
                   <p className="text-[10px] uppercase text-muted-foreground tracking-wide">
                     {language === "es" ? "Costo Total Receta" : "Total Recipe Cost"}
+                    {hasConversionErrors && (
+                      <span
+                        className="ml-1 text-rose-700"
+                        title={conversionErrorTooltip}
+                        data-testid="recipe-total-cost-warning"
+                      >⚠️</span>
+                    )}
                   </p>
                   <p className="text-2xl font-bold text-slate-800" data-testid="recipe-total-cost">${fmtNum(totalCost)}</p>
                   {/* Breakdown — makes any future drift instantly visible */}
@@ -1603,6 +1668,13 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
                 <div className="p-4 rounded-lg border bg-white">
                   <p className="text-[10px] uppercase text-muted-foreground tracking-wide">
                     {language === "es" ? "Costo por Porción" : "Cost per Portion"}
+                    {hasConversionErrors && (
+                      <span
+                        className="ml-1 text-rose-700"
+                        title={conversionErrorTooltip}
+                        data-testid="recipe-cost-per-portion-warning"
+                      >⚠️</span>
+                    )}
                   </p>
                   <p className="text-2xl font-bold text-green-700" data-testid="recipe-cost-per-portion">${fmtNum(costPerPortion)}</p>
                   <p className="text-[10px] text-muted-foreground mt-0.5">
