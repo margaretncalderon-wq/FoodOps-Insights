@@ -666,28 +666,34 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
       ingredients: [...prev.ingredients, {
         item_id: ingredientId, item_type: "ingredient", item_name: ingredient.name,
         quantity: 1, unit: ingredient.unit, waste_factor_pct: 0,
-        cost_per_unit: ingredient.cost_per_unit, total_cost: ingredient.cost_per_unit, net_quantity: 1
+        // PASE A · Cost fields start empty. The IngredientRow useEffect
+        // fires the /cost-preview call which returns the properly converted
+        // total_cost (respecting base_unit vs purchase_unit). Never
+        // initialize with `ingredient.cost_per_unit` because in PASE A
+        // that field is $/purchase_unit (price of the whole container),
+        // not $/line_unit.
+        cost_per_unit: 0, total_cost: 0, net_quantity: 1
       }]
     }));
   };
 
   const updateIngredient = (itemId, field, value) => {
+    // PASE A · Client-side is display-only. We store whatever field the
+    // user just edited (quantity, unit, waste_factor_pct) and let the
+    // IngredientRow's useEffect trigger a /cost-preview HTTPS call that
+    // returns the properly converted line cost. That preview response
+    // arrives via onChange("total_cost", ...) and onChange("cost", ...)
+    // — those are ALSO routed through this handler, so we must NOT
+    // recompute or overwrite them locally.
+    //
+    // The previous version multiplied quantity × invItem.cost_per_unit
+    // without unit conversion, which after PASE A produced values like
+    // 1000 ml × $3450/galón = $3,450,000 for one line of oil.
     setForm(prev => ({
       ...prev,
       ingredients: prev.ingredients.map(ing => {
         if (ing.item_id !== itemId) return ing;
-        const updated = { ...ing, [field]: value };
-        const invItem = ingredients.find(i => i.ingredient_id === itemId);
-        if (invItem) {
-          const wasteFactor = updated.waste_factor_pct || 0;
-          const effectiveCost = wasteFactor > 0 && wasteFactor < 100
-            ? invItem.cost_per_unit / (1 - wasteFactor / 100)
-            : invItem.cost_per_unit;
-          updated.cost_per_unit = effectiveCost;
-          updated.total_cost = (updated.quantity || 0) * effectiveCost;
-          updated.net_quantity = (updated.quantity || 0) * (1 + wasteFactor / 100);
-        }
-        return updated;
+        return { ...ing, [field]: value };
       })
     }));
   };
@@ -713,22 +719,25 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
       sub_recipes: [...prev.sub_recipes, {
         child_recipe_id: recipeId, child_recipe_name: recipe.name,
         quantity_used: 1, unit: recipe.yield_unit || "portion",
-        cost_per_unit: recipe.cost_per_yield || 0, total_cost: recipe.cost_per_yield || 0
+        // PASE A · Cost fields start empty. The parent recipe's next save
+        // (or the fresh recompute on GET /api/recipes/{id}) will fill in
+        // total_cost with the properly converted value (parent unit →
+        // child.yield_unit). Never initialize with cost_per_yield alone.
+        cost_per_unit: 0, total_cost: 0
       }]
     }));
   };
 
   const updateSubRecipe = (recipeId, field, value) => {
+    // PASE A · Display-only. Backend re-costs on save / on GET. No local
+    // multiplication of quantity × cost_per_yield here — that path did not
+    // convert parent_unit → child.yield_unit and produced silent drifts
+    // when the sub-recipe was consumed in a different unit than it yields.
     setForm(prev => ({
       ...prev,
       sub_recipes: prev.sub_recipes.map(sub => {
         if (sub.child_recipe_id !== recipeId) return sub;
-        const updated = { ...sub, [field]: value };
-        const recipe = allRecipes.find(r => r.recipe_id === recipeId);
-        if (recipe) {
-          updated.total_cost = (updated.quantity_used || 0) * (recipe.cost_per_yield || 0);
-        }
-        return updated;
+        return { ...sub, [field]: value };
       })
     }));
   };
@@ -1031,15 +1040,20 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
             <tbody>
               ${form.ingredients.map(ing => {
                 const waste = ing.waste_factor_pct || 0;
-                const qty = ing.quantity * (1 + waste / 100);
-                const cost = qty * (ing.cost_per_unit || 0);
+                // PASE A · The print/export view mirrors what the UI shows:
+                // the backend-provided `ing.total_cost` (already respects
+                // unit conversion + waste). Do NOT recompute here with
+                // qty × ing.cost_per_unit — that path multiplied ml by
+                // $/purchase_unit and inflated the total.
+                const cost = Number(ing.total_cost || ing.cost || 0);
+                const qtyDisplay = ing.quantity;
                 return `
                   <tr>
                     <td>${ing.item_name || ing.item_id}</td>
-                    <td class="text-center">${ing.quantity}</td>
+                    <td class="text-center">${qtyDisplay}</td>
                     <td class="text-center">${ing.unit}</td>
                     <td class="text-center">${waste > 0 ? waste + '%' : '-'}</td>
-                    <td class="text-right">$${fmtNum((ing.cost_per_unit || 0))}</td>
+                    <td class="text-right">$${fmtNum(qtyDisplay > 0 ? cost / qtyDisplay : 0)}</td>
                     <td class="text-right">$${fmtNum(cost)}</td>
                   </tr>
                 `;
