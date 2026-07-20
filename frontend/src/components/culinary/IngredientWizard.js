@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import axios from "axios";
 import { toast } from "sonner";
 import { useLanguage } from "../../contexts/LanguageContext";
+import { showCascadeToast } from "../../utils/cascadeToast";
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "../ui/dialog";
 import { Button } from "../ui/button";
@@ -219,7 +220,8 @@ export default function IngredientWizard({ open, onClose, onSaved, initial = nul
         } : {}),
       };
       if (initial?.ingredient_id) {
-        await axios.put(`${API}/api/inventory/ingredients/${initial.ingredient_id}`, payload, { withCredentials: true });
+        const _res = await axios.put(`${API}/api/inventory/ingredients/${initial.ingredient_id}`, payload, { withCredentials: true });
+        showCascadeToast(_res, language);
       } else {
         await axios.post(`${API}/api/inventory/ingredients`, payload, { withCredentials: true });
       }

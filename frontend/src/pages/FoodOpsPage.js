@@ -5,6 +5,7 @@ import axios from "axios";
 import { toast } from "sonner";
 import { Layout } from "../components/Layout";
 import { fmtNum } from "../utils/format";
+import { showCascadeToast } from "../utils/cascadeToast";
 import { PhysicalCountSection } from "../components/culinary/PhysicalCountSection";
 import ImportExportSection from "../components/settings/ImportExportSection";
 import KitchenSheetsBatch from "../components/KitchenSheetsBatch";
@@ -538,7 +539,8 @@ function InventorySection() {
       }
 
       if (editingItem) {
-        await axios.put(`${API}/api/inventory/ingredients/${editingItem.ingredient_id}`, payload, { withCredentials: true });
+        const _res = await axios.put(`${API}/api/inventory/ingredients/${editingItem.ingredient_id}`, payload, { withCredentials: true });
+        showCascadeToast(_res, language);
       } else {
         await axios.post(`${API}/api/inventory/ingredients`, payload, { withCredentials: true });
       }

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { API } from "../utils/api";
+import { showCascadeToast } from "../utils/cascadeToast";
 import axios from "axios";
 import { Layout } from "../components/Layout";
 import { useLanguage } from "../contexts/LanguageContext";
@@ -146,10 +147,11 @@ export default function InventoryPage() {
         payload.rental_cost_per_unit_day = parseFloat(ingredientForm.rental_cost_per_unit_day) || 0;
       }
       if (editingIngredient) {
-        await axios.put(`${API}/inventory/ingredients/${editingIngredient.ingredient_id}`, payload, {
+        const _res = await axios.put(`${API}/inventory/ingredients/${editingIngredient.ingredient_id}`, payload, {
           withCredentials: true,
         });
         toast.success(language === "es" ? "Ingrediente actualizado" : "Ingredient updated");
+        showCascadeToast(_res, language);
       } else {
         await axios.post(`${API}/inventory/ingredients`, payload, { withCredentials: true });
         toast.success(language === "es" ? "Ingrediente creado" : "Ingredient created");

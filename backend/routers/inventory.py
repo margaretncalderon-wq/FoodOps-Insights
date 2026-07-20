@@ -22,7 +22,7 @@ from io import BytesIO
 from typing import Any, Dict, List, Optional
 
 import pandas as pd
-from fastapi import APIRouter, Body, Depends, File, Form, Header, HTTPException, Query, UploadFile
+from fastapi import APIRouter, Body, Depends, File, Form, Header, HTTPException, Query, Response, UploadFile
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
@@ -387,7 +387,7 @@ async def get_ingredient(ingredient_id: str, user: User = Depends(get_current_us
     return Ingredient(**ingredient)
 
 @inventory_router.put("/ingredients/{ingredient_id}", response_model=Ingredient)
-async def update_ingredient(ingredient_id: str, data: dict, user: User = Depends(get_current_user)):
+async def update_ingredient(ingredient_id: str, data: dict, response: Response, user: User = Depends(get_current_user)):
     now = datetime.now(timezone.utc)
     
     # Get current ingredient to check price change
@@ -485,7 +485,13 @@ async def update_ingredient(ingredient_id: str, data: dict, user: User = Depends
     # at the moment the line was added to the quote. Confirmed/accepted prices remain intact.
     if cost_changed or waste_changed or conversion_meta_changed:
         try:
-            await _recalc_recipes_using_ingredient(ingredient_id, user.company_id)
+            cascade_result = await _recalc_recipes_using_ingredient(ingredient_id, user.company_id)
+            # Expose cascade summary via response headers so the frontend can toast
+            # "3 recetas y 5 formatos actualizados" without touching the response body
+            # (which is strictly the Ingredient pydantic model).
+            response.headers["X-Cascade-Recipes"] = str(int(cascade_result.get("recalculated", 0)))
+            response.headers["X-Cascade-Formats"] = str(int(cascade_result.get("portion_formats_refreshed", 0)))
+            response.headers["Access-Control-Expose-Headers"] = "X-Cascade-Recipes, X-Cascade-Formats"
         except Exception as e:
             logger.warning(f"Auto-recalc on ingredient {ingredient_id} change failed: {e}")
 
@@ -542,9 +548,10 @@ async def _recalc_recipes_using_ingredient(ingredient_id: str, company_id: str) 
             recipes_to_recalc_ids.add(r["recipe_id"])
 
     if not recipes_to_recalc_ids:
-        return {"recalculated": 0, "affected_recipe_ids": []}
+        return {"recalculated": 0, "affected_recipe_ids": [], "portion_formats_refreshed": 0}
 
     affected = []
+    total_formats_refreshed = 0
     for rid in recipes_to_recalc_ids:
         recipe = await db.recipes.find_one({"recipe_id": rid, "company_id": company_id}, {"_id": 0})
         if not recipe:
@@ -581,13 +588,24 @@ async def _recalc_recipes_using_ingredient(ingredient_id: str, company_id: str) 
         # after ingredient prices change.
         try:
             from routers.recipes import _refresh_portion_formats_for_recipe
-            await _refresh_portion_formats_for_recipe(rid, company_id)
+            refreshed_count = await _refresh_portion_formats_for_recipe(rid, company_id)
+            if isinstance(refreshed_count, int):
+                total_formats_refreshed += refreshed_count
+            else:
+                # Fallback: count via direct query if helper doesn't return an int.
+                total_formats_refreshed += await db.recipe_portion_formats.count_documents(
+                    {"recipe_id": rid, "company_id": company_id}
+                )
         except Exception as _pf_err:
             import logging as _l
             _l.getLogger(__name__).warning(
                 f"cascade refresh portion_formats failed for {rid}: {_pf_err}"
             )
-    return {"recalculated": len(affected), "affected_recipe_ids": affected}
+    return {
+        "recalculated": len(affected),
+        "affected_recipe_ids": affected,
+        "portion_formats_refreshed": total_formats_refreshed,
+    }
 
 @inventory_router.delete("/ingredients/{ingredient_id}")
 async def delete_ingredient(ingredient_id: str, user: User = Depends(get_current_user)):

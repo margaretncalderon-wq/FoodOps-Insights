@@ -1,6 +1,28 @@
 # Kora OS - Changelog
 
 
+## February 20, 2026 — Iteration 244 · Cascade Toast Enhancement
+
+### ✨ Nueva feature — Toast informativo de propagación
+
+Cuando el usuario cambia el precio de un ingrediente, ahora ve inmediatamente cuántas recetas y cuántos formatos de porción fueron recalculados en cascada.
+
+- **Backend:** `PUT /api/inventory/ingredients/{id}` ahora expone dos response headers:
+  * `X-Cascade-Recipes` — número de recetas recalculadas
+  * `X-Cascade-Formats` — número de portion formats refrescados
+  * `Access-Control-Expose-Headers` incluye ambas para CORS.
+- **Function change:** `_recalc_recipes_using_ingredient` ahora suma los formatos tocados y devuelve `{recalculated, affected_recipe_ids, portion_formats_refreshed}`.
+- **Frontend:** nuevo helper `/app/frontend/src/utils/cascadeToast.js` con `showCascadeToast(response, language)`. Se invoca desde 4 puntos:
+  1. `pages/FoodOpsPage.js`
+  2. `pages/InventoryPage.js`
+  3. `components/culinary/IngredientWizard.js`
+  4. `components/operations/InventorySection.js`
+- El toast muestra en Español: "3 recetas y 5 formatos actualizados — El nuevo costo se propagó automáticamente." (misma versión en Inglés). Solo aparece si hay counts > 0 para no molestar en updates que no cambian costos.
+- **Test regresión:** `test_ingredient_to_portion_format_cascade.py` ahora también valida que la key `portion_formats_refreshed` esté en el resultado del cascade y sea ≥ 1.
+- **Verificación E2E:** `curl PUT /api/inventory/ingredients/{used_id}` con nuevo cost devuelve `x-cascade-recipes: 1` en headers.
+
+
+
 ## February 20, 2026 — Iteration 243 · Opción A + Cascade Bugfix
 
 ### 🐛 BUGFIX crítico — Portion formats no se refrescaban con cambios de ingrediente

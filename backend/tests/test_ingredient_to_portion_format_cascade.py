@@ -77,6 +77,13 @@ async def test_ingredient_cost_change_cascades_to_portion_formats():
     assert recipe_id in result["affected_recipe_ids"], (
         f"Recipe {recipe_id} was not detected as affected. Got: {result}"
     )
+    # NEW ASSERTION: cascade summary must include portion_formats_refreshed
+    assert "portion_formats_refreshed" in result, (
+        f"Cascade result missing portion_formats_refreshed key. Got: {result}"
+    )
+    assert result["portion_formats_refreshed"] >= 1, (
+        f"Expected at least 1 portion format refreshed, got: {result['portion_formats_refreshed']}"
+    )
 
     # ── ASSERTIONS ──
     # 1. Recipe's total_cost is now 100

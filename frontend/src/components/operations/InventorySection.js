@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import axios from "axios";
 import { useLanguage } from "../../contexts/LanguageContext";
+import { showCascadeToast } from "../../utils/cascadeToast";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../ui/card";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
@@ -173,8 +174,9 @@ export function InventorySection() {
       };
       
       if (editingItem) {
-        await axios.put(`${API}/api/inventory/ingredients/${editingItem.ingredient_id}`, saveData, { withCredentials: true });
+        const _res = await axios.put(`${API}/api/inventory/ingredients/${editingItem.ingredient_id}`, saveData, { withCredentials: true });
         toast.success(language === "es" ? "Item actualizado" : "Item updated");
+        showCascadeToast(_res, language);
       } else {
         await axios.post(`${API}/api/inventory/ingredients`, saveData, { withCredentials: true });
         toast.success(language === "es" ? "Item creado" : "Item created");
