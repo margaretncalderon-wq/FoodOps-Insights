@@ -41,6 +41,7 @@ export default function SalesReportSection() {
   const [dateTo, setDateTo] = useState("");
   const [selectedOwner, setSelectedOwner] = useState("all");
   const [includeUnassigned, setIncludeUnassigned] = useState(true);
+  const [hideInactive, setHideInactive] = useState(true);
 
   // Goals dialog
   const [goalDialogOpen, setGoalDialogOpen] = useState(false);
@@ -321,6 +322,10 @@ export default function SalesReportSection() {
               <Switch id="include-unassigned" checked={includeUnassigned} onCheckedChange={setIncludeUnassigned} data-testid="include-unassigned-toggle" />
               <Label htmlFor="include-unassigned" className="text-sm">{isEs ? "Sin asignar" : "Unassigned"}</Label>
             </div>
+            <div className="flex items-center gap-2">
+              <Switch id="hide-inactive" checked={hideInactive} onCheckedChange={setHideInactive} data-testid="hide-inactive-toggle" />
+              <Label htmlFor="hide-inactive" className="text-sm">{isEs ? "Ocultar inactivos" : "Hide inactive"}</Label>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -395,7 +400,7 @@ export default function SalesReportSection() {
                     </TableRow>
                   ) : (
                     <>
-                      {reportData.owners.map((owner, idx) => (
+                      {reportData.owners.filter(o => !(hideInactive && o.is_deleted)).map((owner, idx) => (
                         <TableRow key={owner.owner_id || `u-${idx}`} className={`${!owner.owner_id ? "bg-yellow-50/50" : ""} ${owner.is_deleted ? "bg-amber-50/40 opacity-60" : ""}`} data-testid={`owner-row-${owner.owner_id || 'unassigned'}`}>
                           <TableCell className="font-medium">
                             <div className="flex items-center gap-2">
