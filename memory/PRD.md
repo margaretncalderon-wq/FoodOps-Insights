@@ -1,6 +1,44 @@
 # Kora OS — Product Requirements Document
 
 
+## Feature — Parte B · Cierre "Costo Incompleto" (Feb 20, 2026)
+
+**Estado:** ✅ Completo. 16/16 pytests PASS, testing_agent verificó UI y APIs.
+
+### Alcance
+Cerrar las 3+1 confirmaciones adicionales pedidas por el usuario tras Parte B:
+
+1. **E2E densidad override** — pytest prueba que un `density_g_per_ml` en el
+   ingrediente pisa el whitelist hardcoded (`DEFAULT_DENSITIES`) en ambas
+   direcciones (peso→volumen y volumen→peso).
+2. **Aviso "Costo incompleto" en receta** — banner rojo + ⚠️ inline al lado
+   de "Costo Total Receta" y "Costo por Porción" cuando alguna línea (o
+   sub-receta hija) tiene conversión no resuelta.
+3. **Propagación a menús** — `PlatedMenuBuilder` muestra banner arriba de la
+   sección de precios; cards de menú en `FoodOpsPage` muestran badge inline.
+3.1. **Confirmación al cotizar** — al agregar una receta con
+   `has_conversion_errors=true` como proposal_item, se muestra un
+   `window.confirm` explícito. No bloquea el flujo (el usuario puede
+   cotizar con placeholder), pero exige reconocimiento explícito antes de
+   congelar el snapshot en `internal_cost`. Se persiste
+   `cost_incomplete_acknowledged=true` en el item.
+
+### Bug fix descubierto por testing_agent (HIGH)
+- `routers/inventory.py :: update_ingredient` — la cascada de recálculo
+  estaba gated solo por cambios de cost/waste. Ahora también dispara con
+  cambios en `density_g_per_ml`, `weight_per_unit_g` o `base_unit`, para que
+  al completar la conversión, la bandera de las recetas afectadas se
+  refresque automáticamente.
+
+### Cambios de arquitectura relevantes
+- `calculate_recipe_cost()` ahora retorna 4-tupla `(total, ingredients,
+  sub_recipes, conversion_errors[])`. Todos los callers (recipes.py,
+  inventory.py, tests) actualizados.
+- Los documentos de recipe persisten `has_conversion_errors`,
+  `conversion_errors_count`, `conversion_errors`.
+- `GET /api/recipes/{id}/cost-breakdown` expone los mismos campos.
+
+
 ## Feature — Prioridades 1, 2 y 3 · Consolidado de fixes de costeo (Feb 19, 2026)
 
 **Estado:** ✅ Las 3 prioridades cerradas. Tests 5/5 PASS.

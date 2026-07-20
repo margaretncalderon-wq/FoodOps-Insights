@@ -378,6 +378,19 @@ async def update_ingredient(ingredient_id: str, data: dict, user: User = Depends
     )
     new_waste = update_data.get("yield_waste_percent", current.get("yield_waste_percent"))
     waste_changed = float(current.get("yield_waste_percent") or 0) != float(new_waste or 0)
+
+    # Also detect changes to unit-conversion metadata. When a user sets a
+    # missing density_g_per_ml or weight_per_unit_g on an ingredient, that can
+    # RESOLVE previously-unresolvable conversions in recipes — so downstream
+    # recipes need to be re-costed (which also refreshes their
+    # has_conversion_errors flag). Same for base_unit changes.
+    new_density = update_data.get("density_g_per_ml", current.get("density_g_per_ml"))
+    density_changed = float(current.get("density_g_per_ml") or 0) != float(new_density or 0)
+    new_wpu = update_data.get("weight_per_unit_g", current.get("weight_per_unit_g"))
+    wpu_changed = float(current.get("weight_per_unit_g") or 0) != float(new_wpu or 0)
+    new_base = update_data.get("base_unit", current.get("base_unit"))
+    base_unit_changed = (current.get("base_unit") or "") != (new_base or "")
+    conversion_meta_changed = density_changed or wpu_changed or base_unit_changed
     
     # Log price change
     if cost_changed and "cost_per_unit" in update_data:
@@ -410,7 +423,7 @@ async def update_ingredient(ingredient_id: str, data: dict, user: User = Depends
     # SAFETY: this only touches the recipes collection (snapshot per recipe of total_cost/cost_per_portion).
     # Proposals/OrderItems already in DB are NOT touched — they store internal_cost as a static snapshot
     # at the moment the line was added to the quote. Confirmed/accepted prices remain intact.
-    if cost_changed or waste_changed:
+    if cost_changed or waste_changed or conversion_meta_changed:
         try:
             await _recalc_recipes_using_ingredient(ingredient_id, user.company_id)
         except Exception as e:

@@ -1,6 +1,52 @@
 # Kora OS - Changelog
 
 
+## February 2026 — Parte B · Cierre: propagación de "Costo incompleto"
+
+### Backend
+- `routers/recipes.py :: calculate_recipe_cost()` ahora retorna 4-tupla:
+  `(total_cost, ingredients, sub_recipes, conversion_errors[])`. La lista
+  agrega errores directos por línea y errores burbujeados desde sub-recetas
+  hijas (marcadas con `has_conversion_errors=True`).
+- `create_recipe` / `update_recipe` / `_recalc_parents_of_recipe` /
+  `recalculate_all_recipes` persisten en el documento de receta los campos:
+  `conversion_errors`, `conversion_errors_count`, `has_conversion_errors`.
+- `GET /api/recipes/{id}/cost-breakdown` expone estos tres campos para que
+  cualquier consumidor pueda decidir mostrar el aviso.
+- `GET /api/recipes` y `GET /api/recipes/{id}` inicializan defaults
+  (`has_conversion_errors=False`, `conversion_errors_count=0`) para recetas
+  legadas que aún no se han vuelto a guardar.
+- `routers/inventory.py :: update_ingredient` — cascada de recálculo
+  ahora también se dispara cuando cambian `density_g_per_ml`,
+  `weight_per_unit_g` o `base_unit` (antes solo cost/waste). Esto asegura
+  que al completar la densidad/peso, la bandera `has_conversion_errors`
+  de las recetas afectadas se refresca automáticamente.
+
+### Frontend
+- `components/RecipeBuilder.js` — banner rojo `recipe-cost-incomplete-banner`
+  arriba del panel de costo cuando alguna línea (o sub-receta) tiene
+  conversión no resuelta. Además ⚠️ inline al lado de "Costo Total Receta"
+  (`recipe-total-cost-warning`) y "Costo por Porción"
+  (`recipe-cost-per-portion-warning`).
+- `components/PlatedMenuBuilder.js` — banner `menu-cost-incomplete-banner`
+  arriba de la sección de precios cuando alguna receta del menú tiene
+  conversión no resuelta. También ⚠️ inline en la card "Costo/Comensal".
+- `pages/FoodOpsPage.js` — cada card de menú muestra un badge inline
+  (`menu-cost-incomplete-<menu_id>`) si alguna de sus recetas está incompleta.
+- `components/ProposalEditor.js` — al agregar una receta a una cotización,
+  si `has_conversion_errors=true` se muestra un `window.confirm` explícito
+  con el mensaje "Costo incompleto — …" antes de congelar el snapshot en
+  `internal_cost`. El item guarda `cost_incomplete_acknowledged=true`
+  como pista de auditoría.
+
+### Tests de regresión
+- `tests/test_conversion_error_propagation.py` (3 tests): densidad custom
+  vence al whitelist en ambas direcciones · bandera reflejando estado
+  crudo y resuelto · burbuja de errores desde child sub-recipe.
+- `tests/test_conversion_error_e2e_api.py` (2 tests, creado por testing
+  agent): flujo E2E vía HTTP API. Ambos pasan tras el fix del cascade gate.
+
+
 ## February 2026 — Parte B · Conversión de unidades: fallar explícito
 
 ### B.3 · Excepción `UnitConversionError`
