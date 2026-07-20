@@ -576,6 +576,17 @@ async def _recalc_recipes_using_ingredient(ingredient_id: str, company_id: str) 
             }},
         )
         affected.append(rid)
+        # BUGFIX Feb 2026 — cascade must also refresh portion_formats snapshots
+        # so the "Formatos de Porción" table doesn't show stale cost_per_portion
+        # after ingredient prices change.
+        try:
+            from routers.recipes import _refresh_portion_formats_for_recipe
+            await _refresh_portion_formats_for_recipe(rid, company_id)
+        except Exception as _pf_err:
+            import logging as _l
+            _l.getLogger(__name__).warning(
+                f"cascade refresh portion_formats failed for {rid}: {_pf_err}"
+            )
     return {"recalculated": len(affected), "affected_recipe_ids": affected}
 
 @inventory_router.delete("/ingredients/{ingredient_id}")

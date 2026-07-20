@@ -1842,176 +1842,239 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
                 </div>
               </div>
 
-              {/* Suggested price — pick method (Food Cost / Prime / Markup) */}
-              {(suggestedPriceFoodCost > 0 || suggestedPricePrime > 0 || suggestedPriceMarkup > 0) && (() => {
+              {/* ============================================================
+                  Fase 1b · Opción A — INVERSIÓN DE JERARQUÍA
+                  El PRECIO ACTUAL es lo dominante. Los sugeridos son
+                  referencia calculada, no cards azules gigantes.
+                  ============================================================ */}
+
+              {/* Compute helpers shared by both cards */}
+              {(() => {
                 const method = form.pricing_method_preference || "food_cost";
-                const currentPrice =
+                const suggested =
                   method === "prime_cost" ? suggestedPricePrime
                     : method === "markup" ? suggestedPriceMarkup
                     : suggestedPriceFoodCost;
-                const currentLabel = language === "es"
-                  ? (method === "prime_cost" ? `Prime Cost — (food+labor) ÷ ${targetPrimeCostPct.toFixed(0)}%`
-                    : method === "markup" ? `Markup — total ÷ (100% − ${targetGrossMarginPct.toFixed(0)}%)`
-                    : `Food Cost — food ÷ ${targetFoodCostPct.toFixed(0)}%`)
-                  : (method === "prime_cost" ? `Prime Cost — (food+labor) ÷ ${targetPrimeCostPct.toFixed(0)}%`
-                    : method === "markup" ? `Markup — total ÷ (100% − ${targetGrossMarginPct.toFixed(0)}%)`
-                    : `Food Cost — food ÷ ${targetFoodCostPct.toFixed(0)}%`);
+                const methodLabel = language === "es"
+                  ? (method === "prime_cost" ? `Prime Cost · (food+labor) ÷ ${targetPrimeCostPct.toFixed(0)}%`
+                    : method === "markup" ? `Markup · total ÷ (100% − ${targetGrossMarginPct.toFixed(0)}%)`
+                    : `Food Cost · food ÷ ${targetFoodCostPct.toFixed(0)}%`)
+                  : (method === "prime_cost" ? `Prime Cost · (food+labor) ÷ ${targetPrimeCostPct.toFixed(0)}%`
+                    : method === "markup" ? `Markup · total ÷ (100% − ${targetGrossMarginPct.toFixed(0)}%)`
+                    : `Food Cost · food ÷ ${targetFoodCostPct.toFixed(0)}%`);
+                const targetPct = method === "prime_cost" ? targetPrimeCostPct
+                  : method === "markup" ? targetGrossMarginPct
+                  : targetFoodCostPct;
+                const hasPrice = Number(form.sell_price) > 0;
+                const hasCost = Number(costPerPortion) > 0;
+                // Piso alerta: use recipe.min_margin_pct override or company default (30% food cost floor).
+                const minMarginFloor = Number(form.min_margin_pct) || 30;
+                const belowFloor = hasPrice && foodCostPercent > (100 - minMarginFloor);
+                const tone = !hasPrice
+                  ? "empty"
+                  : belowFloor
+                  ? "red"
+                  : foodCostPercent > 35
+                  ? "amber"
+                  : "green";
+                const toneMap = {
+                  empty:  { bg: "bg-slate-50", border: "border-slate-200",   text: "text-slate-700",   badge: "bg-slate-200 text-slate-700",     accent: "text-slate-500" },
+                  green:  { bg: "bg-emerald-50/60", border: "border-emerald-300", text: "text-emerald-900", badge: "bg-emerald-600 text-white",    accent: "text-emerald-700" },
+                  amber:  { bg: "bg-amber-50/60",   border: "border-amber-300",   text: "text-amber-900",   badge: "bg-amber-600 text-white",      accent: "text-amber-700"   },
+                  red:    { bg: "bg-rose-50/70",    border: "border-rose-400",    text: "text-rose-900",    badge: "bg-rose-600 text-white",       accent: "text-rose-700"    },
+                }[tone];
+
                 return (
-                  <div className="flex flex-col gap-2 px-4 py-3 rounded-lg border border-blue-200 bg-blue-50">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[10px] uppercase text-blue-700 tracking-wide font-semibold">
-                          {language === "es" ? "Precio de venta sugerido" : "Suggested sell price"}
-                        </p>
-                        <p className="text-2xl font-bold text-blue-700" data-testid="suggested-price-selected">
-                          ${fmtNum(currentPrice)}
-                          <span className="text-xs text-blue-800 ml-1 font-normal">/ {language === "es" ? "porción" : "portion"}</span>
-                        </p>
-                        <p className="text-[10px] text-muted-foreground mt-0.5">{currentLabel}</p>
-                      </div>
-                      <div className="flex flex-col gap-2 items-end shrink-0">
-                        <Select
-                          value={method}
-                          onValueChange={(v) => setForm((prev) => ({ ...prev, pricing_method_preference: v }))}
-                        >
-                          <SelectTrigger className="w-40 h-8 text-xs bg-white" data-testid="pricing-method-select">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="food_cost">
-                              {language === "es" ? "Food Cost" : "Food Cost"} — ${fmtNum(suggestedPriceFoodCost)}
-                            </SelectItem>
-                            <SelectItem value="prime_cost">
-                              {language === "es" ? "Prime Cost" : "Prime Cost"} — ${fmtNum(suggestedPricePrime)}
-                            </SelectItem>
-                            <SelectItem value="markup">
-                              {language === "es" ? "Markup" : "Markup"} — ${fmtNum(suggestedPriceMarkup)}
-                            </SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          className="bg-white"
-                          onClick={() => setForm((prev) => ({ ...prev, sell_price: Number(currentPrice.toFixed(2)) }))}
-                          data-testid="apply-suggested-price"
-                        >
-                          {language === "es" ? "Aplicar" : "Apply"}
-                        </Button>
+                  <>
+                    {/* ══════════════ CARD PRINCIPAL · PRECIO OFICIAL ══════════════ */}
+                    <div
+                      className={`rounded-xl border-2 ${toneMap.border} ${toneMap.bg} p-5`}
+                      data-testid="recipe-official-price-card"
+                    >
+                      <div className="flex items-start justify-between gap-4 flex-wrap">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className={`text-[10px] uppercase tracking-wider font-bold ${toneMap.accent}`}>
+                              {language === "es" ? "PRECIO DE VENTA · OFICIAL" : "OFFICIAL SELL PRICE"}
+                            </span>
+                            {hasPrice && (
+                              <PriceSourceBadge
+                                {...computeRecipePriceSource({
+                                  recipeSellPrice: form.sell_price,
+                                  methodPref: method,
+                                  methodPrice: suggested,
+                                })}
+                                targetPct={targetPct}
+                                language={language}
+                                size="xs"
+                                testId="recipe-price-source-badge"
+                              />
+                            )}
+                            {tone === "red" && (
+                              <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded ${toneMap.badge}`}>
+                                {language === "es" ? "Bajo margen mínimo" : "Below min margin"}
+                              </span>
+                            )}
+                          </div>
+                          {hasPrice ? (
+                            <p className={`text-4xl font-bold ${toneMap.text}`} data-testid="recipe-official-price-value">
+                              ${fmtNum(form.sell_price)}
+                              <span className="text-sm font-normal opacity-70 ml-2">
+                                / {language === "es" ? "porción" : "portion"}
+                              </span>
+                            </p>
+                          ) : hasCost ? (
+                            <p className={`text-2xl font-semibold ${toneMap.text}`}>
+                              {language === "es" ? "Sin precio configurado" : "No price configured"}
+                              <span className="text-sm font-normal opacity-70 ml-2">
+                                — {language === "es" ? "sólo se muestra el costo" : "showing cost only"}
+                              </span>
+                            </p>
+                          ) : (
+                            <p className={`text-2xl font-semibold ${toneMap.text}`}>
+                              {language === "es" ? "Agrega ingredientes para calcular" : "Add ingredients to compute"}
+                            </p>
+                          )}
+                          {hasPrice && (
+                            <div className="flex flex-wrap gap-x-5 gap-y-1 mt-2 text-sm">
+                              <span className={toneMap.accent}>
+                                {language === "es" ? "Food Cost:" : "Food Cost:"}
+                                <span className="font-semibold ml-1" data-testid="food-cost-pct">
+                                  {foodCostPercent.toFixed(1)}%
+                                </span>
+                              </span>
+                              <span className={toneMap.accent}>
+                                {language === "es" ? "Margen:" : "Margin:"}
+                                <span className="font-semibold ml-1">${fmtNum(margin)}</span>
+                              </span>
+                              <span className={toneMap.accent}>
+                                {language === "es" ? "Costo:" : "Cost:"}
+                                <span className="font-semibold ml-1">${fmtNum(costPerPortion)}</span>
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                        {suggested > 0 && !hasPrice && (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            className="bg-white shrink-0"
+                            onClick={() => setForm((prev) => ({ ...prev, sell_price: Number(suggested.toFixed(2)) }))}
+                            data-testid="apply-suggested-price"
+                          >
+                            {language === "es" ? "Usar sugerido" : "Use suggested"} · ${fmtNum(suggested)}
+                          </Button>
+                        )}
                       </div>
                     </div>
-                  </div>
+
+                    {/* ══════════════ INPUTS · PVP override + Min margin ══════════════ */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 px-3 py-3 rounded-md border bg-slate-50/50">
+                      <div>
+                        <Label className="text-xs font-semibold flex items-center gap-1.5">
+                          {language === "es" ? "PVP manual (override)" : "Sell price (manual override)"}
+                          <span className="text-[10px] text-muted-foreground font-normal">
+                            {language === "es" ? "opcional" : "optional"}
+                          </span>
+                        </Label>
+                        <div className="relative">
+                          <Input
+                            type="number" min="0" step="0.01"
+                            value={form.sell_price}
+                            onChange={(e) => setForm(prev => ({ ...prev, sell_price: parseFloat(e.target.value) || 0 }))}
+                            className="pl-6 mt-1"
+                            placeholder={language === "es" ? "Usa el sugerido" : "Use suggested"}
+                            data-testid="recipe-sell-price-input"
+                          />
+                          <span className="absolute left-2 top-1/2 -translate-y-0 mt-1 text-xs text-muted-foreground">$</span>
+                        </div>
+                        <p className="text-[10px] text-muted-foreground mt-1">
+                          {language === "es"
+                            ? "Deja 0 para usar el sugerido por el método."
+                            : "Leave 0 to use the method-suggested price."}
+                        </p>
+                      </div>
+                      <div>
+                        <Label className="text-xs font-semibold flex items-center gap-1.5">
+                          {language === "es" ? "Margen mínimo (piso alerta)" : "Min margin (alert floor)"}
+                          <span className="text-[10px] text-muted-foreground font-normal">
+                            {language === "es" ? "opcional" : "optional"}
+                          </span>
+                        </Label>
+                        <div className="relative">
+                          <Input
+                            type="number" min="0" max="100" step="0.5"
+                            value={form.min_margin_pct}
+                            onChange={(e) => setForm(prev => ({ ...prev, min_margin_pct: e.target.value }))}
+                            placeholder={language === "es" ? "Hereda de política" : "Inherits policy"}
+                            className="pr-8 mt-1"
+                            data-testid="recipe-min-margin-pct"
+                          />
+                          <span className="absolute right-3 top-1/2 -translate-y-0 mt-1 text-xs text-muted-foreground">%</span>
+                        </div>
+                        <p className="text-[10px] text-muted-foreground mt-1">
+                          {language === "es"
+                            ? "Piso de alerta. Si el precio baja de aquí, se marca en rojo."
+                            : "Alert floor. If the price falls below, it flags red."}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* ══════════════ REFERENCIAS · Strip compacto ══════════════ */}
+                    {(suggestedPriceFoodCost > 0 || suggestedPricePrime > 0 || suggestedPriceMarkup > 0) && (
+                      <details className="rounded-md border border-slate-200 bg-white/50 px-3 py-2" data-testid="recipe-suggested-references">
+                        <summary className="cursor-pointer text-xs font-medium text-slate-600 select-none flex items-center gap-2 list-none marker:hidden">
+                          <span className="inline-block w-1.5 h-1.5 rounded-full bg-blue-500" />
+                          {language === "es" ? "Referencias — precios sugeridos por método" : "References — method-suggested prices"}
+                          <span className="text-[10px] text-slate-400 font-normal ml-auto">
+                            {language === "es" ? "click para ver / cambiar método activo" : "click to view / change active method"}
+                          </span>
+                        </summary>
+                        <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-2 text-xs">
+                          {[
+                            { key: "food_cost", label: language === "es" ? "Food Cost" : "Food Cost", price: suggestedPriceFoodCost, formula: `÷ ${targetFoodCostPct.toFixed(0)}%` },
+                            { key: "prime_cost", label: language === "es" ? "Prime Cost" : "Prime Cost", price: suggestedPricePrime, formula: `÷ ${targetPrimeCostPct.toFixed(0)}%` },
+                            { key: "markup", label: language === "es" ? "Markup" : "Markup", price: suggestedPriceMarkup, formula: `${targetGrossMarginPct.toFixed(0)}% ${language === "es" ? "margen" : "margin"}` },
+                          ].map((row) => (
+                            <div
+                              key={row.key}
+                              className={`px-2.5 py-2 rounded border ${method === row.key ? "border-blue-400 bg-blue-50" : "border-slate-200 bg-white"}`}
+                              data-testid={`suggested-row-${row.key}`}
+                            >
+                              <div className="flex items-center justify-between mb-1">
+                                <span className="font-semibold text-slate-700">{row.label}</span>
+                                {method === row.key && (
+                                  <span className="text-[9px] uppercase font-bold text-blue-600">
+                                    {language === "es" ? "Activo" : "Active"}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="text-lg font-bold text-slate-800">${fmtNum(row.price)}</div>
+                              <div className="text-[10px] text-muted-foreground">{row.formula}</div>
+                              {method !== row.key && (
+                                <button
+                                  type="button"
+                                  onClick={() => setForm((prev) => ({ ...prev, pricing_method_preference: row.key }))}
+                                  className="text-[10px] text-blue-600 hover:underline mt-1"
+                                  data-testid={`suggested-set-active-${row.key}`}
+                                >
+                                  {language === "es" ? "Usar este método →" : "Use this method →"}
+                                </button>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                        <p className="text-[10px] text-muted-foreground mt-2 leading-relaxed">
+                          {language === "es"
+                            ? `Método activo: ${methodLabel}. Sugerido = referencia calculada, NO se aplica hasta que hagas click en "Usar sugerido" arriba o escribas un PVP manual.`
+                            : `Active method: ${methodLabel}. Suggested = computed reference, NOT applied until you click "Use suggested" above or type a manual price.`}
+                        </p>
+                      </details>
+                    )}
+                  </>
                 );
               })()}
-
-              {/* Fase 1b · Manual override + Min margin override
-                  Antes vivían en la pestaña Básico. Se movieron aquí para
-                  que todo el bloque de precio esté en un solo lugar. */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 px-3 py-3 rounded-md border bg-slate-50/50">
-                <div>
-                  <Label className="text-xs font-semibold flex items-center gap-1.5">
-                    {language === "es" ? "PVP manual (override)" : "Sell price (manual override)"}
-                    <span className="text-[10px] text-muted-foreground font-normal">
-                      {language === "es" ? "opcional" : "optional"}
-                    </span>
-                  </Label>
-                  <div className="relative">
-                    <Input
-                      type="number" min="0" step="0.01"
-                      value={form.sell_price}
-                      onChange={(e) => setForm(prev => ({ ...prev, sell_price: parseFloat(e.target.value) || 0 }))}
-                      className="pl-6 mt-1"
-                      placeholder={language === "es" ? "Usa el sugerido" : "Use suggested"}
-                      data-testid="recipe-sell-price-input"
-                    />
-                    <span className="absolute left-2 top-1/2 -translate-y-0 mt-1 text-xs text-muted-foreground">$</span>
-                  </div>
-                  <p className="text-[10px] text-muted-foreground mt-1">
-                    {language === "es"
-                      ? "Deja 0 para usar el sugerido por el método."
-                      : "Leave 0 to use the method-suggested price."}
-                  </p>
-                </div>
-                <div>
-                  <Label className="text-xs font-semibold flex items-center gap-1.5">
-                    {language === "es" ? "Margen mínimo (piso alerta)" : "Min margin (alert floor)"}
-                    <span className="text-[10px] text-muted-foreground font-normal">
-                      {language === "es" ? "opcional" : "optional"}
-                    </span>
-                  </Label>
-                  <div className="relative">
-                    <Input
-                      type="number" min="0" max="100" step="0.5"
-                      value={form.min_margin_pct}
-                      onChange={(e) => setForm(prev => ({ ...prev, min_margin_pct: e.target.value }))}
-                      placeholder={language === "es" ? "Hereda de política" : "Inherits policy"}
-                      className="pr-8 mt-1"
-                      data-testid="recipe-min-margin-pct"
-                    />
-                    <span className="absolute right-3 top-1/2 -translate-y-0 mt-1 text-xs text-muted-foreground">%</span>
-                  </div>
-                  <p className="text-[10px] text-muted-foreground mt-1">
-                    {language === "es"
-                      ? "Piso de alerta. Si el precio final baja de aquí, se marca en rojo."
-                      : "Alert floor. If the final price falls below, it flags red."}
-                  </p>
-                </div>
-              </div>
-
-              {/* Current sell price + profitability quick chip (only if set) */}
-              {form.sell_price > 0 && (
-                <div className="flex items-center justify-between gap-2 px-3 py-2 rounded-md border bg-white text-sm" data-testid="recipe-current-price-chip">
-                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-                    <span className="text-muted-foreground flex items-center gap-1.5">
-                      {language === "es" ? "Precio actual:" : "Current price:"}
-                      <span className="font-semibold text-slate-800 ml-1">${fmtNum(form.sell_price)}</span>
-                      <PriceSourceBadge
-                        {...computeRecipePriceSource({
-                          recipeSellPrice: form.sell_price,
-                          methodPref: form.pricing_method_preference || "food_cost",
-                          methodPrice: (form.pricing_method_preference === "prime_cost" ? suggestedPricePrime
-                            : form.pricing_method_preference === "markup" ? suggestedPriceMarkup
-                            : suggestedPriceFoodCost),
-                        })}
-                        targetPct={(form.pricing_method_preference === "prime_cost" ? targetPrimeCostPct
-                            : form.pricing_method_preference === "markup" ? targetGrossMarginPct
-                            : targetFoodCostPct)}
-                        language={language}
-                        size="xs"
-                        testId="recipe-price-source-badge"
-                      />
-                    </span>
-                    <span className="text-muted-foreground">
-                      {language === "es" ? "Food Cost:" : "Food Cost:"}
-                      <span className={`font-semibold ml-1 ${foodCostPercent > 35 ? "text-red-600" : foodCostPercent > 30 ? "text-amber-600" : "text-green-600"}`} data-testid="food-cost-pct">
-                        {foodCostPercent.toFixed(1)}%
-                      </span>
-                    </span>
-                    <span className="text-muted-foreground">
-                      {language === "es" ? "Margen:" : "Margin:"}
-                      <span className={`font-semibold ml-1 ${margin < 0 ? "text-red-600" : "text-emerald-600"}`}>${fmtNum(margin)}</span>
-                    </span>
-                  </div>
-                </div>
-              )}
-              {!form.sell_price && costPerPortion > 0 && (
-                <div className="flex items-center justify-between gap-2 px-3 py-2 rounded-md border bg-rose-50/60 border-rose-200 text-sm" data-testid="recipe-no-price-chip">
-                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-rose-900">
-                    <span className="text-xs">
-                      {language === "es"
-                        ? "Sin precio configurado — se muestra sólo el costo."
-                        : "No price set — showing cost only."}
-                    </span>
-                    <PriceSourceBadge
-                      source="cost_plus_fallback"
-                      language={language}
-                      size="xs"
-                      testId="recipe-price-source-badge"
-                    />
-                  </div>
-                </div>
-              )}
 
               {/* Link to advanced settings — takes user to /settings/recipe-costing */}
               <div className="text-right">

@@ -1,0 +1,31 @@
+{
+  "summary": "Iteration 243 · Fase 1b Opción A UI + cascade bugfix verified. Backend: all 13 pytest tests pass (test_pricing_cascades 8 + test_portion_format_cascade_and_edit + test_recipe_cost_cascade_regression + test_ingredient_to_portion_format_cascade 1 new). Frontend: opened Filete Mignon → Costing tab in the FoodOps recipe editor dialog; all required testids for the new Opción A layout are present and behave per spec: recipe-official-price-card (top, large), OFFICIAL SELL PRICE chip, recipe-sell-price-input + recipe-min-margin-pct (small, grey), recipe-suggested-references (collapsible <details>), 3 suggested-row-{food_cost|prime_cost|markup} with formulas, ACTIVE badge on food_cost with NO change button (suggested-set-active-food_cost count=0) while prime_cost+markup expose suggested-set-active-* buttons (count=1 each). No legacy dominant blue 'Precio Sugerido' block detected on the page. Because Filete Mignon has unresolved unit conversions its computed cost=0 → the card correctly shows the 'Add ingredients to compute' fallback (no recipe-official-price-value, no apply-suggested-price, no food-cost-pct rendered — matches conditional rendering in RecipeBuilder.js lines 1919-1968).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_ingredient_to_portion_format_cascade.py",
+    "/app/backend/tests/test_pricing_cascades.py",
+    "/app/backend/tests/test_portion_format_cascade_and_edit.py",
+    "/app/backend/tests/test_recipe_cost_cascade_regression.py"
+  ],
+  "action_items": [
+    "OPTIONAL: The three demo recipes (Filete Mignon, Pastel de Chocolate, Ensalada Caprese) all report $0 cost because their ingredients have unresolved unit conversions (e.g. Filete Mignon: 'Sin conversión disponible entre kg y g'). This is a data-quality issue (density/g-per-unit missing on ingredients), not a regression from iter 243. It does block a live green/amber/red visual test of the new price card colors. If desired, seed a recipe whose ingredients have resolved conversions so the new colored tone (green/amber/rose) can be observed live."
+  ],
+  "critical_code_review_comments": [
+    "backend/routers/inventory.py::_recalc_recipes_using_ingredient now cascades to _refresh_portion_formats_for_recipe → root cause fix is correct and covered by the new dedicated regression test.",
+    "frontend/components/RecipeBuilder.js lines 1887-2074: clean, well-scoped Opción A rewrite. Tone map (green/amber/rose/empty) is table-driven, conditional testids follow the same pattern as the previous badges. The <details> summary uses list-none marker:hidden which is fine but could benefit from an explicit chevron icon so users know it's expandable (minor UX polish).",
+    "PriceSourceBadge is only rendered when hasPrice is true — this is intentional (source only meaningful when a price exists) and matches the spec item (b)."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (13/13 pytest)", "frontend": "100% of testable acceptance items in Opción A pass; live color states (green/amber/red) not observable due to seed data cost=0"},
+  "test_credentials": "demo.agency@kora.com / Evoque2024!",
+  "seed_data_creation": "None. Used existing recipe Filete Mignon con Risotto (recipe_aa7baa59096a) opened via the Food Cost → Recipes tab → hover → pencil-edit icon → Costing tab.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Access the new RecipeBuilder Opción A UI via URL /food-ops/recipes → hover a recipe card → click the middle pencil (Edit icon) — opens the Edit Recipe dialog with tabs [Basic, Costing, Details, Packaging, Scale, Technical Sheet]. Click 'Costing' tab. The plain page route /recipes/{id} uses the older pages/RecipeBuilder.js (no tabs, no Opción A) — DON'T use that URL to verify iter 243 UI. Full-featured component is components/RecipeBuilder.js. Portion Formats table testids format-price-source-* were not observable because the three demo recipes have 0 portion formats; iteration 242 already validated those on other data.",
+  "rca of the issue": "Backend bug (user-reported): ingredient purchase_cost update did not propagate to recipe_portion_formats.cost_per_portion. RCA: _recalc_recipes_using_ingredient in routers/inventory.py updated recipes.total_cost but never called _refresh_portion_formats_for_recipe(recipe_id, company_id). Fix: added the cascade call inside the recipe-update loop. Reproduction: test_ingredient_to_portion_format_cascade.py inserts an ingredient (cost_per_unit=10), a recipe (5g → total_cost=50, 4 portions), and a portion_format (portions_obtained=2 → cost_per_portion=25). It doubles the ingredient cost to 20, triggers _recalc_recipes_using_ingredient, and asserts (a) recipe.total_cost=100, (b) portion_format.cost_per_portion=50 (not stale 25), (c) suggested_price recomputed to 71.43. All three assertions now pass."
+}
