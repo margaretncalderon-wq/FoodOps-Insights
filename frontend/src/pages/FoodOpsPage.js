@@ -490,6 +490,28 @@ function InventorySection() {
     try {
       // Map non_yieldable + yield_waste_percent semantics: if non_yieldable=true and yield_waste_percent is 0, leave as-is (just a tag).
       const payload = { ...itemForm };
+
+      // PREVENTION GUARD — universal price sanity check at entry point.
+      // Not a category/tenant judgement; just catches evident capture errors.
+      // Rule: implicit $/kg (or $/L) must fall inside [$0.10, $5,000].
+      const TO_KG = { kg:1, g:0.001, lb:0.453592, oz:0.0283495, L:1, l:1, ml:0.001,
+                      gal:3.78541, qt:0.946353, fl_oz:0.02957 };
+      const cost = Number(payload.cost_per_unit || payload.cost_per_base_unit || 0);
+      const baseUnit = (payload.base_unit || payload.unit || "").toLowerCase();
+      const factor = TO_KG[baseUnit];
+      if (cost > 0 && factor) {
+        const perKg = cost / factor;
+        if (perKg < 0.10 || perKg > 5000) {
+          const msg = language === "es"
+            ? `Esto equivale a $${perKg.toLocaleString("en-US", { maximumFractionDigits: 2 })} por kg. ¿Es correcto?\n\n(Precio guardado: $${cost} por ${baseUnit})`
+            : `This equals $${perKg.toLocaleString("en-US", { maximumFractionDigits: 2 })} per kg. Is that correct?\n\n(Stored price: $${cost} per ${baseUnit})`;
+          if (!window.confirm(msg)) {
+            toast.info(language === "es" ? "Guardado cancelado — corrige el precio" : "Save cancelled — fix the price");
+            return;
+          }
+        }
+      }
+
       if (editingItem) {
         await axios.put(`${API}/api/inventory/ingredients/${editingItem.ingredient_id}`, payload, { withCredentials: true });
       } else {
