@@ -802,17 +802,24 @@ async def fix_outlier(
         pc = float(body.new_purchase_cost)
         qty = float(ing.get("purchase_quantity_per_unit") or 0)
         update["purchase_cost"] = round(pc, 4)
+        # PASE A: purchase_cost is the source of truth. Derive both cpu (per
+        # container) and cpbu (per base) from it — never let the caller set
+        # cost_per_unit to per-base by accident (that was the original bug).
+        update["cost_per_unit"] = round(pc, 4)
         if qty > 0:
-            per_base = round(pc / qty, 6)
-            update["cost_per_unit"] = per_base
-            update["cost_per_base_unit"] = per_base
+            update["cost_per_base_unit"] = round(pc / qty, 6)
+            update["purchase_incomplete"] = False
     elif body.new_cost_per_unit is not None:
+        # PASE A: legacy shape kept for backwards-compat. Interpret the input
+        # as the per-container price (matches the visible label in the UI
+        # now that "Cost / [Unit]" is derived from purchase_cost).
         pc = float(body.new_cost_per_unit)
-        update["cost_per_unit"] = round(pc, 6)
-        update["cost_per_base_unit"] = round(pc, 6)
+        update["cost_per_unit"] = round(pc, 4)
+        update["purchase_cost"] = round(pc, 4)
         qty = float(ing.get("purchase_quantity_per_unit") or 0)
         if qty > 0:
-            update["purchase_cost"] = round(pc * qty, 4)
+            update["cost_per_base_unit"] = round(pc / qty, 6)
+            update["purchase_incomplete"] = False
     else:
         raise HTTPException(
             status_code=400,

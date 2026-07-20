@@ -298,6 +298,16 @@ def cost_for_recipe_line(quantity: float, line_unit: str, ingredient: dict) -> f
     """
     if not ingredient or quantity is None or quantity == 0:
         return 0.0
+    # PASE A: if the ingredient has not yet been given a complete Purchase
+    # Format & Price, refuse to compute a cost with ambiguous legacy data —
+    # surface it through the same "Costo incompleto" pipeline used for unit
+    # conversion failures. Callers already handle UnitConversionError.
+    if ingredient.get("purchase_incomplete"):
+        raise UnitConversionError(
+            line_unit or "?", (ingredient.get("base_unit") or ingredient.get("unit") or "?"),
+            "purchase format incomplete (falta capturar formato/cantidad/total de compra)",
+            ingredient.get("name") or "",
+        )
     base_unit = normalize_unit(ingredient.get("base_unit") or ingredient.get("unit") or "")
     cost_per_base = ingredient.get("cost_per_base_unit")
     if cost_per_base is None or cost_per_base == 0:

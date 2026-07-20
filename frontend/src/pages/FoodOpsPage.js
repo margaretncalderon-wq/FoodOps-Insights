@@ -1031,9 +1031,25 @@ function InventorySection() {
                           {available} {item.unit}
                         </span>
                       </TableCell>
-                      <TableCell className="text-right">${fmtNum((item.cost_per_unit || 0))}/{item.unit}</TableCell>
+                      <TableCell className="text-right">
+                        {item.purchase_incomplete ? (
+                          <span
+                            className="text-amber-700 text-xs"
+                            title={language === "es"
+                              ? "Formato de compra incompleto — costo no confiable"
+                              : "Purchase format incomplete — cost unreliable"}
+                            data-testid={`item-purchase-incomplete-cost-${item.ingredient_id}`}
+                          >⚠️ —</span>
+                        ) : (
+                          <>${fmtNum((item.cost_per_unit || 0))}/{item.unit}</>
+                        )}
+                      </TableCell>
                       <TableCell className="text-right font-medium tabular-nums">
-                        ${fmtNum(onHand * (item.cost_per_unit || 0))}
+                        {item.purchase_incomplete ? (
+                          <span className="text-amber-700 text-xs">—</span>
+                        ) : (
+                          <>${fmtNum(onHand * (item.cost_per_unit || 0))}</>
+                        )}
                       </TableCell>
                       <TableCell>{getSupplierName(item.preferred_supplier_id)}</TableCell>
                       <TableCell>
@@ -1205,24 +1221,22 @@ function InventorySection() {
             </div>
             
             <div><Label>{t("unit")}</Label><Select value={itemForm.unit} onValueChange={(v) => setItemForm({ ...itemForm, unit: v })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{["kg", "g", "lb", "oz", "L", "ml", "unit", "box", "case", "galón", "botella"].map(u => (<SelectItem key={u} value={u}>{u}</SelectItem>))}</SelectContent></Select></div>
-            <div>
-              <Label>{t("cost")} / {itemForm.unit}</Label>
-              <Input
-                type="number" min="0" step="0.01"
-                value={itemForm.cost_per_unit || ""}
-                onChange={(e) => {
-                  const cpu = parseFloat(e.target.value) || 0;
-                  const qty = parseFloat(itemForm.purchase_quantity_per_unit) || 0;
-                  // If we know qty, keep purchase_cost synchronized (2 decimals)
-                  const derivedPurchase = qty > 0 ? Math.round(cpu * qty * 100) / 100 : itemForm.purchase_cost;
-                  setItemForm({
-                    ...itemForm,
-                    cost_per_unit: Math.round(cpu * 100) / 100,
-                    purchase_cost: derivedPurchase
-                  });
-                }}
-                data-testid="item-cost-per-unit"
-              />
+            <div className="p-3 bg-slate-50 border border-slate-200 rounded-md" data-testid="item-derived-cost-per-purchase-unit">
+              <Label className="text-xs text-slate-600">
+                {language === "es"
+                  ? `Costo por ${itemForm.purchase_unit || itemForm.unit || "unidad"} (derivado)`
+                  : `Cost per ${itemForm.purchase_unit || itemForm.unit || "unit"} (derived)`}
+              </Label>
+              <p className="text-lg font-bold text-slate-800 font-mono mt-1">
+                {itemForm.purchase_cost && Number(itemForm.purchase_cost) > 0
+                  ? `$${Number(itemForm.purchase_cost).toFixed(2)}`
+                  : "—"}
+              </p>
+              <p className="text-[10px] text-slate-500 mt-1">
+                {language === "es"
+                  ? "Se calcula desde Formato y Precio de Compra abajo."
+                  : "Derived from Purchase Format & Price below."}
+              </p>
             </div>
             <div><Label>{t("stock")}</Label><Input type="number" min="0" step="0.01" value={itemForm.stock_quantity} onChange={(e) => setItemForm({ ...itemForm, stock_quantity: parseFloat(e.target.value) || 0 })} /></div>
             <div><Label>{t("parLevel")}</Label><Input type="number" min="0" step="0.01" value={itemForm.par_level} onChange={(e) => setItemForm({ ...itemForm, par_level: parseFloat(e.target.value) || 0 })} /></div>
@@ -1266,6 +1280,26 @@ function InventorySection() {
             
             {/* Purchase Info Section - Rich format */}
             <div className="col-span-2 border-t pt-4 mt-2">
+              {editingItem && editingItem.purchase_incomplete && (
+                <div
+                  className="mb-3 flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900"
+                  data-testid="item-purchase-incomplete-banner"
+                >
+                  <span aria-hidden="true">⚠️</span>
+                  <div>
+                    <p className="font-semibold">
+                      {language === "es"
+                        ? "Formato de compra incompleto — este ingrediente no tiene costo confiable"
+                        : "Purchase format incomplete — this ingredient has no reliable cost"}
+                    </p>
+                    <p className="text-[11px] mt-0.5 opacity-90">
+                      {language === "es"
+                        ? "Completa Formato, Cantidad, Unidad base y Total price para que Value de inventario y costeo de recetas funcionen."
+                        : "Fill in Format, Quantity, Base unit and Total price so inventory Value and recipe costing work."}
+                    </p>
+                  </div>
+                </div>
+              )}
               <div className="flex items-center justify-between mb-3">
                 <p className="text-sm font-medium">{language === "es" ? "Formato y Precio de Compra" : "Purchase Format & Price"}</p>
                 {editingItem && (
@@ -1309,13 +1343,12 @@ function InventorySection() {
                     value={itemForm.purchase_quantity_per_unit || ""}
                     onChange={(e) => {
                       const qty = parseFloat(e.target.value) || 0;
-                      const cost = itemForm.purchase_cost || 0;
-                      const perBase = qty > 0 && cost > 0 ? Math.round((cost / qty) * 100) / 100 : itemForm.cost_per_unit;
-                      setItemForm({
-                        ...itemForm,
-                        purchase_quantity_per_unit: qty,
-                        cost_per_unit: perBase || itemForm.cost_per_unit,
-                      });
+                      // PASE A: only touch purchase_quantity_per_unit. Backend
+                      // derives cost_per_unit and cost_per_base_unit from
+                      // purchase_cost/qty on save — the FE never writes those
+                      // fields directly (avoids the pre-PASE-A ambiguity where
+                      // this same handler overwrote cost_per_unit with $/base).
+                      setItemForm({ ...itemForm, purchase_quantity_per_unit: qty });
                     }}
                     placeholder="54.43"
                     data-testid="item-purchase-qty"
@@ -1370,13 +1403,12 @@ function InventorySection() {
                     value={itemForm.purchase_cost || ""}
                     onChange={(e) => {
                       const cost = Math.round((parseFloat(e.target.value) || 0) * 100) / 100;
-                      const qty = itemForm.purchase_quantity_per_unit || 0;
-                      const perBase = qty > 0 ? Math.round((cost / qty) * 100) / 100 : itemForm.cost_per_unit;
-                      setItemForm({
-                        ...itemForm,
-                        purchase_cost: cost,
-                        cost_per_unit: perBase || itemForm.cost_per_unit,
-                      });
+                      // PASE A: only touch purchase_cost. Backend derives
+                      // cost_per_unit (= purchase_cost) and cost_per_base_unit
+                      // (= purchase_cost / qty) on save — the FE never writes
+                      // those directly (fixes the pre-PASE-A bug where this
+                      // handler silently overwrote cost_per_unit with $/base).
+                      setItemForm({ ...itemForm, purchase_cost: cost });
                     }}
                     placeholder="3450"
                     data-testid="item-purchase-cost"

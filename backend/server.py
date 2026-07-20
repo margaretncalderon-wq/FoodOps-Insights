@@ -1140,7 +1140,7 @@ async def get_reorder_list(user: User = Depends(get_current_user)):
         qty_needed = item.get("par_level", 0) - item.get("stock_quantity", 0)
         pack_size = item.get("pack_size", 1)
         packs_to_order = math.ceil(qty_needed / pack_size)
-        
+
         by_supplier[supplier_id].append({
             "ingredient_id": item["ingredient_id"],
             "name": item["name"],
@@ -1150,7 +1150,10 @@ async def get_reorder_list(user: User = Depends(get_current_user)):
             "pack_size": pack_size,
             "pack_unit": item.get("pack_unit", "unit"),
             "packs_to_order": packs_to_order,
-            "estimated_cost": packs_to_order * pack_size * item.get("cost_per_unit", 0)
+            # PASE A: cost_per_unit is $/purchase_unit (i.e. per full pack),
+            # so estimated_cost = packs_to_order × cpu. Multiplying by
+            # pack_size on top would inflate the total by the container size.
+            "estimated_cost": packs_to_order * item.get("cost_per_unit", 0)
         })
     
     return by_supplier
@@ -5910,8 +5913,19 @@ async def create_production_batch(
                 )
                 
                 required_qty = (ing.get("quantity", 0) * multiplier)
-                unit_cost = inv_item.get("cost_per_unit", 0) if inv_item else 0
-                
+                # PASE A: use cost_for_recipe_line so conversions between the
+                # line's unit and the ingredient's base_unit are respected.
+                # Multiplying required_qty (in ing.unit like "ml") by
+                # cost_per_unit ($/purchase_unit like "botella") would
+                # explode the total by the container factor.
+                from utils.units import cost_for_recipe_line as _cfl_prod, UnitConversionError as _UCE_prod
+                try:
+                    total_cost_line = _cfl_prod(required_qty, ing.get("unit", "unit"), inv_item or {})
+                    unit_cost = round(total_cost_line / required_qty, 6) if required_qty > 0 else 0
+                except _UCE_prod:
+                    total_cost_line = 0.0
+                    unit_cost = float(inv_item.get("cost_per_base_unit") or 0) if inv_item else 0
+
                 computed_inputs.append({
                     "inventory_item_id": item_id,
                     "item_name": ing.get("item_name", inv_item.get("name") if inv_item else "Unknown"),
@@ -5919,10 +5933,10 @@ async def create_production_batch(
                     "required_qty": round(required_qty, 3),
                     "unit": ing.get("unit", "unit"),
                     "unit_cost": unit_cost,
-                    "total_cost": round(required_qty * unit_cost, 2),
+                    "total_cost": round(total_cost_line, 2),
                     "in_stock": inv_item.get("stock_quantity", 0) if inv_item else 0
                 })
-                total_input_cost += required_qty * unit_cost
+                total_input_cost += total_cost_line
         
         # Sub-recipes (components)
         for sub in recipe.get("sub_recipes", []):
@@ -6650,8 +6664,18 @@ async def production_event_plan(data: dict, user: User = Depends(get_current_use
             qty_scaled = base_qty * scale_factor
             if qty_scaled <= 0:
                 continue
-            cost_per_unit = float((inv or {}).get("cost_per_unit") or ing.get("cost_per_unit") or 0)
-            line_cost = qty_scaled * cost_per_unit
+            # PASE A: use cost_for_recipe_line so line_unit → base_unit
+            # conversion is done properly. Multiplying qty_scaled (in
+            # ing.unit) by cost_per_unit ($/purchase_unit) breaks whenever
+            # ing.unit ≠ purchase_unit (e.g. recipe uses ml, ingredient
+            # sold per botella).
+            from utils.units import cost_for_recipe_line as _cfl_kf, UnitConversionError as _UCE_kf
+            try:
+                line_cost = _cfl_kf(qty_scaled, ing.get("unit") or (inv or {}).get("unit") or "unit", inv or {})
+                cost_per_unit = round(line_cost / qty_scaled, 6) if qty_scaled > 0 else 0
+            except _UCE_kf:
+                line_cost = 0.0
+                cost_per_unit = float((inv or {}).get("cost_per_base_unit") or 0)
             recipe_cost_lines += line_cost
             total_input_cost += line_cost
 
@@ -13201,16 +13225,31 @@ async def import_inventory(
                 
                 cost = row.get('costo_por_unidad') or row.get('cost_per_unit') or row.get('costo') or 0
                 stock = row.get('stock_actual') or row.get('stock_quantity') or row.get('stock') or 0
-                
+
                 # Handle NaN values
                 if pd.isna(cost): cost = 0
                 if pd.isna(stock): stock = 0
-                
+
+                # PASE A: incoming CSV "costo_por_unidad" is treated as
+                # purchase_cost (price per pack). purchase_quantity_per_unit
+                # defaults to 1 with purchase_unit = unit, which is the
+                # degenerate-but-safe case (per-unit pricing). Ingredients
+                # that need a real base-unit breakdown must be edited after
+                # import; they'll show `purchase_incomplete=true` if the
+                # unit is a container and no qty/base was provided.
+                _pu = row.get('unidad') or row.get('unit') or "unidad"
+                _bu = _pu  # importer keeps unit and base_unit aligned by default
                 data = {
                     "name": name,
                     "category": row.get('categoria') or row.get('category') or "General",
-                    "unit": row.get('unidad') or row.get('unit') or "unidad",
-                    "cost_per_unit": float(cost),
+                    "unit": _pu,
+                    "base_unit": _bu,
+                    "purchase_unit": _pu,
+                    "purchase_quantity_per_unit": 1.0,
+                    "purchase_cost": float(cost),
+                    "cost_per_unit": float(cost),           # derived, matches purchase_cost
+                    "cost_per_base_unit": float(cost),      # derived, qty=1
+                    "purchase_incomplete": False,
                     "stock_quantity": float(stock),
                     "min_stock": float(row.get('stock_minimo') or row.get('min_stock') or 0) if not pd.isna(row.get('stock_minimo') or row.get('min_stock') or 0) else 0,
                     "supplier": row.get('proveedor') or row.get('supplier') or "",

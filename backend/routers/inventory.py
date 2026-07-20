@@ -195,6 +195,55 @@ async def get_ingredients(inventory_type: Optional[str] = None, user: User = Dep
             continue
     return safe_out
 
+
+# PASE A · Single source of truth helpers ---------------------------------
+# Purchase Format & Price (`purchase_cost`, `purchase_quantity_per_unit`,
+# `purchase_unit`, `base_unit`) is the ONLY writable pricing input from the
+# user. `cost_per_unit` and `cost_per_base_unit` are derived — never accepted
+# from the client. Ingredients without complete purchase data are flagged
+# with `purchase_incomplete=true` so consumers surface a visible warning
+# instead of silently computing from ambiguous legacy fields.
+_PASE_A_ENABLED = os.environ.get("PASE_A_ENABLED", "true").strip().lower() not in {"0", "false", "no"}
+
+
+def _apply_pase_a_derivations(payload: dict) -> None:
+    """Mutate `payload` in-place to enforce PASE A semantics.
+
+    - If purchase_cost + purchase_quantity_per_unit > 0:
+        cost_per_unit       = purchase_cost                  ($/purchase_unit)
+        cost_per_base_unit  = purchase_cost / purchase_qty   ($/base_unit)
+        purchase_incomplete = False
+        unit                = purchase_unit  (keeps stock rollup coherent)
+    - Else: purchase_incomplete = True (do NOT touch legacy cpu/cpbu — the
+      user's prior data is preserved but not trusted for new derivations).
+
+    Feature flag `PASE_A_ENABLED` (default true) short-circuits this whole
+    block, restoring pre-PASE-A behaviour for emergency rollback without a
+    code revert.
+    """
+    if not _PASE_A_ENABLED:
+        return
+    pc = float(payload.get("purchase_cost") or 0)
+    pq = float(payload.get("purchase_quantity_per_unit") or 0)
+    pu = (payload.get("purchase_unit") or "").strip()
+    bu = (payload.get("base_unit") or "").strip()
+    u = (payload.get("unit") or "").strip()
+    complete = pc > 0 and pq > 0 and bool(pu) and bool(bu)
+    if complete:
+        payload["cost_per_unit"] = round(pc, 4)
+        payload["cost_per_base_unit"] = round(pc / pq, 6)
+        payload["purchase_incomplete"] = False
+        payload["unit"] = pu
+    else:
+        # Degenerate-but-safe case: unit == base_unit (e.g. unit=g, base=g).
+        # No ambiguity — cost_per_unit is already priced per base_unit and
+        # Value/recipes will compute correctly. Keep purchase_incomplete=False.
+        if u and bu and u == bu and float(payload.get("cost_per_unit") or 0) > 0:
+            payload["purchase_incomplete"] = False
+        else:
+            payload["purchase_incomplete"] = True
+
+
 @inventory_router.post("/ingredients", response_model=Ingredient)
 async def create_ingredient(data: IngredientCreate, user: User = Depends(get_current_user)):
     from utils.units import derive_base_unit, normalize_unit, convert as unit_convert
@@ -205,24 +254,19 @@ async def create_ingredient(data: IngredientCreate, user: User = Depends(get_cur
     # Auto-derive base_unit if not provided
     if not payload.get("base_unit"):
         payload["base_unit"] = derive_base_unit(payload.get("category", ""))
-    # Auto-derive cost_per_base_unit from the legacy unit + cost
-    if not payload.get("cost_per_base_unit"):
-        legacy_unit = normalize_unit(payload.get("unit") or "")
-        base_unit = normalize_unit(payload["base_unit"])
-        legacy_cost = float(payload.get("cost_per_unit") or 0)
-        if legacy_unit and base_unit:
-            # cost_per_base = legacy_cost * (qty of base_unit in 1 legacy_unit) -- inverse direction
-            ratio = unit_convert(1.0, legacy_unit, base_unit, payload)
-            payload["cost_per_base_unit"] = round(legacy_cost / ratio, 6) if ratio else legacy_cost
-        else:
-            payload["cost_per_base_unit"] = legacy_cost
+    # PASE A · Single source of truth = Purchase Format & Price.
+    # If purchase_cost + purchase_quantity_per_unit are present, derive
+    # cost_per_unit and cost_per_base_unit from them. Otherwise mark the
+    # ingredient as `purchase_incomplete` so consumers show the warning
+    # instead of computing values from ambiguous inputs.
+    _apply_pase_a_derivations(payload)
 
     ingredient_doc = {
         "ingredient_id": ingredient_id,
         "company_id": user.company_id,
         **payload,
-        "average_cost": data.cost_per_unit,
-        "price_history": [{"price": data.cost_per_unit, "date": now.isoformat()}],
+        "average_cost": payload.get("cost_per_unit") or 0,
+        "price_history": [{"price": payload.get("cost_per_unit") or 0, "date": now.isoformat()}],
         "created_at": now.isoformat(),
         "updated_at": now.isoformat()
     }
@@ -366,7 +410,20 @@ async def update_ingredient(ingredient_id: str, data: dict, user: User = Depends
     }
     update_data = {k: v for k, v in (data or {}).items() if k in allowed_fields}
     update_data["updated_at"] = now.isoformat()
-    
+
+    # PASE A · Merge current + update, then derive cost_per_unit and
+    # cost_per_base_unit strictly from purchase_cost/purchase_quantity_per_unit.
+    # Client-supplied cost_per_unit is ignored (defence: a stale FE cannot
+    # write into the source of truth). Sets `purchase_incomplete` accordingly.
+    _merged_for_derive = {**current, **update_data}
+    _apply_pase_a_derivations(_merged_for_derive)
+    if _PASE_A_ENABLED:
+        # Propagate the derived fields back into update_data so the $set
+        # persists them.
+        for _f in ("cost_per_unit", "cost_per_base_unit", "purchase_incomplete", "unit"):
+            if _f in _merged_for_derive:
+                update_data[_f] = _merged_for_derive[_f]
+
     # Detect changes that affect recipe cost — price OR waste — to trigger downstream recalc
     new_cpu = update_data.get("cost_per_unit", current.get("cost_per_unit", 0))
     new_cpbu = update_data.get("cost_per_base_unit", current.get("cost_per_base_unit", 0))
@@ -390,7 +447,10 @@ async def update_ingredient(ingredient_id: str, data: dict, user: User = Depends
     wpu_changed = float(current.get("weight_per_unit_g") or 0) != float(new_wpu or 0)
     new_base = update_data.get("base_unit", current.get("base_unit"))
     base_unit_changed = (current.get("base_unit") or "") != (new_base or "")
-    conversion_meta_changed = density_changed or wpu_changed or base_unit_changed
+    # PASE A: purchase_quantity_per_unit changes also affect derived cost_per_base_unit
+    new_pqty = update_data.get("purchase_quantity_per_unit", current.get("purchase_quantity_per_unit"))
+    pqty_changed = float(current.get("purchase_quantity_per_unit") or 0) != float(new_pqty or 0)
+    conversion_meta_changed = density_changed or wpu_changed or base_unit_changed or pqty_changed
     
     # Log price change
     if cost_changed and "cost_per_unit" in update_data:
@@ -2856,4 +2916,107 @@ async def get_import_template(user: User = Depends(get_current_user)):
         media_type="text/csv",
         headers={"Content-Disposition": "attachment; filename=inventory_import_template.csv"}
     )
+
+
+
+# ============ PASE A · Data-safety endpoints ============
+
+@inventory_router.post("/ingredients/{ingredient_id}/normalize-cost")
+async def normalize_ingredient_cost(
+    ingredient_id: str,
+    body: dict = Body(default={}),
+    user: User = Depends(get_current_user),
+):
+    """PASE A · One-off migrator for legacy rows where `cost_per_unit` was
+    written with the old per-base-unit semantic (bug reproduced in this
+    session: Aceite Capullo, Aceite de Oliva Extra Virgen, Aceite 150ML).
+
+    Requires `confirm: true` in the body. Writes a snapshot into
+    `ingredient_price_reviews` for audit + revertibility. Does NOT touch
+    proposals/order_items. Triggers the standard recipe recalc cascade.
+    """
+    if not body.get("confirm"):
+        raise HTTPException(status_code=400, detail="Missing confirm:true")
+    ing = await db.ingredients.find_one(
+        {"ingredient_id": ingredient_id, "company_id": user.company_id},
+        {"_id": 0},
+    )
+    if not ing:
+        raise HTTPException(status_code=404, detail="Ingredient not found")
+    pc = float(ing.get("purchase_cost") or 0)
+    pq = float(ing.get("purchase_quantity_per_unit") or 0)
+    if pc <= 0 or pq <= 0:
+        raise HTTPException(
+            status_code=400,
+            detail="Ingredient lacks purchase_cost or purchase_quantity_per_unit; complete these first.",
+        )
+    now = datetime.now(timezone.utc).isoformat()
+    prev = {
+        "cost_per_unit": ing.get("cost_per_unit"),
+        "cost_per_base_unit": ing.get("cost_per_base_unit"),
+        "purchase_cost": ing.get("purchase_cost"),
+    }
+    new = {
+        "cost_per_unit": round(pc, 4),
+        "cost_per_base_unit": round(pc / pq, 6),
+        "purchase_incomplete": False,
+        "updated_at": now,
+    }
+    await db.ingredients.update_one(
+        {"ingredient_id": ingredient_id, "company_id": user.company_id},
+        {"$set": new},
+    )
+    await db.ingredient_price_reviews.insert_one({
+        "ingredient_id": ingredient_id,
+        "company_id": user.company_id,
+        "action": "paseA_normalize",
+        "previous_values": prev,
+        "new_values": new,
+        "reviewed_at": now,
+        "reviewed_by": user.email,
+        "note": body.get("note") or "PASE A one-off normalization",
+    })
+    try:
+        await _recalc_recipes_using_ingredient(ingredient_id, user.company_id)
+    except Exception as e:
+        logger.warning(f"recalc after normalize-cost failed for {ingredient_id}: {e}")
+    return {"ingredient_id": ingredient_id, "previous": prev, "new": new}
+
+
+@inventory_router.post("/ingredients/rollback-paseA")
+async def rollback_paseA(body: dict = Body(default={}), user: User = Depends(get_current_user)):
+    """Restore ingredients from a `ingredients_backup_paseA_*` collection.
+
+    Selective by default: skips docs whose `updated_at` moved after the
+    backup was taken (assumes real user edits). Set `force=true` in the
+    body to restore everything unconditionally.
+    """
+    coll = body.get("collection")
+    if not coll or not coll.startswith("ingredients_backup_paseA_"):
+        raise HTTPException(status_code=400, detail="Missing/invalid collection name")
+    force = bool(body.get("force"))
+    backup_docs = await db[coll].find({}, {"_id": 0}).to_list(30000)
+    if not backup_docs:
+        raise HTTPException(status_code=404, detail=f"Backup collection {coll} is empty")
+    restored = 0
+    skipped = 0
+    for bdoc in backup_docs:
+        ing_id = bdoc.get("ingredient_id")
+        if not ing_id:
+            continue
+        current = await db.ingredients.find_one(
+            {"ingredient_id": ing_id}, {"_id": 0, "updated_at": 1},
+        )
+        if not force and current:
+            # If updated after backup, skip.
+            snapshot_ts = str(bdoc.get("updated_at") or "")
+            live_ts = str(current.get("updated_at") or "")
+            if live_ts and snapshot_ts and live_ts > snapshot_ts:
+                skipped += 1
+                continue
+        await db.ingredients.update_one(
+            {"ingredient_id": ing_id}, {"$set": bdoc}, upsert=True,
+        )
+        restored += 1
+    return {"collection": coll, "restored": restored, "skipped_because_edited": skipped}
 

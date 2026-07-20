@@ -959,10 +959,18 @@ async def scale_recipe_preview(recipe_id: str, data: RecipeScalePreview, user: U
     if ingredient_ids:
         cursor = db.ingredients.find(
             {"ingredient_id": {"$in": ingredient_ids}, "company_id": user.company_id},
-            {"_id": 0, "ingredient_id": 1, "name": 1, "unit": 1, "cost_per_unit": 1, "is_discrete_unit": 1, "yield_waste_percent": 1},
+            # PASE A: pull cost_per_base_unit + density/wpu so cost_for_recipe_line
+            # can convert line_unit → base_unit correctly (no more silent 150×
+            # inflation when recipe uses ml and ingredient is priced per botella).
+            {"_id": 0, "ingredient_id": 1, "name": 1, "unit": 1, "cost_per_unit": 1,
+             "cost_per_base_unit": 1, "base_unit": 1, "density_g_per_ml": 1,
+             "weight_per_unit_g": 1, "is_discrete_unit": 1, "yield_waste_percent": 1,
+             "purchase_incomplete": 1},
         )
         async for doc in cursor:
             ing_master[doc["ingredient_id"]] = doc
+
+    from utils.units import cost_for_recipe_line as _cfl_scale, UnitConversionError as _UCE_scale
 
     scaled_ingredients = []
     for ing in recipe.get("ingredients", []):
@@ -970,12 +978,24 @@ async def scale_recipe_preview(recipe_id: str, data: RecipeScalePreview, user: U
         master = ing_master.get(ing.get("ingredient_id"))
         if master:
             # Master is source of truth for cost and discrete flag
-            merged["cost_per_unit"] = master.get("cost_per_unit") or merged.get("cost_per_unit")
             merged["unit"] = merged.get("unit") or master.get("unit")
             if "is_discrete_unit" not in merged or merged.get("is_discrete_unit") is None:
                 merged["is_discrete_unit"] = master.get("is_discrete_unit")
             if not merged.get("name"):
                 merged["name"] = master.get("name")
+            # PASE A: derive line cost via cost_for_recipe_line — it respects
+            # base_unit vs line_unit and returns a proper $ total. Then the
+            # per-unit price shown in the UI is total / qty_scaled.
+            qty_base = float(merged.get("quantity") or 0)
+            factor_scaled = qty_base * factor
+            try:
+                line_total = _cfl_scale(factor_scaled, merged.get("unit") or "unit", master)
+                merged["cost_per_unit"] = round(line_total / factor_scaled, 6) if factor_scaled > 0 else 0
+            except _UCE_scale:
+                # Unresolved unit conversion → surface as zero cost so the UI
+                # can flag it (existing "Costo incompleto" pipeline). Do not
+                # fall back to inflated cost_per_unit which is per-pack.
+                merged["cost_per_unit"] = 0
         scaled_ingredients.append(_scale_ingredient_line(merged, factor))
 
     # Sub-recipes scale recursively (one level — UI rarely needs deeper)
