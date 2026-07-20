@@ -500,6 +500,53 @@ async def check_circular_dependency(parent_id: str, child_id: str, company_id: s
     return False
 
 
+async def _refresh_portion_formats_for_recipe(recipe_id: str, company_id: str) -> int:
+    """Recompute `cost_per_portion` + `suggested_price` + `margin_pct` for
+    every portion_format attached to `recipe_id`, using the recipe's
+    CURRENT total_cost. Called after the recipe is saved / cascaded so
+    the formats table never shows stale snapshots.
+
+    Returns the number of formats touched.
+    """
+    recipe = await db.recipes.find_one(
+        {"recipe_id": recipe_id, "company_id": company_id},
+        {"_id": 0, "total_cost": 1, "food_cost": 1},
+    )
+    if not recipe:
+        return 0
+    total_cost = float(recipe.get("food_cost") or recipe.get("total_cost") or 0)
+    cursor = db.recipe_portion_formats.find(
+        {"recipe_id": recipe_id, "company_id": company_id}, {"_id": 0},
+    )
+    formats = await cursor.to_list(200)
+    now = datetime.now(timezone.utc).isoformat()
+    touched = 0
+    for pf in formats:
+        portions = float(pf.get("portions_obtained") or 0) or 1
+        cost_per_portion = round(total_cost / portions, 4)
+        margin_pct = float(pf.get("target_margin_pct") or 0)
+        sell_price = float(pf.get("sell_price") or 0)
+        # Recompute suggested and margin off the new cost.
+        suggested_price = 0.0
+        if 0 < margin_pct < 100:
+            suggested_price = round(cost_per_portion / (1 - margin_pct / 100), 2)
+        actual_margin = 0.0
+        if sell_price > 0:
+            actual_margin = round((sell_price - cost_per_portion) / sell_price * 100, 2)
+        await db.recipe_portion_formats.update_one(
+            {"format_id": pf["format_id"]},
+            {"$set": {
+                "cost_per_portion": cost_per_portion,
+                "suggested_price": suggested_price,
+                "margin_pct": actual_margin,
+                "updated_at": now,
+            }},
+        )
+        touched += 1
+    return touched
+
+
+
 async def _recalc_parents_of_recipe(
     recipe_id: str,
     company_id: str,
@@ -565,6 +612,11 @@ async def _recalc_parents_of_recipe(
             }},
         )
         affected.append(pid)
+        # PASE A · Refresh portion formats of this parent too (transitive cascade).
+        try:
+            await _refresh_portion_formats_for_recipe(pid, company_id)
+        except Exception:
+            pass
         # Recurse to grandparents.
         upstream = await _recalc_parents_of_recipe(pid, company_id, _seen)
         affected.extend(upstream.get("affected_recipe_ids", []))
@@ -710,6 +762,12 @@ async def get_recipe(recipe_id: str, user: User = Depends(get_current_user)):
             recipe["cost_per_yield"] = round(fresh_total / y, 6)
             portions = float(recipe.get("portions_obtained") or recipe.get("yield_quantity") or 1) or 1
             recipe["cost_per_portion"] = round(fresh_total / portions, 4)
+        # PASE A · Also refresh any portion_formats snapshots so the UI's
+        # "Formatos de Porción" table matches the freshly computed cost.
+        try:
+            await _refresh_portion_formats_for_recipe(recipe_id, user.company_id)
+        except Exception:
+            pass
     except Exception as _e:
         import logging as _l
         _l.getLogger(__name__).warning(
@@ -872,6 +930,14 @@ async def update_recipe(recipe_id: str, data: RecipeCreate, user: User = Depends
             await _recalc_parents_of_recipe(recipe_id, user.company_id)
         except Exception as parent_err:
             _log.warning(f"cascade recalc parents failed for {recipe_id}: {parent_err}")
+
+        # PASE A · Refresh cost_per_portion + suggested_price snapshots on
+        # every portion_format of this recipe, so the "Formatos de Porción"
+        # table always reflects the current recipe cost.
+        try:
+            await _refresh_portion_formats_for_recipe(recipe_id, user.company_id)
+        except Exception as pf_err:
+            _log.warning(f"cascade refresh portion_formats failed for {recipe_id}: {pf_err}")
 
         # Fase 2 SHADOW MODE — enqueue non-blocking cascade walk.
         # Zero mutations to recipes/menus outside `cost_staleness` collection.

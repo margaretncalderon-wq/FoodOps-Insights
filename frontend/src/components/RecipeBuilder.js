@@ -23,7 +23,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from "./ui/command";
 
 // Icons
-import { Plus, Search, Edit, Trash2, ChefHat, Copy, X, AlertTriangle, Link2, DollarSign, History, Percent, Info, Layers, Utensils, Beaker, CookingPot, ArrowRight, RefreshCw, Check, Package, AlertOctagon, Tag, Upload, Image, FileText, BookOpen, Sparkles } from "lucide-react";
+import { Plus, Search, Edit, Trash2, ChefHat, Copy, X, AlertTriangle, Link2, DollarSign, History, Percent, Info, Layers, Utensils, Beaker, CookingPot, ArrowRight, RefreshCw, Check, Package, AlertOctagon, Tag, Upload, Image, FileText, BookOpen, Sparkles, Pencil } from "lucide-react";
 
 import { KoraLoader } from "./KoraLoader";
 import { API_BASE as API } from "../utils/api";
@@ -489,6 +489,7 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
   // Dialogs
   const [costHistoryOpen, setCostHistoryOpen] = useState(false);
   const [portionDialogOpen, setPortionDialogOpen] = useState(false);
+  const [editingFormatId, setEditingFormatId] = useState(null);
   const [packagingDialogOpen, setPackagingDialogOpen] = useState(false);
   const [repairIngredient, setRepairIngredient] = useState(null); // when set, opens IngredientWizard in repair mode
   // Generate Picklist Items from Formats
@@ -904,25 +905,57 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
     }));
   };
 
-  // Portion format management
+  // Portion format management — create OR edit (unified)
   const handleAddPortionFormat = async () => {
     if (!initialRecipe?.recipe_id) {
       toast.error(language === "es" ? "Guarda la receta primero" : "Save recipe first");
       return;
     }
     try {
-      const res = await axios.post(
-        `${API}/api/recipes/${initialRecipe.recipe_id}/portion-formats`,
-        portionForm,
-        { withCredentials: true }
-      );
-      setPortionFormats(prev => [...prev, res.data]);
+      if (editingFormatId) {
+        // Edit existing → PUT
+        const res = await axios.put(
+          `${API}/api/recipes/${initialRecipe.recipe_id}/portion-formats/${editingFormatId}`,
+          portionForm,
+          { withCredentials: true }
+        );
+        // Refresh the list — PUT returns {message} not the full doc, so re-fetch
+        const listRes = await axios.get(
+          `${API}/api/recipes/${initialRecipe.recipe_id}/portion-formats`,
+          { withCredentials: true },
+        );
+        setPortionFormats(listRes.data || []);
+        toast.success(language === "es" ? "Formato actualizado" : "Format updated");
+      } else {
+        // Create new → POST
+        const res = await axios.post(
+          `${API}/api/recipes/${initialRecipe.recipe_id}/portion-formats`,
+          portionForm,
+          { withCredentials: true }
+        );
+        setPortionFormats(prev => [...prev, res.data]);
+        toast.success(language === "es" ? "Formato agregado" : "Format added");
+      }
       setPortionDialogOpen(false);
+      setEditingFormatId(null);
       setPortionForm({ format_name: "", portions_obtained: 1, portion_unit: "serving", sell_price: 0, target_margin_pct: 30, is_default: false });
-      toast.success(language === "es" ? "Formato agregado" : "Format added");
     } catch (error) {
       toast.error("Error");
     }
+  };
+
+  const handleEditPortionFormat = (pf) => {
+    setEditingFormatId(pf.format_id);
+    setPortionForm({
+      format_name: pf.format_name || "",
+      portions_obtained: pf.portions_obtained || 1,
+      portion_unit: pf.portion_unit || "serving",
+      sell_price: pf.sell_price || 0,
+      target_margin_pct: pf.target_margin_pct || 30,
+      is_default: !!pf.is_default,
+      notes: pf.notes || "",
+    });
+    setPortionDialogOpen(true);
   };
 
   const handleDeletePortionFormat = async (formatId) => {
@@ -1960,16 +1993,22 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
                     </Button>
                   )}
                   <Button variant="outline" size="sm" onClick={() => {
-                    // Calculate suggested price when opening dialog
-                    const costPer = totalCost / 1; // portions_obtained default is 1
-                    const margin = 30; // default margin
+                    // PASE A · Portion-format margin heredada del método
+                    // del recipe. Si el usuario eligió Food Cost 30%, el
+                    // formato arranca en 30%; si eligió Markup 65%, en 65%.
+                    const method = form.pricing_method_preference || "food_cost";
+                    const margin = method === "prime_cost" ? targetPrimeCostPct
+                                 : method === "markup"     ? targetGrossMarginPct
+                                 : targetFoodCostPct;
+                    const costPer = totalCost / 1;
                     const suggestedPrice = margin < 100 ? costPer / (1 - margin / 100) : costPer;
+                    setEditingFormatId(null);
                     setPortionForm({
-                      format_name: "", 
-                      portions_obtained: 1, 
+                      format_name: "",
+                      portions_obtained: 1,
                       portion_unit: "serving",
-                      sell_price: Math.round(suggestedPrice * 100) / 100, 
-                      target_margin_pct: margin, 
+                      sell_price: Math.round(suggestedPrice * 100) / 100,
+                      target_margin_pct: margin,
                       is_default: false
                     });
                     setPortionDialogOpen(true);
@@ -2019,7 +2058,28 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
                             {pf.margin_pct?.toFixed(1)}%
                           </span>
                         </TableCell>
-                        <TableCell><Button variant="ghost" size="icon" onClick={() => handleDeletePortionFormat(pf.format_id)}><Trash2 className="w-4 h-4 text-red-500" /></Button></TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleEditPortionFormat(pf)}
+                              data-testid={`edit-portion-format-${pf.format_id}`}
+                              title={language === "es" ? "Editar" : "Edit"}
+                            >
+                              <Pencil className="w-4 h-4 text-blue-600" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleDeletePortionFormat(pf.format_id)}
+                              data-testid={`delete-portion-format-${pf.format_id}`}
+                              title={language === "es" ? "Eliminar" : "Delete"}
+                            >
+                              <Trash2 className="w-4 h-4 text-red-500" />
+                            </Button>
+                          </div>
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -2185,7 +2245,11 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
       <Dialog open={portionDialogOpen} onOpenChange={setPortionDialogOpen}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>{t("addPortionFormat")}</DialogTitle>
+            <DialogTitle>
+              {editingFormatId
+                ? (language === "es" ? "Editar Formato" : "Edit Format")
+                : t("addPortionFormat")}
+            </DialogTitle>
             <DialogDescription className="text-sm text-muted-foreground">
               {language === "es" 
                 ? "Define formatos de porción como en GastroKaizen (4oz Mini, 8oz Plato del día, etc.)"
