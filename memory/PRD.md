@@ -1,6 +1,37 @@
 # Kora OS — Product Requirements Document
 
 
+## Feature — Pricing Architecture · Fase 1b (UI) — COMPLETA (Feb 20, 2026)
+
+**Estado:** ✅ Completo. Testing agent iteration_242 verificó 100% frontend + 100% backend.
+
+### Alcance ejecutado
+1. **Consolidación de Settings** — Tab "Política de Margen" → "Política de
+   Precio y Margen" con dos sub-bloques claramente diferenciados:
+   - A · Motor de precio (targets de cálculo)
+   - B · Margen mínimo (piso de alerta)
+   Banner explicativo elimina la confusión histórica entre ambos rótulos.
+2. **Badges de origen de precio** — Nuevo componente reutilizable
+   `PriceSourceBadge` renderiza chips con tooltips en RecipeBuilder,
+   Portion Formats y PlatedMenuBuilder.
+3. **Reubicación de PVP y min_margin_pct** — Movidos de pestaña Básico a
+   pestaña Costeo del editor de receta, agrupados con el resto de la
+   información de precio.
+4. **Rotulado PlatedMenuBuilder** — Suggested Price card marcado como
+   "referencia" con fórmula visible; label del precio oficial lleva badge
+   Manual / Sugerido / Sólo costo.
+
+### Archivos nuevos
+- `/app/frontend/src/components/pricing/PriceSourceBadge.js`
+- `/app/frontend/src/components/settings/PricingPolicySection.js`
+
+### Archivos modificados
+- `/app/frontend/src/pages/SettingsPage.js` (label + import + TabsContent)
+- `/app/frontend/src/components/RecipeBuilder.js` (Basic → Costing move + badges)
+- `/app/frontend/src/components/PlatedMenuBuilder.js` (badges + reference label)
+
+
+
 ## Feature — Parte B · Cierre "Costo Incompleto" (Feb 20, 2026)
 
 **Estado:** ✅ Completo. 16/16 pytests PASS, testing_agent verificó UI y APIs.

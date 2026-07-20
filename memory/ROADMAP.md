@@ -1,35 +1,44 @@
 # Kora OS — Roadmap
 
-## Fase 1b · UI del pricing cascade (registrada Feb 20, 2026)
+## ✅ Fase 1b · UI del pricing cascade — COMPLETA (Feb 20, 2026)
 
-Fase 1a (backend + cascada determinística de menú) está DONE y validada.
-Falta la parte visual — no perder entre turnos.
+Fase 1a (backend + cascada determinística de menú) DONE y validada.
+Fase 1b (UI) DONE y validada por testing_agent iteration_242.
 
-### Alcance Fase 1b
+**Alcance ejecutado:**
+- Badges de origen de precio en Recipe editor, Portion Formats, PlatedMenuBuilder.
+- Settings consolidado en "Política de Precio y Margen" con sub-bloques A y B.
+- `sell_price` y `min_margin_pct` reubicados de tab Básico a tab Costeo.
+- Suggested Price marcado como "referencia" + fórmula visible.
 
-1. **Badges de fuente de precio** en la UI:
-   - Receta (pestaña Costeo): badge junto al precio que diga
-     `Manual` / `Formato` / `Método receta (Food Cost 30%)` / `Método empresa` / `Sólo costo`.
-   - Formato de porción: mismo badge en cada fila.
-   - Menú: badge junto a `price_per_guest` que diga `Manual` o `Sugerido calculado`.
-   - Todos consumen `/api/pricing/resolve` (endpoint ya expuesto en Fase 1a).
+**Pendiente P2 (no crítico):**
+- Fusión completa estilo Gastrokaizen (una sola tabla con PVP inline editable
+  y margen bruto en vivo por fila). Actualmente PVP se edita a nivel receta,
+  y el modal "Editar Formato" persiste. La consolidación total en una tabla
+  única puede hacerse en una iteración posterior si el usuario lo pide.
 
-2. **Settings — pantalla "Política de Precio y Margen"** consolidando dos sub-bloques:
-   - Sub-bloque A · Motor de precio (método activo, targets Food/Prime/Markup, chef $/h, overhead %).
-   - Sub-bloque B · Margen mínimo de alerta (Política de Margen por tipo/categoría/ítem).
-   - Con rótulos explícitos: "Food 30% es TARGET DE CÁLCULO; Food 35% es PISO DE ALERTA".
+## Próximas iteraciones sugeridas
 
-3. **Receta — fusión estilo Gastrokaizen** del bloque "Costeo y Precio" + modal "Editar Formato":
-   - Una sola tabla en la pestaña Costeo: `Formato | Raciones obtenidas | PVP editable | Costo ración | Margen bruto en vivo`.
-   - Override por fila; eliminar `sell_price` + `min_margin_pct` sueltos de la pestaña Básico.
+- **P1** · Surface daily Culinary Insights (Variance, Staleness, Low Stock,
+  unresolvable conversions) en System Pulse / FoodOps dashboard con
+  deep-links a acción.
+- **P1** · Smart empty states + onboarding para Menu Engineering y Cost
+  Variance dialogs.
+- **P1** · Data Capture Tour (wizard para agregar precios rápidamente a
+  top recetas).
+- **P1** · E-Invoicing Fase 1B+ (XML DGII + firma digital) — pausado
+  hasta que el usuario provea certificados de prueba.
 
-4. **Menú — eliminar "3 números casi iguales"**:
-   - Uno oficial (Sugerido Calculado, del cascade), otros como referencia rotulada.
-   - "Precio Base por Invitado" pasa a ser override explícito claramente marcado.
-
-### Otras deudas registradas
+## Otras deudas registradas
 
 - Sales report toggle "Ocultar inactivos" (Feb 2026) — ya DONE.
 - Portion format cascade + PUT edit — ya DONE.
-- Feature flag `PASE_A_ENABLED` — eliminar en commit de limpieza dentro de 2 semanas post-deploy estable.
-- 3 aceites en producción de Ciano necesitan normalize-cost (endpoint ya existe; falta que usuario lo dispare).
+- Feature flag `PASE_A_ENABLED` — eliminar en commit de limpieza dentro
+  de 2 semanas post-deploy estable.
+- 3 aceites en producción de Ciano necesitan normalize-cost (endpoint ya
+  existe; falta que usuario lo dispare).
+- **P2** · Extraer secciones de `server.py` (~16k líneas) a routers
+  dedicados: Menu Engineering, Cost Variance, Plated Menus.
+- **P2** · Unified Contact Model & Communications components.
+- **P2** · Fusión final Gastrokaizen (tabla única con PVP inline por
+  formato + margen bruto en vivo).

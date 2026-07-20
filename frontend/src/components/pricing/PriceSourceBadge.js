@@ -1,4 +1,3 @@
-import { Badge } from "../ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui/tooltip";
 import { Info } from "lucide-react";
 
@@ -90,14 +89,13 @@ export default function PriceSourceBadge({
     <TooltipProvider>
       <Tooltip>
         <TooltipTrigger asChild>
-          <Badge
-            variant="outline"
-            className={`${spec.className} ${sizeCls} font-medium border inline-flex items-center gap-1`}
+          <span
+            className={`${spec.className} ${sizeCls} font-medium border inline-flex items-center gap-1 rounded-md`}
             data-testid={testId || `price-source-badge-${source}`}
           >
             {enriched}
             {showIcon && <Info className="w-2.5 h-2.5 opacity-60" />}
-          </Badge>
+          </span>
         </TooltipTrigger>
         <TooltipContent side="top" className="max-w-xs text-xs">
           {tooltip}

@@ -1,6 +1,66 @@
 # Kora OS - Changelog
 
 
+## February 2026 — Pricing Architecture · Fase 1b (UI)
+
+### Frontend — Consolidación de Settings
+- **NUEVO** `/app/frontend/src/components/settings/PricingPolicySection.js`
+  consolida en un único tab dos sub-bloques independientes:
+  * **A · Motor de precio** — inputs para `recipe_target_food_cost_percent`,
+    `recipe_target_prime_cost_percent`, `recipe_target_gross_margin_percent`,
+    `chef_hourly_rate`, `recipe_overhead_percent`. Guardado vía
+    `PUT /api/settings/company`.
+  * **B · Margen mínimo** — embebe `MarginPolicySection` existente. Cascada
+    per-item → categoría → tipo intacta.
+- Banner explicativo verde en el tope dejando claro que A es TARGET DE
+  CÁLCULO (30% Food Cost = costo × 3.33) mientras B es PISO DE ALERTA
+  (35% Food Cost = flag rojo, NO recalcula precios). Termina la confusión
+  histórica entre ambas cascadas.
+- Tab renombrado en `SettingsPage.js`: "Política de Margen" → "Política de
+  Precio y Margen" / "Margin Policy" → "Pricing & Margin Policy". El id
+  del tab (`margin-policy`) se mantiene para no romper deep-links.
+
+### Frontend — Badges de origen de precio
+- **NUEVO** `/app/frontend/src/components/pricing/PriceSourceBadge.js`
+  componente reutilizable con tooltips y funciones helpers:
+  * `computeRecipePriceSource({ recipeSellPrice, methodPref, methodPrice })`
+  * `computeFormatPriceSource({ formatSellPrice, formatSuggestedPrice })`
+  * `computeMenuPriceSource({ sellPricePerGuest, suggestedPricePerGuest })`
+- Estados soportados con estilos distintos: `manual_override` (Manual, slate),
+  `format` (Formato, amber), `recipe_method` (Método receta, indigo),
+  `company_method` (Método empresa, purple), `cost_plus_fallback`
+  (Sólo costo, rose), `menu_method` (Sugerido calculado, blue).
+- Renderiza como `<span>` (no `<div>`) para poder anidarse en cualquier
+  contexto sin violar HTML.
+
+### Frontend — RecipeBuilder consolidación
+- `sell_price` y `min_margin_pct` REMOVIDOS de la pestaña Básico. Ahora
+  viven exclusivamente en la pestaña Costeo, en un bloque agrupado con
+  labels claros y placeholders explicativos.
+- Chip "Precio actual" en Costeo ahora lleva `PriceSourceBadge` con el
+  método/target que aplicó ("Método receta: Food Cost 30%").
+- Chip fallback rojo "Sin precio configurado — se muestra sólo el costo"
+  aparece cuando `sell_price=0` y hay `costPerPortion>0`. Impide la
+  confusión de tener sólo un número sin contexto.
+- Tabla de Portion Formats: cada fila muestra badge propio (Manual /
+  Formato / Sólo costo) al lado del precio.
+
+### Frontend — PlatedMenuBuilder rotulado
+- Label `sell_price_per_guest` ahora lleva `PriceSourceBadge` inline
+  (Manual / Sugerido calculado / Sólo costo).
+- Card "Suggested Price" incluye badge "referencia" y la fórmula
+  `= costo ÷ (1 − margen)` para desambiguar que es una referencia
+  calculada, no el precio oficial de la cotización.
+- Copy contextual bajo el input aclara si el número es override manual
+  o si las cotizaciones usarán el sugerido.
+
+### Testing
+- `/app/test_reports/iteration_242.json`: 100% frontend + 100% backend.
+- pytest `/app/backend/tests/test_pricing_cascades.py` — 8/8 verde.
+- Sin regresiones en flujos de creación/edición de recetas y menús.
+
+
+
 ## February 2026 — Parte B · Cierre: propagación de "Costo incompleto"
 
 ### Backend
