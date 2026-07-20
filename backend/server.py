@@ -9782,8 +9782,23 @@ async def remove_member(membership_id: str, user: User = Depends(get_current_use
         if not other_active:
             await db.users.update_one(
                 {"user_id": member_user_id, "company_id": user.company_id},
-                {"$set": {"is_active": False, "updated_at": datetime.now(timezone.utc).isoformat()}}
+                {"$set": {"is_active": False, "status": "inactive",
+                          "deactivated_at": datetime.now(timezone.utc).isoformat(),
+                          "updated_at": datetime.now(timezone.utc).isoformat()}}
             )
+            # Auto-unassign any leads owned by this deactivated user so the
+            # CRM sales report doesn't leave them stuck under an "Inactivo"
+            # badge with 75 orphan leads (as reported by the user).
+            try:
+                now_iso = datetime.now(timezone.utc).isoformat()
+                await db.leads.update_many(
+                    {"owner_id": member_user_id, "company_id": user.company_id},
+                    {"$set": {"owner_id": None, "owner_email": None,
+                              "reassigned_at": now_iso,
+                              "reassigned_reason": "user_deactivated"}},
+                )
+            except Exception:
+                pass
     
     return {"success": True}
 
@@ -14339,20 +14354,52 @@ async def delete_user(
     user_id: str,
     user: User = Depends(get_current_user)
 ):
-    """Delete a user (super admin only)"""
+    """Soft-delete a user (super admin only). The user is marked inactive
+    (`is_active=false`, `status="inactive"`) instead of being removed from
+    the DB, so historical data (leads, activity, audit trail) stays intact.
+    Any leads currently assigned to them are auto-unassigned so they surface
+    as "Sin Asignar" in the CRM sales report."""
     if not user.is_super_admin:
         raise HTTPException(status_code=403, detail="Super admin access required")
-    
+
     # Prevent self-deletion
     if user_id == user.user_id:
         raise HTTPException(status_code=400, detail="Cannot delete yourself")
-    
-    result = await db.users.delete_one({"user_id": user_id})
-    
-    if result.deleted_count == 0:
+
+    now = datetime.now(timezone.utc).isoformat()
+    target = await db.users.find_one({"user_id": user_id}, {"_id": 0, "company_id": 1, "email": 1})
+    if not target:
         raise HTTPException(status_code=404, detail="User not found")
-    
-    return {"success": True}
+
+    # Soft-delete: mark inactive so the CRM sales report shows them under
+    # the "Inactivo" badge (amber) instead of hard-deleting.
+    result = await db.users.update_one(
+        {"user_id": user_id},
+        {"$set": {
+            "is_active": False,
+            "status": "inactive",
+            "deactivated_at": now,
+            "deactivated_by": user.user_id,
+            "updated_at": now,
+        }},
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # Auto-unassign any leads owned by this user (keeps the sales report
+    # clean without needing the "Reasignar leads huérfanos" button click).
+    leads_updated = 0
+    try:
+        r_leads = await db.leads.update_many(
+            {"owner_id": user_id, "company_id": target.get("company_id")},
+            {"$set": {"owner_id": None, "owner_email": None,
+                      "reassigned_at": now, "reassigned_reason": "user_deactivated"}},
+        )
+        leads_updated = r_leads.modified_count
+    except Exception:
+        pass
+
+    return {"success": True, "soft_deleted": True, "leads_unassigned": leads_updated}
 
 
 # ============== SUPER ADMIN: MODULE MANAGEMENT ==============

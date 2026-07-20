@@ -2405,9 +2405,11 @@ async def get_owners_sales_report(
     if owner_ids:
         users_data = await db.users.find(
             {"user_id": {"$in": owner_ids}},
-            {"_id": 0, "user_id": 1, "name": 1, "first_name": 1, "last_name": 1, "email": 1}
+            {"_id": 0, "user_id": 1, "name": 1, "first_name": 1, "last_name": 1,
+             "email": 1, "is_active": 1, "status": 1}
         ).to_list(100)
         user_names = {}
+        inactive_ids = set()
         for u in users_data:
             name = u.get("name")
             if not name:
@@ -2418,14 +2420,24 @@ async def get_owners_sales_report(
                 email = u.get("email", "")
                 name = email.split("@")[0].replace(".", " ").title() if email else u["user_id"]
             user_names[u["user_id"]] = name
-        
+            # Soft-deleted / deactivated users are still in the DB but should
+            # show up in the sales report under the "Inactivo" badge (amber),
+            # not with the crossed-out "Eliminado" red style anymore.
+            if u.get("is_active") is False or u.get("status") in ("inactive", "removed", "revoked", "suspended"):
+                inactive_ids.add(u["user_id"])
+
         for oid in owner_stats:
             if oid != "__unassigned__":
                 if oid in user_names:
                     owner_stats[oid]["owner_name"] = user_names[oid]
+                    if oid in inactive_ids:
+                        # Existing user but deactivated → flag same as deleted
+                        # so the FE renders the "Inactivo" badge.
+                        owner_stats[oid]["is_deleted"] = True
                 else:
-                    # User was deleted - mark as such
-                    owner_stats[oid]["owner_name"] = "Usuario Eliminado"
+                    # User was hard-deleted from DB (legacy) — mark inactive
+                    # too. Label unified to "Usuario Inactivo".
+                    owner_stats[oid]["owner_name"] = "Usuario Inactivo"
                     owner_stats[oid]["is_deleted"] = True
     
     # Set name for unassigned

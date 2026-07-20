@@ -201,8 +201,8 @@ export default function SalesReportSection() {
 
   const handleCleanup = async () => {
     if (!window.confirm(isEs
-      ? "¿Reasignar leads de usuarios eliminados a 'Sin Asignar'?"
-      : "Reassign leads from deleted users to 'Unassigned'?")) return;
+      ? "¿Reasignar leads de usuarios inactivos a 'Sin Asignar'?"
+      : "Reassign leads from inactive users to 'Unassigned'?")) return;
     try {
       const res = await axios.post(`${API}/api/crm/cleanup-orphaned-assignments`, null, { withCredentials: true });
       toast.success(`${res.data.message}`);
@@ -286,7 +286,7 @@ export default function SalesReportSection() {
         <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-center gap-2">
           <AlertTriangle className="w-5 h-5 text-amber-500" />
           <p className="text-sm text-amber-700">
-            {isEs ? "Hay leads asignados a usuarios eliminados." : "There are leads assigned to deleted users."}
+            {isEs ? "Hay leads asignados a usuarios inactivos." : "There are leads assigned to inactive users."}
           </p>
         </div>
       )}
@@ -396,12 +396,12 @@ export default function SalesReportSection() {
                   ) : (
                     <>
                       {reportData.owners.map((owner, idx) => (
-                        <TableRow key={owner.owner_id || `u-${idx}`} className={`${!owner.owner_id ? "bg-yellow-50/50" : ""} ${owner.is_deleted ? "bg-red-50/50" : ""}`} data-testid={`owner-row-${owner.owner_id || 'unassigned'}`}>
+                        <TableRow key={owner.owner_id || `u-${idx}`} className={`${!owner.owner_id ? "bg-yellow-50/50" : ""} ${owner.is_deleted ? "bg-amber-50/40 opacity-60" : ""}`} data-testid={`owner-row-${owner.owner_id || 'unassigned'}`}>
                           <TableCell className="font-medium">
                             <div className="flex items-center gap-2">
-                              <UserCircle className={`w-4 h-4 ${owner.is_deleted ? 'text-red-500' : owner.owner_id ? 'text-primary' : 'text-yellow-500'}`} />
-                              <span className={owner.is_deleted ? "text-red-600 line-through" : ""}>{owner.owner_name || (isEs ? "Sin Asignar" : "Unassigned")}</span>
-                              {owner.is_deleted && <Badge variant="destructive" className="text-xs">{isEs ? "Eliminado" : "Deleted"}</Badge>}
+                              <UserCircle className={`w-4 h-4 ${owner.is_deleted ? 'text-amber-600' : owner.owner_id ? 'text-primary' : 'text-yellow-500'}`} />
+                              <span className={owner.is_deleted ? "text-muted-foreground" : ""}>{owner.owner_name || (isEs ? "Sin Asignar" : "Unassigned")}</span>
+                              {owner.is_deleted && <Badge variant="secondary" className="text-xs bg-amber-100 text-amber-800 hover:bg-amber-100">{isEs ? "Inactivo" : "Inactive"}</Badge>}
                             </div>
                           </TableCell>
                           <TableCell className="text-center font-medium">{owner.total_leads}</TableCell>
