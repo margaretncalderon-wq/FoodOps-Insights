@@ -1,6 +1,32 @@
 # Kora OS - Changelog
 
 
+## February 20, 2026 — Iteration 243 · Opción A + Cascade Bugfix
+
+### 🐛 BUGFIX crítico — Portion formats no se refrescaban con cambios de ingrediente
+- **Síntoma reportado por usuario:** "cuando cambian los ingredientes y el precio de la receta sube o baja, no cambia el costo en los formatos de porción".
+- **Root cause:** `_recalc_recipes_using_ingredient` en `routers/inventory.py` actualizaba `recipes.total_cost` pero NUNCA llamaba `_refresh_portion_formats_for_recipe`. Los snapshots del formato quedaban con `cost_per_portion` viejo.
+- **Fix:** Después de cada `db.recipes.update_one` dentro del loop, ahora se llama `_refresh_portion_formats_for_recipe(rid, company_id)` con try/except de seguridad.
+- **Regresión test:** `/app/backend/tests/test_ingredient_to_portion_format_cascade.py` — inserta ingrediente + receta + portion_format, dispara `_recalc_recipes_using_ingredient` y valida que `cost_per_portion` Y `suggested_price` del formato se actualicen. Pasa.
+
+### ✨ UI Recipe Costing — Opción A · Inversión de jerarquía
+- Eliminado el bloque azul dominante "PRECIO DE VENTA SUGERIDO $826.41".
+- Nueva card grande `recipe-official-price-card` en la parte superior:
+  * Verde (`emerald`) si margen sano, ámbar si intermedio, rojo si bajo el piso.
+  * Muestra el sell_price en `text-4xl` como valor dominante.
+  * Chip pequeño `OFFICIAL SELL PRICE` + `PriceSourceBadge` inline.
+  * Badge "Bajo margen mínimo / Below min margin" cuando aplica.
+  * Botón "Usar sugerido · $XX" cuando no hay precio configurado.
+- Debajo, la caja gris de inputs (PVP override + min margin) sin cambios estructurales.
+- Al fondo, `<details data-testid="recipe-suggested-references">` colapsable con 3 tarjetas — Food Cost / Prime Cost / Markup — cada una con fórmula visible y botón "Usar este método →". El método activo se marca `ACTIVE` en azul sin botón de cambio.
+
+### Testing
+- `/app/test_reports/iteration_243.json`: 100% backend + 100% frontend.
+- 13/13 pytests verde.
+- Testing agent confirmó: sin bloque azul legacy, apply-suggested-price cuando corresponde, portion_formats se refrescan tras cambios de ingrediente.
+
+
+
 ## February 2026 — Pricing Architecture · Fase 1b (UI)
 
 ### Frontend — Consolidación de Settings
