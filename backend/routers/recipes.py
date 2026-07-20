@@ -1981,3 +1981,64 @@ async def delete_recipe_image(recipe_id: str, user: User = Depends(get_current_u
     )
     
     return {"message": "Image deleted"}
+
+
+# ============ PASE A · Sub-recipe live cost preview ============
+
+@recipes_router.post("/sub-recipe-cost-preview")
+async def preview_sub_recipe_cost(payload: dict, user: User = Depends(get_current_user)):
+    """Live cost preview for a sub-recipe line inside a parent recipe.
+
+    Called by the frontend `SubRecipeRow` useEffect whenever the user
+    changes `quantity_used` or `unit`. Returns the properly converted
+    line cost — the sub-recipe master document (its own cost_per_yield,
+    yield_unit, etc.) is NEVER touched by this endpoint. Only the parent
+    recipe's line-level `total_cost` reflects the input.
+
+    Mirrors the ingredient path (`/api/inventory/ingredients/cost-preview`)
+    so both cost sources are backend-derived — never client-computed.
+    """
+    from utils.units import convert as unit_convert, normalize_unit, UnitConversionError
+
+    child_recipe_id = payload.get("child_recipe_id") or payload.get("recipe_id")
+    quantity = float(payload.get("quantity") or payload.get("quantity_used") or 0)
+    parent_unit = normalize_unit(payload.get("unit") or "")
+
+    if not child_recipe_id:
+        raise HTTPException(status_code=400, detail="child_recipe_id required")
+
+    child = await db.recipes.find_one(
+        {"recipe_id": child_recipe_id, "company_id": user.company_id},
+        {"_id": 0, "name": 1, "yield_unit": 1, "cost_per_yield": 1,
+         "has_conversion_errors": 1, "conversion_errors_count": 1},
+    )
+    if not child:
+        raise HTTPException(status_code=404, detail="Sub-recipe not found")
+
+    child_yield_unit = normalize_unit(child.get("yield_unit") or "portion")
+    cost_per_yield = float(child.get("cost_per_yield") or 0)
+
+    conversion_error = None
+    converted_qty = quantity
+    if parent_unit and child_yield_unit and parent_unit != child_yield_unit:
+        try:
+            converted_qty = unit_convert(quantity, parent_unit, child_yield_unit, {}) or quantity
+        except UnitConversionError as ce:
+            conversion_error = {
+                "from_unit": ce.from_unit, "to_unit": ce.to_unit,
+                "reason": ce.reason, "ingredient_name": child.get("name") or "",
+            }
+            converted_qty = 0.0
+
+    cost = 0.0 if conversion_error else round(converted_qty * cost_per_yield, 4)
+
+    return {
+        "cost": cost,
+        "converted_quantity": round(converted_qty, 4) if not conversion_error else None,
+        "child_yield_unit": child_yield_unit,
+        "child_cost_per_yield": cost_per_yield,
+        "child_has_conversion_errors": bool(child.get("has_conversion_errors")),
+        "conversion_error": conversion_error,
+        "compatible": conversion_error is None,
+    }
+

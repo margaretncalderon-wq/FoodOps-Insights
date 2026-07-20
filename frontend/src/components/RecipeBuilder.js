@@ -185,6 +185,93 @@ function IngredientPicker({ ingredients, alreadyAddedIds, onPick, onRepair, isEs
 }
 
 /**
+ * SubRecipeRow — Renders one sub-recipe line with live cost preview.
+ * Mirrors IngredientRow: whenever quantity_used or unit changes, hits
+ * `/api/recipes/sub-recipe-cost-preview` which returns the converted
+ * cost. The sub-recipe MASTER document is never touched.
+ */
+function SubRecipeRow({ sub, onChange, onRemove }) {
+  const [preview, setPreview] = useState({
+    cost: sub.total_cost || 0, compatible: true, message: null,
+  });
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!sub.child_recipe_id || !sub.quantity_used || sub.quantity_used <= 0) {
+      setPreview({ cost: 0, compatible: true, message: null });
+      return;
+    }
+    const t = setTimeout(async () => {
+      setLoading(true);
+      try {
+        const res = await axios.post(
+          `${API}/api/recipes/sub-recipe-cost-preview`,
+          {
+            child_recipe_id: sub.child_recipe_id,
+            quantity: sub.quantity_used,
+            unit: sub.unit,
+          },
+          { withCredentials: true },
+        );
+        setPreview(res.data);
+        if (typeof res.data.cost === "number") {
+          onChange("total_cost", res.data.cost);
+        }
+      } catch {
+        // ignore — keep last preview
+      } finally {
+        setLoading(false);
+      }
+    }, 300);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sub.child_recipe_id, sub.quantity_used, sub.unit]);
+
+  const convErr = preview.conversion_error;
+
+  return (
+    <TableRow className={convErr ? "bg-rose-50/70" : ""}>
+      <TableCell className="font-medium">
+        <div className="flex items-center gap-1.5">
+          {sub.child_recipe_name}
+          {convErr && (
+            <span
+              title={`No conversion between ${convErr.from_unit} and ${convErr.to_unit}: ${convErr.reason}`}
+              className="inline-flex items-center gap-1 text-rose-700 text-xs bg-rose-100 px-1.5 py-0.5 rounded"
+              data-testid={`sub-conversion-error-${sub.child_recipe_id}`}
+            >⚠️ sin conv. {convErr.from_unit}→{convErr.to_unit}</span>
+          )}
+        </div>
+      </TableCell>
+      <TableCell>
+        <Input
+          type="number" min="0" step="0.01" className="w-20 text-right"
+          value={sub.quantity_used}
+          onChange={(e) => onChange("quantity_used", parseFloat(e.target.value) || 0)}
+          data-testid={`sub-recipe-qty-${sub.child_recipe_id}`}
+        />
+      </TableCell>
+      <TableCell className="text-muted-foreground">{sub.unit}</TableCell>
+      <TableCell className="text-right font-mono">
+        <div className="flex items-center justify-end gap-1.5">
+          {loading && <KoraLoader size={12} />}
+          <span className={convErr ? "text-rose-700" : "text-foreground"}>
+            ${(preview.cost || 0).toFixed(2)}
+          </span>
+        </div>
+      </TableCell>
+      <TableCell>
+        <Button variant="ghost" size="icon" onClick={onRemove}>
+          <X className="w-4 h-4 text-red-500" />
+        </Button>
+      </TableCell>
+    </TableRow>
+  );
+}
+
+
+
+/**
  * IngredientRow — Renders one recipe ingredient line with:
  * - Editable quantity + unit
  * - Live cost preview (calls /api/inventory/ingredients/cost-preview)
@@ -1574,13 +1661,12 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
                   </TableHeader>
                   <TableBody>
                     {form.sub_recipes.map(sub => (
-                      <TableRow key={sub.child_recipe_id}>
-                        <TableCell className="font-medium">{sub.child_recipe_name}</TableCell>
-                        <TableCell><Input type="number" min="0" step="0.01" className="w-20 text-right" value={sub.quantity_used} onChange={(e) => updateSubRecipe(sub.child_recipe_id, "quantity_used", parseFloat(e.target.value) || 0)} /></TableCell>
-                        <TableCell className="text-muted-foreground">{sub.unit}</TableCell>
-                        <TableCell className="text-right font-mono">${fmtNum((sub.total_cost || 0))}</TableCell>
-                        <TableCell><Button variant="ghost" size="icon" onClick={() => removeSubRecipe(sub.child_recipe_id)}><X className="w-4 h-4 text-red-500" /></Button></TableCell>
-                      </TableRow>
+                      <SubRecipeRow
+                        key={sub.child_recipe_id}
+                        sub={sub}
+                        onChange={(field, value) => updateSubRecipe(sub.child_recipe_id, field, value)}
+                        onRemove={() => removeSubRecipe(sub.child_recipe_id)}
+                      />
                     ))}
                   </TableBody>
                 </Table>
