@@ -1,6 +1,62 @@
 # Kora OS - Changelog
 
 
+## February 2026 — Parte B · Conversión de unidades: fallar explícito
+
+### B.3 · Excepción `UnitConversionError`
+- **`utils/units.py`**: nueva clase `UnitConversionError(ValueError)` con
+  atributos `from_unit`, `to_unit`, `reason`, `ingredient_name`.
+- `convert()` ahora **lanza excepción** cuando la conversión es imposible
+  (unidad desconocida, falta `density_g_per_ml`, falta `weight_per_unit_g`,
+  puente inexistente). Antes retornaba `None` silencioso → costo $0.
+- `cost_for_recipe_line()` propaga la excepción.
+- `is_compatible()` la captura y devuelve `False` (para chequeos rápidos).
+
+### B.1 · Bridge count↔weight vía `weight_per_unit_g`
+- Nuevo campo opcional en el ingrediente (schema flexible, no migración).
+- UI: bloque amber en el form de ingrediente cuando `base_unit` es de
+  conteo (unidad, pieza, docena…) — capturar peso promedio por unidad.
+- `convert()` usa este campo para count→weight y weight→count.
+
+### B.2 · Bridge weight↔volume vía `density_g_per_ml`
+- Campo ya existía en el modelo; ahora capturable desde UI (bloque azul
+  cuando `base_unit` es peso o volumen).
+- Prioridad: explícito del ingrediente **>** whitelist hardcoded (18 keys,
+  deprecado como fuente primaria pero conservado como fallback interno).
+
+### Propagación al costeo
+- `calculate_recipe_cost()` captura `UnitConversionError` y persiste en
+  la línea un campo `conversion_error: {from_unit, to_unit, reason,
+  ingredient_name}` en vez de $0 silencioso. `total_cost` de la línea
+  queda en 0 pero **con la razón explícita adjunta**.
+- Endpoint `/inventory/ingredients/cost-preview` devuelve el objeto
+  `conversion_error` + `message` visible.
+
+### UI
+- `RecipeBuilder.js`: cuando un line item tiene `conversion_error`, la
+  fila se pinta **fondo rosa**, aparece badge rojo `⚠️ sin conv.
+  from→to` con tooltip mostrando el `reason` exacto.
+
+### Validación end-to-end
+- 11/11 tests pasan (incluye tests nuevos B.3, B.1, B.2 y no-regresión
+  sobre las 27 recetas).
+- Consistencia real DB: 27/27 recetas siguen con `stored == sum(lines) ±$0.01`.
+- E2E manual: ingrediente "Egg" sin `weight_per_unit_g` + preview con
+  `unit=g, qty=150` → HTTP 200 con `conversion_error.reason="missing
+  weight_per_unit_g (set the average weight per unit)"`, `cost=$0`, y
+  `message="⚠️ Sin conversión disponible entre 'g' y 'unidad': ..."`.
+- Contra-prueba con `weight_per_unit_g=60` → `cost=$20` (2.5 huevos ×
+  $8) — funciona correctamente.
+
+### Notas
+- Whitelist hardcoded (`DEFAULT_DENSITIES`, 18 keys) queda como fallback
+  interno, **NO se presenta al usuario como dato confirmado**. Si el
+  chef captura `density_g_per_ml`, ese valor gana.
+- Sin cambios de schema en colecciones existentes; los dos campos nuevos
+  viven en `db.ingredients` como campos opcionales (dinámicos en Mongo).
+
+
+
 ## February 2026 — Prioridad 2 · Fórmula waste (AP/EP) corregida
 
 ### Cambio

@@ -229,14 +229,27 @@ function IngredientRow({ ing, onChange, onRemove, isEs }) {
   }, [ing.item_id, ing.quantity, ing.unit, ing.waste_factor_pct]);
 
   const showWarning = !preview.compatible && ing.quantity > 0;
+  const convErr = preview.conversion_error;
   const usingDefaultWaste = typeof ing.waste_factor_pct !== "number" && (preview.default_waste_pct || 0) > 0;
 
   return (
-    <TableRow data-testid={`ingredient-row-${ing.item_id}`} className={showWarning ? "bg-amber-50/50" : ""}>
+    <TableRow data-testid={`ingredient-row-${ing.item_id}`}
+              className={convErr ? "bg-rose-50/70" : (showWarning ? "bg-amber-50/50" : "")}>
       <TableCell className="font-medium">
         <div className="flex items-center gap-1.5">
           {ing.item_name}
-          {showWarning && (
+          {convErr && (
+            <span
+              title={preview.message || `No conversion between ${convErr.from_unit} and ${convErr.to_unit}: ${convErr.reason}`}
+              className="inline-flex items-center gap-1 text-rose-700 text-xs bg-rose-100 px-1.5 py-0.5 rounded"
+              data-testid={`conversion-error-${ing.item_id}`}
+            >
+              ⚠️ {ing.item_name && ing.unit
+                    ? `sin conv. ${convErr.from_unit}→${convErr.to_unit}`
+                    : "sin conv."}
+            </span>
+          )}
+          {!convErr && showWarning && (
             <span title={preview.message || ""} className="text-amber-600 text-xs">⚠️</span>
           )}
         </div>

@@ -156,7 +156,7 @@ async def calculate_recipe_cost(ingredients: List[RecipeIngredient], sub_recipes
     against the tenant's ingredient/recipe collections. Callers can use this to
     surface actionable diagnostics ("Ingredient X was deleted; re-link or remove").
     """
-    from utils.units import cost_for_recipe_line, normalize_unit
+    from utils.units import cost_for_recipe_line, normalize_unit, UnitConversionError
     total_cost = 0.0
     updated_ingredients = []
     updated_sub_recipes = []
@@ -197,7 +197,19 @@ async def calculate_recipe_cost(ingredients: List[RecipeIngredient], sub_recipes
                 applied_waste = max(0.0, min(applied_waste, 99.99))
                 yield_frac = 1.0 - applied_waste / 100.0
                 effective_qty = quantity / yield_frac if yield_frac > 0 else quantity
-                line_cost = cost_for_recipe_line(effective_qty, line_unit, ingredient)
+                # Fail-explicit conversion: if the recipe unit cannot be
+                # converted to the ingredient's base_unit, mark the line as
+                # `conversion_error` instead of returning $0 silently. The UI
+                # surfaces this to the user with the exact reason.
+                try:
+                    line_cost = cost_for_recipe_line(effective_qty, line_unit, ingredient)
+                    conv_err = None
+                except UnitConversionError as ce:
+                    line_cost = 0.0
+                    conv_err = {
+                        "from_unit": ce.from_unit, "to_unit": ce.to_unit,
+                        "reason": ce.reason, "ingredient_name": ce.ingredient_name,
+                    }
 
                 updated_ingredients.append({
                     **ing_dict,
@@ -210,6 +222,7 @@ async def calculate_recipe_cost(ingredients: List[RecipeIngredient], sub_recipes
                     "total_cost": round(line_cost, 4),
                     "net_quantity": round(effective_qty, 4),
                     "applied_waste_pct": round(applied_waste, 2),
+                    "conversion_error": conv_err,
                 })
                 total_cost += line_cost
                 continue

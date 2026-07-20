@@ -235,7 +235,7 @@ async def create_ingredient(data: IngredientCreate, user: User = Depends(get_cur
 @inventory_router.post("/ingredients/cost-preview")
 async def preview_ingredient_cost(payload: dict, user: User = Depends(get_current_user)):
     """Live cost preview for a recipe line."""
-    from utils.units import cost_for_recipe_line, convert, normalize_unit, unit_kind, is_compatible
+    from utils.units import cost_for_recipe_line, convert, normalize_unit, unit_kind, is_compatible, UnitConversionError
     ingredient_id = payload.get("ingredient_id")
     quantity = float(payload.get("quantity") or 0)
     line_unit = normalize_unit(payload.get("unit") or "")
@@ -251,26 +251,54 @@ async def preview_ingredient_cost(payload: dict, user: User = Depends(get_curren
         raise HTTPException(status_code=404, detail="Ingredient not found")
 
     base_unit = normalize_unit(ingredient.get("base_unit") or ingredient.get("unit") or "")
-    qty_in_base = convert(quantity, line_unit, base_unit, ingredient) if (quantity and line_unit and base_unit) else None
-    compatible = is_compatible(line_unit, base_unit, ingredient) if (line_unit and base_unit) else False
+
+    # Try conversion + cost. Any UnitConversionError → surface explicit error,
+    # never fall back to a $0 cost.
+    conversion_error = None
+    qty_in_base = None
+    compatible = False
+    if line_unit and base_unit:
+        try:
+            qty_in_base = convert(quantity, line_unit, base_unit, ingredient) if quantity else None
+            compatible = True
+        except UnitConversionError as ce:
+            conversion_error = {
+                "from_unit": ce.from_unit, "to_unit": ce.to_unit,
+                "reason": ce.reason, "ingredient_name": ce.ingredient_name,
+            }
 
     message = None
-    if line_unit and base_unit and not compatible:
-        message = f"La unidad '{line_unit}' no es compatible con la base '{base_unit}' de este ingrediente"
+    if conversion_error:
+        message = (f"⚠️ Sin conversión disponible entre '{conversion_error['from_unit']}' y "
+                   f"'{conversion_error['to_unit']}': {conversion_error['reason']}")
 
-    # Apply waste: line override wins, otherwise fall back to ingredient default (yield_waste_percent).
-    # If payload explicitly sends waste_factor_pct=0, treat it as "no waste" and skip the ingredient default.
     raw_waste = payload.get("waste_factor_pct")
     if raw_waste is None:
         applied_waste = float(ingredient.get("yield_waste_percent") or 0)
     else:
         applied_waste = float(raw_waste or 0)
-    effective_qty = quantity * (1 + applied_waste / 100) if applied_waste > 0 else quantity
-    cost = cost_for_recipe_line(effective_qty, line_unit, ingredient) if quantity else 0
+    applied_waste = max(0.0, min(applied_waste, 99.99))
+    yield_frac = 1.0 - applied_waste / 100.0
+    effective_qty = quantity / yield_frac if yield_frac > 0 else quantity
+
+    if conversion_error:
+        cost = 0.0
+    else:
+        try:
+            cost = cost_for_recipe_line(effective_qty, line_unit, ingredient) if quantity else 0
+        except UnitConversionError as ce:
+            conversion_error = {
+                "from_unit": ce.from_unit, "to_unit": ce.to_unit,
+                "reason": ce.reason, "ingredient_name": ce.ingredient_name,
+            }
+            message = (f"⚠️ Sin conversión disponible entre '{ce.from_unit}' y "
+                       f"'{ce.to_unit}': {ce.reason}")
+            cost = 0.0
 
     return {
         "cost": round(cost, 4),
-        "compatible": compatible,
+        "compatible": compatible and conversion_error is None,
+        "conversion_error": conversion_error,
         "base_unit": base_unit,
         "quantity_in_base": round(qty_in_base, 4) if qty_in_base is not None else None,
         "ingredient_unit_kind": unit_kind(base_unit),

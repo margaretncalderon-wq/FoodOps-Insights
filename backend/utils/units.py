@@ -14,6 +14,25 @@ Public API:
 """
 from typing import Optional, Dict
 
+
+class UnitConversionError(ValueError):
+    """
+    Raised when a conversion cannot be resolved (unknown unit, missing
+    density for weight↔volume, missing weight_per_unit_g for count↔weight,
+    etc.). Callers MUST catch this and surface a visible error to the user
+    instead of silently falling back to $0.
+    """
+    def __init__(self, from_unit: str, to_unit: str, reason: str,
+                 ingredient_name: str = ""):
+        self.from_unit = from_unit
+        self.to_unit = to_unit
+        self.reason = reason
+        self.ingredient_name = ingredient_name
+        super().__init__(
+            f"Cannot convert {from_unit!r} → {to_unit!r} "
+            f"for {ingredient_name or 'ingredient'}: {reason}",
+        )
+
 # Canonical unit groups with conversion factors to the BASE unit of each group.
 # All values are multipliers: 1 unit = factor * base_unit
 # Base for weight: gram
@@ -159,52 +178,75 @@ def _pack_size_for(unit: str, ingredient: Optional[dict]) -> Optional[float]:
 def convert(quantity: float, from_unit: str, to_unit: str, ingredient: Optional[dict] = None) -> Optional[float]:
     """
     Convert a quantity from one unit to another.
-    Returns None if conversion is not possible.
 
-    Strategy:
-    - Same kind (weight↔weight, volume↔volume, count↔count) → direct factor
-    - Cross kind (weight↔volume) → use density of the ingredient
-    - Pack unit (caja, saco) → use ingredient.pack_size if pack_unit matches
+    Semantics:
+    - If either unit is empty/None → returns None (soft-skip, caller decides).
+    - If conversion is IMPOSSIBLE (unknown unit, missing density,
+      missing weight_per_unit_g, dimension mismatch without bridge)
+      → raises UnitConversionError. Callers must handle this — never
+      silently produce $0 costs.
+
+    Bridges supported:
+    - weight↔weight, volume↔volume, count↔count → direct factors
+    - weight↔volume → ingredient.density_g_per_ml (explicit) OR legacy
+      DEFAULT_DENSITIES name whitelist (fallback only, deprecated as
+      source of truth — logs a warning).
+    - count↔weight → ingredient.weight_per_unit_g (explicit).
+    - pack unit (caja, saco, etc.) → ingredient.pack_size + pack_unit.
     """
-    if quantity is None:
+    if quantity is None or from_unit is None or to_unit is None:
         return None
     from_u = normalize_unit(from_unit)
     to_u = normalize_unit(to_unit)
+    if not from_u or not to_u:
+        return None
     if from_u == to_u:
         return float(quantity)
+
+    ing_name = (ingredient or {}).get("name", "") if ingredient else ""
 
     from_kind = unit_kind(from_u)
     to_kind = unit_kind(to_u)
 
-    # If from_unit is a pack unit defined on the ingredient, expand to base first
+    # Pack unit resolution first
     pack_factor_from = _pack_size_for(from_u, ingredient)
     pack_factor_to = _pack_size_for(to_u, ingredient)
-
     if pack_factor_from is not None:
-        # 1 caja = pack_size base_units (base_unit set on ingredient)
         base_qty = quantity * pack_factor_from
-        return convert(base_qty, normalize_unit(ingredient.get("base_unit") or ""), to_u, ingredient)
+        return convert(base_qty, normalize_unit((ingredient or {}).get("base_unit") or ""), to_u, ingredient)
     if pack_factor_to is not None:
-        base_unit = normalize_unit(ingredient.get("base_unit") or "")
+        base_unit = normalize_unit((ingredient or {}).get("base_unit") or "")
         if not base_unit:
-            return None
+            raise UnitConversionError(from_unit, to_unit,
+                "pack unit target requires ingredient.base_unit", ing_name)
         base_qty = convert(quantity, from_u, base_unit, ingredient)
-        if base_qty is None:
-            return None
-        return base_qty / pack_factor_to
+        return base_qty / pack_factor_to  # base_qty raised if impossible
 
+    # Unknown unit on either side → explicit
+    if from_kind is None:
+        raise UnitConversionError(from_unit, to_unit,
+            f"unknown unit {from_unit!r}", ing_name)
+    if to_kind is None:
+        raise UnitConversionError(from_unit, to_unit,
+            f"unknown unit {to_unit!r}", ing_name)
+
+    # Same-dimension conversion
     if from_kind == to_kind and from_kind in ("weight", "volume", "count"):
         units_map = {"weight": WEIGHT_UNITS, "volume": VOLUME_UNITS, "count": COUNT_UNITS}[from_kind]
-        if units_map.get(from_u) is None or units_map.get(to_u) is None:
-            return None
-        return quantity * units_map[from_u] / units_map[to_u]
+        f_from = units_map.get(from_u)
+        f_to = units_map.get(to_u)
+        if f_from is None or f_to is None:
+            raise UnitConversionError(from_unit, to_unit,
+                f"custom {from_kind} unit not defined on ingredient", ing_name)
+        return quantity * f_from / f_to
 
-    # Cross-kind conversion needs density (only weight↔volume)
-    if (from_kind == "weight" and to_kind == "volume") or (from_kind == "volume" and to_kind == "weight"):
+    # weight ↔ volume via density
+    if {from_kind, to_kind} == {"weight", "volume"}:
         density = detect_density(ingredient)
         if density is None or density <= 0:
-            return None
-        # First normalize to base of from_kind
+            raise UnitConversionError(from_unit, to_unit,
+                "missing density_g_per_ml (set it explicitly on the ingredient)",
+                ing_name)
         if from_kind == "weight":
             grams = quantity * WEIGHT_UNITS[from_u]
             ml = grams / density
@@ -214,49 +256,71 @@ def convert(quantity: float, from_unit: str, to_unit: str, ingredient: Optional[
             grams = ml * density
             return grams / WEIGHT_UNITS[to_u]
 
-    return None
+    # count ↔ weight via weight_per_unit_g
+    if {from_kind, to_kind} == {"count", "weight"}:
+        wpu = None
+        if ingredient:
+            wpu = ingredient.get("weight_per_unit_g") or ingredient.get("weight_per_unit")
+        if not wpu or float(wpu) <= 0:
+            raise UnitConversionError(from_unit, to_unit,
+                "missing weight_per_unit_g (set the average weight per unit)",
+                ing_name)
+        wpu = float(wpu)
+        if from_kind == "count":
+            grams = quantity * COUNT_UNITS[from_u] * wpu
+            return grams / WEIGHT_UNITS[to_u]
+        else:
+            grams = quantity * WEIGHT_UNITS[from_u]
+            count = grams / wpu
+            return count / COUNT_UNITS[to_u]
+
+    # count ↔ volume: not supported (would need density AND weight_per_unit_g)
+    raise UnitConversionError(from_unit, to_unit,
+        f"no bridge between {from_kind} and {to_kind} for this ingredient",
+        ing_name)
 
 
 def is_compatible(unit_a: str, unit_b: str, ingredient: Optional[dict] = None) -> bool:
     """Returns True if a conversion from unit_a → unit_b is possible for this ingredient."""
-    return convert(1.0, unit_a, unit_b, ingredient) is not None
+    try:
+        return convert(1.0, unit_a, unit_b, ingredient) is not None
+    except UnitConversionError:
+        return False
 
 
 def cost_for_recipe_line(quantity: float, line_unit: str, ingredient: dict) -> float:
     """
     Compute the cost in $ for a recipe line using an ingredient.
-    Strategy:
-    - Get ingredient base_unit + cost_per_base_unit (the canonical pricing axis)
-    - Convert line quantity → base_unit
-    - Multiply by cost_per_base_unit
+
+    Raises `UnitConversionError` when the requested `line_unit` cannot be
+    converted to the ingredient's `base_unit`. Callers MUST catch this and
+    surface a visible error to the user — never fall back silently to $0.
     """
     if not ingredient or quantity is None or quantity == 0:
         return 0.0
     base_unit = normalize_unit(ingredient.get("base_unit") or ingredient.get("unit") or "")
     cost_per_base = ingredient.get("cost_per_base_unit")
-    # Treat missing OR zero as "no canonical price" and derive from legacy cost_per_unit.
-    # (Legacy migrations often left cost_per_base_unit=0 while cost_per_unit is set correctly.)
     if cost_per_base is None or cost_per_base == 0:
         legacy_unit = normalize_unit(ingredient.get("unit") or "")
         legacy_cost = ingredient.get("cost_per_unit") or 0
         if legacy_unit and base_unit:
-            # cost_per_base = legacy_cost * (1 base_unit equivalent in legacy_unit)
-            converted = convert(1.0, base_unit, legacy_unit, ingredient)
-            if converted is not None:
-                cost_per_base = legacy_cost * converted
-            else:
+            try:
+                converted = convert(1.0, base_unit, legacy_unit, ingredient)
+                cost_per_base = legacy_cost * converted if converted is not None else legacy_cost
+            except UnitConversionError:
                 cost_per_base = legacy_cost
         else:
             cost_per_base = legacy_cost
     cost_per_base = float(cost_per_base or 0)
 
-    if not base_unit:
+    if not base_unit or normalize_unit(line_unit) == base_unit:
         return float(quantity) * cost_per_base
 
     qty_in_base = convert(quantity, line_unit, base_unit, ingredient)
     if qty_in_base is None:
-        # Fall back: assume same unit (best effort, won't surprise the user with $0)
-        qty_in_base = float(quantity)
+        # Both units resolved but conversion returned None with no exception
+        # (happens only when either side was empty; treated as same unit).
+        return float(quantity) * cost_per_base
     return qty_in_base * cost_per_base
 
 

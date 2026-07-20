@@ -1407,6 +1407,67 @@ function InventorySection() {
                   ? "💡 Ej: 1 saco contiene 54.43 kg y cuesta $3,450.00 → $63.38/kg automático."
                   : "💡 Ex: 1 sack contains 54.43 kg and costs $3,450.00 → $63.38/kg automatic."}
               </p>
+
+              {/* Cross-dimension conversion helpers (B.1 + B.2) */}
+              {(() => {
+                const baseUnit = (itemForm.base_unit || itemForm.unit || "").toLowerCase();
+                const isCount = ["unit","unidad","u","pz","pieza","dozen","docena"].includes(baseUnit);
+                const isMass = ["g","kg","mg","oz","lb","libra","libras"].includes(baseUnit);
+                const isVol = ["ml","l","lt","fl_oz","cup","taza","tbsp","cda","cucharada","tsp","cdta","cucharadita","gal","galon","galón"].includes(baseUnit);
+                if (isCount) {
+                  return (
+                    <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-md">
+                      <Label className="text-xs font-semibold text-amber-900" htmlFor="wpu">
+                        {language === "es" ? "Peso promedio por unidad (g)" : "Average weight per unit (g)"}
+                      </Label>
+                      <p className="text-[11px] text-amber-800 mb-2">
+                        {language === "es"
+                          ? "Opcional. Requerido si vas a usar este ingrediente en recetas por peso (ej: '150g de huevo')."
+                          : "Optional. Required if you'll use this ingredient in recipes by weight."}
+                      </p>
+                      <Input
+                        id="wpu"
+                        type="number" min="0" step="0.01"
+                        value={itemForm.weight_per_unit_g ?? ""}
+                        onChange={(e) => setItemForm({ ...itemForm,
+                          weight_per_unit_g: parseFloat(e.target.value) || null,
+                        })}
+                        placeholder={language === "es" ? "Ej: 60 (1 huevo ≈ 60 g)" : "e.g. 60 (1 egg ≈ 60 g)"}
+                        data-testid="item-weight-per-unit-g"
+                        className="max-w-xs"
+                      />
+                    </div>
+                  );
+                }
+                if (isMass || isVol) {
+                  return (
+                    <div className="mt-3 p-3 bg-sky-50 border border-sky-200 rounded-md">
+                      <Label className="text-xs font-semibold text-sky-900" htmlFor="dens">
+                        {language === "es" ? "Densidad (g/ml)" : "Density (g/ml)"}
+                      </Label>
+                      <p className="text-[11px] text-sky-800 mb-2">
+                        {language === "es"
+                          ? "Opcional. Requerido si vas a mezclar peso y volumen en recetas (ej: aceite en kg y taza)."
+                          : "Optional. Required if you'll mix weight and volume in recipes."}
+                      </p>
+                      <Input
+                        id="dens"
+                        type="number" min="0" step="0.01"
+                        value={itemForm.density_g_per_ml ?? ""}
+                        onChange={(e) => setItemForm({ ...itemForm,
+                          density_g_per_ml: parseFloat(e.target.value) || null,
+                        })}
+                        placeholder={language === "es"
+                          ? "Ej: 0.92 (aceite), 1.00 (agua), 0.53 (harina)"
+                          : "e.g. 0.92 (oil), 1.00 (water), 0.53 (flour)"}
+                        data-testid="item-density-g-per-ml"
+                        className="max-w-xs"
+                      />
+                    </div>
+                  );
+                }
+                return null;
+              })()}
             </div>
 
             {/* Description */}
