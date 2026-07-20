@@ -1990,19 +1990,20 @@ async def preview_sub_recipe_cost(payload: dict, user: User = Depends(get_curren
     """Live cost preview for a sub-recipe line inside a parent recipe.
 
     Called by the frontend `SubRecipeRow` useEffect whenever the user
-    changes `quantity_used` or `unit`. Returns the properly converted
-    line cost — the sub-recipe master document (its own cost_per_yield,
-    yield_unit, etc.) is NEVER touched by this endpoint. Only the parent
-    recipe's line-level `total_cost` reflects the input.
+    changes `quantity_used`, `unit`, or `portion_format_id`. Returns the
+    properly converted line cost — the sub-recipe master document is
+    NEVER touched.
 
-    Mirrors the ingredient path (`/api/inventory/ingredients/cost-preview`)
-    so both cost sources are backend-derived — never client-computed.
+    If `portion_format_id` is provided, cost is derived from that format
+    (i.e., `format.cost_per_portion × quantity`). Otherwise falls back to
+    `child.cost_per_yield` with unit conversion.
     """
     from utils.units import convert as unit_convert, normalize_unit, UnitConversionError
 
     child_recipe_id = payload.get("child_recipe_id") or payload.get("recipe_id")
     quantity = float(payload.get("quantity") or payload.get("quantity_used") or 0)
     parent_unit = normalize_unit(payload.get("unit") or "")
+    portion_format_id = payload.get("portion_format_id")
 
     if not child_recipe_id:
         raise HTTPException(status_code=400, detail="child_recipe_id required")
@@ -2015,6 +2016,30 @@ async def preview_sub_recipe_cost(payload: dict, user: User = Depends(get_curren
     if not child:
         raise HTTPException(status_code=404, detail="Sub-recipe not found")
 
+    # === Option 1: Portion format explicit ===
+    if portion_format_id:
+        pf = await db.recipe_portion_formats.find_one(
+            {"format_id": portion_format_id, "recipe_id": child_recipe_id,
+             "company_id": user.company_id}, {"_id": 0},
+        )
+        if not pf:
+            raise HTTPException(status_code=404, detail="Portion format not found")
+        cost_per_portion = float(pf.get("cost_per_portion") or 0)
+        cost = round(quantity * cost_per_portion, 4)
+        return {
+            "cost": cost,
+            "converted_quantity": quantity,
+            "child_yield_unit": pf.get("portion_unit"),
+            "child_cost_per_yield": cost_per_portion,
+            "child_has_conversion_errors": bool(child.get("has_conversion_errors")),
+            "conversion_error": None,
+            "compatible": True,
+            "source": "portion_format",
+            "portion_format_id": portion_format_id,
+            "portion_format_name": pf.get("format_name"),
+        }
+
+    # === Option 2: Fallback to yield_unit ===
     child_yield_unit = normalize_unit(child.get("yield_unit") or "portion")
     cost_per_yield = float(child.get("cost_per_yield") or 0)
 
@@ -2040,5 +2065,6 @@ async def preview_sub_recipe_cost(payload: dict, user: User = Depends(get_curren
         "child_has_conversion_errors": bool(child.get("has_conversion_errors")),
         "conversion_error": conversion_error,
         "compatible": conversion_error is None,
+        "source": "yield_unit",
     }
 

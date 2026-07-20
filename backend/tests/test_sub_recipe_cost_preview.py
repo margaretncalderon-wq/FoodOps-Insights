@@ -96,3 +96,61 @@ async def test_sub_recipe_cost_preview_unit_conversion_portion_to_portion():
         assert out["conversion_error"] is None
     finally:
         await db.recipes.delete_many({"company_id": tenant})
+
+
+@pytest.mark.asyncio
+async def test_sub_recipe_cost_preview_with_portion_format_id():
+    """When a `portion_format_id` is passed, cost is derived from
+    `format.cost_per_portion × quantity`, not from `child.cost_per_yield`.
+
+    Reproduces the user request: "cuando elijo una sub receta debería
+    poder seleccionar que tipo de porción estoy agregando".
+    """
+    from config import db
+    from routers.recipes import preview_sub_recipe_cost
+
+    tenant = f"test_subrecipe_fmt_{uuid.uuid4().hex[:6]}"
+    child_id = f"rec_{uuid.uuid4().hex[:8]}"
+    format_id = f"pformat_{uuid.uuid4().hex[:8]}"
+    now = datetime.now(timezone.utc).isoformat()
+
+    await db.recipes.insert_one({
+        "recipe_id": child_id, "company_id": tenant,
+        "name": "Moro", "category": "Base",
+        "yield_quantity": 12.0, "yield_unit": "portion",
+        "cost_per_yield": 35.90,        # default per-portion cost
+        "created_at": now, "updated_at": now,
+    })
+    # A "Mini 4oz" format that costs $18 per portion (half the yield_unit cost)
+    await db.recipe_portion_formats.insert_one({
+        "format_id": format_id, "recipe_id": child_id, "company_id": tenant,
+        "format_name": "Mini 4oz", "portion_unit": "oz",
+        "portions_obtained": 4.0, "cost_per_portion": 18.00,
+        "sell_price": 0.0, "target_margin_pct": 30.0, "suggested_price": 25.71,
+        "margin_pct": 0.0, "is_default": False, "notes": "",
+        "created_at": now, "updated_at": now,
+    })
+    try:
+        # With format: 6 × $18 = $108  (NOT 6 × $35.90 = $215.40)
+        out = await preview_sub_recipe_cost(
+            {"child_recipe_id": child_id, "quantity": 6.0,
+             "unit": "oz", "portion_format_id": format_id},
+            user=_U(tenant),
+        )
+        assert out["cost"] == pytest.approx(108.00, abs=0.01), (
+            f"expected $108 with format, got ${out['cost']}"
+        )
+        assert out["source"] == "portion_format"
+        assert out["portion_format_id"] == format_id
+        assert out["portion_format_name"] == "Mini 4oz"
+
+        # Without format: falls back to yield_unit path → $215.40
+        out_default = await preview_sub_recipe_cost(
+            {"child_recipe_id": child_id, "quantity": 6.0, "unit": "portion"},
+            user=_U(tenant),
+        )
+        assert out_default["cost"] == pytest.approx(215.40, abs=0.01)
+        assert out_default["source"] == "yield_unit"
+    finally:
+        await db.recipes.delete_many({"company_id": tenant})
+        await db.recipe_portion_formats.delete_many({"company_id": tenant})

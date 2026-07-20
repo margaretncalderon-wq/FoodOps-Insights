@@ -195,6 +195,25 @@ function SubRecipeRow({ sub, onChange, onRemove }) {
     cost: sub.total_cost || 0, compatible: true, message: null,
   });
   const [loading, setLoading] = useState(false);
+  const [formats, setFormats] = useState([]);
+
+  // Load available portion formats for this sub-recipe (once).
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      if (!sub.child_recipe_id) return;
+      try {
+        const res = await axios.get(
+          `${API}/api/recipes/${sub.child_recipe_id}/portion-formats`,
+          { withCredentials: true },
+        );
+        if (alive) setFormats(res.data || []);
+      } catch {
+        if (alive) setFormats([]);
+      }
+    })();
+    return () => { alive = false; };
+  }, [sub.child_recipe_id]);
 
   useEffect(() => {
     if (!sub.child_recipe_id || !sub.quantity_used || sub.quantity_used <= 0) {
@@ -210,6 +229,7 @@ function SubRecipeRow({ sub, onChange, onRemove }) {
             child_recipe_id: sub.child_recipe_id,
             quantity: sub.quantity_used,
             unit: sub.unit,
+            portion_format_id: sub.portion_format_id || null,
           },
           { withCredentials: true },
         );
@@ -225,7 +245,22 @@ function SubRecipeRow({ sub, onChange, onRemove }) {
     }, 300);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sub.child_recipe_id, sub.quantity_used, sub.unit]);
+  }, [sub.child_recipe_id, sub.quantity_used, sub.unit, sub.portion_format_id]);
+
+  const handleFormatChange = (formatId) => {
+    if (formatId === "__default__") {
+      onChange("portion_format_id", null);
+      onChange("portion_format_name", null);
+      // keep unit as-is (user can edit)
+      return;
+    }
+    const fmt = formats.find((f) => f.format_id === formatId);
+    if (fmt) {
+      onChange("portion_format_id", fmt.format_id);
+      onChange("portion_format_name", fmt.format_name);
+      onChange("unit", fmt.portion_unit);
+    }
+  };
 
   const convErr = preview.conversion_error;
 
@@ -251,7 +286,33 @@ function SubRecipeRow({ sub, onChange, onRemove }) {
           data-testid={`sub-recipe-qty-${sub.child_recipe_id}`}
         />
       </TableCell>
-      <TableCell className="text-muted-foreground">{sub.unit}</TableCell>
+      <TableCell>
+        {formats.length > 0 ? (
+          <Select
+            value={sub.portion_format_id || "__default__"}
+            onValueChange={handleFormatChange}
+          >
+            <SelectTrigger
+              className="w-full min-w-[140px] h-8 text-xs"
+              data-testid={`sub-recipe-format-${sub.child_recipe_id}`}
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__default__">
+                Default ({sub.unit || "portion"})
+              </SelectItem>
+              {formats.map((f) => (
+                <SelectItem key={f.format_id} value={f.format_id}>
+                  {f.format_name} ({f.portion_unit})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : (
+          <span className="text-muted-foreground text-xs">{sub.unit}</span>
+        )}
+      </TableCell>
       <TableCell className="text-right font-mono">
         <div className="flex items-center justify-end gap-1.5">
           {loading && <KoraLoader size={12} />}
@@ -1654,7 +1715,7 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
                     <TableRow>
                       <TableHead>{language === "es" ? "Sub-Receta" : "Sub-Recipe"}</TableHead>
                       <TableHead className="w-24 text-right">{t("quantity")}</TableHead>
-                      <TableHead className="w-20">{t("unit")}</TableHead>
+                      <TableHead className="w-40">{language === "es" ? "Formato" : "Format"}</TableHead>
                       <TableHead className="w-24 text-right">{t("cost")}</TableHead>
                       <TableHead className="w-10"></TableHead>
                     </TableRow>
@@ -1779,35 +1840,68 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
                 </div>
               </div>
 
-              {/* Suggested price — single, prominent */}
-              {suggestedSellPriceByFoodCost > 0 && (
-                <div className="flex items-center justify-between gap-3 px-4 py-3 rounded-lg border border-blue-200 bg-blue-50">
-                  <div>
-                    <p className="text-[10px] uppercase text-blue-700 tracking-wide font-semibold">
-                      {language === "es" ? "Precio de venta sugerido" : "Suggested sell price"}
-                    </p>
-                    <p className="text-2xl font-bold text-blue-700" data-testid="suggested-price-food-cost">
-                      ${fmtNum(suggestedSellPriceByFoodCost)}
-                      <span className="text-xs text-blue-800 ml-1 font-normal">/ {language === "es" ? "porción" : "portion"}</span>
-                    </p>
-                    <p className="text-[10px] text-muted-foreground mt-0.5">
-                      {language === "es"
-                        ? `Método Food Cost — food ÷ ${targetFoodCostPct.toFixed(0)}%`
-                        : `Food Cost Method — food ÷ ${targetFoodCostPct.toFixed(0)}%`}
-                    </p>
+              {/* Suggested price — pick method (Food Cost / Prime / Markup) */}
+              {(suggestedPriceFoodCost > 0 || suggestedPricePrime > 0 || suggestedPriceMarkup > 0) && (() => {
+                const method = form.pricing_method_preference || "food_cost";
+                const currentPrice =
+                  method === "prime_cost" ? suggestedPricePrime
+                    : method === "markup" ? suggestedPriceMarkup
+                    : suggestedPriceFoodCost;
+                const currentLabel = language === "es"
+                  ? (method === "prime_cost" ? `Prime Cost — (food+labor) ÷ ${targetPrimeCostPct.toFixed(0)}%`
+                    : method === "markup" ? `Markup — total ÷ (100% − ${targetGrossMarginPct.toFixed(0)}%)`
+                    : `Food Cost — food ÷ ${targetFoodCostPct.toFixed(0)}%`)
+                  : (method === "prime_cost" ? `Prime Cost — (food+labor) ÷ ${targetPrimeCostPct.toFixed(0)}%`
+                    : method === "markup" ? `Markup — total ÷ (100% − ${targetGrossMarginPct.toFixed(0)}%)`
+                    : `Food Cost — food ÷ ${targetFoodCostPct.toFixed(0)}%`);
+                return (
+                  <div className="flex flex-col gap-2 px-4 py-3 rounded-lg border border-blue-200 bg-blue-50">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[10px] uppercase text-blue-700 tracking-wide font-semibold">
+                          {language === "es" ? "Precio de venta sugerido" : "Suggested sell price"}
+                        </p>
+                        <p className="text-2xl font-bold text-blue-700" data-testid="suggested-price-selected">
+                          ${fmtNum(currentPrice)}
+                          <span className="text-xs text-blue-800 ml-1 font-normal">/ {language === "es" ? "porción" : "portion"}</span>
+                        </p>
+                        <p className="text-[10px] text-muted-foreground mt-0.5">{currentLabel}</p>
+                      </div>
+                      <div className="flex flex-col gap-2 items-end shrink-0">
+                        <Select
+                          value={method}
+                          onValueChange={(v) => setForm((prev) => ({ ...prev, pricing_method_preference: v }))}
+                        >
+                          <SelectTrigger className="w-40 h-8 text-xs bg-white" data-testid="pricing-method-select">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="food_cost">
+                              {language === "es" ? "Food Cost" : "Food Cost"} — ${fmtNum(suggestedPriceFoodCost)}
+                            </SelectItem>
+                            <SelectItem value="prime_cost">
+                              {language === "es" ? "Prime Cost" : "Prime Cost"} — ${fmtNum(suggestedPricePrime)}
+                            </SelectItem>
+                            <SelectItem value="markup">
+                              {language === "es" ? "Markup" : "Markup"} — ${fmtNum(suggestedPriceMarkup)}
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          className="bg-white"
+                          onClick={() => setForm((prev) => ({ ...prev, sell_price: Number(currentPrice.toFixed(2)) }))}
+                          data-testid="apply-suggested-price"
+                        >
+                          {language === "es" ? "Aplicar" : "Apply"}
+                        </Button>
+                      </div>
+                    </div>
                   </div>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    className="bg-white"
-                    onClick={() => setForm((prev) => ({ ...prev, sell_price: Number(suggestedSellPriceByFoodCost.toFixed(2)) }))}
-                    data-testid="apply-suggested-food-cost-price"
-                  >
-                    {language === "es" ? "Aplicar" : "Apply"}
-                  </Button>
-                </div>
-              )}
+                );
+              })()}
 
               {/* Current sell price + profitability quick chip (only if set) */}
               {form.sell_price > 0 && (
