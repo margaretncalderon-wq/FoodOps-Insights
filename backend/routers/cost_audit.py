@@ -899,3 +899,149 @@ async def clear_outlier_reviews(user: User = Depends(require_super_admin)):
     Never touches ingredients. Useful for restarting the review process."""
     n = (await db.ingredient_price_reviews.delete_many({})).deleted_count
     return {"reviews_cleared": n}
+
+
+@cost_audit_router.get("/prices/history")
+async def bulk_fix_history(
+    action: Optional[str] = Query("bulk_fixed"),
+    company_id: Optional[str] = None,
+    user: User = Depends(require_super_admin),
+):
+    """List of ingredients whose price was changed automatically (or manually).
+    Each row includes previous_values so the user can revert individually.
+    """
+    q: Dict[str, Any] = {}
+    if action:
+        q["action"] = action
+    if company_id:
+        q["company_id"] = company_id
+    reviews = await db.ingredient_price_reviews.find(q, {"_id": 0}).sort(
+        "reviewed_at", -1,
+    ).to_list(2000)
+
+    enriched = []
+    for r in reviews:
+        ing = await db.ingredients.find_one(
+            {"ingredient_id": r["ingredient_id"]},
+            {"_id": 0, "name": 1, "base_unit": 1, "unit": 1, "category": 1},
+        )
+        if not ing:
+            continue
+        prev = r.get("previous_values") or {}
+        new = r.get("new_values") or {}
+        enriched.append({
+            **r,
+            "name": ing.get("name"),
+            "category": ing.get("category"),
+            "base_unit": (ing.get("base_unit") or ing.get("unit") or "").lower(),
+            "prev_cost_per_unit": prev.get("cost_per_unit"),
+            "new_cost_per_unit": new.get("cost_per_unit"),
+            "reduction_factor": round(
+                float(prev.get("cost_per_unit") or 0) / float(new.get("cost_per_unit") or 1), 2,
+            ) if (new.get("cost_per_unit") or 0) else None,
+        })
+    return {"total": len(enriched), "rows": enriched}
+
+
+@cost_audit_router.post("/prices/history/{ingredient_id}/revert")
+async def revert_bulk_fix(
+    ingredient_id: str,
+    user: User = Depends(require_super_admin),
+):
+    """Undo a previous bulk_fixed / fixed price change. Restores previous_values
+    exactly, removes the review marker, and cascades recipe recalc.
+    """
+    review = await db.ingredient_price_reviews.find_one(
+        {"ingredient_id": ingredient_id}, {"_id": 0},
+    )
+    if not review:
+        raise HTTPException(status_code=404, detail="No review record for this ingredient")
+    prev = review.get("previous_values") or {}
+    if not prev:
+        raise HTTPException(status_code=400, detail="No previous values recorded")
+
+    ing = await db.ingredients.find_one({"ingredient_id": ingredient_id}, {"_id": 0})
+    if not ing:
+        raise HTTPException(status_code=404, detail="Ingredient not found")
+
+    now = datetime.now(timezone.utc).isoformat()
+    # Rebuild only the fields we changed
+    revert_set = {
+        "cost_per_unit": prev.get("cost_per_unit"),
+        "cost_per_base_unit": prev.get("cost_per_base_unit") or prev.get("cost_per_unit"),
+        "updated_at": now,
+    }
+    if prev.get("purchase_cost") is not None:
+        revert_set["purchase_cost"] = prev.get("purchase_cost")
+
+    # Log revert into price_history
+    history = ing.get("price_history") or []
+    history.append({
+        "price": revert_set["cost_per_unit"],
+        "previous": ing.get("cost_per_unit"),
+        "date": now,
+        "source": "revert",
+        "reverted_by": user.email,
+    })
+    revert_set["price_history"] = history
+
+    await db.ingredients.update_one(
+        {"ingredient_id": ingredient_id}, {"$set": revert_set},
+    )
+    await db.ingredient_price_reviews.delete_one({"ingredient_id": ingredient_id})
+
+    # Cascade recalc to any recipes using this ingredient
+    try:
+        from routers.inventory import _recalc_recipes_using_ingredient
+        await _recalc_recipes_using_ingredient(ingredient_id, ing.get("company_id"))
+    except Exception as e:
+        logger.warning(f"recalc after revert failed for {ingredient_id}: {e}")
+
+    return {
+        "ingredient_id": ingredient_id,
+        "restored": revert_set,
+        "review_removed": True,
+    }
+
+
+@cost_audit_router.get("/prices/history/export.csv")
+async def export_history_csv(
+    action: Optional[str] = "bulk_fixed",
+    company_id: Optional[str] = None,
+    user: User = Depends(require_super_admin),
+):
+    """CSV download of the price-change history for offline review."""
+    q: Dict[str, Any] = {}
+    if action:
+        q["action"] = action
+    if company_id:
+        q["company_id"] = company_id
+    reviews = await db.ingredient_price_reviews.find(q, {"_id": 0}).to_list(2000)
+    buf = io.StringIO()
+    w = csv.writer(buf)
+    w.writerow([
+        "ingredient_id", "name", "category", "base_unit",
+        "prev_cost_per_unit", "new_cost_per_unit", "prev_purchase_cost",
+        "new_purchase_cost", "reduction_factor", "note", "reviewed_at",
+    ])
+    for r in reviews:
+        ing = await db.ingredients.find_one(
+            {"ingredient_id": r["ingredient_id"]},
+            {"_id": 0, "name": 1, "base_unit": 1, "unit": 1, "category": 1},
+        ) or {}
+        prev = r.get("previous_values") or {}
+        new = r.get("new_values") or {}
+        p_cpu = float(prev.get("cost_per_unit") or 0)
+        n_cpu = float(new.get("cost_per_unit") or 0)
+        w.writerow([
+            r.get("ingredient_id"), ing.get("name"), ing.get("category"),
+            (ing.get("base_unit") or ing.get("unit") or "").lower(),
+            p_cpu, n_cpu, prev.get("purchase_cost"), new.get("purchase_cost"),
+            round(p_cpu / n_cpu, 2) if n_cpu else None,
+            r.get("note"), r.get("reviewed_at"),
+        ])
+    buf.seek(0)
+    return StreamingResponse(
+        iter([buf.getvalue()]), media_type="text/csv",
+        headers={"Content-Disposition": 'attachment; filename="price_history.csv"'},
+    )

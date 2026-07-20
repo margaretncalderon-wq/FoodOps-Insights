@@ -20,6 +20,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from ".
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import {
   Loader2, RefreshCw, ShieldAlert, Check, X, DollarSign, ArrowUpDown,
+  History, RotateCcw, Download,
 } from "lucide-react";
 
 const API = process.env.REACT_APP_BACKEND_URL;
@@ -285,7 +286,152 @@ export default function PriceOutliersPanel() {
           </div>
         </CardContent>
       </Card>
+
+      <BulkFixHistoryTable authHeaders={authHeaders} isEs={isEs} />
     </div>
+  );
+}
+
+function BulkFixHistoryTable({ authHeaders, isEs }) {
+  const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [reverting, setReverting] = useState({});
+
+  const fetchHistory = useCallback(async () => {
+    setLoading(true);
+    try {
+      const { data } = await axios.get(
+        `${API}/api/cost-audit/prices/history?action=bulk_fixed`, authHeaders,
+      );
+      setRows(data.rows || []);
+    } catch (e) {
+      toast.error("Failed to load history");
+    } finally { setLoading(false); }
+  }, [authHeaders]);
+
+  useEffect(() => { fetchHistory(); }, [fetchHistory]);
+
+  const revert = async (id, name) => {
+    if (!window.confirm(isEs
+      ? `¿Revertir el precio de ${name} al valor anterior?`
+      : `Revert ${name} to previous price?`)) return;
+    setReverting((r) => ({ ...r, [id]: true }));
+    try {
+      await axios.post(
+        `${API}/api/cost-audit/prices/history/${id}/revert`, {}, authHeaders,
+      );
+      toast.success(isEs ? `${name} — revertido` : `${name} — reverted`);
+      await fetchHistory();
+    } catch (e) {
+      toast.error(e.response?.data?.detail || "Revert failed");
+    } finally { setReverting((r) => ({ ...r, [id]: false })); }
+  };
+
+  const downloadCsv = async () => {
+    try {
+      const res = await axios.get(
+        `${API}/api/cost-audit/prices/history/export.csv?action=bulk_fixed`,
+        { ...authHeaders, responseType: "blob" },
+      );
+      const url = URL.createObjectURL(new Blob([res.data], { type: "text/csv" }));
+      const a = document.createElement("a");
+      a.href = url; a.download = "price_history.csv";
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e) { toast.error("CSV download failed"); }
+  };
+
+  return (
+    <Card data-testid="bulk-fix-history">
+      <CardHeader>
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div>
+            <CardTitle className="text-base flex items-center gap-2">
+              <History className="w-4 h-4"/>
+              {isEs ? "Cambios recientes (bulk fix)" : "Recent bulk fix changes"}
+            </CardTitle>
+            <CardDescription>
+              {isEs
+                ? "Ingredientes normalizados automáticamente. Puedes revertir cualquiera individualmente."
+                : "Ingredients auto-normalized. You can revert each individually."}
+            </CardDescription>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={fetchHistory} disabled={loading}
+                    data-testid="history-refresh">
+              {loading ? <Loader2 className="w-4 h-4 animate-spin"/> : <RefreshCw className="w-4 h-4"/>}
+            </Button>
+            <Button variant="outline" size="sm" onClick={downloadCsv} data-testid="history-csv">
+              <Download className="w-4 h-4 mr-2"/>CSV
+            </Button>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="p-0 overflow-x-auto">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>{isEs ? "#" : "#"}</TableHead>
+              <TableHead>{isEs ? "Ingrediente" : "Ingredient"}</TableHead>
+              <TableHead>{isEs ? "Categoría" : "Category"}</TableHead>
+              <TableHead className="text-right">{isEs ? "Antes /base" : "Prev /base"}</TableHead>
+              <TableHead className="text-right">{isEs ? "Nuevo /base" : "New /base"}</TableHead>
+              <TableHead className="text-right">{isEs ? "Reducción" : "Reduction"}</TableHead>
+              <TableHead>{isEs ? "Nota" : "Note"}</TableHead>
+              <TableHead className="text-right">{isEs ? "Revert" : "Revert"}</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {rows.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={8} className="text-center py-8 text-slate-500 text-sm">
+                  {loading
+                    ? <Loader2 className="w-5 h-5 animate-spin mx-auto"/>
+                    : (isEs ? "Sin cambios registrados" : "No changes yet")}
+                </TableCell>
+              </TableRow>
+            )}
+            {rows.map((r, idx) => {
+              const busy = reverting[r.ingredient_id];
+              const factor = r.reduction_factor;
+              return (
+                <TableRow key={r.ingredient_id} data-testid={`history-row-${r.ingredient_id}`}>
+                  <TableCell className="text-xs text-slate-500">{idx + 1}</TableCell>
+                  <TableCell className="font-medium">{r.name}</TableCell>
+                  <TableCell className="text-sm">{r.category || "—"}</TableCell>
+                  <TableCell className="text-right font-mono text-sm text-slate-400 line-through">
+                    ${(r.prev_cost_per_unit || 0).toFixed(4)}
+                  </TableCell>
+                  <TableCell className="text-right font-mono text-sm font-semibold">
+                    ${(r.new_cost_per_unit || 0).toFixed(4)}
+                  </TableCell>
+                  <TableCell className={`text-right font-mono text-sm ${
+                    factor > 2 ? "text-emerald-700 font-semibold" :
+                    factor < 1 ? "text-amber-700" : "text-slate-500"
+                  }`}>
+                    {factor ? `${factor}×` : "—"}
+                  </TableCell>
+                  <TableCell className="text-xs text-slate-500">{r.note}</TableCell>
+                  <TableCell className="text-right">
+                    <Button
+                      size="sm" variant="outline"
+                      disabled={busy}
+                      onClick={() => revert(r.ingredient_id, r.name)}
+                      data-testid={`revert-btn-${r.ingredient_id}`}
+                      className="h-8 text-rose-700 border-rose-300 hover:bg-rose-50"
+                    >
+                      {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin"/> : (
+                        <><RotateCcw className="w-3.5 h-3.5 mr-1"/>Revert</>
+                      )}
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </CardContent>
+    </Card>
   );
 }
 
