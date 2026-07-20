@@ -674,6 +674,48 @@ async def get_recipe(recipe_id: str, user: User = Depends(get_current_user)):
     recipe.setdefault("conversion_errors", [])
     recipe.setdefault("conversion_errors_count", 0)
     recipe.setdefault("has_conversion_errors", False)
+
+    # PASE A · Single source of truth: recompute cost fresh from current
+    # ingredient master data on every GET. This fixes the "line snapshot vs
+    # total drift" that manifested when master ingredient prices changed
+    # after the recipe was last saved but the recipe wasn't re-costed
+    # (no cascade ran, or cascade ran on a subset). The FE renders exactly
+    # what the BE returns — no local recomputation → no divergence between
+    # per-line cost and total.
+    try:
+        try:
+            fresh_ings = [RecipeIngredient(**i) for i in recipe.get("ingredients", [])]
+        except Exception:
+            fresh_ings = recipe.get("ingredients") or []
+        fresh_total, fresh_lines, fresh_subs, fresh_conv = await calculate_recipe_cost(
+            fresh_ings, recipe.get("sub_recipes") or [], user.company_id,
+        )
+        recipe["ingredients"] = fresh_lines
+        recipe["sub_recipes"] = fresh_subs
+        recipe["total_cost"] = fresh_total
+        recipe["food_cost"] = fresh_total
+        recipe["conversion_errors"] = fresh_conv
+        recipe["conversion_errors_count"] = len(fresh_conv)
+        recipe["has_conversion_errors"] = len(fresh_conv) > 0
+        # Recompute per-yield / per-portion + full costing (labour, overhead,
+        # suggested price) so UI shows a coherent picture.
+        try:
+            costing = await compute_full_recipe_costing(recipe, fresh_total, user.company_id)
+            for k, v in (costing or {}).items():
+                recipe[k] = v
+        except Exception:
+            # Fall back to bare food-cost per portion/yield — never leave the
+            # response half-updated.
+            y = float(recipe.get("yield_quantity") or 1) or 1
+            recipe["cost_per_yield"] = round(fresh_total / y, 6)
+            portions = float(recipe.get("portions_obtained") or recipe.get("yield_quantity") or 1) or 1
+            recipe["cost_per_portion"] = round(fresh_total / portions, 4)
+    except Exception as _e:
+        import logging as _l
+        _l.getLogger(__name__).warning(
+            f"[get_recipe] live recompute skipped for {recipe_id}: {_e}"
+        )
+
     try:
         return Recipe(**recipe).model_dump()
     except Exception as ve:

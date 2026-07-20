@@ -513,17 +513,16 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
   };
 
   // Calculate total cost — separated so UI can show breakdown
+  // PASE A · Single source of truth. The backend `GET /api/recipes/{id}`
+  // recomputes total_cost + every line.total_cost fresh on each request
+  // (using cost_for_recipe_line, which respects base_unit conversions and
+  // waste). The FE simply sums what the BE gave us — no local aritmetic on
+  // `invItem.cost_per_unit × qty` (that was the source of the drift where
+  // the total said $4,840 but the visible lines summed to $1,347).
   const calculateIngredientsCost = () => {
     let total = 0;
     for (const ing of form.ingredients) {
-      const invItem = ingredients.find(i => i.ingredient_id === ing.item_id);
-      if (invItem) {
-        const wasteFactor = ing.waste_factor_pct || 0;
-        const effectiveCost = wasteFactor > 0 && wasteFactor < 100
-          ? invItem.cost_per_unit / (1 - wasteFactor / 100)
-          : invItem.cost_per_unit;
-        total += (ing.quantity || 0) * effectiveCost;
-      }
+      total += Number(ing.total_cost || ing.cost || 0);
     }
     return total;
   };
@@ -531,10 +530,7 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
   const calculateSubRecipesCost = () => {
     let total = 0;
     for (const sub of form.sub_recipes) {
-      const subRecipe = allRecipes.find(r => r.recipe_id === sub.child_recipe_id);
-      if (subRecipe) {
-        total += (sub.quantity_used || 0) * (subRecipe.cost_per_yield || 0);
-      }
+      total += Number(sub.total_cost || 0);
     }
     return total;
   };
