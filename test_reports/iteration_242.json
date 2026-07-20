@@ -1,0 +1,40 @@
+{
+  "summary": "Fase 1b · Pricing cascade UI validated end-to-end on preview. All 6 acceptance criteria PASS: (1) Settings tab consolidation, (2) engine save & persistence, (3) sell_price/min_margin removed from Basic tab, (4) sell_price/min_margin present in Costing tab + Manual badge shown when sell_price>0, (5) PlatedMenuBuilder menu-price-source-badge + 'referencia' chip + formula '= cost ÷ (1 − margin)', (6) backend POST /api/pricing/resolve returns full payload for recipe_id and menu_id. Existing pytest suite test_pricing_cascades.py still 8/8 green. No regressions detected.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {
+        "screen": "Settings → Pricing & Margin Policy",
+        "issues": ["React hydration warning in console: '<p> cannot contain a nested <div>' at SettingsPage.js:5218 (TabsContent value='margin-policy'). Not user-visible but should be cleaned up — likely a <p> wrapper around the PricingPolicySection content that itself renders block-level children. Look at the wrapper around <PricingPolicySection/> or the description in the info banner."]
+      }
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_pricing_cascades.py"
+  ],
+  "action_items": [
+    "OPTIONAL/LOW PRIORITY: Fix the hydration warning at SettingsPage.js line ~5218 — a <p> element is wrapping a <div>. Change the paragraph to a <div> or unwrap the nested block."
+  ],
+  "critical_code_review_comments": [
+    "PriceSourceBadge component + computeRecipePriceSource/computeFormatPriceSource/computeMenuPriceSource are clean helpers reused in 3 places — good DRY.",
+    "PricingPolicySection correctly split into Card A (engine) + Card B (margin policy) with independent save buttons; save/reload persistence confirmed.",
+    "RecipeBuilder Basic tab is clean — sell_price and min_margin_pct fully removed as required. Costing tab shows both inputs plus contextual badges (Manual when override, Sólo costo when only cost, hidden when neither) — behavior matches spec.",
+    "PlatedMenuBuilder shows menu-price-source-badge='Suggested calculated' when sell_price=0 with computed cost — correct fallback."
+  ],
+  "updated_files": [],
+  "success_rate": {
+    "backend": "100% — /api/pricing/resolve returns {price, source, level, method, target_pct, cost_per_portion, actual_margin_pct, min_margin, below_floor} for recipe, and {price, source, target_pct, min_margin, below_floor} for menu. pytest test_pricing_cascades.py 8/8 pass.",
+    "frontend": "100% — all 8 required data-testid present and functional; Settings save+reload persistence works; badge conditional logic verified in Recipe editor (Manual with sell_price=5) and Plated menu editor (Suggested calculated)."
+  },
+  "test_credentials": "demo.agency@kora.com / Evoque2024!",
+  "seed_data_creation": "None — used existing recipes (Filete Mignon con Risotto recipe_aa7baa59096a, Pastel de Chocolate) and existing menu (Menú de Boda - 3 Tiempos pmenu_15fd5674fa65). No test data was persisted (Cancel used on Pastel edit).",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Fase 1b is COMPLETE and STABLE. Backend endpoint POST /api/pricing/resolve accepts {recipe_id} or {menu_id}. Frontend testids to remember: pricing-policy-section, pricing-engine-card, engine-food-cost-target, engine-prime-cost-target, engine-markup-target, engine-chef-hourly-rate, engine-overhead-percent, pricing-engine-save-btn, margin-policy-section, recipe-sell-price-input, recipe-min-margin-pct, recipe-price-source-badge (conditional), format-price-source-{formatId} (conditional), menu-price-source-badge. Plated Menus is under /food-ops/menus (Food Cost dropdown → Menús), NOT under Kitchen dropdown. Only remaining polish item is the harmless <p>/<div> hydration warning in SettingsPage.js:5218.",
+  "rca of the issue": "N/A — no bugs found."
+}

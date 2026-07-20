@@ -54,7 +54,7 @@ import PartnerCapabilitiesSection from "../components/settings/PartnerCapabiliti
 import { OrganizationStructureSection } from "../components/settings/OrganizationStructureSection";
 import CrmConfigSection from "../components/settings/CrmConfigSection";
 import LocaleSettingsSection from "../components/settings/LocaleSettingsSection";
-import MarginPolicySection from "../components/settings/MarginPolicySection";
+import PricingPolicySection from "../components/settings/PricingPolicySection";
 import { BillingSection, TeamSection } from "../components/org";
 import { formatDateOnly } from "../utils/dates";
 import { fmtNum } from "../utils/format";
@@ -1231,7 +1231,7 @@ export default function SettingsPage() {
 
   
   // __SETTINGS_TAB_LABELS__
-  const settingsTabLabels = {"branding": {"es": "Marca", "en": "Branding"}, "terminology": {"es": "Terminología", "en": "Terminology"}, "templates": {"es": "Plantillas", "en": "Templates"}, "locale": {"es": "Regional", "en": "Locale"}, "billing": {"es": "Facturación", "en": "Billing"}, "taxes": {"es": "Impuestos", "en": "Taxes"}, "org-structure": {"es": "Estructura Org.", "en": "Org Structure"}, "team": {"es": "Usuarios", "en": "Users"}, "roles": {"es": "Roles", "en": "Roles"}, "automations": {"es": "Reglas", "en": "Rules"}, "integrations": {"es": "Integraciones", "en": "Integrations"}, "crm-config": {"es": "CRM Config", "en": "CRM Config"}, "features": {"es": "Funciones", "en": "Features"}, "preferences": {"es": "Preferencias", "en": "Preferences"}, "leadforms": {"es": "Formularios", "en": "Lead Forms"}, "categories": {"es": "Categorías", "en": "Categories"}, "partner-capabilities": {"es": "Partner Capabilities", "en": "Partner Capabilities"}, "picklist": {"es": "Tipos de Ítems", "en": "Item Types"}, "inventory-categories": {"es": "Cat. Inventario", "en": "Inv. Categories"}, "margin-policy": {"es": "Política de Margen", "en": "Margin Policy"}, "import-export": {"es": "Importar/Exportar", "en": "Import/Export"}, "data-admin": {"es": "Admin Datos", "en": "Data Admin"}};
+  const settingsTabLabels = {"branding": {"es": "Marca", "en": "Branding"}, "terminology": {"es": "Terminología", "en": "Terminology"}, "templates": {"es": "Plantillas", "en": "Templates"}, "locale": {"es": "Regional", "en": "Locale"}, "billing": {"es": "Facturación", "en": "Billing"}, "taxes": {"es": "Impuestos", "en": "Taxes"}, "org-structure": {"es": "Estructura Org.", "en": "Org Structure"}, "team": {"es": "Usuarios", "en": "Users"}, "roles": {"es": "Roles", "en": "Roles"}, "automations": {"es": "Reglas", "en": "Rules"}, "integrations": {"es": "Integraciones", "en": "Integrations"}, "crm-config": {"es": "CRM Config", "en": "CRM Config"}, "features": {"es": "Funciones", "en": "Features"}, "preferences": {"es": "Preferencias", "en": "Preferences"}, "leadforms": {"es": "Formularios", "en": "Lead Forms"}, "categories": {"es": "Categorías", "en": "Categories"}, "partner-capabilities": {"es": "Partner Capabilities", "en": "Partner Capabilities"}, "picklist": {"es": "Tipos de Ítems", "en": "Item Types"}, "inventory-categories": {"es": "Cat. Inventario", "en": "Inv. Categories"}, "margin-policy": {"es": "Política de Precio y Margen", "en": "Pricing & Margin Policy"}, "import-export": {"es": "Importar/Exportar", "en": "Import/Export"}, "data-admin": {"es": "Admin Datos", "en": "Data Admin"}};
   const getSettingsActiveChild = (keys) => {
     const k = keys.find((x) => x === activeSettingsTab);
     if (!k) return null;
@@ -1467,7 +1467,7 @@ return (
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => setActiveSettingsTab("margin-policy")} className={activeSettingsTab === "margin-policy" ? "bg-emerald-50 text-emerald-700" : ""} data-testid="settings-tab-margin-policy">
                     <Percent className="w-4 h-4 mr-2" />
-                    {language === "es" ? "Política de Margen" : "Margin Policy"}
+                    {language === "es" ? "Política de Precio y Margen" : "Pricing & Margin Policy"}
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -5216,7 +5216,7 @@ return (
 
           {/* Margin Policy Tab */}
           <TabsContent value="margin-policy">
-            <MarginPolicySection />
+            <PricingPolicySection />
           </TabsContent>
 
           {/* Data Admin Tab */}

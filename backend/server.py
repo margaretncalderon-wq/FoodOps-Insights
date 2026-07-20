@@ -16153,6 +16153,9 @@ app.include_router(month_end_router)  # /api/people-ops/month-end/*
 
 from routers.fx import router as fx_router
 app.include_router(fx_router)  # /api/fx/*
+# Fase 1a · canonical price cascade resolver
+from routers.pricing_resolver import pricing_router  # noqa: E402
+app.include_router(pricing_router)
 
 from routers.time_clock import router as time_clock_router
 app.include_router(time_clock_router)  # /api/people-ops/time-clock/*

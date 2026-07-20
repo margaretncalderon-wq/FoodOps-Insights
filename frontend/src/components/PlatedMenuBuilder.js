@@ -25,6 +25,7 @@ import {
 
 import { API_BASE as API } from "../utils/api";
 import { fmtNum } from "../utils/format";
+import PriceSourceBadge, { computeMenuPriceSource } from "./pricing/PriceSourceBadge";
 
 const MENU_TYPES = [
   { value: "plated", label: "Plated", labelEs: "Emplatado" },
@@ -673,17 +674,30 @@ export default function PlatedMenuBuilder({ onClose, onSave, initialMenu = null,
             />
           </div>
           <div>
-            <Label>{t("sellPricePerGuest")}</Label>
+            <Label className="flex items-center gap-1.5">
+              {t("sellPricePerGuest")}
+              <PriceSourceBadge
+                {...computeMenuPriceSource({
+                  sellPricePerGuest: form.sell_price_per_guest,
+                  suggestedPricePerGuest: suggestedPricePerGuest,
+                })}
+                language={language}
+                size="xs"
+                showIcon={false}
+                testId="menu-price-source-badge"
+              />
+            </Label>
             <div className="flex gap-2">
               <Input 
                 type="number" min="0" step="0.01"
                 value={form.sell_price_per_guest} 
                 onChange={(e) => setForm(prev => ({ ...prev, sell_price_per_guest: parseFloat(e.target.value) || 0 }))}
+                data-testid="menu-sell-price-per-guest"
               />
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button variant="outline" size="icon" onClick={useSuggestedPrice}>
+                    <Button variant="outline" size="icon" onClick={useSuggestedPrice} data-testid="menu-use-suggested-price">
                       <Lightbulb className="w-4 h-4" />
                     </Button>
                   </TooltipTrigger>
@@ -693,6 +707,15 @@ export default function PlatedMenuBuilder({ onClose, onSave, initialMenu = null,
                 </Tooltip>
               </TooltipProvider>
             </div>
+            <p className="text-[10px] text-muted-foreground mt-1">
+              {form.sell_price_per_guest > 0
+                ? (language === "es"
+                    ? "Este precio se usa al cotizar. Es un override manual."
+                    : "This is the price used when quoting. It is a manual override.")
+                : (language === "es"
+                    ? "Sin override — se usará el precio sugerido en las cotizaciones."
+                    : "No override — quotes will use the suggested price.")}
+            </p>
           </div>
         </div>
 
@@ -760,12 +783,18 @@ export default function PlatedMenuBuilder({ onClose, onSave, initialMenu = null,
             </div>
             <p className="text-xl font-bold">${fmtNum(costWithBuffer)}</p>
           </div>
-          <div className="text-center p-3 bg-blue-50 rounded-lg border border-blue-200">
+          <div className="text-center p-3 bg-blue-50 rounded-lg border border-blue-200" data-testid="menu-suggested-price-card">
             <div className="flex items-center justify-center gap-1 text-xs text-blue-600 mb-1">
               <Lightbulb className="w-3 h-3" />
               {t("suggestedPrice")}
+              <Badge variant="outline" className="ml-1 text-[9px] px-1 py-0 border-blue-300 text-blue-700 bg-white">
+                {language === "es" ? "referencia" : "reference"}
+              </Badge>
             </div>
             <p className="text-xl font-bold text-blue-600">${fmtNum(suggestedPricePerGuest)}</p>
+            <p className="text-[9px] text-blue-800 mt-0.5">
+              {language === "es" ? "= costo ÷ (1 − margen)" : "= cost ÷ (1 − margin)"}
+            </p>
           </div>
           <div className="text-center p-3 bg-muted/50 rounded-lg">
             <div className="flex items-center justify-center gap-1 text-xs text-muted-foreground mb-1">

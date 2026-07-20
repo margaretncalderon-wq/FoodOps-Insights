@@ -610,6 +610,12 @@ async def add_items_from_plated_menu(proposal_id: str, body: Dict[str, Any], use
         raise HTTPException(status_code=404, detail="Plated menu not found")
 
     base_price_pg = float(menu.get("base_price_per_guest") or 0)
+    # Fase 1a · Deterministic price cascade for menu → quotation.
+    # If the operator did not enter a manual base_price_per_guest, fall
+    # back to the calculated suggested price so cotizaciones no longer
+    # silently drop to $0 when the manual field is empty.
+    if base_price_pg <= 0:
+        base_price_pg = float(menu.get("suggested_price_per_guest") or 0)
     use_base_price = base_price_pg > 0
 
     # Filter courses' items by selected_items (if provided for that course)

@@ -30,6 +30,7 @@ import { API_BASE as API } from "../utils/api";
 import IngredientWizard from "./culinary/IngredientWizard";
 import { formatDateOnly } from "../utils/dates";
 import { fmtNum } from "../utils/format";
+import PriceSourceBadge, { computeRecipePriceSource, computeFormatPriceSource } from "./pricing/PriceSourceBadge";
 
 const RECIPE_TYPES = [
   { value: "base", label: "Base Recipe", labelEs: "Receta Base", icon: Beaker, color: "bg-purple-100 text-purple-700", description: "Salsas, fondos, masas básicas" },
@@ -1558,42 +1559,10 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
                 </SelectContent>
               </Select>
             </div>
-            <div>
-              <Label>{t("sellPrice")}</Label>
-              <Input type="number" min="0" step="0.01" value={form.sell_price} onChange={(e) => setForm(prev => ({ ...prev, sell_price: parseFloat(e.target.value) || 0 }))} />
-            </div>
           </div>
 
-          {/* Margin policy override */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Label className="flex items-center gap-1.5">
-                {language === "es" ? "Margen mínimo (override)" : "Min margin (override)"}
-                <span className="text-[10px] text-muted-foreground font-normal">
-                  {language === "es" ? "opcional" : "optional"}
-                </span>
-              </Label>
-              <div className="relative">
-                <Input
-                  type="number"
-                  min="0"
-                  max="100"
-                  step="0.5"
-                  value={form.min_margin_pct}
-                  onChange={(e) => setForm(prev => ({ ...prev, min_margin_pct: e.target.value }))}
-                  placeholder={language === "es" ? "Usa la política de la compañía" : "Use company policy"}
-                  className="pr-8"
-                  data-testid="recipe-min-margin-pct"
-                />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">%</span>
-              </div>
-              <p className="text-[10px] text-muted-foreground mt-1">
-                {language === "es"
-                  ? "Si lo dejas vacío, hereda del tipo/categoría en Settings → Política de Margen."
-                  : "Leave empty to inherit from type/category in Settings → Margin Policy."}
-              </p>
-            </div>
-          </div>
+          {/* Fase 1b · sell_price + min_margin_pct viven ahora en la pestaña Costeo
+              para evitar la disociación "número Basic vs cálculo Costeo". */}
 
           {/* Yield */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -1936,13 +1905,82 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
                 );
               })()}
 
+              {/* Fase 1b · Manual override + Min margin override
+                  Antes vivían en la pestaña Básico. Se movieron aquí para
+                  que todo el bloque de precio esté en un solo lugar. */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 px-3 py-3 rounded-md border bg-slate-50/50">
+                <div>
+                  <Label className="text-xs font-semibold flex items-center gap-1.5">
+                    {language === "es" ? "PVP manual (override)" : "Sell price (manual override)"}
+                    <span className="text-[10px] text-muted-foreground font-normal">
+                      {language === "es" ? "opcional" : "optional"}
+                    </span>
+                  </Label>
+                  <div className="relative">
+                    <Input
+                      type="number" min="0" step="0.01"
+                      value={form.sell_price}
+                      onChange={(e) => setForm(prev => ({ ...prev, sell_price: parseFloat(e.target.value) || 0 }))}
+                      className="pl-6 mt-1"
+                      placeholder={language === "es" ? "Usa el sugerido" : "Use suggested"}
+                      data-testid="recipe-sell-price-input"
+                    />
+                    <span className="absolute left-2 top-1/2 -translate-y-0 mt-1 text-xs text-muted-foreground">$</span>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground mt-1">
+                    {language === "es"
+                      ? "Deja 0 para usar el sugerido por el método."
+                      : "Leave 0 to use the method-suggested price."}
+                  </p>
+                </div>
+                <div>
+                  <Label className="text-xs font-semibold flex items-center gap-1.5">
+                    {language === "es" ? "Margen mínimo (piso alerta)" : "Min margin (alert floor)"}
+                    <span className="text-[10px] text-muted-foreground font-normal">
+                      {language === "es" ? "opcional" : "optional"}
+                    </span>
+                  </Label>
+                  <div className="relative">
+                    <Input
+                      type="number" min="0" max="100" step="0.5"
+                      value={form.min_margin_pct}
+                      onChange={(e) => setForm(prev => ({ ...prev, min_margin_pct: e.target.value }))}
+                      placeholder={language === "es" ? "Hereda de política" : "Inherits policy"}
+                      className="pr-8 mt-1"
+                      data-testid="recipe-min-margin-pct"
+                    />
+                    <span className="absolute right-3 top-1/2 -translate-y-0 mt-1 text-xs text-muted-foreground">%</span>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground mt-1">
+                    {language === "es"
+                      ? "Piso de alerta. Si el precio final baja de aquí, se marca en rojo."
+                      : "Alert floor. If the final price falls below, it flags red."}
+                  </p>
+                </div>
+              </div>
+
               {/* Current sell price + profitability quick chip (only if set) */}
               {form.sell_price > 0 && (
-                <div className="flex items-center justify-between gap-2 px-3 py-2 rounded-md border bg-white text-sm">
+                <div className="flex items-center justify-between gap-2 px-3 py-2 rounded-md border bg-white text-sm" data-testid="recipe-current-price-chip">
                   <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-                    <span className="text-muted-foreground">
+                    <span className="text-muted-foreground flex items-center gap-1.5">
                       {language === "es" ? "Precio actual:" : "Current price:"}
                       <span className="font-semibold text-slate-800 ml-1">${fmtNum(form.sell_price)}</span>
+                      <PriceSourceBadge
+                        {...computeRecipePriceSource({
+                          recipeSellPrice: form.sell_price,
+                          methodPref: form.pricing_method_preference || "food_cost",
+                          methodPrice: (form.pricing_method_preference === "prime_cost" ? suggestedPricePrime
+                            : form.pricing_method_preference === "markup" ? suggestedPriceMarkup
+                            : suggestedPriceFoodCost),
+                        })}
+                        targetPct={(form.pricing_method_preference === "prime_cost" ? targetPrimeCostPct
+                            : form.pricing_method_preference === "markup" ? targetGrossMarginPct
+                            : targetFoodCostPct)}
+                        language={language}
+                        size="xs"
+                        testId="recipe-price-source-badge"
+                      />
                     </span>
                     <span className="text-muted-foreground">
                       {language === "es" ? "Food Cost:" : "Food Cost:"}
@@ -1954,6 +1992,23 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
                       {language === "es" ? "Margen:" : "Margin:"}
                       <span className={`font-semibold ml-1 ${margin < 0 ? "text-red-600" : "text-emerald-600"}`}>${fmtNum(margin)}</span>
                     </span>
+                  </div>
+                </div>
+              )}
+              {!form.sell_price && costPerPortion > 0 && (
+                <div className="flex items-center justify-between gap-2 px-3 py-2 rounded-md border bg-rose-50/60 border-rose-200 text-sm" data-testid="recipe-no-price-chip">
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-rose-900">
+                    <span className="text-xs">
+                      {language === "es"
+                        ? "Sin precio configurado — se muestra sólo el costo."
+                        : "No price set — showing cost only."}
+                    </span>
+                    <PriceSourceBadge
+                      source="cost_plus_fallback"
+                      language={language}
+                      size="xs"
+                      testId="recipe-price-source-badge"
+                    />
                   </div>
                 </div>
               )}
@@ -2052,7 +2107,21 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
                         </TableCell>
                         <TableCell className="text-right">{formatQtyUnit(pf.portions_obtained, pf.portion_unit)}</TableCell>
                         <TableCell className="text-right">${fmtNum(pf.cost_per_portion)}</TableCell>
-                        <TableCell className="text-right">${fmtNum(pf.sell_price)}</TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-1.5">
+                            ${fmtNum(pf.sell_price)}
+                            <PriceSourceBadge
+                              {...computeFormatPriceSource({
+                                formatSellPrice: pf.sell_price,
+                                formatSuggestedPrice: pf.suggested_price,
+                              })}
+                              language={language}
+                              size="xs"
+                              showIcon={false}
+                              testId={`format-price-source-${pf.format_id}`}
+                            />
+                          </div>
+                        </TableCell>
                         <TableCell className="text-right">
                           <span className={pf.margin_pct < 30 ? "text-red-500" : pf.margin_pct < 50 ? "text-yellow-500" : "text-green-500"}>
                             {pf.margin_pct?.toFixed(1)}%
