@@ -60,7 +60,7 @@ export default function SocialGoalsTab({ orgId = null }) {
     setLoading(true);
     try {
       const m = monthKey(monthDate);
-      const url = `${API}/demand-studio/social/goals-progress?month=${m}${orgId ? `&org_id=${orgId}` : ""}`;
+      const url = `${API}/demand-studio/social/goals-progress?month=${m}${orgId ? `&org_id=${orgId}` : "&include_shared=true"}`;
       const res = await axios.get(url, { withCredentials: true });
       setData(res.data);
     } catch (err) {
@@ -100,7 +100,11 @@ export default function SocialGoalsTab({ orgId = null }) {
     setSaving(accountId);
     try {
       const payload = { targets: drafts[accountId] || {} };
-      const url = `${API}/demand-studio/social/accounts/${accountId}/monthly-targets${orgId ? `?org_id=${orgId}` : ""}`;
+      // For shared accounts, use the account's own company_id as org_id so the
+      // backend permission check passes.
+      const acct = data.accounts.find((a) => a.account_id === accountId);
+      const scopeOrgId = orgId || (acct?._access_type === "shared" ? acct?._company_id : null);
+      const url = `${API}/demand-studio/social/accounts/${accountId}/monthly-targets${scopeOrgId ? `?org_id=${scopeOrgId}` : ""}`;
       await axios.put(url, payload, { withCredentials: true });
       toast.success(isEs ? "Metas guardadas" : "Goals saved");
       setEditingId(null);
@@ -187,6 +191,11 @@ export default function SocialGoalsTab({ orgId = null }) {
                         style={{ background: acct.color || "#64748b" }}
                       />
                       <span className="truncate">{acct.account_name}</span>
+                      {acct._access_type === "shared" && (
+                        <Badge variant="outline" className="text-[9px] px-1.5 py-0 border-purple-300 text-purple-700 bg-purple-50 shrink-0" data-testid={`goals-shared-badge-${acct.account_id}`}>
+                          {isEs ? "Compartida" : "Shared"}
+                        </Badge>
+                      )}
                     </CardTitle>
                     <p className="text-xs text-muted-foreground mt-0.5">
                       {acct.platform} {acct.handle && `· ${acct.handle}`}

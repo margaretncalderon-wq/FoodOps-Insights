@@ -1,6 +1,34 @@
 # Kora OS - Changelog
 
 
+## February 20, 2026 — Iteration 247 · Metas Multi-Tenant
+
+### 🔒 Hardening — Aislamiento multi-tenant en Metas
+
+Usuario preguntó si el feature de Metas es multi-tenant aware. Auditoría reveló gap: cuando el usuario veía "All my accounts" sin org_id específico, el endpoint sólo devolvía metas de su propia empresa, escondiendo las de cuentas compartidas (ej. Ciano Bites).
+
+### Cambios
+- **Backend `GET /social/goals-progress`** ahora acepta `include_shared: bool` (mirroring `/social/accounts`):
+  * Si `org_id` está seteado → solo esa org (tras chequeo de membership).
+  * Si no + `include_shared=true` → owned accounts + accounts de TODAS las orgs donde el usuario tiene membership activa.
+  * Cada account devuelve `_access_type: "owned"|"shared"`, `_role`, `_company_id`.
+- **Backend `PUT /social/accounts/{id}/monthly-targets`** ya usaba `get_effective_company_id` que valida membership — solo se necesitaba que el frontend pase `org_id` correctamente al editar shared accounts.
+- **Frontend `SocialGoalsTab`**:
+  * `fetchProgress` envía `include_shared=true` cuando no hay orgId específico.
+  * `saveTargets` detecta si el account es shared (via `_access_type`) y pasa el `_company_id` como `org_id` para el PUT.
+  * Badge morado "Compartida / Shared" (data-testid `goals-shared-badge-{id}`) al lado del nombre para claridad visual.
+
+### Testing
+`/app/backend/tests/test_goals_multi_tenant.py` — 4 casos:
+1. Own-only (sin include_shared) → sólo cuentas propias. ✅
+2. Include_shared → propias + compartidas correctamente etiquetadas. ✅
+3. org_id específico → solo esa org. ✅
+4. Outsider sin membership → 0 accounts (no leak). ✅
+
+12/12 pytests verde en la suite completa.
+
+
+
 ## February 20, 2026 — Iteration 246 · Monthly Content Goals (feature nueva)
 
 ### ✨ Feature — Metas de posts por tipo por mes por cuenta

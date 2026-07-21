@@ -2673,51 +2673,74 @@ def _health_tier(actual: int, target: int, days_in_month: int, day_of_month: int
 async def get_goals_progress(
     month: Optional[str] = None,
     org_id: Optional[str] = None,
+    include_shared: bool = False,
     user: User = Depends(get_current_user),
 ):
     """
     Return progress per social account for a given month (default: current UTC).
 
-    Response:
-      {
-        "month": "2026-02",
-        "days_in_month": 28,
-        "day_of_month": 20,
-        "accounts": [
-          {
-            "account_id": "...",
-            "account_name": "Ciano Gourmet",
-            "platform": "instagram",
-            "handle": "@cianogourmet",
-            "targets": {"reel": 5, "carousel": 4, "photoshoot": 1},
-            "actual":  {"reel": 3, "carousel": 2, "photoshoot": 0},
-            "health":  {"reel": "on_track", "carousel": "behind", "photoshoot": "warning"},
-            "overall_pct": 45.0
-          }
-        ]
-      }
+    Multi-tenant behavior mirrors `/social/accounts`:
+    - If `org_id` is set → only that org's accounts (after membership check).
+    - Else if `include_shared=true` → own accounts PLUS accounts from every
+      org where the user is an active member.
+    - Else → only own-company accounts.
     """
-    try:
-        company_id, _ = await get_effective_company_id(user, org_id)
-    except HTTPException:
-        company_id = user.company_id or user.active_org_id
-    if not company_id:
-        return {"month": month or datetime.now(timezone.utc).strftime("%Y-%m"),
-                "days_in_month": 0, "day_of_month": 0, "accounts": []}
-
     m = month or datetime.now(timezone.utc).strftime("%Y-%m")
     start, end, days_in_month, day_of_month = _month_bounds(m)
 
-    accounts = await db.social_accounts.find(
-        {"company_id": company_id}, {"_id": 0},
-    ).to_list(200)
+    # Resolve which (company_id, tag) pairs we need to query.
+    # tag = "owned" | "shared", and we tag accounts accordingly.
+    company_scopes = []  # list of {company_id, access_type, shared_by, role}
 
-    # Aggregate posts by (account_id, format) for the month. We count posts
-    # in states that represent "delivered/committed" — posted or scheduled.
-    # Idea/draft are excluded so ideas don't inflate progress.
+    if org_id:
+        # Specific org — check membership via get_effective_company_id
+        try:
+            cid, role = await get_effective_company_id(user, org_id)
+            own_cid = user.company_id or user.active_org_id
+            company_scopes.append({
+                "company_id": cid,
+                "access_type": "owned" if cid == own_cid else "shared",
+                "role": role,
+            })
+        except HTTPException:
+            return {"month": m, "days_in_month": days_in_month,
+                    "day_of_month": day_of_month, "accounts": []}
+    else:
+        own_cid = user.company_id or user.active_org_id
+        if own_cid:
+            company_scopes.append({
+                "company_id": own_cid, "access_type": "owned", "role": "owner",
+            })
+        if include_shared:
+            memberships = await db.memberships.find({
+                "user_id": user.user_id,
+                "$or": [{"status": "active"}, {"status": {"$exists": False}}]
+            }).to_list(100)
+            for mem in memberships:
+                oid = mem.get("company_id") or mem.get("organization_id")
+                if not oid or oid == own_cid:
+                    continue
+                company_scopes.append({
+                    "company_id": oid,
+                    "access_type": "shared",
+                    "role": mem.get("role", "viewer"),
+                })
+
+    if not company_scopes:
+        return {"month": m, "days_in_month": days_in_month,
+                "day_of_month": day_of_month, "accounts": []}
+
+    all_company_ids = [s["company_id"] for s in company_scopes]
+
+    # Fetch accounts across ALL scopes
+    accounts = await db.social_accounts.find(
+        {"company_id": {"$in": all_company_ids}}, {"_id": 0},
+    ).to_list(500)
+
+    # Aggregate post counts across all those company scopes
     pipeline = [
         {"$match": {
-            "company_id": company_id,
+            "company_id": {"$in": all_company_ids},
             "status": {"$in": ["scheduled", "posted"]},
             "scheduled_at": {"$gte": start, "$lte": end + "T99"},
         }},
@@ -2726,7 +2749,7 @@ async def get_goals_progress(
             "count": {"$sum": 1},
         }},
     ]
-    grouped = await db.social_posts.aggregate(pipeline).to_list(2000)
+    grouped = await db.social_posts.aggregate(pipeline).to_list(5000)
     actual_map: dict = {}
     for row in grouped:
         acc = row["_id"].get("account")
@@ -2735,9 +2758,13 @@ async def get_goals_progress(
             continue
         actual_map.setdefault(acc, {})[fmt] = int(row.get("count", 0))
 
+    # Build a scope lookup so we can label each account with its access_type
+    scope_by_cid = {s["company_id"]: s for s in company_scopes}
+
     out_accounts = []
     for a in accounts:
         acc_id = a.get("account_id")
+        scope = scope_by_cid.get(a.get("company_id"), {})
         targets = _sanitize_targets(a.get("monthly_targets") or {})
         actual = actual_map.get(acc_id, {})
 
@@ -2748,13 +2775,12 @@ async def get_goals_progress(
             act = int(actual.get(fmt, 0))
             health[fmt] = _health_tier(act, tgt, days_in_month, day_of_month)
             total_target += tgt
-            total_actual += min(act, tgt)  # Cap so overachievers don't skew
+            total_actual += min(act, tgt)
 
         overall_pct = 0.0
         if total_target > 0:
             overall_pct = round(min(100.0, (total_actual / total_target) * 100.0), 1)
 
-        # Include actuals for ALL formats so the UI can show "extra" too
         full_actual = {fmt: int(actual.get(fmt, 0)) for fmt in VALID_GOAL_FORMATS}
 
         out_accounts.append({
@@ -2768,6 +2794,9 @@ async def get_goals_progress(
             "health": health,
             "overall_pct": overall_pct,
             "has_targets": bool(targets),
+            "_access_type": scope.get("access_type", "owned"),
+            "_role": scope.get("role", "owner"),
+            "_company_id": a.get("company_id"),
         })
 
     return {
