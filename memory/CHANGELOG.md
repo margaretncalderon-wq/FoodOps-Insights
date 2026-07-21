@@ -1,6 +1,22 @@
 # Kora OS - Changelog
 
 
+## February 20, 2026 — Iteration 248 · Agrupar Ideas por Formato
+
+### ✨ Enhancement — Ideas tab
+
+Nueva opción **"Por Formato / By Format"** en el dropdown de agrupación de la pestaña Ideas de Social Media. Agrupa las ideas por tipo de contenido (Reel · Carrusel · Post · Historia · En Vivo), lo que facilita encontrar rápidamente todas las ideas de carrusel, reel o historia.
+
+- Frontend `SocialMediaPage.js`:
+  * Añadido `<SelectItem value="format">` en el dropdown `idea-group-select`.
+  * Lógica de agrupación: `key = i.format || "_unassigned"`.
+  * Label helper: usa el label de `FORMATS` (bilingüe).
+  * Icon helper: emoji consistente con el resto de la app (🎬 Reel · 📸 Carousel · ⏱ Story · 🔴 Live · 📄 Post · 📷 Photoshoot).
+- Ideas sin `format` van al bucket "Sin asignar / Unassigned" al final.
+- Fix menor colateral: se limpió un bloque duplicado accidental al final del archivo (~20 líneas dead code).
+
+
+
 ## February 20, 2026 — Iteration 247 · Metas Multi-Tenant
 
 ### 🔒 Hardening — Aislamiento multi-tenant en Metas

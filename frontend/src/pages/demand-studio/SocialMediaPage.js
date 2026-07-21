@@ -1737,6 +1737,7 @@ export default function SocialMediaPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">{isEs ? "Sin agrupar" : "No grouping"}</SelectItem>
+                  <SelectItem value="format">{isEs ? "Por Formato" : "By Format"}</SelectItem>
                   <SelectItem value="pillar">{isEs ? "Por Pilar" : "By Pillar"}</SelectItem>
                   <SelectItem value="segment">{isEs ? "Por Segmento" : "By Segment"}</SelectItem>
                   <SelectItem value="audience">{isEs ? "Por Audiencia" : "By Audience"}</SelectItem>
@@ -1768,10 +1769,22 @@ export default function SocialMediaPage() {
                 const s = IDEA_STATUSES.find(st => st.value === key);
                 return isEs ? (s?.labelEs || key) : (s?.label || key);
               }
+              if (groupType === "format") {
+                const f = FORMATS.find(ft => ft.value === key);
+                return isEs ? (f?.labelEs || key) : (f?.label || key);
+              }
               return key;
             };
             const getIconForGroup = (key, groupType) => {
               if (groupType === "pillar") return pillars.find(p => p.pillar_id === key)?.icon;
+              if (groupType === "format") {
+                if (key === "reel") return "🎬";
+                if (key === "carousel") return "📸";
+                if (key === "story") return "⏱";
+                if (key === "live") return "🔴";
+                if (key === "post" || key === "feed") return "📄";
+                if (key === "photoshoot") return "📷";
+              }
               return null;
             };
 
@@ -1788,6 +1801,7 @@ export default function SocialMediaPage() {
                 else if (ideaGroupBy === "segment") key = i.segment_id || "_unassigned";
                 else if (ideaGroupBy === "audience") key = i.audience_id || "_unassigned";
                 else if (ideaGroupBy === "status") key = i.status || "new";
+                else if (ideaGroupBy === "format") key = i.format || "_unassigned";
                 if (!grouped[key]) grouped[key] = [];
                 grouped[key].push(i);
               });
