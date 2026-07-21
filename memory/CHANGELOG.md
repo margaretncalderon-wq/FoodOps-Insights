@@ -1,6 +1,32 @@
 # Kora OS - Changelog
 
 
+## February 21, 2026 — Iteration 251 · Dashboard Cross-Cuenta
+
+### ✨ Feature — Comparativa cross-cuenta para agencias
+
+Nueva sub-pestaña **"Comparativa / Comparison"** dentro de Métricas de Social Media. Vista side-by-side de todas las cuentas (owned + shared) para conversaciones tipo "mira Ciano, este mes estás +25% arriba del benchmark de agencia".
+
+**Backend `GET /api/demand-studio/social-metrics/cross-account`:**
+- Params: `period_days` (7/30/90), `org_id`, `include_shared`.
+- Multi-tenant: mismo patrón que goals-progress (owned + shared con membership check).
+- Devuelve por cuenta: `current` + `previous` + `growth` (followers_pct, reach_pct, engagement_pct, eng_rate_delta).
+- Cada cuenta va con `rank_by_reach` para ordenar.
+- Portfolio totals + `agency_benchmark_reach_pct` = promedio de crecimiento entre todas las cuentas.
+- Lee de `social_metrics_snapshots` (OAuth) con fallback a `manual_social_metrics`.
+
+**Frontend `CrossAccountDashboard.js`:**
+- 4 cards: Portfolio followers · Total reach · Total engagement · Agency benchmark.
+- Tabla ordenada por rank con growth badges (↗↘—) por métrica.
+- Columna "vs Benchmark" muestra si cada cuenta está arriba o abajo del promedio de la agencia.
+- Badge "Shared" (morado) para cuentas compartidas.
+- Selector período (últimos 7/30/90 días).
+- Empty state cuando no hay datos ("Conectá cuentas o agregá métricas").
+
+Multi-tenant validado: cuentas de shared orgs aparecen correctamente etiquetadas, ninguna leak.
+
+
+
 ## February 20, 2026 — Iteration 250 · Ideas: campo Formato + herencia al convertir
 
 ### 🐛 Bugfix #1 — El agrupar por Formato en Ideas no funcionaba porque no había input de formato

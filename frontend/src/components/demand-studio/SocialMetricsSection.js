@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "../ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
+import CrossAccountDashboard from "../../pages/demand-studio/CrossAccountDashboard";
 import {
   BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, Legend
@@ -256,10 +257,16 @@ export function SocialMetricsSection() {
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="overview">{isEs ? "Resumen" : "Overview"}</TabsTrigger>
+          <TabsTrigger value="comparison" data-testid="metrics-tab-comparison">{isEs ? "Comparativa" : "Comparison"}</TabsTrigger>
           <TabsTrigger value="posts">{isEs ? "Publicaciones" : "Posts"}</TabsTrigger>
           <TabsTrigger value="connections">{isEs ? "Conexiones" : "Connections"}</TabsTrigger>
           <TabsTrigger value="history">{isEs ? "Historial" : "History"}</TabsTrigger>
         </TabsList>
+
+        {/* Comparison Tab · Cross-account benchmark for agency */}
+        <TabsContent value="comparison">
+          <CrossAccountDashboard orgId={null} />
+        </TabsContent>
         
         {/* Overview Tab */}
         <TabsContent value="overview" className="space-y-4">

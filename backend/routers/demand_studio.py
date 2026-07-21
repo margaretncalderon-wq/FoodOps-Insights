@@ -4710,6 +4710,190 @@ async def get_metrics_snapshots(
     return snapshots
 
 
+@demand_studio_router.get("/social-metrics/cross-account")
+async def get_cross_account_metrics(
+    period_days: int = 30,
+    org_id: Optional[str] = None,
+    include_shared: bool = False,
+    user: User = Depends(get_current_user),
+):
+    """
+    Cross-account comparison for the agency dashboard.
+
+    Returns metrics per social account across owned + shared companies, with
+    current period vs previous period growth deltas so the agency can see
+    which client is trending up/down side-by-side.
+
+    Multi-tenant behavior mirrors /social/goals-progress:
+    - `org_id` scoped → only that org.
+    - `include_shared=true` → owned + all orgs where user is a member.
+    - Neither → owned only.
+    """
+    from datetime import timedelta
+    now = datetime.now(timezone.utc)
+    period_end = now.strftime("%Y-%m-%d")
+    period_start = (now - timedelta(days=period_days)).strftime("%Y-%m-%d")
+    prev_end = period_start
+    prev_start = (now - timedelta(days=period_days * 2)).strftime("%Y-%m-%d")
+
+    # Resolve tenant scopes (same pattern as goals-progress)
+    company_scopes = []
+    if org_id:
+        try:
+            cid, role = await get_effective_company_id(user, org_id)
+            own_cid = user.company_id or user.active_org_id
+            company_scopes.append({"company_id": cid, "access_type": "owned" if cid == own_cid else "shared"})
+        except HTTPException:
+            return {"period_days": period_days, "accounts": []}
+    else:
+        own_cid = user.company_id or user.active_org_id
+        if own_cid:
+            company_scopes.append({"company_id": own_cid, "access_type": "owned"})
+        if include_shared:
+            memberships = await db.memberships.find({
+                "user_id": user.user_id,
+                "$or": [{"status": "active"}, {"status": {"$exists": False}}]
+            }).to_list(100)
+            for mem in memberships:
+                oid = mem.get("company_id") or mem.get("organization_id")
+                if oid and oid != own_cid:
+                    company_scopes.append({"company_id": oid, "access_type": "shared"})
+
+    if not company_scopes:
+        return {"period_days": period_days, "accounts": []}
+
+    company_ids = [s["company_id"] for s in company_scopes]
+    scope_by_cid = {s["company_id"]: s for s in company_scopes}
+
+    # Fetch social accounts for those companies
+    accounts = await db.social_accounts.find(
+        {"company_id": {"$in": company_ids}}, {"_id": 0},
+    ).to_list(500)
+
+    def _latest_in_range(rows: list) -> Optional[dict]:
+        return rows[-1] if rows else None
+
+    async def _series_for(acc_id: str, cid: str, start: str, end: str) -> list:
+        # Try snapshots first (from OAuth sync), then fall back to manual entries
+        snaps = await db.social_metrics_snapshots.find({
+            "company_id": cid,
+            "social_account_id": acc_id,
+            "snapshot_date": {"$gte": start, "$lt": end},
+        }, {"_id": 0}).sort("snapshot_date", 1).to_list(500)
+        if snaps:
+            return snaps
+        manual = await db.manual_social_metrics.find({
+            "company_id": cid,
+            "social_account_id": acc_id,
+            "snapshot_date": {"$gte": start, "$lt": end},
+        }, {"_id": 0}).sort("snapshot_date", 1).to_list(500)
+        return manual
+
+    def _val(row: Optional[dict], key: str, alt: str = None) -> float:
+        if not row:
+            return 0.0
+        v = row.get(key)
+        if v is None and alt:
+            v = row.get(alt)
+        try:
+            return float(v or 0)
+        except (TypeError, ValueError):
+            return 0.0
+
+    def _pct_change(cur: float, prev: float) -> Optional[float]:
+        if prev <= 0:
+            return None if cur == 0 else 100.0
+        return round(((cur - prev) / prev) * 100.0, 1)
+
+    out = []
+    total_current_followers = 0
+    total_current_reach = 0
+    total_current_engagement = 0
+
+    for a in accounts:
+        acc_id = a.get("account_id")
+        cid = a.get("company_id")
+        scope = scope_by_cid.get(cid, {})
+
+        cur_series = await _series_for(acc_id, cid, period_start, period_end + "T99")
+        prev_series = await _series_for(acc_id, cid, prev_start, prev_end)
+
+        cur = _latest_in_range(cur_series)
+        prev = _latest_in_range(prev_series)
+
+        cur_followers = _val(cur, "followers_count", "followers")
+        cur_reach = _val(cur, "reach")
+        cur_engagement = _val(cur, "engagement")
+        cur_eng_rate = round((cur_engagement / cur_reach * 100.0), 2) if cur_reach > 0 else 0.0
+
+        prev_followers = _val(prev, "followers_count", "followers")
+        prev_reach = _val(prev, "reach")
+        prev_engagement = _val(prev, "engagement")
+        prev_eng_rate = round((prev_engagement / prev_reach * 100.0), 2) if prev_reach > 0 else 0.0
+
+        total_current_followers += cur_followers
+        total_current_reach += cur_reach
+        total_current_engagement += cur_engagement
+
+        out.append({
+            "account_id": acc_id,
+            "account_name": a.get("handle") or a.get("account_name") or a.get("platform"),
+            "platform": a.get("platform"),
+            "handle": a.get("handle"),
+            "color": a.get("color"),
+            "current": {
+                "followers": int(cur_followers),
+                "reach": int(cur_reach),
+                "engagement": int(cur_engagement),
+                "eng_rate": cur_eng_rate,
+            },
+            "previous": {
+                "followers": int(prev_followers),
+                "reach": int(prev_reach),
+                "engagement": int(prev_engagement),
+                "eng_rate": prev_eng_rate,
+            },
+            "growth": {
+                "followers_pct": _pct_change(cur_followers, prev_followers),
+                "reach_pct": _pct_change(cur_reach, prev_reach),
+                "engagement_pct": _pct_change(cur_engagement, prev_engagement),
+                "eng_rate_delta": round(cur_eng_rate - prev_eng_rate, 2),
+            },
+            "has_data": cur is not None or prev is not None,
+            "_access_type": scope.get("access_type", "owned"),
+            "_company_id": cid,
+        })
+
+    # Rank each account by growth to compute benchmarks
+    ranked = sorted(
+        [a for a in out if a["growth"]["reach_pct"] is not None],
+        key=lambda a: a["growth"]["reach_pct"], reverse=True,
+    )
+    for idx, a in enumerate(ranked):
+        a["rank_by_reach"] = idx + 1
+
+    # Portfolio-level benchmark
+    agency_benchmark_reach_pct = None
+    if len(ranked) > 0:
+        avg = sum(a["growth"]["reach_pct"] for a in ranked) / len(ranked)
+        agency_benchmark_reach_pct = round(avg, 1)
+
+    return {
+        "period_days": period_days,
+        "period_start": period_start,
+        "period_end": period_end,
+        "agency_benchmark_reach_pct": agency_benchmark_reach_pct,
+        "totals": {
+            "followers": int(total_current_followers),
+            "reach": int(total_current_reach),
+            "engagement": int(total_current_engagement),
+        },
+        "accounts": out,
+    }
+
+
+
+
 @demand_studio_router.get("/social-metrics/posts")
 async def get_post_metrics(
     platform: Optional[str] = None,
