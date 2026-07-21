@@ -1,6 +1,42 @@
 # Kora OS - Changelog
 
 
+## February 20, 2026 — Iteration 246 · Monthly Content Goals (feature nueva)
+
+### ✨ Feature — Metas de posts por tipo por mes por cuenta
+
+Los agencias ahora pueden definir metas fijas de producción por cuenta social y trackear progreso en tiempo real.
+
+**User choices confirmados:**
+- Todos los formatos: Reel · Carousel · Story · Feed · Photoshoot · Live
+- Photoshoots opcionales por cuenta (0 = no trackear)
+- Metas FIJAS pero editables (no reset mensual)
+- Meta solo a nivel account (no pillar/campaign)
+
+**Backend (`routers/demand_studio.py`):**
+- Helper `_sanitize_targets(dict)` — descarta claves inválidas, `<=0`, o no numéricas
+- Helper `_month_bounds(YYYY-MM)` — devuelve (start, end, days_in_month, day_of_month) usando UTC
+- Helper `_health_tier(actual, target, days, day)` — tiers: `complete`, `on_track`, `warning`, `behind`, `not_started`, `no_target`
+- `PUT /api/demand-studio/social/accounts/{id}/monthly-targets` — guarda `monthly_targets: {reel: 5, ...}` en `social_accounts`
+- `GET /api/demand-studio/social/goals-progress?month=YYYY-MM` — devuelve `{month, days_in_month, day_of_month, accounts:[{account_id, account_name, targets, actual, health, overall_pct, has_targets}]}`
+- Actuals cuentan posts con `status ∈ {scheduled, posted}` en el rango del mes. Ideas/drafts NO cuentan.
+
+**Frontend (`pages/demand-studio/SocialGoalsTab.js` — nuevo):**
+- Nueva pestaña "Metas / Goals" (data-testid `tab-goals`) entre Metrics y Settings.
+- Header: navegación de mes (`goals-prev-month`, `goals-next-month`, `goals-refresh`, `goals-month-label`), info "Día X de Y · Progreso esperado del mes: Z%".
+- Grid de cards por cuenta (`goals-account-card-{id}`):
+  - Header: nombre de la cuenta con color, plataforma·handle, Overall % grande, botón Configure/Edit.
+  - Empty state cuando `has_targets=false`.
+  - Filas por formato tracked: icono + label + progress bar + `actual/target` count + badge de health.
+  - Edit mode: inputs para todos los 6 formatos + hint "(dejar en 0 para no trackear)".
+  - Footer: "Sobre-entrega: Reels +2" si `actual > target`.
+
+**Testing:**
+- Testing agent iteration_244 report: 100% backend + 100% frontend. Metas persisten tras reload.
+- Bugfix menor durante dev: doble prefix `/api/api` en frontend URLs — resuelto.
+
+
+
 ## February 20, 2026 — Iteration 245 · Social Calendar Story Bug (Ciano)
 
 ### 🐛 BUGFIX — Historias del 1 de agosto en adelante desaparecen del calendario
