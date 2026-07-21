@@ -1,5 +1,5 @@
 # routers/demand_studio.py - Demand Studio routes
-from fastapi import APIRouter, HTTPException, Depends, Request, Query
+from fastapi import APIRouter, HTTPException, Depends, Request, Query, Body
 from pydantic import BaseModel
 from typing import Optional, List
 from datetime import datetime, timezone, timedelta
@@ -2558,6 +2558,226 @@ async def delete_social_account(account_id: str, org_id: Optional[str] = None, u
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Account not found")
     return {"success": True}
+
+# ---- Monthly Content Goals (per social account) ----
+# Feb 2026 · Feature — allows agencies to define fixed monthly production
+# targets per social account and format (5 reels, 4 carousels, etc.), and
+# track live progress against those goals with health tiers.
+
+VALID_GOAL_FORMATS = {"reel", "carousel", "story", "feed", "photoshoot", "live"}
+
+def _sanitize_targets(raw: dict) -> dict:
+    """Keep only known formats and non-negative ints; drop empties."""
+    if not isinstance(raw, dict):
+        return {}
+    clean = {}
+    for k, v in raw.items():
+        if k not in VALID_GOAL_FORMATS:
+            continue
+        if v is None or v == "":
+            continue
+        try:
+            iv = int(v)
+        except (TypeError, ValueError):
+            continue
+        if iv <= 0:
+            continue
+        clean[k] = iv
+    return clean
+
+
+@demand_studio_router.put("/social/accounts/{account_id}/monthly-targets")
+async def set_monthly_targets(
+    account_id: str,
+    data: dict = Body(...),
+    org_id: Optional[str] = None,
+    user: User = Depends(get_current_user),
+):
+    """
+    Set/replace monthly production targets for a social account.
+
+    Body: {"targets": {"reel": 5, "carousel": 4, "photoshoot": 1}}
+
+    Targets are FIXED (do not reset each month). Any format not present or
+    with value <= 0 is treated as "not tracked" for that account.
+    """
+    company_id, _ = await get_effective_company_id(user, org_id)
+    targets = _sanitize_targets(data.get("targets") or {})
+    result = await db.social_accounts.update_one(
+        {"account_id": account_id, "company_id": company_id},
+        {"$set": {
+            "monthly_targets": targets,
+            "monthly_targets_updated_at": datetime.now(timezone.utc).isoformat(),
+        }},
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Account not found")
+    updated = await db.social_accounts.find_one(
+        {"account_id": account_id, "company_id": company_id}, {"_id": 0},
+    )
+    return {"success": True, "monthly_targets": updated.get("monthly_targets", {})}
+
+
+def _month_bounds(month: str) -> tuple[str, str, int, int]:
+    """
+    Return (start_prefix, end_prefix, days_in_month, day_of_month_now) for a
+    YYYY-MM month string. Uses UTC for boundary comparisons.
+    """
+    from calendar import monthrange
+    try:
+        y, m = month.split("-")
+        y, m = int(y), int(m)
+    except (ValueError, AttributeError):
+        # Default to current UTC month if parsing fails
+        now = datetime.now(timezone.utc)
+        y, m = now.year, now.month
+    _, days = monthrange(y, m)
+    start = f"{y:04d}-{m:02d}-01"
+    end = f"{y:04d}-{m:02d}-{days:02d}"
+    now = datetime.now(timezone.utc)
+    # Cap day_of_month at days for past months, at today for current month
+    if now.year > y or (now.year == y and now.month > m):
+        day_of_month = days
+    elif now.year == y and now.month == m:
+        day_of_month = now.day
+    else:
+        day_of_month = 0  # Future month
+    return start, end, days, day_of_month
+
+
+def _health_tier(actual: int, target: int, days_in_month: int, day_of_month: int) -> str:
+    """
+    Determine health tier:
+      - complete    : actual >= target
+      - on_track    : actual/target >= (day/days) - 0.10 grace
+      - behind      : actual/target < (day/days) - 0.30
+      - warning     : between behind and on_track
+      - not_started : actual == 0 AND day_of_month == 0 (future month)
+    """
+    if target <= 0:
+        return "no_target"
+    if actual >= target:
+        return "complete"
+    if days_in_month == 0 or day_of_month == 0:
+        return "not_started"
+    expected_pct = day_of_month / days_in_month
+    actual_pct = actual / target
+    if actual_pct >= expected_pct - 0.10:
+        return "on_track"
+    if actual_pct < expected_pct - 0.30:
+        return "behind"
+    return "warning"
+
+
+@demand_studio_router.get("/social/goals-progress")
+async def get_goals_progress(
+    month: Optional[str] = None,
+    org_id: Optional[str] = None,
+    user: User = Depends(get_current_user),
+):
+    """
+    Return progress per social account for a given month (default: current UTC).
+
+    Response:
+      {
+        "month": "2026-02",
+        "days_in_month": 28,
+        "day_of_month": 20,
+        "accounts": [
+          {
+            "account_id": "...",
+            "account_name": "Ciano Gourmet",
+            "platform": "instagram",
+            "handle": "@cianogourmet",
+            "targets": {"reel": 5, "carousel": 4, "photoshoot": 1},
+            "actual":  {"reel": 3, "carousel": 2, "photoshoot": 0},
+            "health":  {"reel": "on_track", "carousel": "behind", "photoshoot": "warning"},
+            "overall_pct": 45.0
+          }
+        ]
+      }
+    """
+    try:
+        company_id, _ = await get_effective_company_id(user, org_id)
+    except HTTPException:
+        company_id = user.company_id or user.active_org_id
+    if not company_id:
+        return {"month": month or datetime.now(timezone.utc).strftime("%Y-%m"),
+                "days_in_month": 0, "day_of_month": 0, "accounts": []}
+
+    m = month or datetime.now(timezone.utc).strftime("%Y-%m")
+    start, end, days_in_month, day_of_month = _month_bounds(m)
+
+    accounts = await db.social_accounts.find(
+        {"company_id": company_id}, {"_id": 0},
+    ).to_list(200)
+
+    # Aggregate posts by (account_id, format) for the month. We count posts
+    # in states that represent "delivered/committed" — posted or scheduled.
+    # Idea/draft are excluded so ideas don't inflate progress.
+    pipeline = [
+        {"$match": {
+            "company_id": company_id,
+            "status": {"$in": ["scheduled", "posted"]},
+            "scheduled_at": {"$gte": start, "$lte": end + "T99"},
+        }},
+        {"$group": {
+            "_id": {"account": "$social_account_id", "format": "$format"},
+            "count": {"$sum": 1},
+        }},
+    ]
+    grouped = await db.social_posts.aggregate(pipeline).to_list(2000)
+    actual_map: dict = {}
+    for row in grouped:
+        acc = row["_id"].get("account")
+        fmt = row["_id"].get("format")
+        if not acc or not fmt:
+            continue
+        actual_map.setdefault(acc, {})[fmt] = int(row.get("count", 0))
+
+    out_accounts = []
+    for a in accounts:
+        acc_id = a.get("account_id")
+        targets = _sanitize_targets(a.get("monthly_targets") or {})
+        actual = actual_map.get(acc_id, {})
+
+        health = {}
+        total_target = 0
+        total_actual = 0
+        for fmt, tgt in targets.items():
+            act = int(actual.get(fmt, 0))
+            health[fmt] = _health_tier(act, tgt, days_in_month, day_of_month)
+            total_target += tgt
+            total_actual += min(act, tgt)  # Cap so overachievers don't skew
+
+        overall_pct = 0.0
+        if total_target > 0:
+            overall_pct = round(min(100.0, (total_actual / total_target) * 100.0), 1)
+
+        # Include actuals for ALL formats so the UI can show "extra" too
+        full_actual = {fmt: int(actual.get(fmt, 0)) for fmt in VALID_GOAL_FORMATS}
+
+        out_accounts.append({
+            "account_id": acc_id,
+            "account_name": a.get("handle") or a.get("account_name") or a.get("platform"),
+            "platform": a.get("platform"),
+            "handle": a.get("handle"),
+            "color": a.get("color"),
+            "targets": targets,
+            "actual": full_actual,
+            "health": health,
+            "overall_pct": overall_pct,
+            "has_targets": bool(targets),
+        })
+
+    return {
+        "month": m,
+        "days_in_month": days_in_month,
+        "day_of_month": day_of_month,
+        "accounts": out_accounts,
+    }
+
+
 
 # ---- Content Pillars CRUD ----
 

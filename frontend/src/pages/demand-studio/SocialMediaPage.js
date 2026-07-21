@@ -32,7 +32,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "../../components/ui/dropdown-menu";
-import { Plus, Calendar, List, BarChart3, Hash, Instagram, Layers, Play, Copy, Archive, Check, Settings, Edit, ChevronLeft, ChevronRight, Linkedin, Youtube, Lightbulb, ExternalLink, Sparkles, Trash2, ArrowRight, Grid3X3, Wand2, Share2, Building2, ChevronDown, AtSign, User, Video, Film, Eye, MoreHorizontal, ArrowUpRight, GripVertical, History, RefreshCw } from "lucide-react";
+import { Plus, Calendar, List, BarChart3, Hash, Instagram, Layers, Play, Copy, Archive, Check, Settings, Edit, ChevronLeft, ChevronRight, Linkedin, Youtube, Lightbulb, ExternalLink, Sparkles, Trash2, ArrowRight, Grid3X3, Wand2, Share2, Building2, ChevronDown, AtSign, User, Video, Film, Eye, MoreHorizontal, ArrowUpRight, GripVertical, History, RefreshCw, Target } from "lucide-react";
 
 import { KoraLoader } from "../../components/KoraLoader";
 import { API_BASE as API } from "../../utils/api"; // Dynamic API URL
@@ -46,6 +46,7 @@ import { SocialMetricsSection } from "../../components/demand-studio/SocialMetri
 import CommentsSection from "../../components/shared/CommentsSection";
 import RichTextEditor from "../../components/ui/RichTextEditor";
 import { GlobalActivityLog } from "../../components/GlobalActivityLog";
+import SocialGoalsTab from "./SocialGoalsTab";
 import { formatDateOnly } from "../../utils/dates";
 
 const PLATFORMS = [
@@ -1487,6 +1488,10 @@ export default function SocialMediaPage() {
               <BarChart3 className="w-4 h-4" />
               <span className="hidden sm:inline">{isEs ? "Métricas" : "Metrics"}</span>
             </TabsTrigger>
+            <TabsTrigger value="goals" className="gap-2" data-testid="tab-goals">
+              <Target className="w-4 h-4" />
+              <span className="hidden sm:inline">{isEs ? "Metas" : "Goals"}</span>
+            </TabsTrigger>
             <TabsTrigger value="settings" className="gap-2">
               <Settings className="w-4 h-4" />
               <span className="hidden sm:inline">{isEs ? "Config" : "Settings"}</span>
@@ -2732,6 +2737,11 @@ export default function SocialMediaPage() {
         {/* Metrics Tab */}
         <TabsContent value="metrics">
           <SocialMetricsSection />
+        </TabsContent>
+
+        {/* Goals Tab · Feb 2026 */}
+        <TabsContent value="goals">
+          <SocialGoalsTab orgId={selectedOrgId && !isOwnOrg ? selectedOrgId : null} />
         </TabsContent>
 
         {/* Settings Tab */}
