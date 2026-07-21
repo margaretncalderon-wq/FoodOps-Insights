@@ -2134,3 +2134,120 @@ async def preview_sub_recipe_cost(payload: dict, user: User = Depends(get_curren
         "source": "yield_unit",
     }
 
+
+
+# ============== PRINT / PDF EXPORT (branded per-tenant) ==============
+from fastapi.responses import HTMLResponse as _HTMLResponse
+from utils.print_templates import render_branded_html, get_company_branding
+
+
+@recipes_router.get("/{recipe_id}/print", response_class=_HTMLResponse)
+async def print_recipe_card(recipe_id: str, user: User = Depends(get_current_user)):
+    """Branded print-ready recipe card (per-tenant branding, ingredients,
+    procedure, costs, yield formats)."""
+    recipe = await db.recipes.find_one(
+        {"recipe_id": recipe_id, "company_id": user.company_id}, {"_id": 0},
+    )
+    if not recipe:
+        raise HTTPException(status_code=404, detail="Recipe not found")
+    branding = await get_company_branding(user.company_id)
+
+    name = recipe.get("name", "Receta")
+    category = recipe.get("category", "")
+    yield_qty = recipe.get("yield_quantity") or recipe.get("portions_obtained") or 0
+    yield_unit = recipe.get("yield_unit") or "porción"
+    procedure = recipe.get("procedure") or recipe.get("preparation") or recipe.get("notes") or ""
+    total_cost = float(recipe.get("total_cost", 0) or 0)
+    cost_per_portion = float(recipe.get("cost_per_portion", 0) or (total_cost / yield_qty if yield_qty else 0))
+    sell_price = float(recipe.get("sell_price", 0) or 0)
+
+    ing_rows = ""
+    for i, ing in enumerate(recipe.get("ingredients") or [], 1):
+        iname = ing.get("name") or ing.get("ingredient_name") or ""
+        qty = ing.get("quantity") or ing.get("quantity_used") or 0
+        unit = ing.get("unit", "")
+        cost = float(ing.get("cost", 0) or 0)
+        ing_rows += (
+            f"<tr><td>{i}</td><td>{iname}</td>"
+            f"<td class='num'>{qty} {unit}</td>"
+            f"<td class='num'>${cost:,.2f}</td></tr>"
+        )
+
+    sub_rows = ""
+    for i, sr in enumerate(recipe.get("sub_recipes") or [], 1):
+        srname = sr.get("recipe_name") or sr.get("name") or ""
+        qty = sr.get("quantity") or sr.get("quantity_used") or 0
+        unit = sr.get("unit", "")
+        cost = float(sr.get("cost", 0) or 0)
+        sub_rows += (
+            f"<tr><td>{i}</td><td>{srname} <em style='color:#94a3b8'>(sub-receta)</em></td>"
+            f"<td class='num'>{qty} {unit}</td>"
+            f"<td class='num'>${cost:,.2f}</td></tr>"
+        )
+
+    procedure_html = ""
+    if procedure:
+        # Preserve line breaks
+        procedure_html = f"<h2>Procedimiento</h2><div style='white-space:pre-wrap;line-height:1.6'>{procedure}</div>"
+
+    yield_formats = ""
+    pf_docs = await db.recipe_portion_formats.find(
+        {"recipe_id": recipe_id, "company_id": user.company_id}, {"_id": 0},
+    ).to_list(20)
+    if pf_docs:
+        yfrows = ""
+        for pf in pf_docs:
+            yfrows += (
+                f"<tr><td>{pf.get('format_name','')}</td>"
+                f"<td class='num'>{pf.get('portions_obtained',0)} {pf.get('portion_unit','')}</td>"
+                f"<td class='num'>${float(pf.get('cost_per_portion',0) or 0):,.2f}</td>"
+                f"<td class='num'>${float(pf.get('sell_price',0) or pf.get('suggested_price',0) or 0):,.2f}</td></tr>"
+            )
+        yield_formats = f"""
+          <h2>Formatos de Porción</h2>
+          <table>
+            <thead><tr><th>Formato</th><th class='num'>Rinde</th><th class='num'>Costo/porción</th><th class='num'>PVP</th></tr></thead>
+            <tbody>{yfrows}</tbody>
+          </table>
+        """
+
+    body = f"""
+      <div class="grid-2">
+        <div class="box">
+          <div class="label">Categoría</div>
+          <div class="val" style="font-size:13px">{category or "—"}</div>
+        </div>
+        <div class="box">
+          <div class="label">Rinde</div>
+          <div class="val" style="font-size:13px">{yield_qty} {yield_unit}</div>
+        </div>
+        <div class="box">
+          <div class="label">Costo por porción</div>
+          <div class="val">${cost_per_portion:,.2f}</div>
+        </div>
+        <div class="box">
+          <div class="label">PVP sugerido</div>
+          <div class="val">${sell_price:,.2f}</div>
+        </div>
+      </div>
+
+      <h2>Ingredientes</h2>
+      <table>
+        <thead><tr><th>#</th><th>Ingrediente</th><th class='num'>Cantidad</th><th class='num'>Costo</th></tr></thead>
+        <tbody>{ing_rows}{sub_rows or ''}</tbody>
+        <tfoot><tr style="font-weight:700"><td colspan='3'>Costo total</td><td class='num'>${total_cost:,.2f}</td></tr></tfoot>
+      </table>
+
+      {yield_formats}
+
+      {procedure_html}
+    """
+    html = render_branded_html(
+        branding=branding,
+        title=name,
+        subtitle=f"Receta · {category}" if category else "Receta",
+        document_type="Ficha Técnica",
+        body_html=body,
+    )
+    return _HTMLResponse(html)
+

@@ -548,6 +548,9 @@ export default function PurchaseOrdersSection() {
                         <Button variant="ghost" size="icon" onClick={() => handlePrintPO(po)} title={language === "es" ? "Imprimir" : "Print"}>
                           <Printer className="w-4 h-4" />
                         </Button>
+                        <Button variant="ghost" size="icon" onClick={() => window.open(`${API}/api/purchase-orders/${po.po_id}/print`, "_blank", "noopener,noreferrer")} title={language === "es" ? "PDF con branding" : "Branded PDF"} data-testid={`po-branded-pdf-${po.po_id}`}>
+                          <span style={{fontSize: 12}}>📄</span>
+                        </Button>
                         {po.status === "Draft" && (
                           <Button variant="ghost" size="icon" onClick={() => handleSendPO(po.po_id)} title={t("send")}>
                             <Send className="w-4 h-4 text-blue-500" />

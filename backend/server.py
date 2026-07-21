@@ -8077,6 +8077,70 @@ async def get_delivery_note(note_id: str, user: User = Depends(get_current_user)
         raise HTTPException(status_code=404, detail="Delivery note not found")
     return note
 
+@delivery_notes_router.get("/{note_id}/print")
+async def print_delivery_note(note_id: str, user: User = Depends(get_current_user)):
+    """Branded print-ready HTML for a Delivery Note (Conduce)."""
+    from fastapi.responses import HTMLResponse as _HR
+    from utils.print_templates import render_branded_html, get_company_branding
+    note = await db.delivery_notes.find_one(
+        {"note_id": note_id, "company_id": user.company_id}, {"_id": 0}
+    )
+    if not note:
+        raise HTTPException(status_code=404, detail="Delivery note not found")
+    branding = await get_company_branding(user.company_id)
+
+    items = note.get("items") or note.get("lines") or []
+    rows = ""
+    for i, it in enumerate(items, 1):
+        rows += (
+            f"<tr><td>{i}</td><td>{it.get('name','') or it.get('item_name','')}</td>"
+            f"<td class='num'>{it.get('quantity',0)} {it.get('unit','')}</td>"
+            f"<td>{it.get('notes','') or ''}</td></tr>"
+        )
+    body = f"""
+      <div class="grid-2">
+        <div class="box">
+          <div class="label">Cliente / Destino</div>
+          <div class="val" style="font-size:13px">{note.get('client_name','') or note.get('destination','') or '—'}</div>
+        </div>
+        <div class="box">
+          <div class="label">Evento</div>
+          <div class="val" style="font-size:13px">{note.get('event_name','') or '—'}</div>
+        </div>
+        <div class="box">
+          <div class="label">Fecha de entrega</div>
+          <div class="val" style="font-size:13px">{note.get('delivery_date','') or note.get('check_out_date','') or ''}</div>
+        </div>
+        <div class="box">
+          <div class="label">Devolución esperada</div>
+          <div class="val" style="font-size:13px">{note.get('expected_return_date','') or '—'}</div>
+        </div>
+      </div>
+      <h2>Ítems entregados</h2>
+      <table>
+        <thead><tr><th>#</th><th>Descripción</th><th class='num'>Cantidad</th><th>Observaciones</th></tr></thead>
+        <tbody>{rows or '<tr><td colspan="4" style="text-align:center;color:#94a3b8;padding:16px">Sin ítems</td></tr>'}</tbody>
+      </table>
+      <div style="margin-top:40px;display:grid;grid-template-columns:1fr 1fr;gap:60px">
+        <div style="border-top:1px solid #94a3b8;padding-top:6px;text-align:center;font-size:10px;color:#64748b">
+          Entrega por (nombre y firma)
+        </div>
+        <div style="border-top:1px solid #94a3b8;padding-top:6px;text-align:center;font-size:10px;color:#64748b">
+          Recibe (nombre y firma)
+        </div>
+      </div>
+    """
+    html = render_branded_html(
+        branding=branding,
+        title=f"Conduce #{note.get('note_number') or note_id[:8]}",
+        subtitle=note.get("status", ""),
+        document_type="Conduce",
+        body_html=body,
+    )
+    return _HR(html)
+
+
+
 @delivery_notes_router.put("/{note_id}/check-in")
 async def check_in_delivery_note(note_id: str, data: DeliveryNoteCheckIn, user: User = Depends(get_current_user)):
     """Record check-in (return) of items from a delivery note.

@@ -1,6 +1,33 @@
 # Kora OS - Changelog
 
 
+## February 21, 2026 — Iteration 253 · PDF branded para Recetas, POs y Conduces
+
+### ✨ Feature — Descarga PDF con branding per-tenant
+
+Nuevo helper compartido `/app/backend/utils/print_templates.py` con:
+- `get_company_branding(company_id)` — lee de `companies` collection: logo_url, primary_color, phone, email, address, RNC, website.
+- `render_branded_html(branding, title, body_html, ...)` — wrapper HTML print-ready con header (logo + contacto), doctype pill, body scoped por CSS común, footer con timestamp + company_name. Botón flotante "🖨 Imprimir / Guardar PDF" que desaparece en el print.
+- CSS `@page A4`, tipografía sans-serif, tablas estandarizadas, grid-2 layouts, boxes para KPIs, color primario configurable por tenant.
+
+### Nuevos endpoints (per-tenant, `company_id` filtro obligatorio)
+- `GET /api/recipes/{id}/print` — Ficha Técnica con categoría, rinde, costo por porción, PVP, tabla de ingredientes + sub-recetas, formatos de porción, procedimiento.
+- `GET /api/purchase-orders/{id}/print` — Orden de Compra con proveedor, fechas, líneas, subtotal/impuestos/total, notas.
+- `GET /api/delivery-notes/{id}/print` — Conduce con cliente, evento, fechas, ítems, líneas de firma "Entrega por" / "Recibe".
+
+### Frontend
+- Botón **"📄 PDF"** en el editor de Receta (junto a Cancelar/Guardar) — data-testid `recipe-print-pdf-btn`.
+- Botón **"📄"** en la tabla de Purchase Orders (data-testid `po-branded-pdf-{po_id}`).
+- Helper `/app/frontend/src/utils/brandedPrint.js` para uso futuro consistente.
+
+### Multi-tenant confirmado
+Cada endpoint filtra por `user.company_id` — Ciano ve su logo, StaffDo ve el suyo, imposible ver documentos de otro tenant. Branding se pulls de la company del user actual.
+
+### Screenshot verificado
+Recipe print renderiza correctamente: logo verde de la agencia, header con contacto + RNC, pill "FICHA TÉCNICA", 4 boxes de metadata, tabla de ingredientes, footer con timestamp.
+
+
+
 ## February 21, 2026 — Iteration 252 · PDF snapshot por cuenta
 
 ### ✨ Feature — Botón "Exportar PDF" en la Comparativa cross-cuenta

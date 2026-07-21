@@ -522,3 +522,93 @@ async def register_invoice_for_po(
     }
 
 
+
+
+# ============== PRINT / PDF EXPORT ==============
+from fastapi.responses import HTMLResponse
+from utils.print_templates import render_branded_html, get_company_branding
+
+
+@purchase_orders_router.get("/{po_id}/print", response_class=HTMLResponse)
+async def print_purchase_order(po_id: str, user: User = Depends(get_current_user)):
+    """Branded print-ready HTML for a Purchase Order (per-tenant branding)."""
+    po = await db.purchase_orders_full.find_one(
+        {"po_id": po_id, "company_id": user.company_id}, {"_id": 0},
+    )
+    if not po:
+        raise HTTPException(status_code=404, detail="Purchase Order not found")
+    branding = await get_company_branding(user.company_id)
+
+    # Supplier lookup
+    supplier_name = po.get("supplier_name", "")
+    if not supplier_name and po.get("supplier_id"):
+        sup = await db.suppliers.find_one({"supplier_id": po["supplier_id"]}, {"_id": 0, "name": 1, "contact_email": 1, "phone": 1, "address": 1})
+        if sup:
+            supplier_name = sup.get("name", "")
+
+    lines = po.get("lines") or po.get("items") or []
+    subtotal = float(po.get("subtotal", 0) or 0)
+    tax = float(po.get("tax_total", 0) or po.get("tax", 0) or 0)
+    total = float(po.get("total", 0) or (subtotal + tax))
+    currency = po.get("currency", "DOP")
+    status = po.get("status", "draft")
+    order_date = po.get("order_date") or po.get("created_at", "")[:10]
+    expected = po.get("expected_delivery_date") or po.get("delivery_date", "")
+
+    rows_html = ""
+    for i, ln in enumerate(lines, 1):
+        name = ln.get("item_name") or ln.get("name") or ln.get("description", "")
+        qty = float(ln.get("quantity", 0) or 0)
+        unit = ln.get("unit", "")
+        unit_price = float(ln.get("unit_price", 0) or ln.get("cost", 0) or 0)
+        line_total = float(ln.get("total", qty * unit_price))
+        rows_html += (
+            f"<tr><td>{i}</td><td>{name}</td>"
+            f"<td class='num'>{qty:g} {unit}</td>"
+            f"<td class='num'>${unit_price:,.2f}</td>"
+            f"<td class='num'>${line_total:,.2f}</td></tr>"
+        )
+
+    body = f"""
+      <div class="grid-2">
+        <div class="box">
+          <div class="label">Proveedor</div>
+          <div class="val">{supplier_name or "—"}</div>
+        </div>
+        <div class="box">
+          <div class="label">Estado</div>
+          <div class="val" style="text-transform:capitalize">{status}</div>
+        </div>
+        <div class="box">
+          <div class="label">Fecha de orden</div>
+          <div class="val" style="font-size:12px">{order_date}</div>
+        </div>
+        <div class="box">
+          <div class="label">Entrega esperada</div>
+          <div class="val" style="font-size:12px">{expected or "—"}</div>
+        </div>
+      </div>
+
+      <h2>Líneas</h2>
+      <table>
+        <thead><tr><th>#</th><th>Ítem</th><th class="num">Cantidad</th><th class="num">Precio unit.</th><th class="num">Total</th></tr></thead>
+        <tbody>{rows_html or '<tr><td colspan="5" style="text-align:center;color:#94a3b8;padding:16px">Sin líneas</td></tr>'}</tbody>
+      </table>
+
+      <table style="margin-top:14px;max-width:280px;margin-left:auto">
+        <tr><td>Subtotal</td><td class="num">${subtotal:,.2f}</td></tr>
+        <tr><td>Impuestos</td><td class="num">${tax:,.2f}</td></tr>
+        <tr style="font-weight:700;font-size:14px"><td>Total ({currency})</td><td class="num">${total:,.2f}</td></tr>
+      </table>
+
+      {"<h2>Notas</h2><p>" + po.get("notes", "") + "</p>" if po.get("notes") else ""}
+    """
+    html = render_branded_html(
+        branding=branding,
+        title=f"Orden de Compra #{po.get('po_number') or po_id[:8]}",
+        subtitle=f"Emitida por {branding['company_name']}",
+        document_type="Orden de Compra",
+        body_html=body,
+    )
+    return HTMLResponse(html)
+

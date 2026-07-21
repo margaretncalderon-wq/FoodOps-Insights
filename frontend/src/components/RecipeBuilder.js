@@ -2367,6 +2367,18 @@ export default function RecipeBuilder({ onClose, onSave, initialRecipe = null, i
       {/* Action Buttons */}
       <div className="flex justify-end gap-3 pt-4 border-t">
         <Button variant="outline" onClick={onClose} disabled={loading}>{t("cancel")}</Button>
+        {initialRecipe?.recipe_id && (
+          <Button
+            variant="outline"
+            type="button"
+            onClick={() => {
+              window.open(`${API}/api/recipes/${initialRecipe.recipe_id}/print`, "_blank", "noopener,noreferrer");
+            }}
+            data-testid="recipe-print-pdf-btn"
+          >
+            📄 PDF
+          </Button>
+        )}
         <Button onClick={handleSave} disabled={loading || !form.name.trim()}>
           {loading ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <Check className="w-4 h-4 mr-2" />}
           {t("save")}
