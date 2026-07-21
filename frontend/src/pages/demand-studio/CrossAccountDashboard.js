@@ -153,11 +153,12 @@ export default function CrossAccountDashboard({ orgId = null }) {
                   <th className="px-3 py-2 text-right font-medium">Engagement</th>
                   <th className="px-3 py-2 text-right font-medium">{isEs ? "Tasa Eng." : "Eng. rate"}</th>
                   <th className="px-3 py-2 text-right font-medium">{isEs ? "vs Benchmark" : "vs Benchmark"}</th>
+                  <th className="px-3 py-2 text-right font-medium">{isEs ? "Exportar" : "Export"}</th>
                 </tr>
               </thead>
               <tbody>
                 {data.accounts.length === 0 && !loading && (
-                  <tr><td colSpan={7} className="text-center text-muted-foreground py-8 text-xs">
+                  <tr><td colSpan={8} className="text-center text-muted-foreground py-8 text-xs">
                     {isEs ? "Sin datos aún. Conectá cuentas o agregá métricas manualmente." : "No data yet. Connect accounts or add manual metrics."}
                   </td></tr>
                 )}
@@ -206,6 +207,21 @@ export default function CrossAccountDashboard({ orgId = null }) {
                         ) : (
                           <span className="text-[10px] text-slate-400">—</span>
                         )}
+                      </td>
+                      <td className="px-3 py-2.5 text-right">
+                        <Button
+                          size="sm" variant="ghost"
+                          className="h-7 px-2 text-[11px]"
+                          onClick={() => {
+                            const url = `${API}/demand-studio/social-metrics/cross-account/export/${a.account_id}?period_days=${period}&include_shared=true`;
+                            window.open(url, "_blank", "noopener,noreferrer");
+                          }}
+                          disabled={!a.has_data}
+                          title={a.has_data ? (isEs ? "Abrir en nueva pestaña e imprimir a PDF" : "Open in new tab and print to PDF") : (isEs ? "Sin datos para exportar" : "No data to export")}
+                          data-testid={`cross-export-${a.account_id}`}
+                        >
+                          📄 PDF
+                        </Button>
                       </td>
                     </tr>
                   );

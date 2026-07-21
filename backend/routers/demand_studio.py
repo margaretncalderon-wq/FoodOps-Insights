@@ -1,5 +1,6 @@
 # routers/demand_studio.py - Demand Studio routes
 from fastapi import APIRouter, HTTPException, Depends, Request, Query, Body
+from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 from typing import Optional, List
 from datetime import datetime, timezone, timedelta
@@ -4890,6 +4891,136 @@ async def get_cross_account_metrics(
         },
         "accounts": out,
     }
+
+
+@demand_studio_router.get("/social-metrics/cross-account/export/{account_id}", response_class=HTMLResponse)
+async def export_account_snapshot(
+    account_id: str,
+    period_days: int = 30,
+    org_id: Optional[str] = None,
+    include_shared: bool = True,
+    user: User = Depends(get_current_user),
+):
+    """
+    Return a print-ready HTML snapshot for ONE social account with its KPIs,
+    growth deltas, and a comparison line vs the agency benchmark. Designed
+    to be opened in a new tab and printed to PDF via the browser (Ctrl+P).
+
+    Only the target account's data is included — no other clients' data leaks
+    into the export.
+    """
+    # Reuse the cross-account endpoint to get all data (respects permissions)
+    full = await get_cross_account_metrics(
+        period_days=period_days, org_id=org_id,
+        include_shared=include_shared, user=user,
+    )
+    accounts = full.get("accounts") or []
+    acct = next((a for a in accounts if a.get("account_id") == account_id), None)
+    if not acct:
+        raise HTTPException(status_code=404, detail="Account not found or you don't have access")
+
+    benchmark = full.get("agency_benchmark_reach_pct")
+    benchmark_diff = None
+    if benchmark is not None and acct["growth"]["reach_pct"] is not None:
+        benchmark_diff = round(acct["growth"]["reach_pct"] - benchmark, 1)
+
+    def _fmt_int(n):
+        try:
+            n = int(n or 0)
+        except (TypeError, ValueError):
+            return "0"
+        if n >= 1_000_000: return f"{n/1_000_000:.1f}M"
+        if n >= 1_000:     return f"{n/1_000:.1f}k"
+        return str(n)
+
+    def _fmt_growth(pct):
+        if pct is None: return '<span style="color:#94a3b8">—</span>'
+        sign = "+" if pct >= 0 else ""
+        color = "#059669" if pct >= 0 else "#e11d48"
+        arrow = "▲" if pct > 0 else ("▼" if pct < 0 else "—")
+        return f'<span style="color:{color};font-weight:600">{arrow} {sign}{pct:.1f}%</span>'
+
+    cur = acct["current"]
+    grw = acct["growth"]
+
+    # HTML template with print CSS
+    html = f"""<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <title>Snapshot · {acct['account_name']}</title>
+  <style>
+    @page {{ size: A4; margin: 18mm 14mm; }}
+    * {{ box-sizing: border-box; }}
+    body {{ font-family: -apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif; color: #0f172a; margin: 0; padding: 24px; }}
+    h1 {{ font-size: 22px; margin: 0 0 4px; }}
+    .subhead {{ color: #64748b; font-size: 12px; margin-bottom: 24px; }}
+    .grid {{ display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 14px; margin-bottom: 20px; }}
+    .kpi {{ border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px; }}
+    .kpi .label {{ color: #64748b; font-size: 10px; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 6px; }}
+    .kpi .value {{ font-size: 24px; font-weight: 700; }}
+    .kpi .delta {{ font-size: 11px; margin-top: 4px; }}
+    .benchmark {{ border: 2px solid #6366f1; border-radius: 8px; padding: 16px 18px; background: #eef2ff; margin: 24px 0; }}
+    .benchmark .title {{ color: #4f46e5; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 6px; }}
+    .benchmark .metric {{ display: flex; align-items: baseline; gap: 12px; }}
+    .benchmark .big {{ font-size: 32px; font-weight: 700; color: #4338ca; }}
+    .benchmark .vs {{ font-size: 14px; color: #4f46e5; }}
+    .note {{ color: #64748b; font-size: 10px; margin-top: 32px; padding-top: 12px; border-top: 1px solid #e2e8f0; }}
+    .platform-badge {{ display:inline-block;padding:2px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.05em;background:#f1f5f9;border-radius:4px;color:#475569;margin-left:8px;vertical-align:middle }}
+    @media print {{ .noprint {{ display: none; }} }}
+  </style>
+</head>
+<body>
+  <div style="text-align:right" class="noprint">
+    <button onclick="window.print()" style="background:#4f46e5;color:white;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-weight:600">🖨 Imprimir / Guardar PDF</button>
+  </div>
+  <h1>{acct['account_name']}<span class="platform-badge">{acct.get('platform','')}</span></h1>
+  <div class="subhead">
+    Snapshot · Últimos {period_days} días · {full.get('period_start','')} → {full.get('period_end','')}
+  </div>
+
+  <div class="grid">
+    <div class="kpi">
+      <div class="label">Seguidores</div>
+      <div class="value">{_fmt_int(cur['followers'])}</div>
+      <div class="delta">{_fmt_growth(grw['followers_pct'])}</div>
+    </div>
+    <div class="kpi">
+      <div class="label">Reach</div>
+      <div class="value">{_fmt_int(cur['reach'])}</div>
+      <div class="delta">{_fmt_growth(grw['reach_pct'])}</div>
+    </div>
+    <div class="kpi">
+      <div class="label">Engagement</div>
+      <div class="value">{_fmt_int(cur['engagement'])}</div>
+      <div class="delta">{_fmt_growth(grw['engagement_pct'])}</div>
+    </div>
+    <div class="kpi">
+      <div class="label">Tasa de Engagement</div>
+      <div class="value">{cur['eng_rate']:.2f}%</div>
+      <div class="delta">{_fmt_growth(grw['eng_rate_delta'])}</div>
+    </div>
+  </div>
+
+  <div class="benchmark">
+    <div class="title">📊 Comparación vs Benchmark de Agencia (Reach)</div>
+    <div class="metric">
+      <div class="big">{('+' if (benchmark_diff or 0) >= 0 else '')}{benchmark_diff if benchmark_diff is not None else '—'}%</div>
+      <div class="vs">
+        Esta cuenta {('está por encima' if (benchmark_diff or 0) >= 0 else 'está por debajo')} del promedio de crecimiento
+        del portafolio ({('+' if (benchmark or 0) >= 0 else '')}{benchmark if benchmark is not None else '—'}%).
+      </div>
+    </div>
+  </div>
+
+  <div class="note">
+    Reporte generado automáticamente por Kora OS · {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}<br/>
+    Los datos comparativos ("vs Benchmark de Agencia") no revelan métricas específicas de otras cuentas — solo el promedio agregado.
+  </div>
+</body>
+</html>"""
+    return HTMLResponse(content=html, media_type="text/html; charset=utf-8")
+
 
 
 

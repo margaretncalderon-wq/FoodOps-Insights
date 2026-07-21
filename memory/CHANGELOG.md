@@ -1,6 +1,33 @@
 # Kora OS - Changelog
 
 
+## February 21, 2026 — Iteration 252 · PDF snapshot por cuenta
+
+### ✨ Feature — Botón "Exportar PDF" en la Comparativa cross-cuenta
+
+Nueva columna "Export" en la tabla de Comparativa: un botón "📄 PDF" por cada fila que abre en nueva pestaña un snapshot HTML print-ready de esa cuenta específica.
+
+**Backend `GET /api/demand-studio/social-metrics/cross-account/export/{account_id}`:**
+- Reutiliza `get_cross_account_metrics` para respetar todos los permisos multi-tenant.
+- 404 si el account no está en el scope del user (owned + shared memberships).
+- Devuelve `HTMLResponse` con estilos `@page` optimizados para A4.
+- Contenido: header con nombre + platform badge, 4 KPI cards (Followers, Reach, Engagement, Eng Rate) con growth arrows, sección "Comparación vs Benchmark de Agencia" en violeta.
+- **Privacidad**: NO expone métricas de otras cuentas — solo el promedio agregado del benchmark ("+X% de la agencia") sin nombres.
+- Botón "🖨 Imprimir / Guardar PDF" flotante (con clase `noprint` para que desaparezca del PDF final).
+
+**Frontend `CrossAccountDashboard.js`:**
+- Nueva columna "Export / Exportar" al final de la tabla.
+- Botón `📄 PDF` con data-testid `cross-export-{account_id}`.
+- Deshabilitado si `has_data=false`.
+- `window.open(url, "_blank")` — abre en nueva pestaña respetando cookies de sesión.
+
+### Uso típico
+1. Cliente pide reporte mensual → click 📄 PDF en la fila de Ciano Bites → nueva pestaña.
+2. Click "Imprimir / Guardar PDF" → Chrome Print dialog → Save as PDF.
+3. Envías el PDF al cliente. No se filtró ningún dato de otro cliente.
+
+
+
 ## February 21, 2026 — Iteration 251 · Dashboard Cross-Cuenta
 
 ### ✨ Feature — Comparativa cross-cuenta para agencias
