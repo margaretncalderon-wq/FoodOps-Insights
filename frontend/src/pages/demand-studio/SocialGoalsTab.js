@@ -96,15 +96,26 @@ export default function SocialGoalsTab({ orgId = null }) {
     }));
   };
 
+  const isCurrentOrFutureMonth = monthKey(monthDate) >= monthKey(new Date());
+  const isCurrentMonth = monthKey(monthDate) === monthKey(new Date());
+
   const saveTargets = async (accountId) => {
     setSaving(accountId);
     try {
-      const payload = { targets: drafts[accountId] || {} };
-      // For shared accounts, use the account's own company_id as org_id so the
-      // backend permission check passes.
       const acct = data.accounts.find((a) => a.account_id === accountId);
       const scopeOrgId = orgId || (acct?._access_type === "shared" ? acct?._company_id : null);
-      const url = `${API}/demand-studio/social/accounts/${accountId}/monthly-targets${scopeOrgId ? `?org_id=${scopeOrgId}` : ""}`;
+      const orgQ = scopeOrgId ? `?org_id=${scopeOrgId}` : "";
+      const payload = { targets: drafts[accountId] || {} };
+
+      // Rule (user choice #3): editing the CURRENT month means "this is the
+      // new default going forward". Editing a FUTURE month creates a
+      // per-month override for that month only.
+      let url;
+      if (isCurrentMonth) {
+        url = `${API}/demand-studio/social/accounts/${accountId}/monthly-targets${orgQ}`;
+      } else {
+        url = `${API}/demand-studio/social/accounts/${accountId}/monthly-targets/${data.month}${orgQ}`;
+      }
       await axios.put(url, payload, { withCredentials: true });
       toast.success(isEs ? "Metas guardadas" : "Goals saved");
       setEditingId(null);
@@ -112,6 +123,43 @@ export default function SocialGoalsTab({ orgId = null }) {
       await fetchProgress();
     } catch (err) {
       toast.error(err?.response?.data?.detail || (isEs ? "Error al guardar" : "Save failed"));
+    } finally {
+      setSaving(null);
+    }
+  };
+
+  const revertToDefault = async (accountId) => {
+    setSaving(accountId);
+    try {
+      const acct = data.accounts.find((a) => a.account_id === accountId);
+      const scopeOrgId = orgId || (acct?._access_type === "shared" ? acct?._company_id : null);
+      const orgQ = scopeOrgId ? `?org_id=${scopeOrgId}` : "";
+      await axios.delete(`${API}/demand-studio/social/accounts/${accountId}/monthly-targets/${data.month}${orgQ}`, { withCredentials: true });
+      toast.success(isEs ? "Volviste al plan por defecto" : "Reverted to default plan");
+      await fetchProgress();
+    } catch (err) {
+      toast.error(err?.response?.data?.detail || (isEs ? "Error" : "Error"));
+    } finally {
+      setSaving(null);
+    }
+  };
+
+  const togglePhotoshoot = async (acct, wasDone) => {
+    setSaving(acct.account_id);
+    try {
+      const scopeOrgId = orgId || (acct._access_type === "shared" ? acct._company_id : null);
+      const orgQ = scopeOrgId ? `?org_id=${scopeOrgId}` : "";
+      if (wasDone) {
+        await axios.delete(`${API}/demand-studio/social/accounts/${acct.account_id}/photoshoot-quick-log/${data.month}${orgQ}`, { withCredentials: true });
+        toast.success(isEs ? "Photoshoot descontado" : "Photoshoot undone");
+      } else {
+        await axios.post(`${API}/demand-studio/social/accounts/${acct.account_id}/photoshoot-quick-log${orgQ}`,
+          { month: data.month }, { withCredentials: true });
+        toast.success(isEs ? "Photoshoot registrado" : "Photoshoot logged");
+      }
+      await fetchProgress();
+    } catch (err) {
+      toast.error(err?.response?.data?.detail || (isEs ? "Error" : "Error"));
     } finally {
       setSaving(null);
     }
@@ -196,6 +244,16 @@ export default function SocialGoalsTab({ orgId = null }) {
                           {isEs ? "Compartida" : "Shared"}
                         </Badge>
                       )}
+                      {acct.has_targets && acct.targets_source === "override" && (
+                        <Badge variant="outline" className="text-[9px] px-1.5 py-0 border-indigo-300 text-indigo-700 bg-indigo-50 shrink-0" data-testid={`goals-override-badge-${acct.account_id}`}>
+                          {isEs ? `Override ${data.month}` : `Override ${data.month}`}
+                        </Badge>
+                      )}
+                      {acct.has_targets && acct.targets_source === "default" && (
+                        <Badge variant="outline" className="text-[9px] px-1.5 py-0 border-slate-300 text-slate-600 bg-slate-50 shrink-0" data-testid={`goals-default-badge-${acct.account_id}`}>
+                          {isEs ? "Default" : "Default"}
+                        </Badge>
+                      )}
                     </CardTitle>
                     <p className="text-xs text-muted-foreground mt-0.5">
                       {acct.platform} {acct.handle && `· ${acct.handle}`}
@@ -222,10 +280,28 @@ export default function SocialGoalsTab({ orgId = null }) {
                           {saving === acct.account_id ? (isEs ? "..." : "...") : (isEs ? "Guardar" : "Save")}
                         </Button>
                       </div>
+                    ) : isCurrentOrFutureMonth ? (
+                      <div className="flex gap-1">
+                        {acct.has_targets && acct.targets_source === "override" && (
+                          <Button
+                            size="sm" variant="ghost"
+                            onClick={() => revertToDefault(acct.account_id)}
+                            disabled={saving === acct.account_id}
+                            className="text-slate-600 hover:text-slate-800"
+                            data-testid={`goals-revert-${acct.account_id}`}
+                            title={isEs ? "Volver a las metas por defecto" : "Revert to default"}
+                          >
+                            {isEs ? "Volver al default" : "Revert"}
+                          </Button>
+                        )}
+                        <Button size="sm" variant="outline" onClick={() => startEditing(acct)} data-testid={`goals-edit-${acct.account_id}`}>
+                          {acct.has_targets ? (isEs ? "Editar" : "Edit") : (isEs ? "Configurar" : "Configure")}
+                        </Button>
+                      </div>
                     ) : (
-                      <Button size="sm" variant="outline" onClick={() => startEditing(acct)} data-testid={`goals-edit-${acct.account_id}`}>
-                        {acct.has_targets ? (isEs ? "Editar" : "Edit") : (isEs ? "Configurar" : "Configure")}
-                      </Button>
+                      <Badge variant="outline" className="text-[10px] text-slate-500 bg-slate-50" data-testid={`goals-past-readonly-${acct.account_id}`}>
+                        {isEs ? "Mes cerrado" : "Past month"}
+                      </Badge>
                     )}
                   </div>
                 </div>
@@ -248,6 +324,8 @@ export default function SocialGoalsTab({ orgId = null }) {
                   const health = acct.health?.[f.key] || "no_target";
                   const HealthIcon = HEALTH_STYLE[health].icon;
                   const Icon = f.icon;
+                  const isPhotoshoot = f.key === "photoshoot";
+                  const psDone = isPhotoshoot && acct.photoshoot_quick_logged;
                   return (
                     <div key={f.key} className="flex items-center gap-3" data-testid={`goals-row-${acct.account_id}-${f.key}`}>
                       <div className="w-32 shrink-0 flex items-center gap-1.5 text-xs font-medium">
@@ -276,6 +354,30 @@ export default function SocialGoalsTab({ orgId = null }) {
                               <HealthIcon className="w-2.5 h-2.5 mr-0.5" />
                               {isEs ? HEALTH_STYLE[health].labelEs : HEALTH_STYLE[health].labelEn}
                             </Badge>
+                          )}
+                          {isPhotoshoot && isCurrentMonth && (
+                            psDone ? (
+                              <Button
+                                size="sm" variant="ghost"
+                                onClick={() => togglePhotoshoot(acct, true)}
+                                disabled={saving === acct.account_id}
+                                className="text-[10px] h-6 px-2 text-emerald-700 hover:text-rose-700"
+                                data-testid={`goals-photoshoot-undo-${acct.account_id}`}
+                                title={isEs ? "Deshacer" : "Undo"}
+                              >
+                                ✓ {isEs ? "Hecha" : "Done"}
+                              </Button>
+                            ) : (
+                              <Button
+                                size="sm" variant="outline"
+                                onClick={() => togglePhotoshoot(acct, false)}
+                                disabled={saving === acct.account_id}
+                                className="text-[10px] h-6 px-2"
+                                data-testid={`goals-photoshoot-log-${acct.account_id}`}
+                              >
+                                {isEs ? "Marcar hecha" : "Mark done"}
+                              </Button>
+                            )
                           )}
                         </>
                       )}

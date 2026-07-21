@@ -1,6 +1,48 @@
 # Kora OS - Changelog
 
 
+## February 20, 2026 — Iteration 249 · Metas por mes + Photoshoot quick-log
+
+### ✨ Enhancement — Overrides mensuales sobre el default
+
+Antes las metas eran un único set fijo. Ahora hay dos capas:
+- **Baseline (default)** — el número normal del cliente. Se edita en el mes actual.
+- **Override por mes** — se crea al editar un mes futuro (ej. Nov=Black Friday con 8 reels vs baseline 5).
+
+**Reglas confirmadas con usuario:**
+1. Lazy — solo pre-defines meses futuros cuando entrás a ese mes.
+2. Meses pasados son read-only pero siguen contando el actual ya hecho.
+3. Cambiar el default cascadea automáticamente a meses futuros SIN override.
+4. Vista Plan Anual (matriz meses × cuentas) NO se implementó (usuario dijo no la necesita).
+
+### 📷 Photoshoot Quick-Log
+Botón "Marcar hecha / Mark done" en la fila de Photoshoot cuando está trackeado en el mes actual. Al hacer click crea un post shadow con `format=photoshoot`, `status=posted`, título "Photoshoot YYYY-MM" que suma al contador. Si ya está marcado, muestra "✓ Hecha" con opción undo.
+
+### Backend endpoints nuevos
+- `PUT /social/accounts/{id}/monthly-targets/{month}` — set override para ese mes (rechaza meses pasados con 400).
+- `DELETE /social/accounts/{id}/monthly-targets/{month}` — quita el override, revierte al default.
+- `POST /social/accounts/{id}/photoshoot-quick-log` — crea shadow post.
+- `DELETE /social/accounts/{id}/photoshoot-quick-log/{month}` — undo.
+
+### Cambios en `GET /social/goals-progress`
+Cada account devuelve además:
+- `targets_source: "default" | "override"` — indica de dónde viene el número que se ve.
+- `default_targets` — el baseline para poder comparar.
+- `photoshoot_quick_logged: bool` + `photoshoot_quick_log_post_id` — para el toggle UI.
+- `is_past_month: bool` — para que la UI muestre "Past month" read-only.
+
+### Frontend
+- Badges nuevos en cada card: `Default` (slate) o `Override YYYY-MM` (indigo). Data-testid `goals-default-badge-{id}` / `goals-override-badge-{id}`.
+- Botón "Volver al default" (data-testid `goals-revert-{id}`) solo visible si hay override.
+- Botón "Marcar hecha / ✓ Hecha" (data-testid `goals-photoshoot-log-{id}` / `goals-photoshoot-undo-{id}`) solo en el mes actual.
+- Meses pasados: no Edit button, badge "Mes cerrado / Past month" (data-testid `goals-past-readonly-{id}`).
+
+### Testing
+- 3 pytests nuevos: overrides + revert + past-month readonly + photoshoot quick-log/undo. Todos verde.
+- Screenshot preview verifica el layout de meses pasados con "Past month" badges.
+
+
+
 ## February 20, 2026 — Iteration 248 · Agrupar Ideas por Formato
 
 ### ✨ Enhancement — Ideas tab

@@ -2618,6 +2618,152 @@ async def set_monthly_targets(
     return {"success": True, "monthly_targets": updated.get("monthly_targets", {})}
 
 
+def _current_month_str() -> str:
+    return datetime.now(timezone.utc).strftime("%Y-%m")
+
+
+def _is_past_month(month: str) -> bool:
+    """True if given YYYY-MM is strictly before current UTC month."""
+    try:
+        return month < _current_month_str()
+    except Exception:
+        return False
+
+
+@demand_studio_router.put("/social/accounts/{account_id}/monthly-targets/{month}")
+async def set_monthly_targets_override(
+    account_id: str,
+    month: str,
+    data: dict = Body(...),
+    org_id: Optional[str] = None,
+    user: User = Depends(get_current_user),
+):
+    """
+    Set a per-month OVERRIDE that supersedes the account-level defaults for
+    that specific month only. Body: {"targets": {"reel": 8, ...}}
+
+    Past months are READ-ONLY (400 error) to keep history immutable. Actuals
+    are always counted from real posts regardless.
+    """
+    # Validate month format
+    if not month or len(month) != 7 or month[4] != "-":
+        raise HTTPException(status_code=400, detail="month must be 'YYYY-MM'")
+    if _is_past_month(month):
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot edit past months. History is read-only.",
+        )
+    company_id, _ = await get_effective_company_id(user, org_id)
+    targets = _sanitize_targets(data.get("targets") or {})
+    result = await db.social_accounts.update_one(
+        {"account_id": account_id, "company_id": company_id},
+        {"$set": {
+            f"monthly_overrides.{month}": {
+                "targets": targets,
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+            }
+        }},
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Account not found")
+    return {"success": True, "month": month, "targets": targets}
+
+
+@demand_studio_router.delete("/social/accounts/{account_id}/monthly-targets/{month}")
+async def clear_monthly_targets_override(
+    account_id: str,
+    month: str,
+    org_id: Optional[str] = None,
+    user: User = Depends(get_current_user),
+):
+    """
+    Remove a per-month override so the account reverts to using its default
+    baseline for that month.
+    """
+    if _is_past_month(month):
+        raise HTTPException(status_code=400, detail="Cannot edit past months.")
+    company_id, _ = await get_effective_company_id(user, org_id)
+    result = await db.social_accounts.update_one(
+        {"account_id": account_id, "company_id": company_id},
+        {"$unset": {f"monthly_overrides.{month}": ""}},
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Account not found")
+    return {"success": True, "month": month, "reverted_to_default": True}
+
+
+@demand_studio_router.post("/social/accounts/{account_id}/photoshoot-quick-log")
+async def photoshoot_quick_log(
+    account_id: str,
+    data: dict = Body(default={}),
+    org_id: Optional[str] = None,
+    user: User = Depends(get_current_user),
+):
+    """
+    Fast-track logging a photoshoot as "done this month". Creates a lightweight
+    social_post with format=photoshoot, status=posted, so the goals tracker
+    picks it up without the user having to manually create a post.
+
+    Body (all optional): {"month": "YYYY-MM", "date": "YYYY-MM-DD", "title": "..."}
+    """
+    company_id, _ = await get_effective_company_id(user, org_id)
+    account = await db.social_accounts.find_one(
+        {"account_id": account_id, "company_id": company_id}, {"_id": 0},
+    )
+    if not account:
+        raise HTTPException(status_code=404, detail="Account not found")
+
+    month = data.get("month") or _current_month_str()
+    date_str = data.get("date") or datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    scheduled_at = f"{date_str}T12:00:00.000Z"
+
+    post_id = f"post_{uuid.uuid4().hex[:12]}"
+    now = datetime.now(timezone.utc).isoformat()
+    title = data.get("title") or f"Photoshoot {month}"
+    await db.social_posts.insert_one({
+        "post_id": post_id,
+        "company_id": company_id,
+        "social_account_id": account_id,
+        "format": "photoshoot",
+        "status": "posted",
+        "title": title,
+        "scheduled_at": scheduled_at,
+        "posted_at": scheduled_at,
+        "created_by_user_id": user.user_id,
+        "owner_user_id": user.user_id,
+        "created_at": now,
+        "updated_at": now,
+        "_quick_logged": True,
+    })
+    return {"success": True, "post_id": post_id, "scheduled_at": scheduled_at}
+
+
+@demand_studio_router.delete("/social/accounts/{account_id}/photoshoot-quick-log/{month}")
+async def photoshoot_undo_quick_log(
+    account_id: str,
+    month: str,
+    org_id: Optional[str] = None,
+    user: User = Depends(get_current_user),
+):
+    """Undo the most recent quick-logged photoshoot for the given month."""
+    company_id, _ = await get_effective_company_id(user, org_id)
+    if not month or len(month) != 7:
+        raise HTTPException(status_code=400, detail="month must be 'YYYY-MM'")
+    # Find most recent quick-logged photoshoot in that month for this account
+    result = await db.social_posts.find_one_and_delete({
+        "company_id": company_id,
+        "social_account_id": account_id,
+        "format": "photoshoot",
+        "_quick_logged": True,
+        "scheduled_at": {"$gte": month + "-01", "$lte": month + "-31T99"},
+    }, sort=[("created_at", -1)])
+    if not result:
+        raise HTTPException(status_code=404, detail="No quick-logged photoshoot found for that month")
+    return {"success": True, "removed_post_id": result.get("post_id")}
+
+
+
+
 def _month_bounds(month: str) -> tuple[str, str, int, int]:
     """
     Return (start_prefix, end_prefix, days_in_month, day_of_month_now) for a
@@ -2765,7 +2911,20 @@ async def get_goals_progress(
     for a in accounts:
         acc_id = a.get("account_id")
         scope = scope_by_cid.get(a.get("company_id"), {})
-        targets = _sanitize_targets(a.get("monthly_targets") or {})
+
+        # Effective targets: monthly_overrides[m] wins over monthly_targets.
+        # Falls back to default baseline if no override for this month.
+        default_targets = _sanitize_targets(a.get("monthly_targets") or {})
+        overrides = (a.get("monthly_overrides") or {}).get(m) or {}
+        override_targets_raw = overrides.get("targets") if isinstance(overrides, dict) else None
+        has_override = override_targets_raw is not None
+        if has_override:
+            targets = _sanitize_targets(override_targets_raw)
+            targets_source = "override"
+        else:
+            targets = default_targets
+            targets_source = "default"
+
         actual = actual_map.get(acc_id, {})
 
         health = {}
@@ -2783,6 +2942,19 @@ async def get_goals_progress(
 
         full_actual = {fmt: int(actual.get(fmt, 0)) for fmt in VALID_GOAL_FORMATS}
 
+        # Detect a quick-logged photoshoot for this month
+        photoshoot_quick_log_id = None
+        if targets.get("photoshoot"):
+            ps = await db.social_posts.find_one({
+                "company_id": a.get("company_id"),
+                "social_account_id": acc_id,
+                "format": "photoshoot",
+                "_quick_logged": True,
+                "scheduled_at": {"$gte": m + "-01", "$lte": m + "-31T99"},
+            }, sort=[("created_at", -1)], projection={"_id": 0, "post_id": 1, "scheduled_at": 1})
+            if ps:
+                photoshoot_quick_log_id = ps.get("post_id")
+
         out_accounts.append({
             "account_id": acc_id,
             "account_name": a.get("handle") or a.get("account_name") or a.get("platform"),
@@ -2790,10 +2962,15 @@ async def get_goals_progress(
             "handle": a.get("handle"),
             "color": a.get("color"),
             "targets": targets,
+            "default_targets": default_targets,
+            "targets_source": targets_source,  # "default" | "override"
             "actual": full_actual,
             "health": health,
             "overall_pct": overall_pct,
             "has_targets": bool(targets),
+            "photoshoot_quick_logged": photoshoot_quick_log_id is not None,
+            "photoshoot_quick_log_post_id": photoshoot_quick_log_id,
+            "is_past_month": _is_past_month(m),
             "_access_type": scope.get("access_type", "owned"),
             "_role": scope.get("role", "owner"),
             "_company_id": a.get("company_id"),
