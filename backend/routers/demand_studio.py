@@ -3610,13 +3610,22 @@ async def get_social_calendar(
         return []
     
     # Only query the target company (own or specified org)
+    # BUGFIX Feb 2026 — string comparison bug with date-only scheduled_at.
+    # The frontend sends start_date/end_date as full ISO datetimes like
+    # "2026-08-01T04:00:00.000Z", but Story Series batch creation historically
+    # persisted `scheduled_at="2026-08-01"` (date-only). Lexicographic comparison
+    # "2026-08-01" < "2026-08-01T04:00:00.000Z" excludes those posts entirely.
+    # We normalize both sides to the YYYY-MM-DD prefix (first 10 chars) so
+    # date-only + datetime records both fall in the correct calendar month.
+    start_ymd = (start_date or "")[:10]
+    end_ymd = (end_date or "")[:10] or "9999-12-31"
     query = {
         "company_id": target_company_id,
         "status": {"$nin": ["archived"]},
         "$or": [
-            {"scheduled_at": {"$gte": start_date, "$lte": end_date}},
-            {"posted_at": {"$gte": start_date, "$lte": end_date}},
-            {"created_at": {"$gte": start_date, "$lte": end_date}, "scheduled_at": {"$in": [None, ""]}}
+            {"scheduled_at": {"$gte": start_ymd, "$lte": end_ymd + "T99"}},
+            {"posted_at": {"$gte": start_ymd, "$lte": end_ymd + "T99"}},
+            {"created_at": {"$gte": start_ymd, "$lte": end_ymd + "T99"}, "scheduled_at": {"$in": [None, ""]}}
         ]
     }
     if account_id:
@@ -4376,10 +4385,17 @@ async def create_post_batch(data: dict, org_id: Optional[str] = None, user: User
     count = data.get("count", 1)
     if count < 1 or count > 30:
         raise HTTPException(status_code=400, detail="Count must be 1-30")
-    
+
+    # BUGFIX Feb 2026 — always store scheduled_at as a full ISO datetime so
+    # calendar queries never mis-match on lexicographic comparison. If the
+    # frontend sent a date-only "YYYY-MM-DD", pad it to noon UTC.
+    scheduled_raw = data.get("scheduled_at") or None
+    if scheduled_raw and isinstance(scheduled_raw, str) and len(scheduled_raw) == 10:
+        scheduled_raw = f"{scheduled_raw}T12:00:00.000Z"
+
     series_id = f"series_{uuid.uuid4().hex[:12]}"
     now = datetime.now(timezone.utc)
-    
+
     base = {
         "company_id": company_id,
         "social_account_id": data.get("social_account_id"),
@@ -4387,7 +4403,7 @@ async def create_post_batch(data: dict, org_id: Optional[str] = None, user: User
         "pillar_id": data.get("pillar_id") or None,
         "format": data.get("format", "story"),
         "status": data.get("status", "idea"),
-        "scheduled_at": data.get("scheduled_at") or None,
+        "scheduled_at": scheduled_raw,
         "production_date": data.get("production_date") or None,
         "series_id": series_id,
         "series_count": count,

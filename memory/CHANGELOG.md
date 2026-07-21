@@ -1,6 +1,30 @@
 # Kora OS - Changelog
 
 
+## February 20, 2026 — Iteration 245 · Social Calendar Story Bug (Ciano)
+
+### 🐛 BUGFIX — Historias del 1 de agosto en adelante desaparecen del calendario
+
+**Reportado por usuario (Ciano, producción):** "Las historias salen y se borran del día 1 de agosto." Aparecen brevemente y luego no.
+
+**Root cause:** Bug de comparación lexicográfica de strings.
+- La UI de "Serie de Stories" usa `<Input type="date">` que envía `scheduled_at="2026-08-01"` (10 chars, sin hora).
+- El endpoint `GET /social/calendar` compara con `$gte`/`$lte` contra ISO datetimes tipo `"2026-08-01T04:00:00.000Z"`.
+- `"2026-08-01" >= "2026-08-01T04:00:00.000Z"` → **False** (el string vacío en pos 10 es menor que "T").
+- Resultado: MongoDB excluía silenciosamente todos los posts con `scheduled_at` date-only. El usuario los veía en Queue view pero desaparecían al ir a Calendar.
+
+**Fix backend (dos niveles):**
+1. `create_post_batch` (`/social/posts/batch`) ahora normaliza `scheduled_at` — si viene como date-only (10 chars) le agrega `T12:00:00.000Z`. Previene el bug para nuevas historias.
+2. `get_social_calendar` (`/social/calendar`) ahora normaliza los bounds a `YYYY-MM-DD` prefix con sentinel `T99` en el upper. Así incluye tanto date-only como full-datetime records, cubriendo historial existente sin necesidad de migración.
+
+**Tests regresión:** `/app/backend/tests/test_social_calendar_date_only_regression.py`:
+- `test_calendar_query_matches_date_only_scheduled_at` — reproduce el bug exacto y verifica que el query fixeado incluye posts con `scheduled_at="2026-08-01"`.
+- `test_batch_endpoint_normalizes_date_only_scheduled_at` — verifica normalización a `T12:00:00.000Z`.
+
+**Files:** `/app/backend/routers/demand_studio.py` líneas 3611-3629 (calendar query) y 4376-4406 (batch endpoint).
+
+
+
 ## February 20, 2026 — Iteration 244 · Cascade Toast Enhancement
 
 ### ✨ Nueva feature — Toast informativo de propagación
