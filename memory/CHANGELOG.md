@@ -1,6 +1,41 @@
 # Kora OS - Changelog
 
 
+## February 20, 2026 — Iteration 250 · Ideas: campo Formato + herencia al convertir
+
+### 🐛 Bugfix #1 — El agrupar por Formato en Ideas no funcionaba porque no había input de formato
+
+Se añadió el campo `format` al modelo `ContentIdea` + `ContentIdeaCreate`:
+- Nuevos valores válidos: `reel · carousel · story · feed · photoshoot · live · post` (opcional).
+- Backend endpoints `create_content_idea` + `update_content_idea` (y su branch de memberships) ahora persisten `format`.
+- Frontend: nuevo Select "Formato / Format" (data-testid `idea-format-select`) en el diálogo de Nueva/Editar Idea con emojis consistentes (🎬 📸 ⏱ 📄 📷 🔴). `ideaForm` state incluye `format`, y `resetIdeaForm` + `openEditIdea` lo manejan.
+
+### 🐛 Bugfix #2 — Convertir idea a post NO heredaba campos
+
+Antes: al hacer "Convert to Post", solo se copiaban `title, description, source_url, pillar_id, content_body`. El `format` se hardcodeaba a `"post"` y `segment_id`, `audience_id`, `tags` se perdían.
+
+Ahora `convert_idea_to_post`:
+- Usa `idea.format` o fallback `"post"` si vacío.
+- Copia `segment_id`, `audience_id`, `tags` al post.
+- Guarda `source_idea_id` en el post para trazabilidad reversa.
+- Fallback: si `social_account_id` no viene en la URL, usa el de la idea.
+
+Marca la idea con:
+- `status: "used"`
+- `used_at: timestamp`
+- `used_as_post_id: post_id` (nuevo — antes solo cambiaba status)
+
+### Testing
+`/app/backend/tests/test_idea_conversion_inherits_fields.py` — verifica:
+- Idea con format=reel → post con format=reel (no "post").
+- Todos los campos se propagan.
+- Idea sin format → fallback a "post".
+- Idea marcada como `used` con `used_at` + `used_as_post_id`.
+
+4/4 pytests verde.
+
+
+
 ## February 20, 2026 — Iteration 249 · Metas por mes + Photoshoot quick-log
 
 ### ✨ Enhancement — Overrides mensuales sobre el default

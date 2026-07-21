@@ -271,6 +271,7 @@ export default function SocialMediaPage() {
     segment_id: "",
     audience_id: "",
     social_account_id: "",
+    format: "",
     tags: [],
     status: "new",
     content_body: ""
@@ -1056,6 +1057,7 @@ export default function SocialMediaPage() {
       segment_id: idea.segment_id || "",
       audience_id: idea.audience_id || "",
       social_account_id: idea.social_account_id || "",
+      format: idea.format || "",
       tags: idea.tags || [],
       status: idea.status,
       content_body: idea.content_body || ""
@@ -1072,6 +1074,7 @@ export default function SocialMediaPage() {
       segment_id: "",
       audience_id: "",
       social_account_id: "",
+      format: "",
       tags: [],
       status: "new",
       content_body: ""
@@ -4007,6 +4010,26 @@ export default function SocialMediaPage() {
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+              <div>
+                <label className="text-sm font-medium">{isEs ? "Formato" : "Format"}</label>
+                <Select value={ideaForm.format || "none"} onValueChange={v => setIdeaForm({...ideaForm, format: v === "none" ? "" : v})}>
+                  <SelectTrigger data-testid="idea-format-select">
+                    <SelectValue placeholder={isEs ? "Sin formato" : "No format"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">{isEs ? "Sin formato" : "No format"}</SelectItem>
+                    <SelectItem value="reel">🎬 {isEs ? "Reel" : "Reel"}</SelectItem>
+                    <SelectItem value="carousel">📸 {isEs ? "Carrusel" : "Carousel"}</SelectItem>
+                    <SelectItem value="story">⏱ {isEs ? "Historia" : "Story"}</SelectItem>
+                    <SelectItem value="feed">📄 {isEs ? "Feed / Post" : "Feed / Post"}</SelectItem>
+                    <SelectItem value="photoshoot">📷 {isEs ? "Photoshoot" : "Photoshoot"}</SelectItem>
+                    <SelectItem value="live">🔴 {isEs ? "En Vivo" : "Live"}</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-[10px] text-muted-foreground mt-1">
+                  {isEs ? "Se heredará al convertir a post." : "Inherited when converting to a post."}
+                </p>
               </div>
             </div>
             <div>

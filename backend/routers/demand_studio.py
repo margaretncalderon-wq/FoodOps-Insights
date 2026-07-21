@@ -4227,6 +4227,7 @@ async def create_content_idea(data: ContentIdeaCreate, org_id: Optional[str] = N
         "segment_id": data.segment_id,
         "audience_id": data.audience_id,
         "social_account_id": data.social_account_id,
+        "format": data.format,
         "tags": data.tags,
         "status": data.status,
         "content_body": data.content_body,
@@ -4259,6 +4260,7 @@ async def update_content_idea(idea_id: str, data: ContentIdeaCreate, org_id: Opt
             "segment_id": data.segment_id,
             "audience_id": data.audience_id,
             "social_account_id": data.social_account_id,
+            "format": data.format,
             "tags": data.tags,
             "status": data.status,
             "content_body": data.content_body,
@@ -4285,6 +4287,7 @@ async def update_content_idea(idea_id: str, data: ContentIdeaCreate, org_id: Opt
                             "segment_id": data.segment_id,
                             "audience_id": data.audience_id,
                             "social_account_id": data.social_account_id,
+                            "format": data.format,
                             "tags": data.tags,
                             "status": data.status,
                             "content_body": data.content_body,
@@ -4364,13 +4367,23 @@ async def convert_idea_to_post(idea_id: str, social_account_id: str, target_stat
         target_status = "production"
     
     now = datetime.now(timezone.utc)
+    # Feb 2026 · Fix — inherit ALL relevant fields from the idea so the user
+    # doesn't have to re-enter format, segment, audience, tags, etc.
+    inherited_format = idea.get("format") or "post"
+    inherited_tags = idea.get("tags") or []
+    inherited_notes_prefix = f"Converted from idea (#{idea_id[:8]})."
+    notes = inherited_notes_prefix
+    if inherited_tags:
+        notes += f" Tags: {', '.join(inherited_tags)}"
     post = {
         "post_id": f"post_{uuid.uuid4().hex[:12]}",
         "company_id": company_id,
-        "social_account_id": social_account_id,
+        "social_account_id": social_account_id or idea.get("social_account_id"),
         "campaign_id": None,
         "pillar_id": idea.get("pillar_id"),
-        "format": "post",
+        "segment_id": idea.get("segment_id"),
+        "audience_id": idea.get("audience_id"),
+        "format": inherited_format,
         "status": target_status,
         "title": idea["title"],
         "caption": idea.get("description"),
@@ -4379,8 +4392,10 @@ async def convert_idea_to_post(idea_id: str, social_account_id: str, target_stat
         "scheduled_at": None,
         "posted_at": None,
         "link_url": idea.get("source_url"),
-        "notes": f"Converted from idea. Tags: {', '.join(idea.get('tags', []))}",
+        "notes": notes,
         "content_body": idea.get("content_body"),
+        "tags": inherited_tags,
+        "source_idea_id": idea_id,
         "created_by_user_id": user.user_id,
         "owner_user_id": user.user_id,
         "created_at": now.isoformat(),
@@ -4388,13 +4403,13 @@ async def convert_idea_to_post(idea_id: str, social_account_id: str, target_stat
     }
     await db.social_posts.insert_one(post)
     del post["_id"]
-    
+
     # Mark idea as used
     await db.content_ideas.update_one(
         {"idea_id": idea_id},
-        {"$set": {"status": "used", "updated_at": now.isoformat()}}
+        {"$set": {"status": "used", "used_at": now.isoformat(), "used_as_post_id": post["post_id"], "updated_at": now.isoformat()}}
     )
-    
+
     return post
 
 # ---- Global Marketing Calendar ----

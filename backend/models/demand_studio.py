@@ -525,6 +525,7 @@ class ContentIdeaCreate(BaseModel):
     segment_id: Optional[str] = None
     audience_id: Optional[str] = None
     social_account_id: Optional[str] = None
+    format: Optional[str] = None  # reel, carousel, story, feed, photoshoot, live, post
     tags: List[str] = []
     status: str = "new"  # new, reviewing, approved, used, archived
     content_body: Optional[str] = None  # Rich text HTML for internal notes, scripts
@@ -541,6 +542,7 @@ class ContentIdea(BaseModel):
     segment_id: Optional[str] = None
     audience_id: Optional[str] = None
     social_account_id: Optional[str] = None
+    format: Optional[str] = None
     tags: List[str] = []
     status: str = "new"
     content_body: Optional[str] = None  # Rich text HTML
