@@ -4371,8 +4371,8 @@ return (
                           </div>
                         </CardHeader>
                         <CardContent className="pt-2 space-y-4">
-                          {/* Style Variant Selector (Proposal/Invoice only) */}
-                          {["Proposal", "Invoice"].includes(template.template_type) && (
+                          {/* Style Variant Selector — available for all document types with a body */}
+                          {["Proposal", "Invoice", "PurchaseOrder", "DeliveryNote", "Recipe", "KitchenSheet", "PackingList", "ServiceSheet"].includes(template.template_type) && (
                             <div className="border-b pb-4">
                               <Label className="text-xs mb-3 block font-medium flex items-center gap-2">
                                 🎨 {language === "es" ? "Estilo visual del documento" : "Document visual style"}

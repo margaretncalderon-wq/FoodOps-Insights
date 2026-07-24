@@ -1,6 +1,55 @@
 # Kora OS - Changelog
 
 
+## February 24, 2026 — Iteration 254 · Templates de Settings aplicados a PDFs + Pipeline en Metas
+
+### 🐛 Fix — El "Selector de Plantillas" de Settings ahora sí impacta los nuevos PDFs
+
+Antes, `print_templates.py` sólo leía branding básico de `companies` (logo + primary_color) e ignoraba la configuración detallada que el usuario ya había hecho en Settings → Document Templates. Ahora sí lee y aplica todo:
+
+- **Nuevos tipos por defecto en la BD**: `PurchaseOrder`, `DeliveryNote`, `Recipe` — el endpoint `GET /api/settings/document-templates` hace backfill de estos tipos para todas las cuentas existentes (no destructivo, solo agrega los que faltan).
+- **Mapping de endpoints ↔ template_type**:
+  - `GET /api/recipes/{id}/print` → `KitchenSheet`
+  - `GET /api/purchase-orders/{id}/print` → `PurchaseOrder`
+  - `GET /api/delivery-notes/{id}/print` → `DeliveryNote`
+- **Campos aplicados**: `primary_color`, `style_variant` (classic/minimal/editorial/luxury), `pdf_density` (compact/normal/airy), `logo_size` (small/medium/large), `logo_position` (left/center/right), `show_logo`, `show_company_address`, `show_tax_id`, `header_text_es/en`, `footer_text_es/en`, `tagline_es/en`, `terms_and_conditions_es/en`, `payment_instructions_es/en`, `bank_details`.
+- **Style variants alineados con SettingsPage**: classic, minimal (Notion-warm), editorial (serif gourmet), luxury (dark hotel).
+- **Fallback**: Si no hay plantilla activa en `document_templates`, respeta el branding básico de `companies`.
+- **UI Settings**: El selector de estilo visual (`style-variant-picker`) ahora se muestra para los 8 tipos de documento (antes sólo Proposal/Invoice).
+
+### 🎯 Feature — Metas de Demand Studio: Contar posts en Pipeline
+
+Antes las metas solo contaban posts en estados `scheduled` y `posted`. Ahora también cuentan posts en estados intermedios del pipeline: **calendarizado, en producción, en edición, drafted**.
+
+- **`GET /api/demand-studio/social/goals-progress`** ahora devuelve por cuenta:
+  - `actual` — solo publicados (compat).
+  - `pipeline` — total en pipeline (calendar + production + editing + drafted + scheduled).
+  - `pipeline_breakdown` — desglose por estado y formato.
+  - `overall_pct_committed` — % de cumplimiento considerando publicados + pipeline.
+  - `health` — el tier se calcula ahora con la suma (posted + pipeline), así una cuenta con contenido en producción ya no se marca "Atrasada".
+- **UI `SocialGoalsTab`**:
+  - Barra de progreso en dos capas: sólida (publicados) + rayada (pipeline).
+  - Contador `posted +pipeline / target` (ej. `3 +2 / 8`).
+  - Tooltip por formato con desglose por estado.
+  - `+X% en pipeline` bajo el % de cumplimiento cuando hay diferencia.
+  - Leyenda visual con los dos estilos de barra.
+
+### Verificación (curl)
+- `document-templates` → 8 tipos ok.
+- Update `KitchenSheet` con color `#dc2626`, header "COCINA — Uso interno", tagline y footer → `/api/recipes/{id}/print` inyecta los 4 campos ✅.
+- Update `PurchaseOrder` con color `#059669`, `style_variant=editorial`, T&C y payment instructions → `/api/purchase-orders/{id}/print` inyecta todo ✅.
+- `goals-progress` retorna `pipeline`, `pipeline_breakdown`, `overall_pct_committed` ✅.
+
+### Archivos tocados
+- `/app/backend/utils/print_templates.py` (reescrito)
+- `/app/backend/routers/recipes.py` (pasa `template_type="KitchenSheet"`)
+- `/app/backend/routers/purchase_orders.py` (pasa `template_type="PurchaseOrder"`)
+- `/app/backend/server.py` (delivery notes pasa `template_type="DeliveryNote"`; backfill idempotente en `get_document_templates`)
+- `/app/backend/routers/demand_studio.py` (`goals-progress` — pipeline aggregation)
+- `/app/frontend/src/pages/demand-studio/SocialGoalsTab.js` (barra 2 capas + tooltip + leyenda + committed pct)
+- `/app/frontend/src/pages/SettingsPage.js` (style_variant selector visible para todos los tipos)
+
+
 ## February 21, 2026 — Iteration 253 · PDF branded para Recetas, POs y Conduces
 
 ### ✨ Feature — Descarga PDF con branding per-tenant

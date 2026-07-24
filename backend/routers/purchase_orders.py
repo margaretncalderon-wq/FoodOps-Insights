@@ -537,7 +537,7 @@ async def print_purchase_order(po_id: str, user: User = Depends(get_current_user
     )
     if not po:
         raise HTTPException(status_code=404, detail="Purchase Order not found")
-    branding = await get_company_branding(user.company_id)
+    branding = await get_company_branding(user.company_id, template_type="PurchaseOrder", lang="es")
 
     # Supplier lookup
     supplier_name = po.get("supplier_name", "")

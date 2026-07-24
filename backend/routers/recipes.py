@@ -2150,7 +2150,7 @@ async def print_recipe_card(recipe_id: str, user: User = Depends(get_current_use
     )
     if not recipe:
         raise HTTPException(status_code=404, detail="Recipe not found")
-    branding = await get_company_branding(user.company_id)
+    branding = await get_company_branding(user.company_id, template_type="KitchenSheet", lang="es")
 
     name = recipe.get("name", "Receta")
     category = recipe.get("category", "")

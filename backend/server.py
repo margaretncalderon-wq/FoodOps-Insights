@@ -3661,33 +3661,37 @@ async def update_feature_flags(data: FeatureFlagsUpdate, user: User = Depends(ge
 
 @settings_router.get("/document-templates")
 async def get_document_templates(user: User = Depends(get_current_user)):
-    """Get all document templates with custom fields"""
+    """Get all document templates with custom fields.
+
+    Also backfills any missing default templates for existing companies
+    (e.g. after adding new document types).
+    """
     templates = await db.document_templates.find({"company_id": user.company_id}, {"_id": 0}).to_list(50)
-    
-    if not templates:
-        # Create defaults
-        now = datetime.now(timezone.utc)
-        default_types = ["Proposal", "Invoice", "PackingList", "KitchenSheet", "ServiceSheet"]
-        templates = []
-        for ttype in default_types:
-            template = {
-                "template_id": f"tpl_{uuid.uuid4().hex[:12]}",
-                "company_id": user.company_id,
-                "template_type": ttype,
-                "name": ttype,
-                "is_active": True,
-                "custom_fields": [],
-                "header_text_en": None,
-                "header_text_es": None,
-                "footer_text_en": None,
-                "footer_text_es": None,
-                "created_at": now.isoformat(),
-                "updated_at": now.isoformat()
-            }
-            await db.document_templates.insert_one(template)
-            del template["_id"]
-            templates.append(template)
-    
+
+    now = datetime.now(timezone.utc)
+    default_types = ["Proposal", "Invoice", "PackingList", "KitchenSheet", "ServiceSheet", "PurchaseOrder", "DeliveryNote", "Recipe"]
+    existing_types = {t.get("template_type") for t in templates}
+    for ttype in default_types:
+        if ttype in existing_types:
+            continue
+        template = {
+            "template_id": f"tpl_{uuid.uuid4().hex[:12]}",
+            "company_id": user.company_id,
+            "template_type": ttype,
+            "name": ttype,
+            "is_active": True,
+            "custom_fields": [],
+            "header_text_en": None,
+            "header_text_es": None,
+            "footer_text_en": None,
+            "footer_text_es": None,
+            "created_at": now.isoformat(),
+            "updated_at": now.isoformat()
+        }
+        await db.document_templates.insert_one(template)
+        template.pop("_id", None)
+        templates.append(template)
+
     return templates
 
 @settings_router.post("/document-templates")
@@ -8087,7 +8091,7 @@ async def print_delivery_note(note_id: str, user: User = Depends(get_current_use
     )
     if not note:
         raise HTTPException(status_code=404, detail="Delivery note not found")
-    branding = await get_company_branding(user.company_id)
+    branding = await get_company_branding(user.company_id, template_type="DeliveryNote", lang="es")
 
     items = note.get("items") or note.get("lines") or []
     rows = ""

@@ -2884,26 +2884,49 @@ async def get_goals_progress(
         {"company_id": {"$in": all_company_ids}}, {"_id": 0},
     ).to_list(500)
 
-    # Aggregate post counts across all those company scopes
+    # Aggregate post counts across all those company scopes.
+    # We now split counts into TWO buckets so the UI can visualise the
+    # difference between what's DONE (posted) and what's still IN THE
+    # PIPELINE (production/editing/drafted/calendar/scheduled). This gives
+    # the user a much better sense of "where we are on the way to the goal".
+    _PIPELINE_STATUSES = ["production", "editing", "drafted", "calendar", "scheduled"]
+    _COUNTED_STATUSES = _PIPELINE_STATUSES + ["posted"]
+
     pipeline = [
         {"$match": {
             "company_id": {"$in": all_company_ids},
-            "status": {"$in": ["scheduled", "posted"]},
+            "status": {"$in": _COUNTED_STATUSES},
             "scheduled_at": {"$gte": start, "$lte": end + "T99"},
         }},
         {"$group": {
-            "_id": {"account": "$social_account_id", "format": "$format"},
+            "_id": {
+                "account": "$social_account_id",
+                "format": "$format",
+                "status": "$status",
+            },
             "count": {"$sum": 1},
         }},
     ]
     grouped = await db.social_posts.aggregate(pipeline).to_list(5000)
-    actual_map: dict = {}
+
+    # posted_map[acc][fmt] = int (counts only "posted")
+    # pipeline_map[acc][fmt] = int (counts intermediate statuses)
+    # pipeline_breakdown[acc][fmt] = { production, editing, drafted, calendar, scheduled }
+    actual_map: dict = {}          # posted only (backwards-compat)
+    pipeline_map: dict = {}         # intermediate statuses
+    pipeline_breakdown: dict = {}   # per-status detail
     for row in grouped:
         acc = row["_id"].get("account")
         fmt = row["_id"].get("format")
-        if not acc or not fmt:
+        stt = row["_id"].get("status")
+        cnt = int(row.get("count", 0))
+        if not acc or not fmt or not stt:
             continue
-        actual_map.setdefault(acc, {})[fmt] = int(row.get("count", 0))
+        if stt == "posted":
+            actual_map.setdefault(acc, {})[fmt] = actual_map.get(acc, {}).get(fmt, 0) + cnt
+        else:
+            pipeline_map.setdefault(acc, {})[fmt] = pipeline_map.get(acc, {}).get(fmt, 0) + cnt
+            pipeline_breakdown.setdefault(acc, {}).setdefault(fmt, {})[stt] = cnt
 
     # Build a scope lookup so we can label each account with its access_type
     scope_by_cid = {s["company_id"]: s for s in company_scopes}
@@ -2926,22 +2949,35 @@ async def get_goals_progress(
             targets = default_targets
             targets_source = "default"
 
-        actual = actual_map.get(acc_id, {})
+        actual = actual_map.get(acc_id, {})  # posted only
+        in_pipeline = pipeline_map.get(acc_id, {})  # scheduled/production/etc
+        acc_pipeline_breakdown = pipeline_breakdown.get(acc_id, {})
 
         health = {}
         total_target = 0
         total_actual = 0
+        total_committed = 0  # posted + pipeline capped at target
         for fmt, tgt in targets.items():
             act = int(actual.get(fmt, 0))
-            health[fmt] = _health_tier(act, tgt, days_in_month, day_of_month)
+            pipe = int(in_pipeline.get(fmt, 0))
+            combined = act + pipe
+            # Health tier is now based on the combined (committed) count so
+            # the account is not flagged "behind" if we already have the
+            # content in progress. Posted-only remains available in `actual`.
+            health[fmt] = _health_tier(combined, tgt, days_in_month, day_of_month)
             total_target += tgt
             total_actual += min(act, tgt)
+            total_committed += min(combined, tgt)
 
         overall_pct = 0.0
+        overall_pct_committed = 0.0
         if total_target > 0:
             overall_pct = round(min(100.0, (total_actual / total_target) * 100.0), 1)
+            overall_pct_committed = round(min(100.0, (total_committed / total_target) * 100.0), 1)
 
         full_actual = {fmt: int(actual.get(fmt, 0)) for fmt in VALID_GOAL_FORMATS}
+        full_pipeline = {fmt: int(in_pipeline.get(fmt, 0)) for fmt in VALID_GOAL_FORMATS}
+        full_pipeline_breakdown = {fmt: acc_pipeline_breakdown.get(fmt, {}) for fmt in VALID_GOAL_FORMATS}
 
         # Detect a quick-logged photoshoot for this month
         photoshoot_quick_log_id = None
@@ -2966,8 +3002,11 @@ async def get_goals_progress(
             "default_targets": default_targets,
             "targets_source": targets_source,  # "default" | "override"
             "actual": full_actual,
+            "pipeline": full_pipeline,
+            "pipeline_breakdown": full_pipeline_breakdown,
             "health": health,
             "overall_pct": overall_pct,
+            "overall_pct_committed": overall_pct_committed,
             "has_targets": bool(targets),
             "photoshoot_quick_logged": photoshoot_quick_log_id is not None,
             "photoshoot_quick_log_post_id": photoshoot_quick_log_id,

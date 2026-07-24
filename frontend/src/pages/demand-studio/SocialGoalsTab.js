@@ -185,8 +185,8 @@ export default function SocialGoalsTab({ orgId = null }) {
               <TooltipTrigger><Info className="w-3.5 h-3.5 text-muted-foreground" /></TooltipTrigger>
               <TooltipContent className="max-w-xs text-xs">
                 {isEs
-                  ? "Metas fijas de producción por cuenta. Se cuentan posts con estado 'programado' o 'publicado' del mes seleccionado. Los formatos sin valor no se trackean."
-                  : "Fixed production targets per account. Counts posts in 'scheduled' or 'posted' state for the selected month. Formats without a value are not tracked."}
+                  ? "Metas fijas de producción por cuenta. Cuenta posts en cualquier estado del pipeline (calendarizado, en producción, en edición, drafted, programado) más los publicados del mes seleccionado. Los formatos sin valor no se trackean."
+                  : "Fixed production targets per account. Counts posts in any pipeline state (calendar, production, editing, drafted, scheduled) plus posted for the selected month. Formats without a value are not tracked."}
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
@@ -208,10 +208,27 @@ export default function SocialGoalsTab({ orgId = null }) {
       </div>
 
       {/* Progress info bar */}
-      <div className="text-xs text-muted-foreground px-1">
-        {isEs
-          ? `Día ${data.day_of_month} de ${data.days_in_month}. Progreso esperado del mes: ${data.days_in_month ? Math.round((data.day_of_month / data.days_in_month) * 100) : 0}%.`
-          : `Day ${data.day_of_month} of ${data.days_in_month}. Expected month progress: ${data.days_in_month ? Math.round((data.day_of_month / data.days_in_month) * 100) : 0}%.`}
+      <div className="text-xs text-muted-foreground px-1 flex flex-wrap items-center gap-x-4 gap-y-1">
+        <span>
+          {isEs
+            ? `Día ${data.day_of_month} de ${data.days_in_month}. Progreso esperado del mes: ${data.days_in_month ? Math.round((data.day_of_month / data.days_in_month) * 100) : 0}%.`
+            : `Day ${data.day_of_month} of ${data.days_in_month}. Expected month progress: ${data.days_in_month ? Math.round((data.day_of_month / data.days_in_month) * 100) : 0}%.`}
+        </span>
+        <span className="flex items-center gap-3" data-testid="goals-progress-legend">
+          <span className="flex items-center gap-1">
+            <span className="inline-block w-3 h-2 rounded-sm" style={{ background: "#10b981" }} />
+            {isEs ? "Publicado" : "Posted"}
+          </span>
+          <span className="flex items-center gap-1">
+            <span
+              className="inline-block w-3 h-2 rounded-sm"
+              style={{
+                background: "repeating-linear-gradient(45deg, #10b98155, #10b98155 3px, #10b98122 3px, #10b98122 6px)",
+              }}
+            />
+            {isEs ? "En pipeline (calendarizado / producción / edición)" : "In pipeline (calendar / production / editing)"}
+          </span>
+        </span>
       </div>
 
       {/* Accounts grid */}
@@ -262,10 +279,15 @@ export default function SocialGoalsTab({ orgId = null }) {
                   <div className="flex items-center gap-2 shrink-0">
                     {!isEditing && acct.has_targets && (
                       <div className="text-right">
-                        <div className="text-2xl font-bold text-emerald-600" data-testid={`goals-overall-pct-${acct.account_id}`}>
+                        <div className="text-2xl font-bold text-emerald-600 leading-none" data-testid={`goals-overall-pct-${acct.account_id}`}>
                           {acct.overall_pct}%
                         </div>
-                        <div className="text-[9px] uppercase tracking-wide text-muted-foreground">
+                        {typeof acct.overall_pct_committed === "number" && acct.overall_pct_committed > acct.overall_pct && (
+                          <div className="text-[10px] text-slate-500 mt-0.5" data-testid={`goals-committed-pct-${acct.account_id}`}>
+                            {isEs ? `+${(acct.overall_pct_committed - acct.overall_pct).toFixed(1)}% en pipeline` : `+${(acct.overall_pct_committed - acct.overall_pct).toFixed(1)}% pipeline`}
+                          </div>
+                        )}
+                        <div className="text-[9px] uppercase tracking-wide text-muted-foreground mt-0.5">
                           {isEs ? "Cumplimiento" : "Overall"}
                         </div>
                       </div>
@@ -319,13 +341,28 @@ export default function SocialGoalsTab({ orgId = null }) {
                 {/* Tracked formats */}
                 {trackedFormats.map((f) => {
                   const target = displayedTargets[f.key] || 0;
-                  const actual = acct.actual?.[f.key] || 0;
-                  const pct = target > 0 ? Math.min(100, (actual / target) * 100) : 0;
+                  const actual = acct.actual?.[f.key] || 0;         // posted
+                  const pipe = acct.pipeline?.[f.key] || 0;          // in progress
+                  const breakdown = acct.pipeline_breakdown?.[f.key] || {};
+                  const committed = actual + pipe;                   // total committed
+                  const actualPct = target > 0 ? Math.min(100, (actual / target) * 100) : 0;
+                  const committedPct = target > 0 ? Math.min(100, (committed / target) * 100) : 0;
                   const health = acct.health?.[f.key] || "no_target";
                   const HealthIcon = HEALTH_STYLE[health].icon;
                   const Icon = f.icon;
                   const isPhotoshoot = f.key === "photoshoot";
                   const psDone = isPhotoshoot && acct.photoshoot_quick_logged;
+
+                  // Breakdown tooltip text
+                  const STATUS_LABEL = isEs
+                    ? { calendar: "Calendarizado", production: "En producción", editing: "En edición", drafted: "Draft", scheduled: "Programado", posted: "Publicado" }
+                    : { calendar: "Calendar", production: "Production", editing: "Editing", drafted: "Drafted", scheduled: "Scheduled", posted: "Posted" };
+                  const breakdownParts = [];
+                  if (actual > 0) breakdownParts.push(`${STATUS_LABEL.posted}: ${actual}`);
+                  ["scheduled", "calendar", "production", "editing", "drafted"].forEach((s) => {
+                    if (breakdown[s]) breakdownParts.push(`${STATUS_LABEL[s]}: ${breakdown[s]}`);
+                  });
+                  const breakdownText = breakdownParts.join(" · ") || (isEs ? "Sin actividad" : "No activity");
                   return (
                     <div key={f.key} className="flex items-center gap-3" data-testid={`goals-row-${acct.account_id}-${f.key}`}>
                       <div className="w-32 shrink-0 flex items-center gap-1.5 text-xs font-medium">
@@ -343,11 +380,47 @@ export default function SocialGoalsTab({ orgId = null }) {
                         />
                       ) : (
                         <>
-                          <div className="flex-1">
-                            <Progress value={pct} className="h-2" />
-                          </div>
-                          <div className="text-xs font-semibold tabular-nums whitespace-nowrap" data-testid={`goals-count-${acct.account_id}-${f.key}`}>
-                            {actual}/{target}
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <div className="flex-1 cursor-help">
+                                  {/* Stacked progress: solid (posted) + striped (pipeline) */}
+                                  <div className="relative h-2 rounded-full bg-slate-100 overflow-hidden">
+                                    {/* Committed track (behind, striped) */}
+                                    <div
+                                      className="absolute inset-y-0 left-0"
+                                      style={{
+                                        width: `${committedPct}%`,
+                                        background: `repeating-linear-gradient(45deg, ${f.color}55, ${f.color}55 4px, ${f.color}22 4px, ${f.color}22 8px)`,
+                                      }}
+                                      data-testid={`goals-progress-pipeline-${acct.account_id}-${f.key}`}
+                                    />
+                                    {/* Posted track (on top, solid) */}
+                                    <div
+                                      className="absolute inset-y-0 left-0"
+                                      style={{ width: `${actualPct}%`, background: f.color }}
+                                      data-testid={`goals-progress-posted-${acct.account_id}-${f.key}`}
+                                    />
+                                  </div>
+                                </div>
+                              </TooltipTrigger>
+                              <TooltipContent className="text-xs">
+                                <div className="font-semibold mb-1">{isEs ? f.labelEs : f.labelEn}</div>
+                                <div>{breakdownText}</div>
+                                <div className="mt-1 pt-1 border-t border-slate-200 text-slate-500">
+                                  {isEs ? `Meta: ${target}` : `Target: ${target}`}
+                                </div>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                          <div className="text-xs font-semibold tabular-nums whitespace-nowrap flex items-baseline gap-0.5" data-testid={`goals-count-${acct.account_id}-${f.key}`}>
+                            <span>{actual}</span>
+                            {pipe > 0 && (
+                              <span className="text-[10px] text-slate-500" data-testid={`goals-pipeline-count-${acct.account_id}-${f.key}`}>
+                                +{pipe}
+                              </span>
+                            )}
+                            <span className="text-slate-400">/{target}</span>
                           </div>
                           {!isEditing && HealthIcon && (
                             <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${HEALTH_STYLE[health].bg} ${HEALTH_STYLE[health].text} ${HEALTH_STYLE[health].border} border`}>
