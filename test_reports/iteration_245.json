@@ -1,0 +1,39 @@
+{
+  "verdict": "fixed",
+  "user_reported_bug": "cuando le doy a imprimir me sale asi pero en preview sale bien el espaciado — El PDF de Propuesta / Contrato (DocumentPreview.js) muestra espaciado correcto en el preview del componente, pero al hacer clic en 'Imprimir' el output tiene demasiado espacio vertical entre secciones (bloque Cliente/Fecha se ve más separado, secciones RESUMEN DE CATERING y por-día quedan muy dispersas).",
+  "summary": "No relevant testing skill found. Verified the exact Proposal / Contract print flow as demo.agency@kora.com using a seeded event with 2 day-logistics rows and 3 proposal items. The preview and intercepted print iframe both kept .info-grid as a 2-column grid, normal section gaps, and the print iframe used 794x1123px with viewport width=794 and loaded stylesheet links before print.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/tests/seed_proposal_print_spacing_fixture.py",
+    "/app/tests/bug_document_preview_print_spacing_playwright.py",
+    "/app/test_reports/bug_verification_245.json",
+    "/app/test_reports/iteration_245.json"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [
+    "/app/tests/find_proposal_print_fixture.py",
+    "/app/tests/diagnose_demo_data.py",
+    "/app/tests/seed_proposal_print_spacing_fixture.py",
+    "/app/tests/bug_document_preview_print_spacing_playwright.py",
+    "/app/test_reports/bug_verification_245.json",
+    "/app/test_reports/iteration_245.json"
+  ],
+  "success_rate": {
+    "backend": "N/A",
+    "frontend": "100%"
+  },
+  "seed_data_creation": "Created/upserted QA fixture event event_qa_print_spacing_20260729, proposal prop_qa_print_spacing_20260729, inline day_logistics, and 3 order_items for demo agency company to exercise the affected print layout.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Focused browser test used https://foodops-insights.preview.emergentagent.com (same-origin API). A localhost attempt was blocked by CORS because frontend .env points to the preview URL; the preview-origin flow worked. Key metrics: preview infoGridTemplateColumns=407px 407px, print=357px 357px; print iframe style/rect=794x1123; metaViewport=width=794; bodyWidthStyle/htmlMinWidthStyle=794px; stylesheetLinksReady=true; gaps stayed comparable (header-to-summary 20px preview vs 24px print, summary-to-items 24px vs 24px).",
+  "rca_of_the_issue": "Previously the print iframe was 0x0, so responsive CSS could resolve as a mobile layout and create excessive vertical spacing. The current fix gives the iframe an A4-sized viewport, forces html/body width, adds viewport metadata, and waits for styles/fonts; runtime verification showed the printed DOM no longer collapses and spacing matches the component preview. No mocked APIs were used."
+}

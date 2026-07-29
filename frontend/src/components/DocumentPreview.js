@@ -497,6 +497,7 @@ export default function DocumentPreview({
 <html lang="${language}">
   <head>
     <meta charset="utf-8" />
+    <meta name="viewport" content="width=794" />
     <title>${config.name[language]} - ${event?.name || "Document"}</title>
     ${headStyles}
     <style>
@@ -506,6 +507,14 @@ export default function DocumentPreview({
       @page { margin: ${density.pageMargin}; size: auto; }
       html, body { margin: 0; background: #fff; }
       body { font-size: ${density.base}px; line-height: ${density.lineHeight}; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      /* Force the print viewport to behave like an A4-width desktop so
+         responsive utilities (Tailwind grid-cols-2, gap-*, etc.) resolve
+         to the same layout the user sees in the on-screen preview. Without
+         this, the iframe reports its physical 0×0 size to media queries and
+         layout collapses to mobile — which is what caused the extra vertical
+         spacing between sections. */
+      html { min-width: 794px; }
+      body { width: 794px; margin: 0 auto; }
       /* Operational docs: per-tanda mini header. Sits at the top of each
          tanda's page (each .category-section starts on a new page) so every
          printed sheet has client + venue + guest context. */
@@ -587,10 +596,16 @@ export default function DocumentPreview({
     iframe.style.position = "fixed";
     iframe.style.right = "0";
     iframe.style.bottom = "0";
-    iframe.style.width = "0";
-    iframe.style.height = "0";
+    // Give the iframe REAL dimensions (A4 width @ 96dpi ≈ 794px). A 0×0
+    // iframe forces Tailwind responsive utilities to resolve at width=0,
+    // which collapses `grid-cols-2` and multiplies vertical gap between
+    // sections. With a proper width the print output matches the preview.
+    iframe.style.width = "794px";
+    iframe.style.height = "1123px";
     iframe.style.border = "0";
-    iframe.style.visibility = "hidden";
+    iframe.style.opacity = "0";
+    iframe.style.pointerEvents = "none";
+    iframe.style.zIndex = "-1";
     document.body.appendChild(iframe);
 
     const cleanup = () => {
@@ -599,19 +614,47 @@ export default function DocumentPreview({
       }, 1500);
     };
 
+    const triggerPrint = () => {
+      const win = iframe.contentWindow;
+      if (!win) { cleanup(); return; }
+      try { win.focus(); } catch (_e) { /* iOS may throw */ }
+      try { win.print(); } catch (_e) { /* swallow */ }
+    };
+
     try {
       const doc = iframe.contentDocument || iframe.contentWindow?.document;
       if (!doc) { cleanup(); return; }
       doc.open();
       doc.write(html);
       doc.close();
-      // Stylesheets in head are cached → already applied. Print right away
-      // to stay inside the user-gesture stack (Safari requirement).
+
+      // Wait for cloned stylesheets + fonts + images to finish loading in
+      // the iframe. Without this, print() can fire before Tailwind CSS is
+      // ready, which strips utility classes and blows up the spacing.
       const win = iframe.contentWindow;
-      if (win) {
-        try { win.focus(); } catch (_e) { /* iOS may throw */ }
-        win.print();
-      }
+      const iframeDoc = win?.document;
+      const waitForReady = async () => {
+        try {
+          if (iframeDoc?.fonts?.ready) {
+            await iframeDoc.fonts.ready;
+          }
+          // Wait for all <link rel="stylesheet"> to load
+          const links = Array.from(iframeDoc?.querySelectorAll('link[rel="stylesheet"]') || []);
+          await Promise.all(links.map((link) => new Promise((resolve) => {
+            if (link.sheet) return resolve();
+            link.addEventListener("load", resolve, { once: true });
+            link.addEventListener("error", resolve, { once: true });
+            // Safety timeout: don't hang forever if a stylesheet stalls
+            setTimeout(resolve, 800);
+          })));
+          // One extra RAF so layout can settle after CSS applies
+          await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+        } catch (_e) {
+          /* best-effort */
+        }
+        triggerPrint();
+      };
+      waitForReady();
     } catch (_e) {
       /* swallow */
     } finally {
