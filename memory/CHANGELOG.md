@@ -1,6 +1,36 @@
 # Kora OS - Changelog
 
 
+## February 24, 2026 — Iteration 249 · Terminología por industria (agency) — bug fix masivo
+
+### 🐛 Bug reportado
+"En las cuentas empresa se pone la terminología pero sigue diciendo eventos" — usuarios agency (multi-tenant en producción) veían "Eventos" en múltiples pantallas aunque la terminología del org indicaba "Proyecto/Proyectos".
+
+### ✅ Fix — 40+ hits reemplazados con `useTerminology`
+**Backend**:
+- `industry_config_module/industry_config.py`: `name_es` de agency/consulting/generic era "Program Orchestration" en inglés → ahora "Orquestación de Programas".
+- `routers/addons.py`: `MODULE_ADDONS.module_program_orchestration.name_es` traducido; el switch de `po_config` ahora cubre tanto `module_event_orchestration` como `module_program_orchestration`.
+
+**Frontend — `useTerminology` hook agregado y usado en**:
+- `crm/ClientsSection.js` (5 hits: tab, KPI, historial, "Último Evento", empty state)
+- `business-clarity/DashboardSection.js` (2 hits)
+- `business-clarity/SalesReportsSection.js` (2 hits: table + CSV headers)
+- `business-clarity/MarketingROISection.js` (3 hits)
+- `business-clarity/ReportsSection.js` (6 hits: CSV headers, PDF export, tab, tabla, "X eventos", P&L info card)
+- `business-clarity/CloseReconciliationSection.js` (10 hits: toast, tabs, selects, headers, warnings)
+- `business-clarity/FixedCostsSection.js` (3 hits)
+- `business-clarity/PayablesSection.js` (15 hits: tooltip "Fuga de Margen", warning card, todos los selects/labels del modal)
+- `business-clarity/PaymentsSection.js` (1 hit)
+- `config/industryTerminology.js`: `INDUSTRY_ALIASES` extendido para "consulting"→"professional_services" y "events"→"events_hospitality".
+
+### Verificación
+- Backend curl: `enabled-modules` para demo agency devuelve `industry_type=agency`, `program_orch.name_es="Orquestación de Programas"`, `entity_plural_es="Proyectos"`.
+- Bug testing agent (iteración 249): 100% frontend, verificó UI real de tenant agency con payable sin asignar. Los 3 hits reportados en la iteración anterior + los ~30 iniciales están todos limpios.
+
+### Nota para el usuario
+Los cambios están en preview. Para que aparezcan en producción (https://culinary-ops-10.emergent.host) hay que redeployar.
+
+
 ## February 24, 2026 — Iteration 255 · Admin Panel · Cuentas Demo (4 fixes)
 
 Usuario reportó 4 issues en Super Admin → Cuentas Demo. Todos verificados como resueltos por el testing agent (frontend 100%).
