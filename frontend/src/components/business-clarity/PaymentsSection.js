@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useLanguage } from "../../contexts/LanguageContext";
+import { useTerminology } from "../../hooks/useTerminology";
 import axios from "axios";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
@@ -24,6 +25,7 @@ const formatCurrency = (amount) => `$${(amount || 0).toLocaleString("en-US", { m
 
 export function PaymentsSection() {
   const { language } = useLanguage();
+  const { term } = useTerminology();
   const isEs = language === "es";
   
   // Data states
@@ -446,7 +448,7 @@ export function PaymentsSection() {
                         <TableHeader>
                           <TableRow>
                             <TableHead className="w-10"></TableHead>
-                            <TableHead>{isEs ? "Pedido / Evento" : "Order / Event"}</TableHead>
+                            <TableHead>{isEs ? `Pedido / ${term("events", "entity_singular")}` : `Order / ${term("events", "entity_singular")}`}</TableHead>
                             <TableHead>{isEs ? "Fecha" : "Date"}</TableHead>
                             <TableHead className="text-right">{isEs ? "Total" : "Total"}</TableHead>
                             <TableHead className="text-right">{isEs ? "Pendiente" : "Pending"}</TableHead>

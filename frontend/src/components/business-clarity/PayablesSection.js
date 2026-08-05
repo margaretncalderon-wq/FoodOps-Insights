@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useLanguage } from "../../contexts/LanguageContext";
+import { useTerminology } from "../../hooks/useTerminology";
 import axios from "axios";
 import { toast } from "sonner";
 import { Card, CardContent, CardDescription } from "../ui/card";
@@ -23,6 +24,7 @@ const formatCurrency = (amount) => `$${(amount || 0).toLocaleString("en-US", { m
 
 export function PayablesSection() {
   const { language } = useLanguage();
+  const { term } = useTerminology();
   const isEs = language === "es";
   const [data, setData] = useState(null);
   const [events, setEvents] = useState([]);
@@ -361,7 +363,7 @@ export function PayablesSection() {
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger><AlertCircle className="w-3 h-3 text-purple-500" /></TooltipTrigger>
-                  <TooltipContent><p>{isEs ? "Afecta margen global, no eventos" : "Affects global margin, not events"}</p></TooltipContent>
+                  <TooltipContent><p>{isEs ? `Afecta margen global, no ${term("events", "entity_plural").toLowerCase()}` : `Affects global margin, not ${term("events", "entity_plural").toLowerCase()}`}</p></TooltipContent>
                 </Tooltip>
               </TooltipProvider>
             </div>
@@ -385,7 +387,7 @@ export function PayablesSection() {
                       <Tooltip>
                         <TooltipTrigger><HelpCircle className="w-3 h-3 text-muted-foreground" /></TooltipTrigger>
                         <TooltipContent className="max-w-xs">
-                          <p>{isEs ? "Asigna a un evento, centro de costo, o categoría de costo fijo" : "Assign to an event, cost center, or fixed cost category"}</p>
+                          <p>{isEs ? `Asigna a un ${term("events", "entity_singular").toLowerCase()}, centro de costo, o categoría de costo fijo` : `Assign to ${term("events", "entity_singular").toLowerCase()}, cost center, or fixed cost category`}</p>
                         </TooltipContent>
                       </Tooltip>
                     </TooltipProvider>
@@ -409,7 +411,7 @@ export function PayablesSection() {
                       {rec.event_id ? (
                         <div className="flex items-center gap-2">
                           <Badge variant="default" className="text-xs">{rec.event_name}</Badge>
-                          <span className="text-xs text-muted-foreground">{isEs ? "→ Margen Evento" : "→ Event Margin"}</span>
+                          <span className="text-xs text-muted-foreground">{isEs ? `→ Margen ${term("events", "entity_singular")}` : `→ ${term("events", "entity_singular")} Margin`}</span>
                         </div>
                       ) : hasFixedCostCategory ? (
                         <div className="flex items-center gap-2">
@@ -526,7 +528,7 @@ export function PayablesSection() {
             <div className="grid grid-cols-3 gap-2">
               <Button variant={assignmentType === "event" ? "default" : "outline"} className="flex-1" onClick={() => setAssignmentType("event")}>
                 <Calendar className="w-4 h-4 mr-1" />
-                {isEs ? "Evento" : "Event"}
+                {term("events", "entity_singular")}
               </Button>
               <Button variant={assignmentType === "fixed_cost" ? "default" : "outline"} className="flex-1" onClick={() => setAssignmentType("fixed_cost")}>
                 <Target className="w-4 h-4 mr-1" />
@@ -541,15 +543,15 @@ export function PayablesSection() {
             {/* Event Selection */}
             {assignmentType === "event" && (
               <div>
-                <Label>{isEs ? "Seleccionar Evento" : "Select Event"}</Label>
+                <Label>{isEs ? `Seleccionar ${term("events", "entity_singular")}` : `Select ${term("events", "entity_singular")}`}</Label>
                 <Select value={selectedEvent} onValueChange={setSelectedEvent}>
-                  <SelectTrigger><SelectValue placeholder={isEs ? "Selecciona un evento..." : "Select an event..."} /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder={isEs ? `Selecciona un ${term("events", "entity_singular").toLowerCase()}...` : `Select ${term("events", "entity_singular").toLowerCase()}...`} /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none">{isEs ? "Sin evento" : "No event"}</SelectItem>
+                    <SelectItem value="none">{isEs ? `Sin ${term("events", "entity_singular").toLowerCase()}` : `No ${term("events", "entity_singular").toLowerCase()}`}</SelectItem>
                     {events.map(e => <SelectItem key={e.event_id} value={e.event_id}>{e.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-muted-foreground mt-1">{isEs ? "Este costo afectará el margen del evento" : "This cost will affect the event's margin"}</p>
+                <p className="text-xs text-muted-foreground mt-1">{isEs ? `Este costo afectará el margen del ${term("events", "entity_singular").toLowerCase()}` : `This cost will affect the ${term("events", "entity_singular").toLowerCase()}'s margin`}</p>
               </div>
             )}
 
@@ -597,7 +599,7 @@ export function PayablesSection() {
               <CardContent className="pt-3 pb-3">
                 <p className="text-xs text-muted-foreground">
                   {assignmentType === "event" 
-                    ? (isEs ? "📊 El costo se incluirá en el cálculo de rentabilidad del evento." : "📊 Cost included in event profitability calculation.")
+                    ? (isEs ? `📊 El costo se incluirá en el cálculo de rentabilidad del ${term("events", "entity_singular").toLowerCase()}.` : `📊 Cost included in ${term("events", "entity_singular").toLowerCase()} profitability calculation.`)
                     : assignmentType === "fixed_cost"
                       ? (isEs ? "📊 El costo se comparará contra el presupuesto de la categoría." : "📊 Cost will be compared against the category budget.")
                       : (isEs ? "📊 El costo se clasifica como overhead general." : "📊 Cost is classified as general overhead.")
@@ -790,7 +792,7 @@ export function PayablesSection() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">{isEs ? "Sin asignar (Overhead)" : "Unassigned (Overhead)"}</SelectItem>
-                  <SelectItem value="event">{isEs ? "Evento" : "Event"}</SelectItem>
+                  <SelectItem value="event">{term("events", "entity_singular")}</SelectItem>
                   <SelectItem value="fixed_cost">{isEs ? "Categoría de Costo Fijo" : "Fixed Cost Category"}</SelectItem>
                   <SelectItem value="cost_center">{isEs ? "Centro de Costo" : "Cost Center"}</SelectItem>
                 </SelectContent>
@@ -800,13 +802,13 @@ export function PayablesSection() {
             {/* Event Selection */}
             {newExpense.assignment_type === "event" && (
               <div className="space-y-2">
-                <Label>{isEs ? "Evento" : "Event"}</Label>
+                <Label>{term("events", "entity_singular")}</Label>
                 <Select 
                   value={newExpense.event_id} 
                   onValueChange={(v) => setNewExpense({ ...newExpense, event_id: v })}
                 >
                   <SelectTrigger data-testid="expense-event-select">
-                    <SelectValue placeholder={isEs ? "Selecciona evento..." : "Select event..."} />
+                    <SelectValue placeholder={isEs ? `Selecciona ${term("events", "entity_singular").toLowerCase()}...` : `Select ${term("events", "entity_singular").toLowerCase()}...`} />
                   </SelectTrigger>
                   <SelectContent>
                     {events.map(ev => (
@@ -881,7 +883,7 @@ export function PayablesSection() {
               <CardContent className="pt-3 pb-3">
                 <p className="text-xs text-blue-700">
                   {newExpense.assignment_type === "event" 
-                    ? (isEs ? "📊 Este gasto se incluirá en el cálculo de rentabilidad del evento seleccionado." : "📊 This expense will be included in the selected event's profitability calculation.")
+                    ? (isEs ? `📊 Este gasto se incluirá en el cálculo de rentabilidad del ${term("events", "entity_singular").toLowerCase()} seleccionado.` : `📊 This expense will be included in the selected ${term("events", "entity_singular").toLowerCase()}'s profitability calculation.`)
                     : newExpense.assignment_type === "fixed_cost"
                       ? (isEs ? "📊 Este gasto se comparará contra el presupuesto de la categoría seleccionada." : "📊 This expense will be compared against the selected category's budget.")
                       : (isEs ? "📊 Este gasto será clasificado como overhead general y afectará el margen global." : "📊 This expense will be classified as general overhead and will affect global margin.")

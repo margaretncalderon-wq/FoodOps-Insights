@@ -1,0 +1,32 @@
+{
+  "environment": "https://foodops-insights.preview.emergentagent.com",
+  "account": "termtest_agency_v4@kora.com",
+  "verdict": "not_fixed",
+  "summary": "Fresh agency demo was created with entity_plural_es=Proyectos. Real Spanish UI passed CRM, Dashboard, Close/Reconciliation, Reports project CSV, Fixed Costs, Sales Reports and Marketing ROI checks, but Payables still exposed hardcoded Evento/eventos copy for an agency account.",
+  "passed_checks": [
+    "Sidebar: Orquestación de Programas",
+    "CRM client detail: Último Proyecto, Proyectos tab, Historial de Proyectos, No hay proyectos",
+    "Dashboard metric and cost-allocation tooltip: Proyectos/proyectos",
+    "Close/Reconciliation: COGS project labels, allocation table Proyecto/COGS Proyecto/Total proyectos, fix modal Asignar/Seleccionar Proyecto",
+    "Reports: Por Proyecto tab/table and CSV header Proyecto",
+    "Fixed Costs: Promedio por Proyecto and Break-even por Proyecto",
+    "Sales Reports: Proyectos column and CSV header Proyectos",
+    "Marketing ROI: Activaciones + Proyectos, Proyectos Internos, Costo Proyectos"
+  ],
+  "failed_checks": [
+    {
+      "screen": "Business Clarity > Payables / Cuentas por Pagar",
+      "issue": "Visible margin leakage warning still says 'Asigna a: Evento (afecta margen)' instead of Proyecto for agency.",
+      "component": "frontend/src/components/business-clarity/PayablesSection.js:507"
+    },
+    {
+      "screen": "Business Clarity > Payables / Cuentas por Pagar",
+      "issue": "Fuga de Margen tooltip still says 'Los costos sin evento asignado ... eventos específicos' instead of proyecto/proyectos.",
+      "component": "frontend/src/components/business-clarity/PayablesSection.js:347"
+    }
+  ],
+  "inconclusive_checks": [
+    "Payments table header could not be conclusively verified in UI because the fresh demo had no client payment rows/table content; source review shows the header was changed to use term('events', 'entity_singular').",
+    "PDF export header was not parsed; CSV export was verified."
+  ]
+}

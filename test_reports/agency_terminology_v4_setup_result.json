@@ -1,0 +1,328 @@
+{
+  "base_url": "https://foodops-insights.preview.emergentagent.com",
+  "deleted_existing_company_ids": [],
+  "created_account": {
+    "user_id": "user_d63deedaec48",
+    "email": "termtest_agency_v4@kora.com",
+    "name": "Term Test Agency V4",
+    "company_id": "company_327ca15e1671",
+    "organization_name": "Terminology Agency V4 1785953671",
+    "industry_type": "agency",
+    "account_type": "demo",
+    "trial_ends_at": "2027-08-05T18:14:32.402923+00:00",
+    "activated_modules": [
+      "module_program_orchestration",
+      "module_demand_studio"
+    ]
+  },
+  "seed_counts": {
+    "clients": 5,
+    "projects": 3,
+    "proposals": 3
+  },
+  "no_event_client": {
+    "client_id": "client_2581cda27f21",
+    "company_id": "company_327ca15e1671",
+    "client_type": "Company",
+    "display_name": "Cliente Sin Proyectos QA V4",
+    "company_entity_id": null,
+    "email": "qa-no-project-v4@example.com",
+    "phone": "+1 809 555 0404",
+    "whatsapp": null,
+    "address": null,
+    "city": null,
+    "country": null,
+    "rnc": null,
+    "source": "Direct",
+    "tags": [],
+    "notes": "Cliente sin proyectos para verificar texto No hay proyectos",
+    "status": "Active",
+    "has_credit": false,
+    "credit_limit": 0.0,
+    "payment_terms": "immediate",
+    "website": null,
+    "industry": "marketing",
+    "description": null,
+    "social_linkedin": null,
+    "social_instagram": null,
+    "is_internal_cost_center": false,
+    "next_follow_up_date": null,
+    "follow_up_type": null,
+    "total_revenue": 0.0,
+    "events_count": 0,
+    "created_at": "2026-08-05T18:14:33.246532+00:00",
+    "updated_at": "2026-08-05T18:14:33.246532+00:00"
+  },
+  "created_payable": {
+    "payable": {
+      "payable_id": "pay_76d8b0ab46d1",
+      "company_id": "company_327ca15e1671",
+      "supplier_id": null,
+      "supplier_name": "Proveedor QA Terminología V4",
+      "contract_id": null,
+      "description": "Costo sin asignar para verificar terminología",
+      "amount": 123.45,
+      "paid_amount": 0,
+      "balance_due": 123.45,
+      "status": "pending",
+      "due_date": null,
+      "invoice_number": "QA-V4-1785953673",
+      "fixed_cost_category_id": null,
+      "event_id": null,
+      "cost_center_id": null,
+      "cost_center_name": null,
+      "created_at": "2026-08-05T18:14:33.336078+00:00",
+      "updated_at": "2026-08-05T18:14:33.336078+00:00",
+      "created_by": "user_d63deedaec48"
+    },
+    "accounting_entry_id": null
+  },
+  "direct_db_seed": {
+    "stock_movement_id": "qa_unassigned_1785953673",
+    "db_name": "test_database"
+  },
+  "auth_me": {
+    "email": "termtest_agency_v4@kora.com",
+    "company_id": "company_327ca15e1671",
+    "industry_type": null
+  },
+  "enabled_modules": {
+    "modules": [
+      {
+        "key": "system_pulse",
+        "path": "/dashboard",
+        "name_en": "System Pulse",
+        "name_es": "System Pulse",
+        "icon": "activity"
+      },
+      {
+        "key": "client_engagement",
+        "path": "/client-engagement",
+        "name_en": "Client Engagement",
+        "name_es": "Client Engagement",
+        "icon": "puzzle"
+      },
+      {
+        "key": "module_program_orchestration",
+        "path": "/event-orchestration",
+        "name_en": "Program Orchestration",
+        "name_es": "Orquestación de Programas",
+        "icon": "folder-kanban",
+        "is_addon": true,
+        "entity_singular_en": "Project",
+        "entity_singular_es": "Proyecto",
+        "entity_plural_en": "Projects",
+        "entity_plural_es": "Proyectos"
+      },
+      {
+        "key": "execution_hub",
+        "path": "/execution-hub",
+        "name_en": "Execution Hub",
+        "name_es": "Execution Hub",
+        "icon": "target"
+      },
+      {
+        "key": "module_demand_studio",
+        "path": "/demand-studio",
+        "name_en": "Demand Generation",
+        "name_es": "Demand Generation",
+        "icon": "megaphone",
+        "is_addon": true
+      },
+      {
+        "key": "partners",
+        "path": "/partners",
+        "name_en": "Partners",
+        "name_es": "Partners",
+        "icon": "handshake"
+      },
+      {
+        "key": "business_clarity",
+        "path": "/business-clarity",
+        "name_en": "Business Clarity",
+        "name_es": "Business Clarity",
+        "icon": "briefcase"
+      },
+      {
+        "key": "settings",
+        "path": "/settings",
+        "name_en": "Settings",
+        "name_es": "Configuración",
+        "icon": "settings"
+      }
+    ],
+    "plan_id": "plan_professional",
+    "core_modules": [
+      "system_pulse",
+      "client_engagement",
+      "execution_hub",
+      "partners",
+      "business_clarity",
+      "settings"
+    ],
+    "addon_modules": [
+      "module_event_orchestration",
+      "module_program_orchestration",
+      "module_culinary_intelligence",
+      "module_resource_management",
+      "module_venues",
+      "module_demand_studio",
+      "module_people_ops"
+    ],
+    "industry_type": "agency",
+    "industry_config": {
+      "name_en": "Agency & Creative Services",
+      "name_es": "Agencia y Servicios Creativos",
+      "program_orchestration": {
+        "name_en": "Program Orchestration",
+        "name_es": "Orquestación de Programas",
+        "icon": "folder-kanban",
+        "description_en": "Manage client projects and deliverables",
+        "description_es": "Gestiona proyectos y entregables de clientes",
+        "entity_singular_en": "Project",
+        "entity_singular_es": "Proyecto",
+        "entity_plural_en": "Projects",
+        "entity_plural_es": "Proyectos",
+        "fields": {
+          "name": {
+            "en": "Project Name",
+            "es": "Nombre del Proyecto"
+          },
+          "date": {
+            "en": "Start Date",
+            "es": "Fecha de Inicio"
+          },
+          "end_date": {
+            "en": "Deadline",
+            "es": "Fecha Límite"
+          },
+          "guest_count": {
+            "en": "Team Size",
+            "es": "Tamaño del Equipo"
+          },
+          "venue": {
+            "en": "Location",
+            "es": "Ubicación"
+          },
+          "budget": {
+            "en": "Budget",
+            "es": "Presupuesto"
+          },
+          "type": {
+            "en": "Project Type",
+            "es": "Tipo de Proyecto"
+          }
+        },
+        "types": [
+          {
+            "key": "branding",
+            "en": "Branding Project",
+            "es": "Proyecto de Branding"
+          },
+          {
+            "key": "campaign",
+            "en": "Marketing Campaign",
+            "es": "Campaña de Marketing"
+          },
+          {
+            "key": "social_media",
+            "en": "Social Media Management",
+            "es": "Gestión de Redes Sociales"
+          },
+          {
+            "key": "web_design",
+            "en": "Web Design",
+            "es": "Diseño Web"
+          },
+          {
+            "key": "content",
+            "en": "Content Creation",
+            "es": "Creación de Contenido"
+          },
+          {
+            "key": "video",
+            "en": "Video Production",
+            "es": "Producción de Video"
+          },
+          {
+            "key": "consulting",
+            "en": "Consulting",
+            "es": "Consultoría"
+          },
+          {
+            "key": "retainer",
+            "en": "Monthly Retainer",
+            "es": "Retainer Mensual"
+          }
+        ]
+      }
+    },
+    "terminology": {
+      "event": {
+        "en": "Project",
+        "es": "Proyecto"
+      },
+      "event_date": {
+        "en": "Start Date",
+        "es": "Fecha de Inicio"
+      },
+      "guest_count": {
+        "en": "Team Size",
+        "es": "Tamaño del Equipo"
+      },
+      "venue": {
+        "en": "Location",
+        "es": "Ubicación"
+      },
+      "event_type": {
+        "en": "Project Type",
+        "es": "Tipo de Proyecto"
+      }
+    }
+  },
+  "org_config_terminology": {
+    "industry_template": "professional_services",
+    "industry_type": "agency",
+    "terminology": {
+      "event": {
+        "en": "Project",
+        "es": "Proyecto"
+      },
+      "event_date": {
+        "en": "Start Date",
+        "es": "Fecha de Inicio"
+      },
+      "guest_count": {
+        "en": "Team Size",
+        "es": "Tamaño del Equipo"
+      },
+      "venue": {
+        "en": "Location",
+        "es": "Ubicación"
+      },
+      "event_type": {
+        "en": "Project Type",
+        "es": "Tipo de Proyecto"
+      }
+    }
+  },
+  "clients_count": 1,
+  "accounts_payable_summary": {
+    "total_pending": 123.45,
+    "total_paid": 0,
+    "records_count": 1,
+    "pending_count": 1
+  },
+  "allocation_summary": {
+    "total_events": 1,
+    "complete": 1,
+    "incomplete": 0,
+    "total_event_cogs": 0
+  },
+  "exceptions_summary": {
+    "total": 1,
+    "blocking": 0,
+    "warnings": 1,
+    "resolved": 0
+  }
+}

@@ -275,7 +275,7 @@ export function CloseReconciliationSection() {
     if (eventAllocation && Array.isArray(eventAllocation.events)) {
       row(isEs ? `Asignación a ${term("events", "entity_plural")}` : `${term("events", "entity_singular")} Allocation`);
       row(
-        isEs ? "Evento" : "Event",
+        term("events", "entity_singular"),
         isEs ? "Fecha" : "Date",
         isEs ? "Costo Asignado" : "Allocated Cost",
         isEs ? "Ingresos" : "Revenue",
@@ -380,7 +380,7 @@ export function CloseReconciliationSection() {
   // Handle assigning unassigned usage to event
   const handleAssignToEvent = async () => {
     if (!selectedExc || !fixForm.assigned_event_id) {
-      toast.error(isEs ? "Selecciona un evento" : "Select an event");
+      toast.error(isEs ? `Selecciona un ${term("events", "entity_singular").toLowerCase()}` : `Select ${term("events", "entity_singular").toLowerCase()}`);
       return;
     }
     try {
@@ -392,7 +392,7 @@ export function CloseReconciliationSection() {
         },
         { withCredentials: true }
       );
-      toast.success(isEs ? "Asignado a evento" : "Assigned to event");
+      toast.success(isEs ? `Asignado a ${term("events", "entity_singular").toLowerCase()}` : `Assigned to ${term("events", "entity_singular").toLowerCase()}`);
       setShowFixModal(false);
       fetchPeriodData();
     } catch (err) {
@@ -1080,7 +1080,7 @@ export function CloseReconciliationSection() {
             <BarChart3 className="w-4 h-4" />
             {isEs ? "Asignación de COGS" : "COGS Allocation"}
           </CardTitle>
-          <CardDescription>{isEs ? "Separación de COGS directo (eventos) vs overhead" : "Split between direct (event) COGS vs overhead"}</CardDescription>
+          <CardDescription>{isEs ? `Separación de COGS directo (${term("events", "entity_plural").toLowerCase()}) vs overhead` : `Split between direct (${term("events", "entity_singular").toLowerCase()}) COGS vs overhead`}</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1088,7 +1088,7 @@ export function CloseReconciliationSection() {
               <div className="flex justify-between items-center p-3 bg-green-50 rounded-lg border border-green-200">
                 <div>
                   <p className="text-sm font-medium text-green-800">{isEs ? `COGS de ${term("events", "entity_plural")} (Directo)` : `${term("events", "entity_singular")} COGS (Direct)`}</p>
-                  <p className="text-xs text-green-600">{isEs ? "Asignado a eventos específicos" : "Assigned to specific events"}</p>
+                  <p className="text-xs text-green-600">{isEs ? `Asignado a ${term("events", "entity_plural").toLowerCase()} específicos` : `Assigned to specific ${term("events", "entity_plural").toLowerCase()}`}</p>
                 </div>
                 <p className="text-xl font-bold text-green-700">{formatCurrency(cogs.event_cogs)}</p>
               </div>
@@ -1096,7 +1096,7 @@ export function CloseReconciliationSection() {
               <div className="flex justify-between items-center p-3 bg-amber-50 rounded-lg border border-amber-200">
                 <div>
                   <p className="text-sm font-medium text-amber-800">{isEs ? "COGS Overhead (Sin Asignar)" : "Overhead COGS (Unassigned)"}</p>
-                  <p className="text-xs text-amber-600">{isEs ? "Ajustes + uso sin evento" : "Adjustments + usage without event"}</p>
+                  <p className="text-xs text-amber-600">{isEs ? `Ajustes + uso sin ${term("events", "entity_singular").toLowerCase()}` : `Adjustments + usage without ${term("events", "entity_singular").toLowerCase()}`}</p>
                 </div>
                 <p className="text-xl font-bold text-amber-700">{formatCurrency(cogs.overhead_cogs)}</p>
               </div>
@@ -1207,7 +1207,7 @@ export function CloseReconciliationSection() {
           <div className="flex items-center justify-between">
             <CardTitle className="text-base flex items-center gap-2">
               <BarChart3 className="w-4 h-4" />
-              {isEs ? "Vista Previa de Asignación por Evento" : "Allocation Preview — By Event"}
+              {isEs ? `Vista Previa de Asignación por ${term("events", "entity_singular")}` : `Allocation Preview — By ${term("events", "entity_singular")}`}
             </CardTitle>
             {showAllocation ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
           </div>
@@ -1217,8 +1217,8 @@ export function CloseReconciliationSection() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>{isEs ? "Evento" : "Event"}</TableHead>
-                  <TableHead className="text-right">{isEs ? "COGS Evento" : "Event COGS"}</TableHead>
+                  <TableHead>{term("events", "entity_singular")}</TableHead>
+                  <TableHead className="text-right">{isEs ? `COGS ${term("events", "entity_singular")}` : `${term("events", "entity_singular")} COGS`}</TableHead>
                   <TableHead className="text-right">{isEs ? "Ingresos" : "Revenue"}</TableHead>
                   <TableHead className="text-right">{isEs ? "Margen" : "Margin"}</TableHead>
                   <TableHead>{isEs ? "Estado" : "Status"}</TableHead>
@@ -1246,7 +1246,7 @@ export function CloseReconciliationSection() {
             </Table>
             <div className="p-4 bg-muted/30 border-t">
               <div className="flex justify-between text-sm">
-                <span>{isEs ? "Total eventos" : "Total events"}: {eventAllocation.summary.total_events}</span>
+                <span>{isEs ? `Total ${term("events", "entity_plural").toLowerCase()}` : `Total ${term("events", "entity_plural").toLowerCase()}`}: {eventAllocation.summary.total_events}</span>
                 <span>{isEs ? "Completos" : "Complete"}: {eventAllocation.summary.complete}</span>
                 <span>{isEs ? `COGS Total ${term("events", "entity_plural")}` : `Total ${term("events", "entity_singular")} COGS`}: {formatCurrency(eventAllocation.summary.total_event_cogs)}</span>
               </div>
@@ -1691,16 +1691,16 @@ export function CloseReconciliationSection() {
               {selectedExc.type === "unassigned" && (
                 <Tabs defaultValue="assign" className="w-full">
                   <TabsList className="grid w-full grid-cols-2">
-                    <TabsTrigger value="assign">{isEs ? "Asignar a Evento" : "Assign to Event"}</TabsTrigger>
+                    <TabsTrigger value="assign">{isEs ? `Asignar a ${term("events", "entity_singular")}` : `Assign to ${term("events", "entity_singular")}`}</TabsTrigger>
                     <TabsTrigger value="categorize">{isEs ? "Categorizar" : "Categorize"}</TabsTrigger>
                   </TabsList>
                   
                   <TabsContent value="assign" className="space-y-3 mt-4">
                     <div className="p-3 border rounded-lg bg-green-50/50">
-                      <p className="text-sm font-medium mb-2">{isEs ? "Seleccionar Evento" : "Select Event"}</p>
+                      <p className="text-sm font-medium mb-2">{isEs ? `Seleccionar ${term("events", "entity_singular")}` : `Select ${term("events", "entity_singular")}`}</p>
                       <Select value={fixForm.assigned_event_id} onValueChange={(v) => setFixForm({ ...fixForm, assigned_event_id: v })}>
                         <SelectTrigger>
-                          <SelectValue placeholder={isEs ? "Selecciona un evento..." : "Select an event..."} />
+                          <SelectValue placeholder={isEs ? `Selecciona un ${term("events", "entity_singular").toLowerCase()}...` : `Select ${term("events", "entity_singular").toLowerCase()}...`} />
                         </SelectTrigger>
                         <SelectContent>
                           {events.slice(0, 20).map(e => (

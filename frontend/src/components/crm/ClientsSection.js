@@ -802,7 +802,7 @@ export default function ClientsSection() {
                           ? formatDateOnly(selectedClient.last_event_date, language)
                           : "-"}
                       </div>
-                      <p className="text-sm text-muted-foreground">{isEs ? "Último Evento" : "Last Event"}</p>
+                      <p className="text-sm text-muted-foreground">{isEs ? `Último ${term("events", "entity_singular")}` : `Last ${term("events", "entity_singular")}`}</p>
                     </CardContent>
                   </Card>
                 </div>
@@ -934,7 +934,7 @@ export default function ClientsSection() {
                 ) : (
                   <div className="text-center py-8 text-muted-foreground">
                     <Calendar className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                    <p>{isEs ? "No hay eventos" : "No events"}</p>
+                    <p>{isEs ? `No hay ${term("events", "entity_plural").toLowerCase()}` : `No ${term("events", "entity_plural").toLowerCase()}`}</p>
                   </div>
                 )}
               </TabsContent>

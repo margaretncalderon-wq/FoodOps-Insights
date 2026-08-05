@@ -1,0 +1,69 @@
+{
+  "verdict": "not_fixed",
+  "user_reported_bug": "en las cuentas empresa se pone la terminología pero sigue diciendo eventos puedes verificar? En cuentas con industria 'agency', varios labels seguían apareciendo como 'Eventos' aunque la terminología estaba configurada. Iteración previa arregló la mayoría pero testing agent reportó 3 hits restantes: ClientsSection.js:805 'Último Evento', CloseReconciliationSection.js:1083 y 1221.",
+  "summary": "No relevant testing skill found. Created fresh agency demo termtest_agency_v4@kora.com, verified backend terminology returns agency/Proyectos, then tested real Spanish UI. The 3 previously reported hits are fixed in CRM and Close/Reconciliation, but the broader agency terminology bug is still reproducible in Business Clarity > Payables: visible warning/tooltip still says Evento/eventos.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "frontend/src/components/business-clarity/PayablesSection.js:507",
+        "issue": "For an agency account, Business Clarity > Payables with unassigned costs still visibly says 'Asigna a: Evento (afecta margen)' instead of Proyecto.",
+        "selector": "Payables margin leakage warning card text",
+        "priority": "HIGH"
+      },
+      {
+        "component": "frontend/src/components/business-clarity/PayablesSection.js:347",
+        "issue": "For an agency account, hovering the 'Fuga de Margen' badge still shows 'Los costos sin evento asignado ... eventos específicos' instead of proyecto/proyectos.",
+        "selector": "Payables Fuga de Margen tooltip",
+        "priority": "HIGH"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/test_reports/agency_terminology_v4_setup.py",
+    "/app/test_reports/agency_terminology_v4_setup_result.json",
+    "/app/test_reports/agency_terminology_v4_ui_check.py",
+    "/app/test_reports/agency_terminology_v4_ui_result.json",
+    "/app/test_reports/reports_project_export_v4.csv",
+    "/app/test_reports/sales_report_export_v4.csv",
+    "/app/test_reports/agency_terminology_v4_cleanup.py",
+    "/app/test_reports/agency_terminology_v4_cleanup_result.json"
+  ],
+  "action_items": [
+    "Update PayablesSection.js:347 to use term('events','entity_singular/plural') so the margin leakage tooltip says proyecto/proyectos for agency.",
+    "Update PayablesSection.js:507 to use terminology-aware text so the unassigned-cost warning says 'Asigna a: Proyecto (afecta margen)'.",
+    "Code review also found ReportsSection.js:577 still has a visible hardcoded lowercase 'eventos' in the P&L explanatory copy; make it terminology-aware before the next retest.",
+    "Retest with a fresh agency demo and at least one unassigned payable/stock movement."
+  ],
+  "critical_code_review_comments": [
+    "Mandatory skill lookup completed before testing: No relevant testing skill found.",
+    "Original iteration-247 misses appear fixed in source and UI: ClientsSection.js now shows Último Proyecto/No hay proyectos; CloseReconciliationSection.js now shows proyectos in the COGS description and Proyecto/COGS Proyecto allocation table.",
+    "Post-fix code review still finds hardcoded Spanish event terms in PayablesSection.js:347, PayablesSection.js:507, and ReportsSection.js:577. The two Payables strings were confirmed in the real UI for an agency tenant."
+  ],
+  "updated_files": [
+    "/app/test_reports/agency_terminology_v4_setup.py",
+    "/app/test_reports/agency_terminology_v4_setup_result.json",
+    "/app/test_reports/agency_terminology_v4_ui_check.py",
+    "/app/test_reports/agency_terminology_v4_ui_result.json",
+    "/app/test_reports/reports_project_export_v4.csv",
+    "/app/test_reports/sales_report_export_v4.csv",
+    "/app/test_reports/agency_terminology_v4_cleanup.py",
+    "/app/test_reports/agency_terminology_v4_cleanup_result.json",
+    "/app/test_reports/bug_verification_248.json",
+    "/app/test_reports/iteration_248.json"
+  ],
+  "success_rate": {
+    "backend": "100% setup/terminology verification and cleanup succeeded",
+    "frontend": "75% (15 of 20 UI checks passed; 2 distinct Payables terminology failures confirmed; 3 checks were duplicate/empty-data effects)"
+  },
+  "seed_data_creation": "Created demo agency account termtest_agency_v4@kora.com with module_program_orchestration and module_demand_studio, added a no-project CRM client, one unassigned supplier payable, and one unassigned stock movement to expose Payables/Close labels. Cleanup completed: deleted company_327ca15e1671.",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Recreate termtest_agency_v4@kora.com or another fresh agency demo. Ensure at least one unassigned payable exists; Business Clarity > Payables should not contain 'Asigna a: Evento', 'sin evento asignado', or 'eventos específicos'. Recheck Reports summary copy for lowercase 'eventos'.",
+  "rca_of_the_issue": "Partial terminology migration: the 3 prior hardcoded strings were fixed, but PayablesSection retained two user-visible hardcoded Spanish event strings, and ReportsSection retains another explanatory copy string. These bypass useTerminology(), so agency tenants still see Evento/eventos despite correct backend entity_plural_es=Proyectos. No MOCKED APIs were used."
+}

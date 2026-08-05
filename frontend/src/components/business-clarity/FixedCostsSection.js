@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useLanguage } from "../../contexts/LanguageContext";
+import { useTerminology } from "../../hooks/useTerminology";
 import axios from "axios";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../ui/card";
@@ -29,6 +30,7 @@ const CATEGORY_TYPES = {
 
 export function FixedCostsSection() {
   const { language } = useLanguage();
+  const { term } = useTerminology();
   const isEs = language === "es";
   const [activeTab, setActiveTab] = useState("analysis");
   const [categories, setCategories] = useState([]);
@@ -192,14 +194,14 @@ export function FixedCostsSection() {
           </Card>
           <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
             <CardContent className="pt-4">
-              <p className="text-xs text-blue-600">{isEs ? "Promedio por Evento" : "Avg per Event"}</p>
+              <p className="text-xs text-blue-600">{isEs ? `Promedio por ${term("events", "entity_singular")}` : `Avg per ${term("events", "entity_singular")}`}</p>
               <p className="text-2xl font-bold text-blue-800">{formatCurrency(analysis.insights.avg_fixed_per_event)}</p>
-              <p className="text-xs text-blue-500">{analysis.insights.events_in_period} {isEs ? "eventos" : "events"}</p>
+              <p className="text-xs text-blue-500">{analysis.insights.events_in_period} {term("events", "entity_plural").toLowerCase()}</p>
             </CardContent>
           </Card>
           <Card className="bg-gradient-to-br from-amber-50 to-amber-100 border-amber-200">
             <CardContent className="pt-4">
-              <p className="text-xs text-amber-600">{isEs ? "Break-even por Evento" : "Break-even per Event"}</p>
+              <p className="text-xs text-amber-600">{isEs ? `Break-even por ${term("events", "entity_singular")}` : `Break-even per ${term("events", "entity_singular")}`}</p>
               <p className="text-2xl font-bold text-amber-800">{formatCurrency(analysis.insights.break_even_revenue_per_event)}</p>
               <p className="text-xs text-amber-500">{isEs ? "Ingresos mínimos" : "Min revenue"}</p>
             </CardContent>

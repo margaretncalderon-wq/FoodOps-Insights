@@ -103,7 +103,7 @@ export function ReportsSection() {
       headers = [isEs ? "Proveedor" : "Supplier", "Total", isEs ? "Pagado" : "Paid", isEs ? "Pendiente" : "Pending"];
       rows = (reportData.records || []).map(r => [r.supplier_name, r.total_amount, r.paid_amount, r.pending_amount]);
     } else if (activeReport === "events") {
-      headers = [isEs ? "Evento" : "Event", isEs ? "Cliente" : "Client", isEs ? "Origen" : "Source", isEs ? "Estado" : "Health", isEs ? "Ingresos" : "Revenue", isEs ? "Costos" : "Costs", isEs ? "Utilidad" : "Profit", isEs ? "Margen %" : "Margin %"];
+      headers = [term("events", "entity_singular"), isEs ? "Cliente" : "Client", isEs ? "Origen" : "Source", isEs ? "Estado" : "Health", isEs ? "Ingresos" : "Revenue", isEs ? "Costos" : "Costs", isEs ? "Utilidad" : "Profit", isEs ? "Margen %" : "Margin %"];
       rows = (reportData.records || []).map(r => {
         const health = r.margin_percent < 0 ? (isEs ? "Pérdida" : "Loss") : r.margin_percent < targetMargin ? (isEs ? "Riesgo" : "Risk") : (isEs ? "Saludable" : "Healthy");
         return [r.event_name, r.client_name || "", r.source_display || "N/A", health, r.revenue, r.costs, r.profit, r.margin_percent];
@@ -143,7 +143,7 @@ export function ReportsSection() {
         snapshot: isEs ? "Resumen Financiero" : "Financial Snapshot",
         clients: isEs ? "Reporte por Cliente" : "Client Revenue Report",
         suppliers: isEs ? "Reporte por Proveedor" : "Supplier Spend Report",
-        events: isEs ? "Reporte por Evento" : "Event Profitability Report",
+        events: isEs ? `Reporte por ${term("events", "entity_singular")}` : `${term("events", "entity_singular")} Profitability Report`,
         assets: isEs ? "Reporte de Valor de Activos" : "Asset Value Report"
       };
       
@@ -215,7 +215,7 @@ export function ReportsSection() {
       } else if (activeReport === "events") {
         doc.autoTable({
           startY: startY,
-          head: [[isEs ? "Evento" : "Event", isEs ? "Estado" : "Health", isEs ? "Ingresos" : "Revenue", isEs ? "Costos" : "Costs", isEs ? "Utilidad" : "Profit", isEs ? "Margen" : "Margin"]],
+          head: [[term("events", "entity_singular"), isEs ? "Estado" : "Health", isEs ? "Ingresos" : "Revenue", isEs ? "Costos" : "Costs", isEs ? "Utilidad" : "Profit", isEs ? "Margen" : "Margin"]],
           body: (reportData.records || []).map(r => {
             const health = r.margin_percent < 0 ? (isEs ? "Pérdida" : "Loss") : r.margin_percent < targetMargin ? (isEs ? "Riesgo" : "Risk") : (isEs ? "Saludable" : "Healthy");
             return [
@@ -318,7 +318,7 @@ export function ReportsSection() {
     { key: "snapshot", label: isEs ? "Resumen" : "Snapshot", icon: PieChart },
     { key: "clients", label: isEs ? "Por Cliente" : "By Client", icon: Users },
     { key: "suppliers", label: isEs ? "Por Proveedor" : "By Supplier", icon: Building2 },
-    { key: "events", label: isEs ? "Por Evento" : "By Event", icon: Calendar },
+    { key: "events", label: isEs ? `Por ${term("events", "entity_singular")}` : `By ${term("events", "entity_singular")}`, icon: Calendar },
     { key: "costcenters", label: isEs ? "Por Centro Costo" : "By Cost Center", icon: Layers },
     { key: "departments", label: isEs ? "Por Departamento" : "By Department", icon: Building2 },
     { key: "assets", label: isEs ? "Activos" : "Assets", icon: Package },
@@ -692,7 +692,7 @@ export function ReportsSection() {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>{isEs ? "Evento" : "Event"}</TableHead>
+                        <TableHead>{term("events", "entity_singular")}</TableHead>
                         <TableHead>{isEs ? "Origen" : "Source"}</TableHead>
                         <TableHead>{isEs ? "Estado" : "Health"}</TableHead>
                         <TableHead className="text-right">{isEs ? "Ingresos" : "Revenue"}</TableHead>
@@ -746,7 +746,7 @@ export function ReportsSection() {
                       {Object.entries(reportData.by_source).map(([source, data]) => (
                         <div key={source} className="p-3 bg-muted/50 rounded-lg">
                           <p className="text-xs text-muted-foreground">{source}</p>
-                          <p className="text-lg font-semibold">{data.count} {isEs ? "eventos" : "events"}</p>
+                          <p className="text-lg font-semibold">{data.count} {term("events", "entity_plural").toLowerCase()}</p>
                           <p className="text-sm text-green-600">{formatCurrency(data.revenue)} {isEs ? "ingresos" : "revenue"}</p>
                           <p className={`text-xs ${data.profit >= 0 ? "text-green-600" : "text-red-600"}`}>
                             {formatCurrency(data.profit)} {isEs ? "utilidad" : "profit"}

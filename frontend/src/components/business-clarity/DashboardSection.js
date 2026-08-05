@@ -205,7 +205,7 @@ export function DashboardSection() {
                       <TooltipTrigger><Info className="w-3 h-3 text-muted-foreground" /></TooltipTrigger>
                       <TooltipContent className="max-w-xs">
                         <p className="font-medium mb-1">{isEs ? "Fuga de Margen" : "Margin Leakage"}</p>
-                        <p className="text-xs">{isEs ? "Costos no asignados a eventos distorsionan la rentabilidad real." : "Costs not assigned to events distort real profitability."}</p>
+                        <p className="text-xs">{isEs ? `Costos no asignados a ${term("events", "entity_plural").toLowerCase()} distorsionan la rentabilidad real.` : `Costs not assigned to ${term("events", "entity_plural").toLowerCase()} distort real profitability.`}</p>
                       </TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
