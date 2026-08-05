@@ -14820,15 +14820,18 @@ async def create_demo_account(
     """
     from industry_config_module.industry_config import get_industry_config
     
-    # Check if email already exists
-    existing_user = await db.users.find_one({"email": data.email})
+    # Check if email already exists (case-insensitive to avoid confusable duplicates)
+    email_re = re.escape(data.email.strip())
+    existing_user = await db.users.find_one({"email": {"$regex": f"^{email_re}$", "$options": "i"}})
     if existing_user:
-        raise HTTPException(status_code=400, detail="Email already registered")
-    
-    # Check if organization name already exists
-    existing_org = await db.companies.find_one({"name": data.organization_name})
+        raise HTTPException(status_code=400, detail=f"Email '{data.email}' is already registered")
+
+    # Check if organization name already exists (case-insensitive + trimmed)
+    org_name_clean = data.organization_name.strip()
+    org_re = re.escape(org_name_clean)
+    existing_org = await db.companies.find_one({"name": {"$regex": f"^{org_re}$", "$options": "i"}})
     if existing_org:
-        raise HTTPException(status_code=400, detail=f"Organization '{data.organization_name}' already exists. Use a different name or edit the existing organization.")
+        raise HTTPException(status_code=400, detail=f"Organization '{org_name_clean}' already exists. Use a different name or edit the existing organization.")
     
     now = datetime.now(timezone.utc)
     company_id = f"company_{uuid.uuid4().hex[:12]}"
@@ -14937,7 +14940,7 @@ async def create_demo_account(
     # If no modules specified, use industry defaults
     modules_to_activate = data.modules_to_activate
     if not modules_to_activate:
-        modules_to_activate = industry_config.get("enabled_modules", [])
+        modules_to_activate = template_data.get("enabled_modules", [])
     
     for module_key in modules_to_activate:
         addon_id = f"addon_{module_key}"
@@ -14979,9 +14982,21 @@ async def create_demo_account(
         "modules": activated_modules,
         "trial_days": data.trial_days
     })
-    
+
+    # Seed sample data appropriate to the chosen industry so the user isn't
+    # dropped into an empty shell on first login. Errors here are non-fatal;
+    # the account is already usable without seed data.
+    seed_counts: dict = {}
+    try:
+        from utils.demo_seed import seed_demo_data
+        seed_counts = await seed_demo_data(db, company_id, data.industry_type, admin.user_id)
+    except Exception as e:  # pragma: no cover — defensive; seed is best-effort
+        logger.warning(f"[demo-seed] failed for company {company_id}: {e}")
+        seed_counts = {"error": str(e)}
+
     return {
         "success": True,
+        "seed_counts": seed_counts,
         "account": {
             "user_id": user_id,
             "email": data.email,
@@ -15036,6 +15051,65 @@ async def list_demo_accounts(admin: User = Depends(get_super_admin)):
         })
     
     return {"accounts": accounts, "total": len(accounts)}
+
+
+@super_admin_router.delete("/demo-accounts/{company_id}")
+async def delete_demo_account(
+    company_id: str,
+    admin: User = Depends(get_super_admin)
+):
+    """
+    Permanently delete a demo/influencer/partner account and ALL of its
+    data. Refuses to delete accounts that have been converted to `paid`
+    or the admin's own organisation — those must go through the generic
+    `DELETE /organizations/{company_id}` path with an extra confirmation.
+    """
+    company = await db.companies.find_one({"company_id": company_id})
+    if not company:
+        raise HTTPException(status_code=404, detail="Organization not found")
+
+    if company_id == admin.company_id:
+        raise HTTPException(status_code=400, detail="Cannot delete your own organization")
+
+    if company.get("account_type") not in ("demo", "influencer", "partner"):
+        raise HTTPException(
+            status_code=400,
+            detail="This endpoint only deletes demo/influencer/partner accounts. Use the organizations endpoint for paid accounts.",
+        )
+
+    org_name = company.get("name", company_id)
+
+    # Wipe the org's data. Kept as an explicit whitelist so we don't
+    # accidentally leak cross-tenant collections.
+    collections_to_wipe = [
+        "users", "memberships", "organization_members",
+        "subscriptions", "organization_addons", "organization_configs",
+        "events", "leads", "proposals", "clients",
+        "ingredients", "recipes", "menus", "plated_menus",
+        "production_batches", "purchase_orders", "delivery_notes",
+        "reservations", "notifications", "buffet_factors",
+        "social_accounts", "social_posts", "social_metrics",
+        "document_templates", "company_settings",
+    ]
+    deleted_counts: dict = {}
+    for coll_name in collections_to_wipe:
+        try:
+            res = await db[coll_name].delete_many({"company_id": company_id})
+            if res.deleted_count:
+                deleted_counts[coll_name] = res.deleted_count
+        except Exception:
+            # collection may not exist yet on a very fresh install
+            pass
+
+    # Delete the organisation itself last
+    await db.companies.delete_one({"company_id": company_id})
+    deleted_counts["companies"] = 1
+
+    await log_super_admin_action(
+        admin.user_id, "delete_demo_account", company_id,
+        {"organization_name": org_name, "deleted_counts": deleted_counts},
+    )
+    return {"success": True, "message": f"Demo account '{org_name}' deleted", "deleted_counts": deleted_counts}
 
 
 class ConvertDemoAccount(BaseModel):

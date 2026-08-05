@@ -13,7 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from ".
 import { Textarea } from "../../components/ui/textarea";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "../../components/ui/dropdown-menu";
 import { toast } from "sonner";
-import { Users, UserPlus, Sparkles, Building2, Mail, Calendar, Copy, CheckCircle, Gift, Star, Megaphone, MoreHorizontal, CreditCard, RefreshCw, ExternalLink, CalendarPlus, Pencil } from "lucide-react";
+import { Users, UserPlus, Sparkles, Building2, Mail, Calendar, Copy, CheckCircle, Gift, Star, Megaphone, MoreHorizontal, CreditCard, RefreshCw, ExternalLink, CalendarPlus, Pencil, Trash2, AlertTriangle } from "lucide-react";
 
 import { KoraLoader } from "../../components/KoraLoader";
 import { API_BASE as API } from "../../utils/api";
@@ -60,6 +60,8 @@ export default function DemoAccountsPage() {
   const [showConvertModal, setShowConvertModal] = useState(false);
   const [showExtendModal, setShowExtendModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [selectedAccount, setSelectedAccount] = useState(null);
   const [saving, setSaving] = useState(false);
   const [copiedId, setCopiedId] = useState(null);
@@ -133,16 +135,66 @@ export default function DemoAccountsPage() {
       
       // Show credentials
       const account = response.data.account;
+      const seedCounts = response.data.seed_counts || {};
+      const seedSummary = Object.entries(seedCounts)
+        .filter(([k, v]) => k !== "error" && typeof v === "number" && v > 0)
+        .map(([k, v]) => `${v} ${k}`)
+        .join(" · ");
+
       toast.info(
         <div className="space-y-1">
           <div className="font-medium">{isEs ? "Credenciales:" : "Credentials:"}</div>
           <div>Email: {account.email}</div>
           <div>Password: {formData.password}</div>
+          {seedSummary && (
+            <div className="pt-1 text-xs text-emerald-600">
+              {isEs ? "Datos demo generados:" : "Demo data seeded:"} {seedSummary}
+            </div>
+          )}
         </div>,
-        { duration: 10000 }
+        { duration: 12000 }
       );
     } catch (error) {
       const msg = error.response?.data?.detail || (isEs ? "Error al crear cuenta" : "Error creating account");
+      toast.error(msg);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (!selectedAccount) return;
+    const orgName = selectedAccount.name || "";
+    if (deleteConfirmText.trim() !== orgName) {
+      toast.error(isEs ? "El nombre de confirmación no coincide" : "Confirmation name does not match");
+      return;
+    }
+    setSaving(true);
+    try {
+      const res = await axios.delete(
+        `${API}/api/super-admin/demo-accounts/${selectedAccount.company_id}`,
+        { withCredentials: true }
+      );
+      toast.success(
+        isEs
+          ? `Cuenta '${orgName}' eliminada`
+          : `Account '${orgName}' deleted`
+      );
+      // Show a compact summary of what was wiped
+      const dc = res.data?.deleted_counts || {};
+      const summary = Object.entries(dc)
+        .filter(([, v]) => typeof v === "number" && v > 0)
+        .map(([k, v]) => `${v} ${k}`)
+        .join(" · ");
+      if (summary) {
+        toast.info(summary, { duration: 6000 });
+      }
+      setShowDeleteModal(false);
+      setSelectedAccount(null);
+      setDeleteConfirmText("");
+      fetchAccounts();
+    } catch (error) {
+      const msg = error.response?.data?.detail || (isEs ? "Error al eliminar cuenta" : "Error deleting account");
       toast.error(msg);
     } finally {
       setSaving(false);
@@ -527,6 +579,19 @@ export default function DemoAccountsPage() {
                               >
                                 <CalendarPlus className="w-4 h-4 mr-2" />
                                 {isEs ? "Extender Trial" : "Extend Trial"}
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                onClick={() => {
+                                  setSelectedAccount(account);
+                                  setDeleteConfirmText("");
+                                  setShowDeleteModal(true);
+                                }}
+                                className="text-red-600 focus:text-red-700 focus:bg-red-50"
+                                data-testid={`demo-account-delete-btn-${account.company_id}`}
+                              >
+                                <Trash2 className="w-4 h-4 mr-2" />
+                                {isEs ? "Eliminar Cuenta" : "Delete Account"}
                               </DropdownMenuItem>
                             </>
                           )}
@@ -999,6 +1064,59 @@ export default function DemoAccountsPage() {
                 <CheckCircle className="w-4 h-4 mr-2" />
               )}
               {isEs ? "Guardar" : "Save"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Account Modal (destructive) */}
+      <Dialog open={showDeleteModal} onOpenChange={(o) => { if (!o) { setShowDeleteModal(false); setDeleteConfirmText(""); } }}>
+        <DialogContent className="max-w-md" data-testid="demo-account-delete-modal">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-600">
+              <AlertTriangle className="w-5 h-5" />
+              {isEs ? "Eliminar Cuenta Demo" : "Delete Demo Account"}
+            </DialogTitle>
+            <DialogDescription>
+              {isEs
+                ? "Esta acción es PERMANENTE. Se borrarán la organización, usuarios, eventos, recetas, propuestas y todo dato asociado."
+                : "This action is PERMANENT. It will delete the organization, users, events, recipes, proposals and all associated data."}
+            </DialogDescription>
+          </DialogHeader>
+          {selectedAccount && (
+            <div className="space-y-3">
+              <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm">
+                <div className="font-semibold text-red-800">{selectedAccount.name}</div>
+                <div className="text-xs text-red-600">{selectedAccount.owner?.email}</div>
+              </div>
+              <div className="space-y-2">
+                <Label>
+                  {isEs
+                    ? <>Escribe <b>{selectedAccount.name}</b> para confirmar</>
+                    : <>Type <b>{selectedAccount.name}</b> to confirm</>
+                  }
+                </Label>
+                <Input
+                  value={deleteConfirmText}
+                  onChange={(e) => setDeleteConfirmText(e.target.value)}
+                  placeholder={selectedAccount.name}
+                  data-testid="demo-account-delete-confirm-input"
+                />
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setShowDeleteModal(false); setDeleteConfirmText(""); }}>
+              {isEs ? "Cancelar" : "Cancel"}
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteAccount}
+              disabled={saving || !selectedAccount || deleteConfirmText.trim() !== (selectedAccount?.name || "")}
+              data-testid="demo-account-delete-confirm-btn"
+            >
+              {saving ? <KoraLoader size={16} className="mr-2" /> : <Trash2 className="w-4 h-4 mr-2" />}
+              {isEs ? "Eliminar permanentemente" : "Delete permanently"}
             </Button>
           </DialogFooter>
         </DialogContent>

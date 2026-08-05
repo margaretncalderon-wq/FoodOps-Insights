@@ -1,0 +1,31 @@
+{
+  "summary": "Frontend E2E testing of Super Admin → Demo Accounts fixes (create with empty modules, seed toast, case-insensitive dup validation, delete with name confirmation). All 4 reported bugs verified as FIXED. No regressions.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_results": {
+    "create_empty_modules": "PASS — POST /api/super-admin/demo-accounts returns 200 with modules_to_activate=[]. No more NameError 500. Account created with 0 modules and trial through 8/5/2027.",
+    "seed_toast_events": "PASS — Toast shows: 'Demo data seeded: 5 clients · 12 ingredients · 6 recipes · 1 menus · 3 events · 3 proposals' (matches expected seed_counts for industry=events).",
+    "duplicate_email_case_insensitive": "PASS — Creating with 'TEST_EVENTS_1785937760@TEST.COM' (uppercase of existing) blocked with red toast: \"Email 'TEST_EVENTS_1785937760@test.com' is already registered\". Backend returns 400.",
+    "duplicate_org_case_insensitive": "PASS — Creating with lowercase 'test_events_1785937760' (existing is 'TEST_Events_1785937760') blocked with toast: \"Organization 'test_events_1785937760' already exists. Use a different name or edit the existing organization.\" Backend returns 400.",
+    "dropdown_delete_option": "PASS — Dropdown shows 'Delete Account' in red at bottom (after Copy email, Edit Account, Convert to Paid, Extend Trial). data-testid='demo-account-delete-btn-{company_id}' present.",
+    "delete_modal_confirmation": "PASS — Modal (data-testid='demo-account-delete-modal') opens. Confirm button (data-testid='demo-account-delete-confirm-btn') disabled by default and with wrong name; enabled only when input matches organization_name exactly (case sensitive as expected).",
+    "delete_execution_and_toast": "PASS — Confirm delete removed account from list. Toast shows deletion counts: '1 users · 1 subscriptions · 1 organization_configs · 3 events · 5 leads · 3 proposals · 12 ingredients · 6 recipes · 1 menus · 1 companies' + \"Account 'TEST_Events_1785937760' deleted\". Total Accounts counter went 4→3."
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Console shows repeated 401 errors on /api/... during login page load — appears to be auth-check calls before token is set. Cosmetic only, non-blocking; consider guarding these calls when no token present.",
+    "The delete name-confirmation is case-sensitive while duplicate detection is case-insensitive. This is acceptable UX (delete should be strict) but worth noting for consistency."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A (frontend only)", "frontend": "100%"},
+  "test_credentials": "demo.agency@kora.com / Evoque2024!",
+  "seed_data_creation": "Created TEST_Events_1785937760 demo account then deleted it during the delete test. No lingering test data.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "All 4 originally reported bugs on Super Admin Demo Accounts are fixed and verified E2E via UI. Terminology bonus (agency=Proyecto) was not tested per request note. Backend was validated via curl by main agent previously."
+}
