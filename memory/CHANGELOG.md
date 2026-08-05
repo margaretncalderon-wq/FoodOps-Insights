@@ -1,6 +1,29 @@
 # Kora OS - Changelog
 
 
+## February 24, 2026 — Iteration 255 · Admin Panel · Cuentas Demo (4 fixes)
+
+Usuario reportó 4 issues en Super Admin → Cuentas Demo. Todos verificados como resueltos por el testing agent (frontend 100%).
+
+### 🐛 Fixes
+1. **`NameError: industry_config not defined` al crear con módulos vacíos** — línea 14940 del `create_demo_account`. Ahora usa `template_data.get("enabled_modules", [])`. Antes reventaba con 500 y dejaba orgs a medias; el usuario percibía "duplicados" al reintentar.
+2. **Duplicados case-insensitive** — checks de `email` y `organization_name` ahora usan `$regex ^...$` con `$options: i`. Bloquea "Ciano" vs "ciano" vs "CIANO" y "user@x.com" vs "USER@X.COM".
+3. **No se podían borrar demos** — nuevo endpoint `DELETE /api/super-admin/demo-accounts/{company_id}` (restrictivo: solo permite borrar `demo/influencer/partner`, refuerza `!= admin.company_id`). Barre 24 colecciones asociadas. UI: nuevo `DropdownMenuItem` rojo "Eliminar Cuenta" + modal de confirmación con input que exige escribir el nombre exacto de la organización.
+4. **Sin datos genéricos** — nuevo helper `/app/backend/utils/demo_seed.py` que puebla la organización recién creada según industria:
+   - `events`: 5 clientes · 12 ingredientes · 6 recetas · 1 menú · 3 eventos · 3 proposals
+   - `agency` / `consulting`: 5 clientes · 3 proyectos · 3 proposals (respeta terminología "Proyecto")
+   - `generic`: 3 clientes · 2 servicios
+5. **Terminología por industria verificada** — al hacer login como demo `agency`, `GET /api/org-config` devuelve `terminology.event = "Proyecto"`, `event_date = "Fecha de Inicio"`, etc. Los datos seed usan el terminology apropiado.
+
+### Archivos tocados
+- `/app/backend/server.py` (create_demo_account: regex case-insensitive, fix NameError, integrar seed_demo_data, nuevo endpoint DELETE)
+- `/app/backend/utils/demo_seed.py` (NUEVO — seeds por industria)
+- `/app/frontend/src/pages/super-admin/DemoAccountsPage.js` (handler handleDeleteAccount, modal Delete Account con confirmación por nombre, toast de seed_counts al crear)
+
+### Test report
+- `/app/test_reports/iteration_246.json` — verdict: fixed, 100% frontend, 7 casos PASS
+
+
 ## February 24, 2026 — Iteration 254 · Templates de Settings aplicados a PDFs + Pipeline en Metas
 
 ### 🐛 Fix — El "Selector de Plantillas" de Settings ahora sí impacta los nuevos PDFs
