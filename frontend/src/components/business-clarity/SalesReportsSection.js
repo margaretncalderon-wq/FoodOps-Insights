@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useLanguage } from "../../contexts/LanguageContext";
+import { useTerminology } from "../../hooks/useTerminology";
 import axios from "axios";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Button } from "../ui/button";
@@ -52,6 +53,7 @@ const REPORT_TYPES = [
 
 export function SalesReportsSection() {
   const { language } = useLanguage();
+  const { term } = useTerminology();
   const isEs = language === "es";
   
   const [activeReport, setActiveReport] = useState("general");
@@ -132,7 +134,7 @@ export function SalesReportsSection() {
       headers = [isEs ? "Cliente" : "Client", isEs ? "Facturado" : "Invoiced", isEs ? "Cobrado" : "Collected", isEs ? "Pendiente" : "Outstanding", isEs ? "Facturas" : "Invoices"];
       rows = (reportData.records || []).map(r => [r.client_name, r.total_invoiced, r.total_collected, r.total_outstanding, r.invoice_count]);
     } else if (activeReport === "by-salesperson") {
-      headers = [isEs ? "Vendedor" : "Salesperson", isEs ? "Ingresos" : "Revenue", isEs ? "Eventos" : "Events", isEs ? "Cerrados" : "Closed", isEs ? "Tasa Cierre %" : "Close Rate %"];
+      headers = [isEs ? "Vendedor" : "Salesperson", isEs ? "Ingresos" : "Revenue", term("events", "entity_plural"), isEs ? "Cerrados" : "Closed", isEs ? "Tasa Cierre %" : "Close Rate %"];
       rows = (reportData.records || []).map(r => [r.salesperson_name, r.total_revenue, r.event_count, r.closed_count, r.close_rate]);
     } else if (activeReport === "by-item") {
       headers = [isEs ? "Ítem" : "Item", isEs ? "Cantidad" : "Quantity", isEs ? "Ingresos" : "Revenue", isEs ? "Precio Prom." : "Avg Price"];
@@ -274,7 +276,7 @@ export function SalesReportsSection() {
             <TableRow>
               <TableHead>{isEs ? "Vendedor" : "Salesperson"}</TableHead>
               <TableHead className="text-right">{isEs ? "Ingresos" : "Revenue"}</TableHead>
-              <TableHead className="text-right">{isEs ? "Eventos" : "Events"}</TableHead>
+              <TableHead className="text-right">{term("events", "entity_plural")}</TableHead>
               <TableHead className="text-right">{isEs ? "Cerrados" : "Closed"}</TableHead>
               <TableHead className="text-right">{isEs ? "Tasa Cierre" : "Close Rate"}</TableHead>
             </TableRow>

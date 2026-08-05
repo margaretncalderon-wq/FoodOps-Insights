@@ -1,0 +1,66 @@
+{
+  "verdict": "not_fixed",
+  "user_reported_bug": "en las cuentas empresa se pone la terminología pero sigue diciendo eventos puedes verificar? El usuario reportó que en cuentas de empresa con industria 'agency' (creadas por sus clientes multi-tenant), sigue apareciendo 'Eventos' hardcodeado en múltiples pantallas aunque la industria y la terminología están configuradas correctamente.",
+  "summary": "No relevant testing skill found. Created a fresh agency demo tenant, verified backend enabled-modules returned industry_type=agency and entity_plural_es=Proyectos, then tested the real Spanish UI. Most requested labels now say Proyectos, but the bug is still reproducible in visible CRM and Close/Reconciliation text.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "frontend/src/components/crm/ClientsSection.js",
+        "issue": "In CRM > Clientes > client detail info tab, the projects KPI is Proyectos, but the last-date KPI still says 'Último Evento' for an agency account.",
+        "selector": "client detail dialog body text / line ~805",
+        "priority": "HIGH"
+      },
+      {
+        "component": "frontend/src/components/business-clarity/CloseReconciliationSection.js",
+        "issue": "In Business Clarity > Cierre/Reconciliación, the COGS Allocation description still visibly says 'Separación de COGS directo (eventos) vs overhead' for an agency account.",
+        "selector": "COGS Allocation card description / line ~1083",
+        "priority": "HIGH"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/test_reports/agency_terminology_setup.py",
+    "/app/test_reports/agency_terminology_setup_result.json",
+    "/app/test_reports/agency_terminology_seed_client.py",
+    "/app/test_reports/agency_terminology_seed_client_result.json",
+    "/app/test_reports/agency_terminology_ui_check.py",
+    "/app/test_reports/sales_report_export.csv",
+    "/app/test_reports/agency_terminology_cleanup.py",
+    "/app/test_reports/agency_terminology_cleanup_result.json"
+  ],
+  "action_items": [
+    "Replace hardcoded CRM detail label 'Último Evento' with terminology-aware text, e.g. Último Proyecto / Last Project for agency.",
+    "Replace hardcoded Close/Reconciliation description 'eventos' with term('events','entity_plural') or an equivalent lower-case terminology helper.",
+    "Code review also found CloseReconciliationSection.js still contains hardcoded table header 'COGS Evento' around line 1221; update it to terminology-aware text before retest, even though this table was not populated in the demo data."
+  ],
+  "critical_code_review_comments": [
+    "Changed files were present as uncommitted modifications. Code review confirmed remaining hardcoded Spanish event terminology in ClientsSection.js:805 and CloseReconciliationSection.js:1083; CloseReconciliationSection.js:1221 contains 'COGS Evento' for an allocation table state. Backend module/terminology data for the agency demo was correct."
+  ],
+  "updated_files": [
+    "/app/test_reports/agency_terminology_setup.py",
+    "/app/test_reports/agency_terminology_setup_result.json",
+    "/app/test_reports/agency_terminology_seed_client.py",
+    "/app/test_reports/agency_terminology_seed_client_result.json",
+    "/app/test_reports/agency_terminology_ui_check.py",
+    "/app/test_reports/sales_report_export.csv",
+    "/app/test_reports/agency_terminology_cleanup.py",
+    "/app/test_reports/agency_terminology_cleanup_result.json",
+    "/app/test_reports/bug_verification_247.json",
+    "/app/test_reports/iteration_247.json"
+  ],
+  "success_rate": {
+    "backend": "100% setup/terminology API verification and cleanup succeeded",
+    "frontend": "78% (7 of 9 focused UI checks passed; 2 failed due remaining visible Eventos terminology)"
+  },
+  "seed_data_creation": "Created demo agency account termtest_agency_v3@kora.com with module_program_orchestration and module_demand_studio, then created one CRM client because clients-with-events returned empty. Cleanup completed: deleted company_1e196953cbdf.",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Recreate termtest_agency_v3@kora.com or another fresh agency demo, set UI language to Spanish, and re-run /app/test_reports/agency_terminology_ui_check.py. Key previously passing labels: sidebar Orquestación de Programas, CRM tab/section Historial de Proyectos, Business Clarity dashboard metric, Sales Reports table and CSV, Marketing ROI, Reports. Previously failing visible labels: CRM 'Último Evento' and Close/Reconciliation 'directo (eventos)'.",
+  "rca_of_the_issue": "Partial fix: most labels now use useTerminology/term('events','entity_plural'), but at least two visible strings remain hardcoded in Spanish, and one additional code path for COGS table header remains hardcoded. This means the user-reported agency terminology bug still reproduces."
+}

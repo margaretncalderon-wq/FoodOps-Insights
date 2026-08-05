@@ -685,7 +685,7 @@ MODULE_ADDONS = {
     "module_program_orchestration": {
         "path": "/event-orchestration", 
         "name_en": "Program Orchestration", 
-        "name_es": "Program Orchestration", 
+        "name_es": "Orquestación de Programas", 
         "icon": "clipboard-list",
         "price_monthly": 29,
         "price_annual": 24
@@ -932,8 +932,10 @@ async def get_enabled_modules(user: User = Depends(get_current_user)):
             continue
         
         # Build module data with industry-specific overrides
-        if module_key == "module_event_orchestration":
-            # Use Program Orchestration config
+        if module_key in ("module_event_orchestration", "module_program_orchestration"):
+            # Use Program Orchestration config so the sidebar label + entity
+            # terminology follow the tenant's industry (e.g. "Proyectos" for
+            # agency, "Eventos" for events, "Servicios" for generic).
             module_data = {
                 "key": module_key,
                 "path": module_info["path"],

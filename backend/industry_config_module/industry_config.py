@@ -129,7 +129,7 @@ INDUSTRY_CONFIG = {
         # Program Orchestration configuration
         "program_orchestration": {
             "name_en": "Program Orchestration",
-            "name_es": "Program Orchestration",
+            "name_es": "Orquestación de Programas",
             "icon": "folder-kanban",
             "description_en": "Manage client projects and deliverables",
             "description_es": "Gestiona proyectos y entregables de clientes",
@@ -220,7 +220,7 @@ INDUSTRY_CONFIG = {
         # Program Orchestration configuration
         "program_orchestration": {
             "name_en": "Program Orchestration",
-            "name_es": "Program Orchestration",
+            "name_es": "Orquestación de Programas",
             "icon": "briefcase",
             "description_en": "Manage client engagements and projects",
             "description_es": "Gestiona compromisos y proyectos de clientes",
@@ -307,7 +307,7 @@ INDUSTRY_CONFIG = {
         # Program Orchestration configuration
         "program_orchestration": {
             "name_en": "Program Orchestration",
-            "name_es": "Program Orchestration",
+            "name_es": "Orquestación de Programas",
             "icon": "clipboard-list",
             "description_en": "Manage services and work orders",
             "description_es": "Gestiona servicios y órdenes de trabajo",

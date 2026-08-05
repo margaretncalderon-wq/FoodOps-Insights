@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useLanguage } from "../../contexts/LanguageContext";
+import { useTerminology } from "../../hooks/useTerminology";
 import axios from "axios";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../ui/card";
@@ -28,6 +29,7 @@ const formatCurrency = (amount) => `$${(amount || 0).toLocaleString("en-US", { m
 
 export function CloseReconciliationSection() {
   const { language } = useLanguage();
+  const { term } = useTerminology();
   const isEs = language === "es";
   
   const [loading, setLoading] = useState(true);
@@ -271,7 +273,7 @@ export function CloseReconciliationSection() {
 
     // -- EVENT ALLOCATION
     if (eventAllocation && Array.isArray(eventAllocation.events)) {
-      row(isEs ? "Asignación a Eventos" : "Event Allocation");
+      row(isEs ? `Asignación a ${term("events", "entity_plural")}` : `${term("events", "entity_singular")} Allocation`);
       row(
         isEs ? "Evento" : "Event",
         isEs ? "Fecha" : "Date",
@@ -1085,7 +1087,7 @@ export function CloseReconciliationSection() {
             <div className="space-y-4">
               <div className="flex justify-between items-center p-3 bg-green-50 rounded-lg border border-green-200">
                 <div>
-                  <p className="text-sm font-medium text-green-800">{isEs ? "COGS de Eventos (Directo)" : "Event COGS (Direct)"}</p>
+                  <p className="text-sm font-medium text-green-800">{isEs ? `COGS de ${term("events", "entity_plural")} (Directo)` : `${term("events", "entity_singular")} COGS (Direct)`}</p>
                   <p className="text-xs text-green-600">{isEs ? "Asignado a eventos específicos" : "Assigned to specific events"}</p>
                 </div>
                 <p className="text-xl font-bold text-green-700">{formatCurrency(cogs.event_cogs)}</p>
@@ -1246,7 +1248,7 @@ export function CloseReconciliationSection() {
               <div className="flex justify-between text-sm">
                 <span>{isEs ? "Total eventos" : "Total events"}: {eventAllocation.summary.total_events}</span>
                 <span>{isEs ? "Completos" : "Complete"}: {eventAllocation.summary.complete}</span>
-                <span>{isEs ? "COGS Total Eventos" : "Total Event COGS"}: {formatCurrency(eventAllocation.summary.total_event_cogs)}</span>
+                <span>{isEs ? `COGS Total ${term("events", "entity_plural")}` : `Total ${term("events", "entity_singular")} COGS`}: {formatCurrency(eventAllocation.summary.total_event_cogs)}</span>
               </div>
             </div>
           </CardContent>
@@ -1367,7 +1369,7 @@ export function CloseReconciliationSection() {
               <div className="grid grid-cols-2 gap-3 mb-4">
                 <div className="p-2 bg-green-50 rounded border border-green-200">
                   <div className="flex justify-between items-center">
-                    <span className="text-xs text-green-700">{isEs ? "COGS Eventos" : "Event COGS"}</span>
+                    <span className="text-xs text-green-700">{isEs ? `COGS ${term("events", "entity_plural")}` : `${term("events", "entity_singular")} COGS`}</span>
                     <span className="font-bold text-green-700">{formatCurrency(cogs.event_cogs)}</span>
                   </div>
                 </div>

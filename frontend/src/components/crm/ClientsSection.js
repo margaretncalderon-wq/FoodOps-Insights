@@ -663,7 +663,7 @@ export default function ClientsSection() {
               <TabsList className="grid w-full grid-cols-4">
                 <TabsTrigger value="info">{isEs ? "Información" : "Info"}</TabsTrigger>
                 <TabsTrigger value="contacts">{isEs ? "Contactos" : "Contacts"}</TabsTrigger>
-                <TabsTrigger value="events">{isEs ? "Eventos" : "Events"}</TabsTrigger>
+                <TabsTrigger value="events">{term("events", "entity_plural")}</TabsTrigger>
                 <TabsTrigger value="comms">{isEs ? "Comunicaciones" : "Comms"}</TabsTrigger>
               </TabsList>
 
@@ -786,7 +786,7 @@ export default function ClientsSection() {
                   <Card>
                     <CardContent className="pt-4 text-center">
                       <div className="text-2xl font-bold">{selectedClient.events_count || 0}</div>
-                      <p className="text-sm text-muted-foreground">{isEs ? "Eventos" : "Events"}</p>
+                      <p className="text-sm text-muted-foreground">{term("events", "entity_plural")}</p>
                     </CardContent>
                   </Card>
                   <Card>
@@ -887,7 +887,7 @@ export default function ClientsSection() {
               <TabsContent value="events" className="space-y-4">
                 <h4 className="font-semibold flex items-center gap-2">
                   <Calendar className="w-4 h-4" />
-                  {isEs ? "Historial de Eventos" : "Event History"}
+                  {isEs ? `Historial de ${term("events", "entity_plural")}` : `${term("events", "entity_singular")} History`}
                 </h4>
                 {selectedClient.events?.length > 0 ? (
                   <div className="space-y-2">

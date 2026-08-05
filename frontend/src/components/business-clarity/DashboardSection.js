@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useLanguage } from "../../contexts/LanguageContext";
+import { useTerminology } from "../../hooks/useTerminology";
 import axios from "axios";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../ui/card";
 import { Button } from "../ui/button";
@@ -19,6 +20,7 @@ const formatCurrency = (amount) => `$${(amount || 0).toLocaleString("en-US", { m
 
 export function DashboardSection() {
   const { language } = useLanguage();
+  const { term } = useTerminology();
   const isEs = language === "es";
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -181,7 +183,7 @@ export function DashboardSection() {
               <div className={`p-4 rounded-lg border ${negativeMarginEvents > 0 ? "bg-red-50 border-red-200" : "bg-white border-gray-200"}`}>
                 <div className="flex items-center gap-2 mb-1">
                   <AlertCircle className={`w-4 h-4 ${negativeMarginEvents > 0 ? "text-red-600" : "text-muted-foreground"}`} />
-                  <span className="text-xs font-medium text-muted-foreground">{isEs ? "Eventos con Margen Negativo" : "Negative Margin Events"}</span>
+                  <span className="text-xs font-medium text-muted-foreground">{isEs ? `${term("events", "entity_plural")} con Margen Negativo` : `Negative Margin ${term("events", "entity_plural")}`}</span>
                 </div>
                 <p className={`text-2xl font-bold ${negativeMarginEvents > 0 ? "text-red-600" : "text-muted-foreground"}`}>{negativeMarginEvents}</p>
               </div>

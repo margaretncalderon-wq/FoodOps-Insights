@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useLanguage } from "../../contexts/LanguageContext";
+import { useTerminology } from "../../hooks/useTerminology";
 import axios from "axios";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../ui/card";
@@ -19,6 +20,7 @@ const formatCurrency = (amount) => `$${(amount || 0).toLocaleString("en-US", { m
 
 export function ReportsSection() {
   const { language } = useLanguage();
+  const { term } = useTerminology();
   const isEs = language === "es";
   const [activeReport, setActiveReport] = useState("snapshot");
   const [reportData, setReportData] = useState(null);
@@ -436,7 +438,7 @@ export function ReportsSection() {
                     
                     {/* Direct Costs */}
                     <div className="flex justify-between items-center p-3 rounded-lg bg-muted/50">
-                      <span className="text-muted-foreground">{isEs ? "(-) Costos Directos (Eventos)" : "(-) Direct Costs (Events)"}</span>
+                      <span className="text-muted-foreground">{isEs ? `(-) Costos Directos (${term("events", "entity_plural")})` : `(-) Direct Costs (${term("events", "entity_plural")})`}</span>
                       <span className="font-medium text-red-600">-{formatCurrency(reportData.expenses?.direct || reportData.expenses?.total)}</span>
                     </div>
                     

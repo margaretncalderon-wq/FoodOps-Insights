@@ -463,9 +463,15 @@ export const AVAILABLE_INDUSTRIES = [
   "generic"
 ];
 
-// Alias for backwards compatibility (agency -> professional_services)
+// Aliases for backwards compatibility. Backend may return short industry
+// keys (agency, events, consulting) while this file uses long keys
+// (professional_services, events_hospitality, professional_services). Map
+// them so useTerminology resolves the right terminology regardless of
+// which key the backend sent.
 export const INDUSTRY_ALIASES = {
-  "agency": "professional_services"
+  "agency": "professional_services",
+  "consulting": "professional_services",
+  "events": "events_hospitality",
 };
 
 // Fallback to generic if industry not found

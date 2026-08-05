@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useLanguage } from "../../contexts/LanguageContext";
+import { useTerminology } from "../../hooks/useTerminology";
 import axios from "axios";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../ui/card";
 import { Button } from "../ui/button";
@@ -18,6 +19,7 @@ const formatCurrency = (amount) => `$${(amount || 0).toLocaleString("en-US", { m
 
 export function MarketingROISection() {
   const { language } = useLanguage();
+  const { term } = useTerminology();
   const isEs = language === "es";
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -123,7 +125,7 @@ export function MarketingROISection() {
             </div>
             <p className="text-2xl font-bold mt-1">{formatCurrency(summary.total_cost)}</p>
             <p className="text-xs text-muted-foreground mt-1">
-              {isEs ? "Activaciones + Eventos" : "Activations + Events"}
+              {isEs ? `Activaciones + ${term("events", "entity_plural")}` : `Activations + ${term("events", "entity_plural")}`}
             </p>
           </CardContent>
         </Card>
@@ -220,11 +222,11 @@ export function MarketingROISection() {
             <p className="font-medium text-purple-900">{costCenter.name || "Marketing Interno"}</p>
             <div className="mt-3 space-y-2">
               <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">{isEs ? "Eventos Internos:" : "Internal Events:"}</span>
+                <span className="text-muted-foreground">{isEs ? `${term("events", "entity_plural")} Internos:` : `Internal ${term("events", "entity_plural")}:`}</span>
                 <span className="font-medium">{costCenter.total_events || 0}</span>
               </div>
               <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">{isEs ? "Costo Eventos:" : "Events Cost:"}</span>
+                <span className="text-muted-foreground">{isEs ? `Costo ${term("events", "entity_plural")}:` : `${term("events", "entity_plural")} Cost:`}</span>
                 <span className="font-medium">{formatCurrency(summary.total_internal_events_cost)}</span>
               </div>
               <div className="flex justify-between text-sm">

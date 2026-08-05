@@ -1,0 +1,219 @@
+{
+  "base_url": "https://foodops-insights.preview.emergentagent.com",
+  "deleted_existing_company_ids": [],
+  "created_account": {
+    "user_id": "user_9635785a2727",
+    "email": "termtest_agency_v3@kora.com",
+    "name": "Term Test Agency V3",
+    "company_id": "company_1e196953cbdf",
+    "organization_name": "Terminology Agency V3 1785952256",
+    "industry_type": "agency",
+    "account_type": "demo",
+    "trial_ends_at": "2027-08-05T17:50:56.828310+00:00",
+    "activated_modules": [
+      "module_program_orchestration",
+      "module_demand_studio"
+    ]
+  },
+  "seed_counts": {
+    "clients": 5,
+    "projects": 3,
+    "proposals": 3
+  },
+  "enabled_modules": {
+    "modules": [
+      {
+        "key": "system_pulse",
+        "path": "/dashboard",
+        "name_en": "System Pulse",
+        "name_es": "System Pulse",
+        "icon": "activity"
+      },
+      {
+        "key": "client_engagement",
+        "path": "/client-engagement",
+        "name_en": "Client Engagement",
+        "name_es": "Client Engagement",
+        "icon": "puzzle"
+      },
+      {
+        "key": "module_program_orchestration",
+        "path": "/event-orchestration",
+        "name_en": "Program Orchestration",
+        "name_es": "Orquestación de Programas",
+        "icon": "folder-kanban",
+        "is_addon": true,
+        "entity_singular_en": "Project",
+        "entity_singular_es": "Proyecto",
+        "entity_plural_en": "Projects",
+        "entity_plural_es": "Proyectos"
+      },
+      {
+        "key": "execution_hub",
+        "path": "/execution-hub",
+        "name_en": "Execution Hub",
+        "name_es": "Execution Hub",
+        "icon": "target"
+      },
+      {
+        "key": "module_demand_studio",
+        "path": "/demand-studio",
+        "name_en": "Demand Generation",
+        "name_es": "Demand Generation",
+        "icon": "megaphone",
+        "is_addon": true
+      },
+      {
+        "key": "partners",
+        "path": "/partners",
+        "name_en": "Partners",
+        "name_es": "Partners",
+        "icon": "handshake"
+      },
+      {
+        "key": "business_clarity",
+        "path": "/business-clarity",
+        "name_en": "Business Clarity",
+        "name_es": "Business Clarity",
+        "icon": "briefcase"
+      },
+      {
+        "key": "settings",
+        "path": "/settings",
+        "name_en": "Settings",
+        "name_es": "Configuración",
+        "icon": "settings"
+      }
+    ],
+    "plan_id": "plan_professional",
+    "core_modules": [
+      "system_pulse",
+      "client_engagement",
+      "execution_hub",
+      "partners",
+      "business_clarity",
+      "settings"
+    ],
+    "addon_modules": [
+      "module_event_orchestration",
+      "module_program_orchestration",
+      "module_culinary_intelligence",
+      "module_resource_management",
+      "module_venues",
+      "module_demand_studio",
+      "module_people_ops"
+    ],
+    "industry_type": "agency",
+    "industry_config": {
+      "name_en": "Agency & Creative Services",
+      "name_es": "Agencia y Servicios Creativos",
+      "program_orchestration": {
+        "name_en": "Program Orchestration",
+        "name_es": "Orquestación de Programas",
+        "icon": "folder-kanban",
+        "description_en": "Manage client projects and deliverables",
+        "description_es": "Gestiona proyectos y entregables de clientes",
+        "entity_singular_en": "Project",
+        "entity_singular_es": "Proyecto",
+        "entity_plural_en": "Projects",
+        "entity_plural_es": "Proyectos",
+        "fields": {
+          "name": {
+            "en": "Project Name",
+            "es": "Nombre del Proyecto"
+          },
+          "date": {
+            "en": "Start Date",
+            "es": "Fecha de Inicio"
+          },
+          "end_date": {
+            "en": "Deadline",
+            "es": "Fecha Límite"
+          },
+          "guest_count": {
+            "en": "Team Size",
+            "es": "Tamaño del Equipo"
+          },
+          "venue": {
+            "en": "Location",
+            "es": "Ubicación"
+          },
+          "budget": {
+            "en": "Budget",
+            "es": "Presupuesto"
+          },
+          "type": {
+            "en": "Project Type",
+            "es": "Tipo de Proyecto"
+          }
+        },
+        "types": [
+          {
+            "key": "branding",
+            "en": "Branding Project",
+            "es": "Proyecto de Branding"
+          },
+          {
+            "key": "campaign",
+            "en": "Marketing Campaign",
+            "es": "Campaña de Marketing"
+          },
+          {
+            "key": "social_media",
+            "en": "Social Media Management",
+            "es": "Gestión de Redes Sociales"
+          },
+          {
+            "key": "web_design",
+            "en": "Web Design",
+            "es": "Diseño Web"
+          },
+          {
+            "key": "content",
+            "en": "Content Creation",
+            "es": "Creación de Contenido"
+          },
+          {
+            "key": "video",
+            "en": "Video Production",
+            "es": "Producción de Video"
+          },
+          {
+            "key": "consulting",
+            "en": "Consulting",
+            "es": "Consultoría"
+          },
+          {
+            "key": "retainer",
+            "en": "Monthly Retainer",
+            "es": "Retainer Mensual"
+          }
+        ]
+      }
+    },
+    "terminology": {
+      "event": {
+        "en": "Project",
+        "es": "Proyecto"
+      },
+      "event_date": {
+        "en": "Start Date",
+        "es": "Fecha de Inicio"
+      },
+      "guest_count": {
+        "en": "Team Size",
+        "es": "Tamaño del Equipo"
+      },
+      "venue": {
+        "en": "Location",
+        "es": "Ubicación"
+      },
+      "event_type": {
+        "en": "Project Type",
+        "es": "Tipo de Proyecto"
+      }
+    }
+  },
+  "clients_count": 0,
+  "first_client": null
+}
