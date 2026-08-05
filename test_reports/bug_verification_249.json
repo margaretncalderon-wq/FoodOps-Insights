@@ -1,0 +1,37 @@
+{
+  "verdict": "fixed",
+  "user_reported_bug": "en las cuentas empresa se pone la terminología pero sigue diciendo eventos puedes verificar? En cuentas con industria 'agency', varios labels seguían apareciendo como 'Eventos'. Iteración 248 arregló 30+ hits pero quedaron 3: PayablesSection.js:347 (tooltip 'Fuga de Margen'), PayablesSection.js:507 (warning 'Asigna a: Evento'), ReportsSection.js:577 (copy 'eventos').",
+  "summary": "No relevant testing skill found. Verified the three reported agency terminology regressions end-to-end in the real UI: created demo agency termtest_agency_v5@kora.com, seeded an unassigned payable, logged in in Spanish, checked Payables warning card, Payables tooltip, and Reports P&L info card. All three now display Proyecto/Proyectos and the reported Evento/eventos copy did not appear. Cleanup deleted the demo agency account.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/test_reports/agency_terminology_v5_playwright.py",
+    "/app/test_reports/bug_verification_249.json",
+    "/app/test_reports/iteration_249.json"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Code inspection confirmed PayablesSection.js lines 346-348 and 506-508, plus ReportsSection.js lines 576-578, now call term('events', 'entity_singular/plural') instead of hard-coded Evento/eventos."
+  ],
+  "updated_files": [
+    "/app/test_reports/agency_terminology_v5_playwright.py",
+    "/app/test_reports/bug_verification_249.json",
+    "/app/test_reports/iteration_249.json"
+  ],
+  "success_rate": {
+    "backend": "100%",
+    "frontend": "100%"
+  },
+  "seed_data_creation": "Created demo agency termtest_agency_v5@kora.com with industry_type=agency and modules module_program_orchestration/module_demand_studio, then created one unassigned supplier payable to trigger margin leakage. Demo account was deleted via super-admin cleanup after verification.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Use the preview origin https://foodops-insights.preview.emergentagent.com for UI automation because frontend .env points API calls to that same origin; localhost UI hits CORS due withCredentials. The successful test used the real public preview UI/API and cleaned up the demo account.",
+  "rca_of_the_issue": "Regression was caused by hard-coded event terminology in PayablesSection and ReportsSection. Runtime verification showed the affected agency org resolves to industry_template=professional_services and renders the expected Spanish agency terms."
+}

@@ -344,8 +344,8 @@ export function PayablesSection() {
             </TooltipTrigger>
             <TooltipContent className="max-w-xs">
               <p>{isEs 
-                ? "Los costos sin evento asignado afectan el margen global pero no aparecen en la rentabilidad de eventos específicos." 
-                : "Costs without an assigned event affect global margin but don't appear in specific event profitability."}</p>
+                ? `Los costos sin ${term("events", "entity_singular").toLowerCase()} asignado afectan el margen global pero no aparecen en la rentabilidad de ${term("events", "entity_plural").toLowerCase()} específicos.` 
+                : `Costs without an assigned ${term("events", "entity_singular").toLowerCase()} affect global margin but don't appear in specific ${term("events", "entity_singular").toLowerCase()} profitability.`}</p>
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
@@ -504,8 +504,8 @@ export function PayablesSection() {
                 <p className="font-medium text-purple-800">{isEs ? "Fuga de Margen Detectada" : "Margin Leakage Detected"}</p>
                 <p className="text-sm text-purple-600 mt-1">
                   {isEs 
-                    ? `Hay ${formatCurrency(unassignedTotal)} en costos no asignados. Asigna a: Evento (afecta margen), Categoría de Costo Fijo (para presupuesto), o Centro de Costo (overhead).`
-                    : `There's ${formatCurrency(unassignedTotal)} in unassigned costs. Assign to: Event (affects margin), Fixed Cost Category (for budget), or Cost Center (overhead).`}
+                    ? `Hay ${formatCurrency(unassignedTotal)} en costos no asignados. Asigna a: ${term("events", "entity_singular")} (afecta margen), Categoría de Costo Fijo (para presupuesto), o Centro de Costo (overhead).`
+                    : `There's ${formatCurrency(unassignedTotal)} in unassigned costs. Assign to: ${term("events", "entity_singular")} (affects margin), Fixed Cost Category (for budget), or Cost Center (overhead).`}
                 </p>
               </div>
             </div>

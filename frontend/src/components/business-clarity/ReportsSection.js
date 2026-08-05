@@ -574,8 +574,8 @@ export function ReportsSection() {
                     <Info className="w-4 h-4 text-amber-600 mt-0.5" />
                     <p className="text-sm text-amber-800">
                       {isEs 
-                        ? "La utilidad operativa muestra lo que realmente queda después de pagar todos los costos: eventos, costos fijos y nómina. Los gastos no asignados (overhead) pueden distorsionar los márgenes mostrados."
-                        : "Operating profit shows what's actually left after paying all costs: events, fixed costs and payroll. Unassigned expenses (overhead) may distort displayed margins."}
+                        ? `La utilidad operativa muestra lo que realmente queda después de pagar todos los costos: ${term("events", "entity_plural").toLowerCase()}, costos fijos y nómina. Los gastos no asignados (overhead) pueden distorsionar los márgenes mostrados.`
+                        : `Operating profit shows what's actually left after paying all costs: ${term("events", "entity_plural").toLowerCase()}, fixed costs and payroll. Unassigned expenses (overhead) may distort displayed margins.`}
                     </p>
                   </div>
                 </CardContent>
