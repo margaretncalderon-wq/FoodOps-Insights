@@ -1,6 +1,40 @@
 # Kora OS - Changelog
 
 
+## February 24, 2026 — Iteration 250 · Admin Panel — Passwords + Filtros por industria + Seed rico
+
+### 🔑 Feature 1 — Passwords visibles + Regenerables
+- Al crear una cuenta demo/influencer/partner, la contraseña plaintext se guarda en `companies.demo_password` (SOLO para estos tipos de cuenta, nunca para paid).
+- `GET /api/super-admin/demo-accounts` ahora expone `has_demo_password: bool` e `industry_type`, pero enmascara `demo_password: null` en la respuesta list.
+- `GET /api/super-admin/demo-accounts/{cid}/password` — devuelve el plaintext bajo demanda + registra super-admin action.
+- `POST /api/super-admin/demo-accounts/{cid}/regenerate-password` — genera password nueva (o acepta una del body), actualiza `users.password_hash` con bcrypt, actualiza `companies.demo_password`, registra action.
+- UI: nueva columna **Contraseña** con `••••••••` + botones Ver (Eye/EyeOff) y Copiar (Copy). Dropdown de acciones agrega "Copiar contraseña" y "Regenerar contraseña" (con confirmación). Al regenerar, copia automática al portapapeles + toast con la nueva.
+
+### 🎨 Feature 2 — Diferenciación por industria
+- Nuevo helper `INDUSTRY_META` con label ES/EN, ícono lucide-react (PartyPopper/Megaphone/Briefcase/Settings2) y clases de color por industria.
+- Nuevos **filtros/tabs** arriba de la tabla ("Todas · Eventos · Agencia · Consultoría · Genérico") con **contadores por industria**.
+- Nueva **columna Industria** con badge coloreado en cada fila. Solo se muestran tabs de industrias con ≥1 cuenta.
+
+### 📦 Feature 3 — Seed más rico para grabar contenido
+- **Events**: de 5/12/6/1/3/3 → 8 clientes · 12 ingredientes · 6 recetas · 1 menú · 8 eventos · 8 proposals (con statuses variados: committed/scope_drafted/context_captured/completed + eventos pasados y futuros)
+- **Agency/Consulting**: de 5/3/3 → 8 clientes · 8 proyectos · 8 proposals (proyectos won/proposal/discovery/completed)
+- **Generic**: de 3/2 → 5 clientes · 5 servicios
+
+### Verificación (curl ok end-to-end)
+- POST create con `industry_type=events` devolvió `seed_counts={clients:8, ingredients:12, recipes:6, menus:1, events:8, proposals:8}`.
+- GET password devolvió el plaintext original.
+- POST regenerate devolvió nueva contraseña `DemoXXXXXXXX`.
+- List enmascara `demo_password:null` y expone `has_demo_password:true`.
+
+### Testing agent
+Ejecutado en paralelo, ver `/app/test_reports/iteration_250.json`.
+
+### Archivos tocados
+- `/app/backend/server.py` (org_doc con demo_password, list expone industry_type + has_demo_password, 2 endpoints nuevos)
+- `/app/backend/utils/demo_seed.py` (seeds ampliados 3 industrias)
+- `/app/frontend/src/pages/super-admin/DemoAccountsPage.js` (INDUSTRY_META, filtros tabs, columna Industria, columna Contraseña, dropdown items, 3 handlers)
+
+
 ## February 24, 2026 — Iteration 249 · Terminología por industria (agency) — bug fix masivo
 
 ### 🐛 Bug reportado

@@ -640,5 +640,5 @@ def cleanup_test_factors(auth_session):
             for f in factors_res.json():
                 if "TEST_" in (f.get("notes") or ""):
                     auth_session.delete(f"{BASE_URL}/api/buffet-factors/{f['factor_id']}")
-    except:
+    except Exception:
         pass

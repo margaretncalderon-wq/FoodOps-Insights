@@ -297,7 +297,7 @@ async def convert_lead(lead_id: str, request: Request, user: User = Depends(get_
     # Parse body
     try:
         body = await request.json()
-    except:
+    except Exception:
         body = {}
     
     create_event = body.get("create_event", False)
@@ -415,7 +415,7 @@ async def convert_lead(lead_id: str, request: Request, user: User = Depends(get_
             try:
                 event_date = datetime.fromisoformat(lead["event_date"]).isoformat()
                 event_date_tbd = False
-            except:
+            except Exception:
                 event_date_tbd = True
         
         event_doc = {
@@ -536,7 +536,7 @@ async def get_clients_diagnostic(user: User = Depends(get_current_user)):
     try:
         sandbox_count = await db.db["clients_sandbox"].count_documents({"company_id": user_company_id})
         sandbox_sample = await db.db["clients_sandbox"].find_one({"company_id": user_company_id}, {"_id": 0, "client_id": 1, "company_id": 1, "display_name": 1, "name": 1})
-    except:
+    except Exception:
         pass
     
     # Get a sample client from the database (any client)
@@ -604,7 +604,7 @@ async def get_clients(user: User = Depends(get_current_user), status: Optional[s
                     if val and isinstance(val, str):
                         try:
                             c[field] = datetime.fromisoformat(val.replace('Z', '+00:00'))
-                        except:
+                        except Exception:
                             c[field] = None
                 
                 # Ensure new fields have defaults
@@ -1133,7 +1133,7 @@ async def complete_follow_up(entity_type: str, entity_id: str, request: Request,
     # Parse optional body
     try:
         body = await request.json()
-    except:
+    except Exception:
         body = {}
     
     notes = body.get("notes", "").strip()

@@ -42,7 +42,7 @@ class TestNotificationsAPI:
         # Cleanup: Delete test notifications created during tests
         try:
             self.session.delete(f"{BASE_URL}/api/notifications?read_only=False")
-        except:
+        except Exception:
             pass
     
     # ============== GET /api/notifications ==============
@@ -330,7 +330,7 @@ class TestNotificationTypes:
         # Cleanup
         try:
             self.session.delete(f"{BASE_URL}/api/notifications?read_only=False")
-        except:
+        except Exception:
             pass
     
     def test_content_created_notification(self):

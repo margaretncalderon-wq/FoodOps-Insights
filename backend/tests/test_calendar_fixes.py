@@ -37,7 +37,7 @@ class TestCalendarFixes:
             for post in posts:
                 if post.get("title", "").startswith("TEST_CALENDAR_"):
                     requests.delete(f"{BASE_URL}/api/demand-studio/social/posts/{post['post_id']}", headers=self.headers)
-        except:
+        except Exception:
             pass
 
     # =============== BUG FIX 1: Calendar includes created_at ===============

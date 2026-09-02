@@ -531,7 +531,7 @@ async def _import_sales(company_id: str, rows: list, month: int, year: int, user
                 val_str = str(val).replace(",", ".").replace(" ", "").replace("$", "").replace("RD", "")
                 try:
                     return float(val_str)
-                except:
+                except Exception:
                     return 0.0
             
             subtotal = parse_amount(row.get("subtotal") or row.get("monto") or row.get("amount") or 0)
@@ -547,7 +547,7 @@ async def _import_sales(company_id: str, rows: list, month: int, year: int, user
                     try:
                         sale_date = datetime.strptime(date_str, fmt)
                         break
-                    except:
+                    except Exception:
                         continue
             if not sale_date:
                 sale_date = datetime(year, month + 1, 15)  # Default to middle of period
@@ -652,7 +652,7 @@ async def _import_purchases(company_id: str, rows: list, month: int, year: int, 
                 val_str = str(val).replace(",", ".").replace(" ", "").replace("$", "").replace("RD", "")
                 try:
                     return float(val_str)
-                except:
+                except Exception:
                     return 0.0
             
             subtotal = parse_amount(row.get("subtotal") or row.get("monto") or row.get("amount") or 0)
@@ -667,7 +667,7 @@ async def _import_purchases(company_id: str, rows: list, month: int, year: int, 
                     try:
                         purchase_date = datetime.strptime(date_str, fmt)
                         break
-                    except:
+                    except Exception:
                         continue
             if not purchase_date:
                 purchase_date = datetime(year, month + 1, 15)
@@ -757,7 +757,7 @@ async def _import_inventory(company_id: str, rows: list, user_id: str) -> int:
                 val_str = str(val).replace(",", ".").replace(" ", "").replace("$", "").replace("RD", "")
                 try:
                     return float(val_str)
-                except:
+                except Exception:
                     return 0.0
             
             # Get all fields with multiple variations
@@ -899,7 +899,7 @@ async def _import_fixed_expenses(company_id: str, rows: list, month: int, year: 
             date_str = row.get("date", row.get("fecha", ""))
             try:
                 expense_date = datetime.fromisoformat(date_str.replace("/", "-")) if date_str else datetime(year, month + 1, 1)
-            except:
+            except Exception:
                 expense_date = datetime(year, month + 1, 1)
             
             expense = {
@@ -938,7 +938,7 @@ async def _import_variable_expenses(company_id: str, rows: list, month: int, yea
             date_str = row.get("date", row.get("fecha", ""))
             try:
                 expense_date = datetime.fromisoformat(date_str.replace("/", "-")) if date_str else datetime(year, month + 1, 15)
-            except:
+            except Exception:
                 expense_date = datetime(year, month + 1, 15)
             
             expense = {
@@ -977,7 +977,7 @@ async def _import_bank_balances(company_id: str, rows: list, user_id: str) -> in
             date_str = row.get("as_of_date", row.get("fecha_corte", ""))
             try:
                 as_of_date = datetime.fromisoformat(date_str.replace("/", "-")) if date_str else now
-            except:
+            except Exception:
                 as_of_date = now
             
             account = {
@@ -1035,12 +1035,12 @@ async def _import_accounts_receivable(company_id: str, rows: list, user_id: str)
             
             try:
                 invoice_date = datetime.fromisoformat(date_str.replace("/", "-")) if date_str else now
-            except:
+            except Exception:
                 invoice_date = now
             
             try:
                 due_date = datetime.fromisoformat(due_date_str.replace("/", "-")) if due_date_str else None
-            except:
+            except Exception:
                 due_date = None
             
             # Find or create client
@@ -1090,12 +1090,12 @@ async def _import_accounts_payable(company_id: str, rows: list, user_id: str) ->
             
             try:
                 invoice_date = datetime.fromisoformat(date_str.replace("/", "-")) if date_str else now
-            except:
+            except Exception:
                 invoice_date = now
             
             try:
                 due_date = datetime.fromisoformat(due_date_str.replace("/", "-")) if due_date_str else None
-            except:
+            except Exception:
                 due_date = None
             
             # Find or create vendor

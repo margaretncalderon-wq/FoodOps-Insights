@@ -47,7 +47,7 @@ class TestSupportTicketsEndpoints:
         if cls.session and cls.created_ticket_id:
             try:
                 cls.session.delete(f"{BASE_URL}/api/support/admin/tickets/{cls.created_ticket_id}")
-            except:
+            except Exception:
                 pass
     
     def test_01_health_check(self):

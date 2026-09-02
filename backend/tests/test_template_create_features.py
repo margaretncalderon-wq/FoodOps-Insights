@@ -29,7 +29,7 @@ class TestTemplateCreateFeatures:
         for template_id in self.test_template_ids:
             try:
                 self.session.delete(f"{BASE_URL}/api/brand-hub/templates/{template_id}")
-            except:
+            except Exception:
                 pass
                 
     # ==== Test POST /api/brand-hub/templates ====

@@ -68,6 +68,9 @@ async def _seed_events(db, company_id: str, admin_user_id: str, now: datetime) -
         {"name": "Fundación Sonrisas", "email": "hola@sonrisas.org.example", "phone": "+1 809-555-0103", "client_type": "corporate", "notes": "Gala anual noviembre."},
         {"name": "Andrea Pérez", "email": "andrea.perez@example.com", "phone": "+1 809-555-0104", "client_type": "individual", "notes": "Cumpleaños #50."},
         {"name": "Luis & Patricia Méndez", "email": "luispat@example.com", "phone": "+1 809-555-0105", "client_type": "wedding", "notes": "Wedding planner: Ella Ella."},
+        {"name": "Cerveza Presidente", "email": "activaciones@presidente.example", "phone": "+1 809-555-0106", "client_type": "corporate", "notes": "Activaciones de marca. 4 eventos anuales."},
+        {"name": "Sofía & Alejandro", "email": "sofiaalex@example.com", "phone": "+1 809-555-0107", "client_type": "wedding", "notes": "Boda destino Punta Cana."},
+        {"name": "Colegio San Judas", "email": "eventos@sanjudas.edu.example", "phone": "+1 809-555-0108", "client_type": "corporate", "notes": "Graduación anual."},
     ]
     client_docs = []
     for c in clients:
@@ -237,9 +240,14 @@ async def _seed_events(db, company_id: str, admin_user_id: str, now: datetime) -
 
     # -- Events (with proposals) ---------------------------------------------
     events_seed = [
-        {"client_idx": 0, "days_out": 45, "name": "Boda María & Carlos", "guests": 120, "venue": "Casa de Campo — La Romana", "type": "wedding", "status": "committed"},
-        {"client_idx": 1, "days_out": 20, "name": "Cena Anual Grupo Popular", "guests": 200, "venue": "Salón Panorama, Torre Empresarial", "type": "corporate", "status": "scope_drafted"},
-        {"client_idx": 3, "days_out": 60, "name": "Cumpleaños 50 · Andrea", "guests": 60, "venue": "Residencia privada, Naco", "type": "birthday", "status": "context_captured"},
+        {"client_idx": 0, "days_out": 45,  "name": "Boda María & Carlos",           "guests": 120, "venue": "Casa de Campo — La Romana",           "type": "wedding",   "status": "committed"},
+        {"client_idx": 1, "days_out": 20,  "name": "Cena Anual Grupo Popular",      "guests": 200, "venue": "Salón Panorama, Torre Empresarial",   "type": "corporate", "status": "scope_drafted"},
+        {"client_idx": 3, "days_out": 60,  "name": "Cumpleaños 50 · Andrea",        "guests": 60,  "venue": "Residencia privada, Naco",             "type": "birthday",  "status": "context_captured"},
+        {"client_idx": 5, "days_out": 12,  "name": "Activación Presidente — Playa", "guests": 350, "venue": "Playa Juan Dolio",                     "type": "corporate", "status": "committed"},
+        {"client_idx": 6, "days_out": 90,  "name": "Boda Destino Sofía & Alejandro","guests": 150, "venue": "Cap Cana Heavenly Beach",             "type": "wedding",   "status": "scope_drafted"},
+        {"client_idx": 7, "days_out": 30,  "name": "Graduación San Judas 2026",     "guests": 280, "venue": "Auditorio Colegio",                    "type": "corporate", "status": "committed"},
+        {"client_idx": 2, "days_out": 120, "name": "Gala Fundación Sonrisas",       "guests": 300, "venue": "Hotel Embajador — Salón Real",         "type": "corporate", "status": "context_captured"},
+        {"client_idx": 4, "days_out": -15, "name": "Boda Luis & Patricia",          "guests": 100, "venue": "Casa Colonial, Zona Colonial",         "type": "wedding",   "status": "completed"},
     ]
     event_docs = []
     proposal_docs = []
@@ -299,11 +307,14 @@ async def _seed_agency(db, company_id: str, admin_user_id: str, now: datetime, i
     project_word = "Proyecto" if not is_consulting else "Engagement"
 
     clients = [
-        {"name": "Banco BHD León", "email": "marketing@bhdleon.example", "phone": "+1 809-555-0201", "client_type": "corporate"},
-        {"name": "Startup FreshMarket", "email": "ceo@freshmarket.example", "phone": "+1 809-555-0202", "client_type": "startup"},
-        {"name": "Ministerio de Turismo", "email": "prensa@mitur.gob.example", "phone": "+1 809-555-0203", "client_type": "government"},
-        {"name": "Fundación Ciudad Verde", "email": "hola@ciudadverde.org.example", "phone": "+1 809-555-0204", "client_type": "nonprofit"},
-        {"name": "Grupo Ramos", "email": "marca@ramos.example", "phone": "+1 809-555-0205", "client_type": "corporate"},
+        {"name": "Banco BHD León",           "email": "marketing@bhdleon.example",    "phone": "+1 809-555-0201", "client_type": "corporate"},
+        {"name": "Startup FreshMarket",      "email": "ceo@freshmarket.example",      "phone": "+1 809-555-0202", "client_type": "startup"},
+        {"name": "Ministerio de Turismo",    "email": "prensa@mitur.gob.example",     "phone": "+1 809-555-0203", "client_type": "government"},
+        {"name": "Fundación Ciudad Verde",   "email": "hola@ciudadverde.org.example", "phone": "+1 809-555-0204", "client_type": "nonprofit"},
+        {"name": "Grupo Ramos",              "email": "marca@ramos.example",          "phone": "+1 809-555-0205", "client_type": "corporate"},
+        {"name": "Cervecería Nacional",      "email": "digital@cnd.example",          "phone": "+1 809-555-0206", "client_type": "corporate"},
+        {"name": "TechHub Dominicana",       "email": "growth@techhub.example",       "phone": "+1 809-555-0207", "client_type": "startup"},
+        {"name": "Zumo Coach",               "email": "hola@zumocoach.example",       "phone": "+1 809-555-0208", "client_type": "startup"},
     ]
     client_docs = []
     for c in clients:
@@ -326,9 +337,14 @@ async def _seed_agency(db, company_id: str, admin_user_id: str, now: datetime, i
     counts["clients"] = len(client_docs)
 
     project_seed = [
-        {"client_idx": 0, "name": f"{project_word} Rebranding Digital 2026", "days_out": 30, "value": 45000, "status": "proposal"},
-        {"client_idx": 1, "name": f"{project_word} Growth Marketing Q2", "days_out": 15, "value": 18000, "status": "won"},
-        {"client_idx": 2, "name": f"{project_word} Estrategia Turismo Sostenible", "days_out": 60, "value": 62000, "status": "discovery"},
+        {"client_idx": 0, "name": f"{project_word} Rebranding Digital 2026",       "days_out": 30,  "value": 45000, "status": "proposal"},
+        {"client_idx": 1, "name": f"{project_word} Growth Marketing Q2",           "days_out": 15,  "value": 18000, "status": "won"},
+        {"client_idx": 2, "name": f"{project_word} Estrategia Turismo Sostenible", "days_out": 60,  "value": 62000, "status": "discovery"},
+        {"client_idx": 5, "name": f"{project_word} Lanzamiento Campaña Nacional",  "days_out": 20,  "value": 38000, "status": "won"},
+        {"client_idx": 6, "name": f"{project_word} Redesign App Móvil",            "days_out": 45,  "value": 55000, "status": "proposal"},
+        {"client_idx": 7, "name": f"{project_word} Content Strategy Q1",           "days_out": 10,  "value": 12500, "status": "won"},
+        {"client_idx": 3, "name": f"{project_word} Reporte Anual + Video",         "days_out": 75,  "value": 22000, "status": "discovery"},
+        {"client_idx": 4, "name": f"{project_word} Retail Media Toolkit",          "days_out": -20, "value": 41000, "status": "completed"},
     ]
     event_docs = []
     proposal_docs = []
@@ -382,9 +398,11 @@ async def _seed_generic(db, company_id: str, admin_user_id: str, now: datetime) 
     counts: dict = {}
 
     clients = [
-        {"name": "Cliente Uno S.A.", "email": "contact@clienteuno.example", "phone": "+1 809-555-0301", "client_type": "business"},
-        {"name": "Cliente Dos SRL", "email": "info@clientedos.example", "phone": "+1 809-555-0302", "client_type": "business"},
-        {"name": "Juan Individual", "email": "juan@example.com", "phone": "+1 809-555-0303", "client_type": "individual"},
+        {"name": "Cliente Uno S.A.",  "email": "contact@clienteuno.example", "phone": "+1 809-555-0301", "client_type": "business"},
+        {"name": "Cliente Dos SRL",   "email": "info@clientedos.example",    "phone": "+1 809-555-0302", "client_type": "business"},
+        {"name": "Juan Individual",   "email": "juan@example.com",           "phone": "+1 809-555-0303", "client_type": "individual"},
+        {"name": "Empresa Tres SAS",  "email": "cuentas@tres.example",       "phone": "+1 809-555-0304", "client_type": "business"},
+        {"name": "María Cliente",     "email": "maria.c@example.com",        "phone": "+1 809-555-0305", "client_type": "individual"},
     ]
     client_docs = []
     for c in clients:
@@ -407,8 +425,11 @@ async def _seed_generic(db, company_id: str, admin_user_id: str, now: datetime) 
     counts["clients"] = len(client_docs)
 
     service_seed = [
-        {"client_idx": 0, "name": "Servicio Mensual Enero", "days_out": 5, "value": 1500},
-        {"client_idx": 1, "name": "Suscripción Anual Premium", "days_out": 12, "value": 12000},
+        {"client_idx": 0, "name": "Servicio Mensual Enero",       "days_out": 5,   "value": 1500},
+        {"client_idx": 1, "name": "Suscripción Anual Premium",    "days_out": 12,  "value": 12000},
+        {"client_idx": 2, "name": "Consulta Puntual",             "days_out": 3,   "value": 300},
+        {"client_idx": 3, "name": "Retainer Trimestral",          "days_out": 20,  "value": 4500},
+        {"client_idx": 4, "name": "Servicio Recurrente Anterior", "days_out": -10, "value": 800},
     ]
     event_docs = []
     for ev in service_seed:

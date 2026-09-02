@@ -1438,7 +1438,7 @@ async def create_goal_from_event(
                 # Distribute tasks before event date
                 days_before = max(1, (len(tasks) - idx) * 2)  # Earlier tasks have more days
                 due_date = (event_date - timedelta(days=days_before)).isoformat()
-            except:
+            except Exception:
                 pass
         
         task_doc = {

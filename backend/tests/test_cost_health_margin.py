@@ -235,22 +235,22 @@ class TestMarginCalculationWithControlledData:
             if created_ids.get("order_item_id"):
                 try:
                     api_client.delete(f"{BASE_URL}/api/events/{created_ids['event_id']}/proposals/{created_ids['proposal_id']}/items/{created_ids['order_item_id']}")
-                except:
+                except Exception:
                     pass
             if created_ids.get("proposal_id"):
                 try:
                     api_client.delete(f"{BASE_URL}/api/proposals/{created_ids['proposal_id']}")
-                except:
+                except Exception:
                     pass
             if created_ids.get("event_id"):
                 try:
                     api_client.delete(f"{BASE_URL}/api/events/{created_ids['event_id']}")
-                except:
+                except Exception:
                     pass
             if created_ids.get("picklist_item_id"):
                 try:
                     api_client.delete(f"{BASE_URL}/api/settings/picklist/{created_ids['picklist_item_id']}")
-                except:
+                except Exception:
                     pass
             print("✓ Cleanup completed")
 

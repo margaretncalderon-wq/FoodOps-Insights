@@ -47,12 +47,12 @@ class TestSocialIdeaConversion:
         for idea_id in self.created_idea_ids:
             try:
                 self.session.delete(f"{BASE_URL}/api/demand-studio/social/ideas/{idea_id}")
-            except:
+            except Exception:
                 pass
         for post_id in self.created_post_ids:
             try:
                 self.session.delete(f"{BASE_URL}/api/demand-studio/social/posts/{post_id}")
-            except:
+            except Exception:
                 pass
     
     def test_regression_get_ideas(self):

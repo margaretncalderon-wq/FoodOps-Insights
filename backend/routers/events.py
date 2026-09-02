@@ -144,7 +144,7 @@ async def get_events(user: User = Depends(get_current_user), stage: Optional[str
             if e.get(field) and isinstance(e[field], str):
                 try:
                     e[field] = datetime.fromisoformat(e[field])
-                except:
+                except Exception:
                     e[field] = None
         if "documents" not in e:
             e["documents"] = []
@@ -243,7 +243,7 @@ async def get_events_pipeline(user: User = Depends(get_current_user)):
             if e.get(field) and isinstance(e[field], str):
                 try:
                     e[field] = datetime.fromisoformat(e[field])
-                except:
+                except Exception:
                     e[field] = None
         # Add client info
         client_info = clients_data.get(e.get("client_id"), {})
@@ -392,7 +392,7 @@ async def get_confirmed_events(user: User = Depends(get_current_user)):
             if e.get(field) and isinstance(e[field], str):
                 try:
                     e[field] = datetime.fromisoformat(e[field])
-                except:
+                except Exception:
                     e[field] = None
         client_info = clients_data.get(e.get("client_id"), {})
         e["client_name"] = client_info.get("display_name", "")
@@ -527,7 +527,7 @@ async def get_event(event_id: str, user: User = Depends(get_current_user)):
         if event.get(field) and isinstance(event[field], str):
             try:
                 event[field] = datetime.fromisoformat(event[field])
-            except:
+            except Exception:
                 event[field] = None
     if "documents" not in event:
         event["documents"] = []

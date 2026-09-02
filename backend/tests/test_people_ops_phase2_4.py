@@ -45,7 +45,7 @@ class TestPeopleOpsPhase2_4:
         try:
             # Cleanup any test data created with TEST_ prefix
             pass
-        except:
+        except Exception:
             pass
     
     # ==================== TIME OFF TESTS ====================

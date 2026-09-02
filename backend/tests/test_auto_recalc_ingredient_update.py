@@ -410,15 +410,15 @@ class TestOrderItemSnapshotProtection:
             # Cleanup
             try:
                 requests.delete(f"{BASE_URL}/api/events/{event['event_id']}", headers=auth_headers)
-            except:
+            except Exception:
                 pass
             try:
                 requests.delete(f"{BASE_URL}/api/crm/clients/{client['client_id']}", headers=auth_headers)
-            except:
+            except Exception:
                 pass
             try:
                 requests.delete(f"{BASE_URL}/api/recipes/{recipe['recipe_id']}", headers=auth_headers)
-            except:
+            except Exception:
                 pass
             requests.delete(f"{BASE_URL}/api/inventory/ingredients/{ingredient['ingredient_id']}", headers=auth_headers)
 
@@ -549,11 +549,11 @@ class TestSubRecipeCascade:
             # Cleanup (order matters - parent first, then child, then ingredient)
             try:
                 requests.delete(f"{BASE_URL}/api/recipes/{parent_recipe['recipe_id']}", headers=auth_headers)
-            except:
+            except Exception:
                 pass
             try:
                 requests.delete(f"{BASE_URL}/api/recipes/{child_recipe['recipe_id']}", headers=auth_headers)
-            except:
+            except Exception:
                 pass
             requests.delete(f"{BASE_URL}/api/inventory/ingredients/{ingredient['ingredient_id']}", headers=auth_headers)
 
@@ -663,7 +663,7 @@ class TestMultipleRecipesRecalc:
             for r in recipes:
                 try:
                     requests.delete(f"{BASE_URL}/api/recipes/{r['recipe_id']}", headers=auth_headers)
-                except:
+                except Exception:
                     pass
             requests.delete(f"{BASE_URL}/api/inventory/ingredients/{ingredient['ingredient_id']}", headers=auth_headers)
 

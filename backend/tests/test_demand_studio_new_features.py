@@ -46,14 +46,14 @@ class TestDemandStudioNewFeatures:
         for post_id in self.created_posts:
             try:
                 self.session.delete(f"{BASE_URL}/api/demand-studio/social/posts/{post_id}")
-            except:
+            except Exception:
                 pass
         
         # Cleanup: Delete test templates
         for template_id in self.created_templates:
             try:
                 self.session.delete(f"{BASE_URL}/api/demand-studio/social/story-templates/{template_id}")
-            except:
+            except Exception:
                 pass
     
     # ============== FORMAT COLORS TESTS ==============

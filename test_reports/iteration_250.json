@@ -1,0 +1,30 @@
+{
+  "summary": "Frontend-only E2E of Super Admin → Demo Accounts new features (password reveal/copy/regenerate, industry badges + filter tabs, expanded seeds). Logged in as super admin on the public preview URL, verified new page structure, created 3 demo accounts (events/agency/generic), exercised all new testids, and cleaned up all 3 accounts. Everything requested passed; no defects found.",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": { "ui_bugs": [], "integration_issues": [], "design_issues": [] },
+  "test_report_links": ["/app/test_reports/iteration_250.json"],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "DemoAccountsPage.js is ~1325 lines — consider splitting modals (Create/Convert/Extend/Edit/Delete) into child components for maintainability (>700 line guideline).",
+    "handleRegeneratePassword uses window.confirm instead of a shadcn AlertDialog; works but inconsistent with the rest of the UI (delete uses a proper Dialog).",
+    "List response correctly omits demo_password (only has_demo_password + industry_type exposed); password is fetched lazily on Eye/Copy click as intended."
+  ],
+  "updated_files": [],
+  "success_rate": { "backend": "not tested (frontend-only request)", "frontend": "100%" },
+  "seed_data_creation": "Created and then deleted 3 demo accounts: e2etest_events@kora.com (E2E Events Demo), e2etest_agency@kora.com (E2E Agency Demo), e2etest_generic@kora.com (E2E Generic Demo). Cleanup verified — none of the 3 emails remain in the table.",
+  "verified_scenarios": [
+    "Page loads with data-testid demo-account-industry-filter; tabs demo-industry-tab-all/events/agency/generic render with counters (Events 1, Agency 4, Generic 1, All 6). Tabs with 0 accounts (consulting) are intentionally hidden.",
+    "New table columns present: headers = [Organization, Industry, User, Password, Type, Modules, Trial, Actions].",
+    "Events demo created (200) with toast 'Demo data seeded: 8 clients · 12 ingredients · 6 recipes · 1 menus · 8 events · 8 proposals' (expanded seed confirmed); badge demo-industry-badge-{cid} = 'Events' with purple classes (border-purple-200 bg-purple-50 text-purple-700).",
+    "Password cell demo-password-cell-{cid} starts as ••••••••; Eye toggle reveals 'TestPW2026!' (fetched via GET /password on click), second click hides it; Copy button shows toast 'Password copied'.",
+    "Dropdown (⋮) shows both new items: demo-account-copy-password-{cid} ('Copy password') and demo-account-regen-password-{cid} ('Regenerate password'). Regenerate → confirm dialog accepted → toast 'New password generated and copied: DemoXCyiiXbf4' and the cell refreshed to the new password.",
+    "Agency demo: blue badge 'Agency', seed toast '8 clients · 8 projects · 8 proposals' (projects=8 confirmed). Generic demo: grey/slate badge 'Generic', seed toast '5 clients · 5 services' (services=5 confirmed).",
+    "Filter behaviour: 'Agency' tab → 4 rows, includes agency demo, excludes events demo; 'Generic' tab → 1 row (generic demo); 'All' → 6 rows.",
+    "Cleanup via UI delete modal returned cascade counts and removed all 3 accounts."
+  ],
+  "should_call_test_agent_after_fix": false,
+  "should_main_agent_self_test": false,
+  "test_credentials": "Super Admin demo.agency@kora.com / Evoque2024! (from /app/memory/test_credentials.md)",
+  "context_for_next_testing_agent": "UI language for this super-admin session renders in English (labels 'Events/Agency/Generic', 'Password copied', 'New password generated and copied: ...'), so avoid asserting Spanish strings unless the language toggle is set to ES. Use https://foodops-insights.preview.emergentagent.com for automation. Pre-existing legacy accounts show 'Not stored' in the Password column because they were created before demo_password persistence — expected.",
+  "rca_of_the_issue": "N/A — no failures observed."
+}

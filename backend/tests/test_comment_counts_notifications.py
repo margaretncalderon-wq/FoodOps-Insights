@@ -116,7 +116,7 @@ class TestNotificationDeepLinking:
         if hasattr(self, 'test_comment_id'):
             try:
                 self.session.delete(f"{BASE_URL}/api/comments/{self.test_comment_id}")
-            except:
+            except Exception:
                 pass
     
     def test_get_mentionable_users(self):

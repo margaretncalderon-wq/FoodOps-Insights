@@ -278,7 +278,7 @@ async def get_business_clarity_dashboard(user: User = Depends(get_current_user),
                 if dt.tzinfo is None:
                     dt = dt.replace(tzinfo=timezone.utc)
                 return dt
-            except:
+            except Exception:
                 return None
         return None
     
@@ -1251,7 +1251,7 @@ async def get_client_financial_view(client_id: str, user: User = Depends(get_cur
                     "message": f"Factura vencida: {inv.get('invoice_number')} (${inv.get('balance_due', 0):,.2f})",
                     "message_en": f"Overdue invoice: {inv.get('invoice_number')} (${inv.get('balance_due', 0):,.2f})"
                 })
-        except:
+        except Exception:
             pass
     
     return {
@@ -1333,7 +1333,7 @@ async def get_accounts_receivable(user: User = Depends(get_current_user)):
                         aging["90_plus"] += balance
                 else:
                     aging["current"] += balance
-            except:
+            except Exception:
                 aging["current"] += balance
         else:
             aging["current"] += balance
@@ -3259,7 +3259,7 @@ async def get_budget_analysis(user: User = Depends(get_current_user), period: st
                     exp_date = exp_date_str
                 if not (start_date <= exp_date < end_date):
                     continue
-            except:
+            except Exception:
                 pass
         
         amount = exp.get("amount", 0)
@@ -3281,7 +3281,7 @@ async def get_budget_analysis(user: User = Depends(get_current_user), period: st
                     pay_date = pay_date_str
                 if not (start_date <= pay_date < end_date):
                     continue
-            except:
+            except Exception:
                 pass
         
         amount = pay.get("amount", 0)
@@ -3496,7 +3496,7 @@ async def get_available_periods(user: User = Depends(get_current_user)):
         for s in sales_data:
             key = (s["_id"]["year"], s["_id"]["month"])
             sales_by_period[key] = {"total": s["sales_total"], "count": s["sales_count"]}
-    except:
+    except Exception:
         pass
     
     # Get periods with invoice data
@@ -3519,7 +3519,7 @@ async def get_available_periods(user: User = Depends(get_current_user)):
         for i in invoice_data:
             key = (i["_id"]["year"], i["_id"]["month"])
             invoices_by_period[key] = {"total": i["invoice_total"], "count": i["invoice_count"]}
-    except:
+    except Exception:
         pass
     
     # Get periods with expense data
@@ -3542,7 +3542,7 @@ async def get_available_periods(user: User = Depends(get_current_user)):
         for e in expense_data:
             key = (e["_id"]["year"], e["_id"]["month"])
             expenses_by_period[key] = {"total": e["expense_total"], "count": e["expense_count"]}
-    except:
+    except Exception:
         pass
     
     # Collect all unique periods
@@ -3838,7 +3838,7 @@ async def get_period_close_detail(year: int, month: int, user: User = Depends(ge
                     ar_aging["61_90"] += balance
                 else:
                     ar_aging["90_plus"] += balance
-            except:
+            except Exception:
                 ar_aging["current"] += balance
     
     for k in ar_aging:
@@ -4917,7 +4917,7 @@ async def get_payroll_summary_for_clarity(user: User = Depends(get_current_user)
                     monthly_costs[month_key]["gross"] += period.get("total_gross", 0)
                     monthly_costs[month_key]["net"] += period.get("total_net", 0)
                     monthly_costs[month_key]["employer_cost"] += period.get("total_employer_cost", 0)
-            except:
+            except Exception:
                 pass
     
     # Get current month's data

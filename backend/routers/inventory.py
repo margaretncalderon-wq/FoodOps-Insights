@@ -69,7 +69,7 @@ async def get_inventory_summary(user: User = Depends(get_current_user)):
             if i.get(field) and isinstance(i[field], str):
                 try:
                     i[field] = datetime.fromisoformat(i[field])
-                except:
+                except Exception:
                     pass
         
         # Map legacy field names from migration to expected field names
@@ -2817,7 +2817,7 @@ async def import_inventory_from_file(
                         return default
                     try:
                         return float(val)
-                    except:
+                    except Exception:
                         return default
                 
                 def safe_str(val, default=""):

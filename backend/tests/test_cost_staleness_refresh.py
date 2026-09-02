@@ -54,28 +54,28 @@ class TestCostStalenessRefresh:
             try:
                 if self.created_proposals:
                     self.session.delete(f"{BASE_URL}/api/proposals/{self.created_proposals[0]}/items/{item_id}")
-            except:
+            except Exception:
                 pass
         
         # Delete proposals (via event deletion)
         for event_id in self.created_events:
             try:
                 self.session.delete(f"{BASE_URL}/api/events/{event_id}")
-            except:
+            except Exception:
                 pass
         
         # Delete recipes
         for recipe_id in self.created_recipes:
             try:
                 self.session.delete(f"{BASE_URL}/api/recipes/{recipe_id}")
-            except:
+            except Exception:
                 pass
         
         # Delete ingredients
         for ing_id in self.created_ingredients:
             try:
                 self.session.delete(f"{BASE_URL}/api/inventory/ingredients/{ing_id}")
-            except:
+            except Exception:
                 pass
     
     def _create_test_ingredient(self, name_suffix=""):

@@ -13,7 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from ".
 import { Textarea } from "../../components/ui/textarea";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "../../components/ui/dropdown-menu";
 import { toast } from "sonner";
-import { Users, UserPlus, Sparkles, Building2, Mail, Calendar, Copy, CheckCircle, Gift, Star, Megaphone, MoreHorizontal, CreditCard, RefreshCw, ExternalLink, CalendarPlus, Pencil, Trash2, AlertTriangle } from "lucide-react";
+import { Users, UserPlus, Sparkles, Building2, Mail, Calendar, Copy, CheckCircle, Gift, Star, Megaphone, MoreHorizontal, CreditCard, RefreshCw, ExternalLink, CalendarPlus, Pencil, Trash2, AlertTriangle, Eye, EyeOff, KeyRound, PartyPopper, Briefcase, GraduationCap, Settings2 } from "lucide-react";
 
 import { KoraLoader } from "../../components/KoraLoader";
 import { API_BASE as API } from "../../utils/api";
@@ -50,6 +50,15 @@ const DEFAULT_MODULES_BY_INDUSTRY = {
   generic: ["module_program_orchestration", "module_resource_management", "module_demand_studio"],
 };
 
+// Visual metadata per industry for badges + filter tabs + counters.
+const INDUSTRY_META = {
+  events:     { labelEs: "Eventos",         labelEn: "Events",       icon: PartyPopper,   dot: "bg-purple-500",  badge: "border-purple-200 bg-purple-50 text-purple-700" },
+  agency:     { labelEs: "Agencia",         labelEn: "Agency",       icon: Megaphone,     dot: "bg-blue-500",    badge: "border-blue-200 bg-blue-50 text-blue-700" },
+  consulting: { labelEs: "Consultoría",     labelEn: "Consulting",   icon: Briefcase,     dot: "bg-emerald-500", badge: "border-emerald-200 bg-emerald-50 text-emerald-700" },
+  generic:    { labelEs: "Genérico",        labelEn: "Generic",      icon: Settings2,     dot: "bg-slate-400",   badge: "border-slate-200 bg-slate-50 text-slate-700" },
+};
+const INDUSTRY_ORDER = ["events", "agency", "consulting", "generic"];
+
 export default function DemoAccountsPage() {
   const { language } = useLanguage();
   const isEs = language === "es";
@@ -62,6 +71,11 @@ export default function DemoAccountsPage() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  // Password visibility per account (in-memory only — not persisted)
+  const [visiblePasswords, setVisiblePasswords] = useState({});
+  const [passwordCache, setPasswordCache] = useState({});
+  // Filter accounts by industry via top tabs
+  const [industryFilter, setIndustryFilter] = useState("all");
   const [selectedAccount, setSelectedAccount] = useState(null);
   const [saving, setSaving] = useState(false);
   const [copiedId, setCopiedId] = useState(null);
@@ -198,6 +212,91 @@ export default function DemoAccountsPage() {
       toast.error(msg);
     } finally {
       setSaving(false);
+    }
+  };
+
+  // -- Password visibility & regeneration --------------------------------
+  const handleTogglePassword = async (account) => {
+    const cid = account.company_id;
+    // Already visible → just hide it
+    if (visiblePasswords[cid]) {
+      setVisiblePasswords((p) => ({ ...p, [cid]: false }));
+      return;
+    }
+    // Already cached → reveal without a re-fetch
+    if (passwordCache[cid]) {
+      setVisiblePasswords((p) => ({ ...p, [cid]: true }));
+      return;
+    }
+    // Fetch from the API (super-admin only endpoint, logs the action)
+    try {
+      const res = await axios.get(
+        `${API}/api/super-admin/demo-accounts/${cid}/password`,
+        { withCredentials: true },
+      );
+      const pw = res.data?.password || "";
+      setPasswordCache((p) => ({ ...p, [cid]: pw }));
+      setVisiblePasswords((p) => ({ ...p, [cid]: true }));
+    } catch (err) {
+      const msg = err.response?.data?.detail || (isEs
+        ? "No se pudo leer la contraseña"
+        : "Could not read password");
+      toast.error(msg);
+    }
+  };
+
+  const handleCopyPassword = async (account) => {
+    const cid = account.company_id;
+    let pw = passwordCache[cid];
+    if (!pw) {
+      try {
+        const res = await axios.get(
+          `${API}/api/super-admin/demo-accounts/${cid}/password`,
+          { withCredentials: true },
+        );
+        pw = res.data?.password || "";
+        setPasswordCache((p) => ({ ...p, [cid]: pw }));
+      } catch (err) {
+        const msg = err.response?.data?.detail || (isEs
+          ? "No se pudo leer la contraseña"
+          : "Could not read password");
+        toast.error(msg);
+        return;
+      }
+    }
+    if (!pw) return;
+    try { await navigator.clipboard.writeText(pw); } catch { /* noop */ }
+    toast.success(isEs ? "Contraseña copiada" : "Password copied");
+  };
+
+  const handleRegeneratePassword = async (account) => {
+    const cid = account.company_id;
+    if (!window.confirm(isEs
+      ? `¿Regenerar contraseña de "${account.name}"? La anterior dejará de funcionar.`
+      : `Regenerate password for "${account.name}"? The old one will stop working.`
+    )) return;
+    try {
+      const res = await axios.post(
+        `${API}/api/super-admin/demo-accounts/${cid}/regenerate-password`,
+        {},
+        { withCredentials: true },
+      );
+      const pw = res.data?.password || "";
+      setPasswordCache((p) => ({ ...p, [cid]: pw }));
+      setVisiblePasswords((p) => ({ ...p, [cid]: true }));
+      try { await navigator.clipboard.writeText(pw); } catch { /* noop */ }
+      toast.success(
+        isEs
+          ? `Nueva contraseña generada y copiada: ${pw}`
+          : `New password generated and copied: ${pw}`,
+        { duration: 10000 },
+      );
+      fetchAccounts();
+    } catch (err) {
+      const msg = err.response?.data?.detail || (isEs
+        ? "Error al regenerar contraseña"
+        : "Error regenerating password");
+      toast.error(msg);
     }
   };
 
@@ -476,6 +575,39 @@ export default function DemoAccountsPage() {
         </Card>
       </div>
 
+      {/* Industry filter tabs + counters */}
+      <div className="flex items-center gap-2 flex-wrap" data-testid="demo-account-industry-filter">
+        <Button
+          variant={industryFilter === "all" ? "default" : "outline"}
+          size="sm"
+          onClick={() => setIndustryFilter("all")}
+          data-testid="demo-industry-tab-all"
+        >
+          {isEs ? "Todas" : "All"}
+          <Badge variant="secondary" className="ml-2 h-5 px-1.5 text-xs">{accounts.length}</Badge>
+        </Button>
+        {INDUSTRY_ORDER.map((k) => {
+          const meta = INDUSTRY_META[k];
+          const Icon = meta.icon;
+          const n = accounts.filter((a) => (a.industry_type || "generic") === k).length;
+          if (n === 0 && industryFilter !== k) return null;
+          return (
+            <Button
+              key={k}
+              variant={industryFilter === k ? "default" : "outline"}
+              size="sm"
+              onClick={() => setIndustryFilter(k)}
+              className="gap-1.5"
+              data-testid={`demo-industry-tab-${k}`}
+            >
+              <Icon className="w-3.5 h-3.5" />
+              {isEs ? meta.labelEs : meta.labelEn}
+              <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">{n}</Badge>
+            </Button>
+          );
+        })}
+      </div>
+
       {/* Accounts Table */}
       <Card>
         <CardHeader>
@@ -499,7 +631,9 @@ export default function DemoAccountsPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>{isEs ? "Organización" : "Organization"}</TableHead>
+                  <TableHead>{isEs ? "Industria" : "Industry"}</TableHead>
                   <TableHead>{isEs ? "Usuario" : "User"}</TableHead>
+                  <TableHead>{isEs ? "Contraseña" : "Password"}</TableHead>
                   <TableHead>{isEs ? "Tipo" : "Type"}</TableHead>
                   <TableHead>{isEs ? "Módulos" : "Modules"}</TableHead>
                   <TableHead>{isEs ? "Trial" : "Trial"}</TableHead>
@@ -507,15 +641,28 @@ export default function DemoAccountsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {accounts.map((account) => {
+                {accounts
+                  .filter((a) => industryFilter === "all" || (a.industry_type || "generic") === industryFilter)
+                  .map((account) => {
                   const trialStatus = getTrialStatus(account.trial_ends_at);
+                  const industryKey = account.industry_type || "generic";
+                  const industryMeta = INDUSTRY_META[industryKey] || INDUSTRY_META.generic;
+                  const IndustryIcon = industryMeta.icon;
+                  const pwVisible = !!visiblePasswords[account.company_id];
+                  const cachedPw = passwordCache[account.company_id];
                   return (
-                  <TableRow key={account.company_id}>
+                  <TableRow key={account.company_id} data-testid={`demo-account-row-${account.company_id}`}>
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <Building2 className="w-4 h-4 text-muted-foreground" />
                         <span className="font-medium">{account.name}</span>
                       </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className={`gap-1 ${industryMeta.badge}`} data-testid={`demo-industry-badge-${account.company_id}`}>
+                        <IndustryIcon className="w-3 h-3" />
+                        {isEs ? industryMeta.labelEs : industryMeta.labelEn}
+                      </Badge>
                     </TableCell>
                     <TableCell>
                       <div className="space-y-1">
@@ -525,6 +672,39 @@ export default function DemoAccountsPage() {
                           {account.owner?.email}
                         </div>
                       </div>
+                    </TableCell>
+                    <TableCell>
+                      {account.has_demo_password ? (
+                        <div className="flex items-center gap-1">
+                          <code className="text-xs bg-slate-100 px-1.5 py-0.5 rounded font-mono min-w-[70px] text-center" data-testid={`demo-password-cell-${account.company_id}`}>
+                            {pwVisible && cachedPw ? cachedPw : "••••••••"}
+                          </code>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7"
+                            title={pwVisible ? (isEs ? "Ocultar" : "Hide") : (isEs ? "Ver" : "Show")}
+                            onClick={() => handleTogglePassword(account)}
+                            data-testid={`demo-password-toggle-${account.company_id}`}
+                          >
+                            {pwVisible ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7"
+                            title={isEs ? "Copiar contraseña" : "Copy password"}
+                            onClick={() => handleCopyPassword(account)}
+                            data-testid={`demo-password-copy-${account.company_id}`}
+                          >
+                            <Copy className="w-3.5 h-3.5" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">
+                          {isEs ? "No guardada" : "Not stored"}
+                        </span>
+                      )}
                     </TableCell>
                     <TableCell>
                       {getAccountTypeBadge(account.account_type)}
@@ -555,6 +735,24 @@ export default function DemoAccountsPage() {
                             <Copy className="w-4 h-4 mr-2" />
                             {isEs ? "Copiar email" : "Copy email"}
                           </DropdownMenuItem>
+                          {account.has_demo_password && (
+                            <DropdownMenuItem
+                              onClick={() => handleCopyPassword(account)}
+                              data-testid={`demo-account-copy-password-${account.company_id}`}
+                            >
+                              <KeyRound className="w-4 h-4 mr-2" />
+                              {isEs ? "Copiar contraseña" : "Copy password"}
+                            </DropdownMenuItem>
+                          )}
+                          {account.account_type !== "paid" && (
+                            <DropdownMenuItem
+                              onClick={() => handleRegeneratePassword(account)}
+                              data-testid={`demo-account-regen-password-${account.company_id}`}
+                            >
+                              <RefreshCw className="w-4 h-4 mr-2" />
+                              {isEs ? "Regenerar contraseña" : "Regenerate password"}
+                            </DropdownMenuItem>
+                          )}
                           <DropdownMenuSeparator />
                           {account.account_type !== "paid" && (
                             <>

@@ -44,7 +44,7 @@ class TestPresenceSystem:
         # Cleanup: Clear presence on teardown
         try:
             self.session.post(f"{BASE_URL}/api/presence/leave")
-        except:
+        except Exception:
             pass
     
     # === HEARTBEAT ENDPOINT TESTS ===
@@ -290,7 +290,7 @@ class TestPresenceIntegration:
         # Cleanup
         try:
             self.session.post(f"{BASE_URL}/api/presence/leave")
-        except:
+        except Exception:
             pass
     
     def test_full_presence_workflow(self):

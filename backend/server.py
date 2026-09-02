@@ -1281,7 +1281,7 @@ async def send_document_to_client(document_id: str, user: User = Depends(get_cur
         try:
             event_date_obj = datetime.fromisoformat(event_date.replace("Z", "+00:00")) if isinstance(event_date, str) else event_date
             event_date = event_date_obj.strftime("%d/%m/%Y")
-        except:
+        except Exception:
             event_date = event_date
     else:
         event_date = "Por confirmar"
@@ -1315,7 +1315,7 @@ async def send_document_to_client(document_id: str, user: User = Depends(get_cur
     )
     
     # Log activity
-    from utils.activity_logger import log_activity, user_info
+    from utils.activity_logger import log_activity, user_info  # noqa: F811
     await log_activity(
         module="documents",
         action="send",
@@ -1759,14 +1759,14 @@ async def update_invoice(invoice_id: str, data: dict, user: User = Depends(get_c
             # Handle date string (YYYY-MM-DD)
             if isinstance(update_data["issue_date"], str) and len(update_data["issue_date"]) == 10:
                 update_data["issue_date"] = datetime.fromisoformat(update_data["issue_date"] + "T00:00:00+00:00").isoformat()
-        except:
+        except Exception:
             pass
     
     if "due_date" in update_data and update_data["due_date"]:
         try:
             if isinstance(update_data["due_date"], str) and len(update_data["due_date"]) == 10:
                 update_data["due_date"] = datetime.fromisoformat(update_data["due_date"] + "T00:00:00+00:00").isoformat()
-        except:
+        except Exception:
             pass
     
     # Recalculate balance_due if total changed
@@ -6768,7 +6768,7 @@ async def get_event_blueprint(event_id: str, user: User = Depends(get_current_us
         if event.get(field) and isinstance(event[field], str):
             try:
                 event[field] = datetime.fromisoformat(event[field])
-            except:
+            except Exception:
                 event[field] = None
     
     # Get client info
@@ -7340,7 +7340,7 @@ async def get_orchestration_events(user: User = Depends(get_current_user)):
             if e.get(field) and isinstance(e[field], str):
                 try:
                     e[field] = datetime.fromisoformat(e[field])
-                except:
+                except Exception:
                     e[field] = None
         
         # Get client name
@@ -8590,8 +8590,8 @@ async def upload_delivery_note_photo(
     ext = ext if ext.isalnum() and len(ext) <= 5 else "jpg"
     filename = f"dn_{note_id}_{uuid.uuid4().hex[:8]}.{ext}"
     filepath = UPLOADS_DIR / filename
-    with open(filepath, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+    _photo_bytes = file.file.read()
+    filepath.write_bytes(_photo_bytes)
     photo_url = f"/api/uploads/{filename}"
 
     existing = list((note or {}).get("setup_photos") or [])
@@ -8731,7 +8731,7 @@ async def get_ops_agreements(user: User = Depends(get_current_user)):
 @ops_supplies_router.post("/agreements")
 async def create_ops_agreement(data: dict, user: User = Depends(get_current_user)):
     """Create a new agreement"""
-    agreement_id = str(uuid4())
+    agreement_id = str(uuid.uuid4())
     agreement = {
         "agreement_id": agreement_id,
         "company_id": user.company_id,
@@ -8790,7 +8790,7 @@ async def delete_ops_agreement(agreement_id: str, user: User = Depends(get_curre
 @ops_supplies_router.post("/asset-loss")
 async def register_asset_loss(data: dict, user: User = Depends(get_current_user)):
     """Register an asset loss"""
-    loss_id = str(uuid4())
+    loss_id = str(uuid.uuid4())
     loss = {
         "loss_id": loss_id,
         "company_id": user.company_id,
@@ -10689,7 +10689,7 @@ async def list_all_organizations(
 
 
 @super_admin_router.post("/organizations")
-async def create_organization(data: dict, admin: User = Depends(get_super_admin)):
+async def create_organization(data: dict, admin: User = Depends(get_super_admin)):  # noqa: F811
     """Create a new organization (Super Admin only)"""
     name = data.get("name")
     if not name:
@@ -12014,8 +12014,8 @@ async def get_dashboard_metrics(admin: User = Depends(get_super_admin)):
 
 # ============== SUPER ADMIN: EXPORT & ALERTS ==============
 
-from fastapi.responses import StreamingResponse
-import io
+from fastapi.responses import StreamingResponse  # noqa: F811
+import io  # noqa: F811
 import csv
 
 @super_admin_router.get("/metrics/export/csv")
@@ -14324,7 +14324,7 @@ async def get_user_memberships(user_id: str, user: User = Depends(get_current_us
 
 
 @super_admin_router.patch("/users/{user_id}")
-async def update_user(
+async def update_user(  # noqa: F811
     user_id: str,
     updates: dict,
     user: User = Depends(get_current_user)
@@ -14861,6 +14861,10 @@ async def create_demo_account(
         "admin_notes": data.notes,
         "created_by_admin": admin.user_id,
         "created_at": now.isoformat(),
+        # Demo/Influencer/Partner accounts store the plaintext password so the
+        # super-admin can share it with the demo team later. This ONLY applies
+        # to non-paying accounts — real customer passwords are hashed only.
+        "demo_password": data.password,
         "settings": {
             "currency": "USD",
             "timezone": "America/Santo_Domingo",
@@ -15041,9 +15045,22 @@ async def list_demo_accounts(admin: User = Depends(get_super_admin)):
             "status": "active",
             "addon_type": "module"
         })
-        
+
+        # Get industry_type from org_config so the UI can show the industry badge
+        org_config = await db.organization_configs.find_one(
+            {"company_id": org["company_id"]},
+            {"_id": 0, "industry_type": 1, "industry_template": 1}
+        )
+
         accounts.append({
             **org,
+            # Never leak the plaintext password in the LIST response — only
+            # signal whether one exists. The dedicated GET password endpoint
+            # returns it on demand with a super-admin action log entry.
+            "demo_password": None,
+            "has_demo_password": bool(org.get("demo_password")),
+            "industry_type": (org_config or {}).get("industry_type") or "generic",
+            "industry_template": (org_config or {}).get("industry_template"),
             "owner": owner,
             "subscription_status": subscription.get("status") if subscription else "none",
             "trial_ends_at": subscription.get("trial_ends_at") if subscription else None,
@@ -15051,6 +15068,90 @@ async def list_demo_accounts(admin: User = Depends(get_super_admin)):
         })
     
     return {"accounts": accounts, "total": len(accounts)}
+
+
+@super_admin_router.get("/demo-accounts/{company_id}/password")
+async def get_demo_account_password(
+    company_id: str,
+    admin: User = Depends(get_super_admin)
+):
+    """
+    Return the plaintext password for a demo/influencer/partner account so
+    the super-admin can share it with the demo team. Logs each retrieval.
+    """
+    company = await db.companies.find_one({"company_id": company_id})
+    if not company:
+        raise HTTPException(status_code=404, detail="Organization not found")
+    if company.get("account_type") not in ("demo", "influencer", "partner"):
+        raise HTTPException(status_code=400, detail="Only demo/influencer/partner passwords can be retrieved")
+    pw = company.get("demo_password")
+    if not pw:
+        raise HTTPException(status_code=404, detail="No stored password. Use 'Regenerate password' to create a new one.")
+
+    owner = await db.users.find_one(
+        {"company_id": company_id, "role": "owner"},
+        {"_id": 0, "email": 1},
+    )
+    await log_super_admin_action(admin.user_id, "view_demo_password", company_id, {
+        "organization": company.get("name"),
+    })
+    return {
+        "success": True,
+        "email": (owner or {}).get("email"),
+        "password": pw,
+    }
+
+
+class RegeneratePasswordRequest(BaseModel):
+    new_password: Optional[str] = None  # if omitted, one is generated
+
+
+@super_admin_router.post("/demo-accounts/{company_id}/regenerate-password")
+async def regenerate_demo_account_password(
+    company_id: str,
+    body: RegeneratePasswordRequest = Body(default_factory=RegeneratePasswordRequest),
+    admin: User = Depends(get_super_admin)
+):
+    """
+    Rotate the password of the demo account's owner user. Stores the new
+    plaintext in `companies.demo_password` so the super-admin can re-share
+    it later; also updates `users.password_hash`.
+    """
+    company = await db.companies.find_one({"company_id": company_id})
+    if not company:
+        raise HTTPException(status_code=404, detail="Organization not found")
+    if company.get("account_type") not in ("demo", "influencer", "partner"):
+        raise HTTPException(status_code=400, detail="Only demo/influencer/partner passwords can be regenerated")
+
+    # Generate a memorable password if the caller didn't send one
+    new_password = (body.new_password or "").strip()
+    if not new_password:
+        import secrets, string
+        alphabet = string.ascii_letters + string.digits
+        new_password = "Demo" + "".join(secrets.choice(alphabet) for _ in range(9))
+
+    owner = await db.users.find_one({"company_id": company_id, "role": "owner"})
+    if not owner:
+        raise HTTPException(status_code=404, detail="Owner user not found for this organization")
+
+    hashed = bcrypt.hashpw(new_password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+    await db.users.update_one(
+        {"user_id": owner["user_id"]},
+        {"$set": {"password_hash": hashed, "updated_at": datetime.now(timezone.utc).isoformat()}},
+    )
+    await db.companies.update_one(
+        {"company_id": company_id},
+        {"$set": {"demo_password": new_password, "updated_at": datetime.now(timezone.utc).isoformat()}},
+    )
+    await log_super_admin_action(admin.user_id, "regenerate_demo_password", company_id, {
+        "organization": company.get("name"),
+    })
+    return {
+        "success": True,
+        "email": owner.get("email"),
+        "password": new_password,
+    }
+
 
 
 @super_admin_router.delete("/demo-accounts/{company_id}")
@@ -15498,7 +15599,7 @@ class PricingConfig(BaseModel):
 
 
 @super_admin_router.get("/pricing")
-async def get_pricing_config(admin: User = Depends(get_super_admin)):
+async def get_pricing_config(admin: User = Depends(get_super_admin)):  # noqa: F811
     """Get current active pricing configuration"""
     pricing = await db.pricing_config.find_one(
         {"active": True},
@@ -15521,13 +15622,14 @@ async def get_pricing_config(admin: User = Depends(get_super_admin)):
             "created_at": datetime.now(timezone.utc).isoformat()
         }
         await db.pricing_config.insert_one(default_pricing)
+        default_pricing.pop("_id", None)
         return default_pricing
     
     return pricing
 
 
 @super_admin_router.put("/pricing")
-async def update_pricing_config(
+async def update_pricing_config(  # noqa: F811
     config: PricingConfig,
     admin: User = Depends(get_super_admin)
 ):
@@ -15562,7 +15664,7 @@ async def update_pricing_config(
 
 
 @super_admin_router.get("/pricing/history")
-async def get_pricing_history(
+async def get_pricing_history(  # noqa: F811
     limit: int = 10,
     admin: User = Depends(get_super_admin)
 ):
@@ -15973,6 +16075,7 @@ async def get_kora_core_config(admin: User = Depends(get_super_admin)):
             "created_at": datetime.now(timezone.utc).isoformat()
         }
         await db.kora_core_config.insert_one(default_config)
+        default_config.pop("_id", None)
         return default_config
     
     return config
@@ -16539,9 +16642,8 @@ async def upload_file(file: UploadFile = File(...), user: User = Depends(get_cur
     
     # Save file
     try:
-        with open(filepath, "wb") as f:
-            content = await file.read()
-            f.write(content)
+        _content = await file.read()
+        filepath.write_bytes(_content)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to save file: {str(e)}")
     

@@ -45,7 +45,7 @@ class TestDemandStudioSocialFixes:
             for post in posts:
                 if post.get("title", "").startswith("TEST_"):
                     self.session.delete(f"{BASE_URL}/api/demand-studio/social/posts/{post['post_id']}")
-        except:
+        except Exception:
             pass
     
     def test_01_get_social_accounts(self):

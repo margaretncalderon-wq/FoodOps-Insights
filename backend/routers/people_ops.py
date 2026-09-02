@@ -6998,7 +6998,7 @@ async def download_regulatory_report(
                 if hire_date and isinstance(hire_date, str):
                     try:
                         hire_date = datetime.fromisoformat(hire_date.replace("Z", "+00:00")).strftime("%d/%m/%Y")
-                    except:
+                    except Exception:
                         pass
                 
                 row_data = [
