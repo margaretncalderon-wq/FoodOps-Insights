@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { API } from "../utils/api";
 import axios from "axios";
 import { useLanguage } from "../contexts/LanguageContext";
+import { useTerminology } from "../hooks/useTerminology";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "./ui/card";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -21,6 +22,7 @@ const formatCurrency = (amount) => `$${(amount || 0).toLocaleString("en-US", { m
 
 export default function EventPayments({ eventId, event, client }) {
   const { language } = useLanguage();
+  const { term } = useTerminology();
   const isEs = language === "es";
   
   const [invoices, setInvoices] = useState([]);
@@ -72,7 +74,7 @@ export default function EventPayments({ eventId, event, client }) {
         amount: paymentForm.amount,
         payment_method: paymentForm.payment_method,
         reference: paymentForm.reference,
-        notes: paymentForm.notes || `${isEs ? "Pago para evento" : "Payment for event"}: ${event.name}`
+        notes: paymentForm.notes || `${isEs ? `Pago para ${term("events", "entity_singular").toLowerCase()}` : `Payment for ${term("events", "entity_singular").toLowerCase()}`}: ${event.name}`
       };
       const res = await axios.post(`${API}/business-clarity/payments`, data, { withCredentials: true });
       toast.success(isEs ? "Pago registrado" : "Payment recorded");
@@ -175,7 +177,7 @@ export default function EventPayments({ eventId, event, client }) {
       <Card>
         <CardContent className="py-8 text-center text-muted-foreground">
           <AlertTriangle className="w-8 h-8 mx-auto mb-2 text-yellow-500" />
-          {isEs ? "Este evento no tiene cliente asignado. Asigne un cliente para gestionar pagos." : "This event has no client assigned. Assign a client to manage payments."}
+          {isEs ? `Este ${term("events", "entity_singular").toLowerCase()} no tiene cliente asignado. Asigne un cliente para gestionar pagos.` : `This ${term("events", "entity_singular").toLowerCase()} has no client assigned. Assign a client to manage payments.`}
         </CardContent>
       </Card>
     );
@@ -262,7 +264,7 @@ export default function EventPayments({ eventId, event, client }) {
       {/* Invoices Table */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">{isEs ? "Facturas del Evento" : "Event Invoices"}</CardTitle>
+          <CardTitle className="text-base">{isEs ? `Facturas del ${term("events", "entity_singular")}` : `${term("events", "entity_singular")} Invoices`}</CardTitle>
           <CardDescription>
             {invoices.length === 0 
               ? (isEs ? "No hay facturas. Cree una desde el tab 'Generate'." : "No invoices. Create one from the 'Generate' tab.")

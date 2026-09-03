@@ -1,6 +1,86 @@
 # Kora OS - Changelog
 
 
+## February 24, 2026 — Iteration 256 · Verificación final del bug de terminología
+
+Re-verificación después de que iter 255 reportara 2 falsos-positivos (los hits en EventPackingSection.js:281 y :307 ya estaban usando `term()` desde iter 254; el testing agent leía un build cacheado de webpack). Todos los hits críticos verificados por grep en el filesystem actual.
+
+**Total de fixes acumulados en el bug de terminología (iters 249-256)**:
+- 40+ hits en Business Clarity + CRM (iter 249)
+- 21 hits en tabs de Program Orchestration + componentes Event*.js (iter 251)
+- 9 hits residuales en TeamRolesTab/PostEventReviewTab/OperationalDocumentsTab/EventCalendarTab/ProductionAssetsTab/EventBinderTab + EventPackingSection empty state (iter 252-253)
+- 4 hits críticos: EventsPage H1, Dashboard useCallback deps, EventPackingSection dialogs (iter 254)
+- 3 hits standalone view de EventPackingSection: CardTitle, Label, empty state (iter 255)
+
+Cobertura resultante: **77+ labels dinámicos con `useTerminology`** — CRM, Business Clarity, Program Orchestration tabs, Operations Packing, Dashboard System Pulse, EventsPage principal. Todos respetan `industry_type` del tenant.
+
+**Findings out-of-scope reportados para próximos turnos**:
+- KPI "INVITADOS" hardcoded (debería ser terminology-driven según industria)
+- Tab labels en inglés ("Operational Flow", "Team & Roles", "Post-Review") para tenants ES
+- App bootstrap arranca en inglés incluso con `default_language='es'` de la org (requiere sync localStorage al login)
+- Backend `POST /orchestration/events/{id}/close` requiere stage flow no compatible con non-events industries
+
+
+## February 24, 2026 — Iteration 254-255 · Terminología multi-tenant · rondas finales
+
+### 🐛 Bug residuales de iter 253 y 254 arreglados
+- `pages/EventsPage.js:472` — el H1 usaba `t("events")` que devolvía "Eventos" hardcoded → ahora `entityPlural` (respeta industria).
+- `pages/Dashboard.js:189` — deps array de `useCallback fetchSystemData` era `[isEs]`, causando stale closure con `entitySingular/entityPlural` capturado del primer render → ahora `[isEs, entitySingular, entityPlural]`. Sin esto, la primera carga del Dashboard mostraba "Evento confirmado" incluso para tenants agency.
+- `components/operations/EventPackingSection.js` — 6 hits arreglados: `useTerminology` importado + destructurado, líneas 281 (CardTitle "Packing List por Proyecto"), 295 (Label), 302 (placeholder), 307 (empty state "No hay proyectos confirmados"), 583 (dialog title "Aplicar plantilla al proyecto"), 587 (dialog description "usando los invitados del proyecto").
+
+### Findings out-of-scope (para próximos turnos)
+- Tabs del Program Orchestration aún tienen labels en inglés ("Operational Flow", "Team & Roles", "Production Assets", "Post-Review") para tenant ES.
+- KPI "INVITADOS" hardcoded para tenant agency (debería ser "Personas" o similar).
+- App bootstrap usa English incluso cuando `default_language='es'` — requiere sync de localStorage al login.
+
+
+## February 24, 2026 — Iteration 252-253 · Terminología final (residuales)
+
+### 🐛 Bug residuals
+Testing agent iter 251/252 detectó 9 hits adicionales que se arreglaron:
+- `TeamRolesTab.js:219` — banner "Proyecto cerrado" (era "Evento cerrado")
+- `PostEventReviewTab.js:130` — warning "post-proyecto" (era "post-evento")
+- `OperationalDocumentsTab.js:146` — subtitle "ejecución del proyecto"
+- `EventCalendarTab.js:293` — conflict "múltiples proyectos"
+- `ProductionAssetsTab.js` — useTerminology + línea 594 (link dialog helper)
+- `EventBinderTab.js` — títulos "Proyecto Binder" (líneas 82, 99, 120) + toast línea 38
+- `operations/EventPackingSection.js` — useTerminology + empty state línea 430
+
+### Verificación
+Testing agent iter 252 confirmó 100% frontend, los 7 hits fixed. La iter 253 valida los 2 hits residuales (EventBinderTab toast + EventPackingSection empty state).
+
+### Findings out-of-scope (para próximos turnos)
+- Culinary document cards (Hoja de Cocina, Menú, Lista de Montaje) se muestran a tenants `agency`, deberían gating por industria/módulos activos.
+- Backend `POST /orchestration/events/{id}/close` rechaza stage "Committed" — "Cerrar Proyecto" no funciona para industrias non-events.
+
+
+## February 24, 2026 — Iteration 251 · Terminología en Event Orchestration tabs
+
+### 🐛 Bug reportado
+"Verifica que a todos los tenant le salga correcto boda y proyecto porque algunos le sale como eventos" — usuarios `agency` veían "Evento" en tabs de Orquestación aunque la iteración previa había arreglado CRM/Business Clarity.
+
+### ✅ Fix — 21 hits adicionales reemplazados con `useTerminology`
+
+**Frontend — `useTerminology` agregado en 11 archivos**:
+- `pages/EventOrchestrationPage.js` (1 hit)
+- `components/orchestration/EventBinderTab.js` (4 hits)
+- `components/orchestration/EventBlueprintTab.js` (4 hits)
+- `components/orchestration/EventCalendarTab.js` (2 hits)
+- `components/orchestration/ExperienceDesignTab.js` (3 hits)
+- `components/orchestration/OperationalDocumentsTab.js` (1 hit)
+- `components/orchestration/OperationalFlowTab.js` (1 hit)
+- `components/orchestration/TeamRolesTab.js` (1 hit)
+- `components/orchestration/GuestFlowSection.js` (1 hit)
+- `components/EventPayments.js` (3 hits)
+- `components/EventProductionPlan.js` (1 hit)
+
+Todos los tabs y componentes del módulo Program Orchestration ahora resuelven "Evento/Eventos" → "Proyecto/Proyectos" para agency, "Compromiso/Compromisos" para consulting, "Servicio/Servicios" para generic, y "Evento/Eventos" para events (default).
+
+### Verificación
+- Barrido posterior confirmó 0 hits restantes en `pages/`, `components/orchestration/`, `components/Event*.js`.
+- bug_testing_agent (iteración 251) validando en tenant agency real.
+
+
 ## February 24, 2026 — Iteration 250 · Admin Panel — Passwords + Filtros por industria + Seed rico
 
 ### 🔑 Feature 1 — Passwords visibles + Regenerables

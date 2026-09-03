@@ -1,0 +1,62 @@
+{
+  "summary": "Frontend-only re-verification (iter 255) of the terminology bug on a fresh agency tenant (terminology_v6@kora.com, industry=agency, modules: program_orchestration + demand_studio + module_resource_management, 3 projects promoted to Committed) in Spanish. (a) Dashboard FIXED: with a HARD RELOAD of /dashboard, System Pulse > 'Decisiones Recientes' renders 'Proyecto confirmado' x3 and zero 'Evento confirmado' from the first render; Dashboard.js:189 deps confirmed as [isEs, entitySingular, entityPlural]. (b) EventPackingSection standalone view (/ops-supplies/event-packing) verified ON SCREEN for the first time: Label = 'Proyecto' (FIXED), select placeholder = 'Selecciona un proyecto' (FIXED), options list all 3 projects, Apply-Template dialog strings already terminology-ized in code (line 583/587). REMAINING: CardTitle still renders the hardcoded 'Packing List por Evento' (only 'Evento' token left on the whole page) and the select empty-state literal 'No hay eventos confirmados' is still hardcoded (line 307, not renderable with 3 confirmed projects but verified in code). Tenant deleted at the end.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/super-admin/demo-accounts", "issue": "modules_to_activate accepts the legacy key 'module_operations_supplies' and echoes it in activated_modules, but /api/addons/enabled-modules matches on MODULE_ADDONS keys ('module_resource_management'). MODULE_ALIASES exists but is not applied, so the module is silently NOT enabled and /ops-supplies redirects to /dashboard. Had to recreate the tenant with 'module_resource_management' to reach the page."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "components/operations/EventPackingSection.js:281",
+        "issue": "NOT FIXED. CardTitle is still the hardcoded literal t(\"Packing List por Evento\", \"Packing List by Event\"). Rendered on screen at /ops-supplies/event-packing for the agency tenant while the Label right below it correctly says 'Proyecto'. Should use term(\"events\",\"entity_singular\") like lines 295/302.",
+        "selector": "[data-testid='event-packing-section'] .card-title (text 'Packing List por Evento')",
+        "priority": "HIGH"
+      },
+      {
+        "component": "components/operations/EventPackingSection.js:307",
+        "issue": "NOT FIXED. Select empty-state literal t(\"No hay eventos confirmados\", \"No confirmed events\") is still hardcoded; must be terminology-ized ('No hay proyectos confirmados'). Verified by code inspection (cannot render with 3 confirmed projects seeded).",
+        "selector": "[data-testid='event-packing-select'] > SelectContent > SelectItem[value='__none']",
+        "priority": "MEDIUM"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {
+        "screen": "Gestion de Recursos > Packing List (agency, ES)",
+        "issues": [
+          "KPI 'INVITADOS' shows '8.00' (float for a head count) - carry-over from iter 253/254.",
+          "'INVITADOS' label kept for an agency tenant (should be terminology-driven).",
+          "Sub-tab chip label 'Packing List' left in English inside an ES tenant."
+        ]
+      },
+      {
+        "screen": "Login bootstrap",
+        "issues": ["App still boots in English on a fresh session even though the organization default_language='es'; Spanish required seeding localStorage eep_language='es' (carry-over, out of scope per main agent)."]
+      }
+    ]
+  },
+  "test_report_links": [
+    "/app/test_reports/setup_v8.py",
+    "/app/test_reports/modules_v8.py",
+    "/app/test_reports/iteration_255.json"
+  ],
+  "action_items": [
+    "EventPackingSection.js:281 - replace the hardcoded CardTitle with term(\"events\",\"entity_singular\") based copy (e.g. t(`Packing List por ${term(...)}`, `Packing List by ${term(...)}`)). This is the last visible 'Evento' hit on the standalone page.",
+    "EventPackingSection.js:307 - terminology-ize the 'No hay eventos confirmados' / 'No confirmed events' empty state.",
+    "Optional (backend): apply MODULE_ALIASES when resolving purchased module keys in routers/addons.py get_enabled_modules so legacy 'module_operations_supplies' grants /ops-supplies."
+  ],
+  "critical_code_review_comments": [
+    "EventPackingSection.js mixes term()-driven copy with hardcoded 'Evento' literals in the same card; grep for remaining literals: only lines 281 and 307 remain.",
+    "routers/addons.py get_enabled_modules ignores MODULE_ALIASES when comparing purchased_module_keys, causing silent module-grant failures for legacy keys."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a (frontend-only round)", "frontend": "83% (5/6 verification points passed)"},
+  "seed_data_creation": "Created demo tenant terminology_v6@kora.com (agency, module_resource_management), promoted 3 projects to Committed; tenant DELETED at the end of the round (no residue).",
+  "should_call_test_agent_after_fix": false,
+  "should_main_agent_self_test": true,
+  "test_credentials": "Super admin demo.agency@kora.com / Evoque2024! ; test tenant terminology_v6@kora.com / Test1234! (deleted - recreate with setup_v8.py)",
+  "context_for_next_testing_agent": "To reach the standalone EventPackingSection you MUST create the tenant with modules_to_activate=['module_program_orchestration','module_demand_studio','module_resource_management'] (NOT module_operations_supplies) - use /app/test_reports/setup_v8.py create|delete. Then set localStorage eep_language='es' before login for Spanish. Dashboard 'Proyecto confirmado' is confirmed fixed on hard reload; only EventPackingSection.js:281 (CardTitle) and :307 (empty state) remain.",
+  "rca_of_the_issue": "Dashboard: fetchSystemData useCallback now depends on [isEs, entitySingular, entityPlural], so labels are rebuilt once OrgConfig resolves - stale-closure fixed. EventPackingSection: the fix pass converted the Label, placeholder and Apply-Template dialog to term() but skipped the CardTitle (line 281) and the select empty-state item (line 307), which remain hardcoded 'Evento' strings."
+}

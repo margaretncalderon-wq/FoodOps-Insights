@@ -1524,8 +1524,7 @@ async def upload_execution_attachment(
     filename = f"exec_{uuid.uuid4().hex[:12]}.{ext}"
     filepath = EXEC_ATTACHMENTS_DIR / filename
     
-    with open(filepath, "wb") as f:
-        f.write(content)
+    filepath.write_bytes(content)
     
     is_image = file.content_type.startswith("image/")
     file_url = f"/api/uploads/exec_attachments/{filename}"

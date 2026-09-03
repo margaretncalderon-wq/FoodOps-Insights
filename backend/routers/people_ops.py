@@ -1781,6 +1781,7 @@ async def save_payroll_config(
         config_data["config_id"] = config_id
         config_data["created_at"] = now.isoformat()
         await db.payroll_config.insert_one(config_data)
+        config_data.pop("_id", None)
     
     return config_data
 
@@ -7839,7 +7840,7 @@ async def backfill_department_ids(user: User = Depends(get_current_user)):
                 {"department_id": None},
                 {"department_id": {"$exists": False}}
             ],
-            "department": {"$exists": True, "$ne": None, "$ne": ""}
+            "department": {"$exists": True, "$nin": [None, ""]}
         },
         {"_id": 0, "employee_id": 1, "name": 1, "department": 1}
     ).to_list(5000)
@@ -7876,7 +7877,7 @@ async def backfill_department_ids(user: User = Depends(get_current_user)):
                 {"department_id": None},
                 {"department_id": {"$exists": False}}
             ],
-            "department_name": {"$exists": True, "$ne": None, "$ne": ""}
+            "department_name": {"$exists": True, "$nin": [None, ""]}
         },
         {"_id": 0, "cost_center_id": 1, "department_name": 1}
     ).to_list(200)

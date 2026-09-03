@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useLanguage } from "../../contexts/LanguageContext";
+import { useTerminology } from "../../hooks/useTerminology";
 import axios from "axios";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../ui/card";
@@ -15,6 +16,7 @@ import { KoraLoader } from "../KoraLoader";
 
 export default function EventBlueprintTab({ eventId, event, onUpdate }) {
   const { language } = useLanguage();
+  const { term } = useTerminology();
   const isEs = language === "es";
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -67,13 +69,13 @@ export default function EventBlueprintTab({ eventId, event, onUpdate }) {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <FileText className="w-5 h-5" />
-            {isEs ? "Resumen del Evento" : "Event Summary"}
+            {isEs ? `Resumen del ${term("events", "entity_singular")}` : `${term("events", "entity_singular")} Summary`}
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div>
-              <p className="text-sm text-muted-foreground">{isEs ? "Tipo de Evento" : "Event Type"}</p>
+              <p className="text-sm text-muted-foreground">{isEs ? `Tipo de ${term("events", "entity_singular")}` : `${term("events", "entity_singular")} Type`}</p>
               <p className="font-medium capitalize">{event?.event_type || "-"}</p>
             </div>
             <div>
@@ -103,7 +105,7 @@ export default function EventBlueprintTab({ eventId, event, onUpdate }) {
               {isEs ? "Objetivos" : "Objectives"}
             </CardTitle>
             <CardDescription>
-              {isEs ? "¿Qué debe lograr este evento?" : "What should this event achieve?"}
+              {isEs ? `¿Qué debe lograr este ${term("events", "entity_singular").toLowerCase()}?` : `What should this ${term("events", "entity_singular").toLowerCase()} achieve?`}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -191,7 +193,7 @@ export default function EventBlueprintTab({ eventId, event, onUpdate }) {
             {isEs ? "Criterios de Éxito" : "Success Criteria"}
           </CardTitle>
           <CardDescription>
-            {isEs ? "¿Cómo sabremos que el evento fue exitoso?" : "How will we know the event was successful?"}
+            {isEs ? `¿Cómo sabremos que el ${term("events", "entity_singular").toLowerCase()} fue exitoso?` : `How will we know the ${term("events", "entity_singular").toLowerCase()} was successful?`}
           </CardDescription>
         </CardHeader>
         <CardContent>

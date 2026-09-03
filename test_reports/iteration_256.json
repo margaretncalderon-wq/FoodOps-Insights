@@ -1,0 +1,36 @@
+{
+  "summary": "Iter 256 frontend-only re-verification of the 2 hits iter 255 marked NOT-FIXED. Fresh agency tenant terminology_v6@kora.com (industry=agency, modules: program_orchestration + demand_studio + module_resource_management, 8 seeded projects) in Spanish (localStorage eep_language='es'), with HARD RELOAD (window.location.reload(true)) before every verification. ALL THREE VERIFICATION POINTS ARE FIXED ON SCREEN. (a) /ops-supplies/event-packing CardTitle renders 'Packing List por Proyecto' (code line 281 uses t(`Packing List por ${term(\"events\",\"entity_singular\")}`)); zero 'Evento'/'evento' tokens on the whole page. (b) With 0 Committed projects the select dropdown empty state renders 'No hay proyectos confirmados' (line 307 uses term(\"events\",\"entity_plural\").toLowerCase()); after promoting 3 projects to Committed the empty state disappears and the 3 projects are listed, selection loads the KPI row + 'Items reservados' with 0 'Evento' tokens. (c) /dashboard hard reload: 'Decisiones Recientes' shows 'Proyecto confirmado' x3 sampled at ~1.5s/3s/5s/8s after reload (0 'Evento confirmado' at every sample, i.e. correct from the first render); Dashboard.js:189 deps confirmed as [isEs, entitySingular, entityPlural]. Iter 255's 2 hits were indeed FALSE-POSITIVES caused by a stale webpack bundle. Tenant deleted at the end (no residue).",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {
+        "screen": "Gestion de Recursos > Packing List (agency, ES) - carry-over, out of scope per main agent",
+        "issues": [
+          "KPI 'INVITADOS' renders '8.00' (float for a head count) - should be integer.",
+          "'INVITADOS' label is not terminology-driven for an agency tenant.",
+          "Sub-tab chip label 'Packing List' remains in English inside an ES tenant.",
+          "Select empty-state item 'No hay proyectos confirmados' uses very light grey text on white - low contrast."
+        ]
+      },
+      {
+        "screen": "Login bootstrap - carry-over, out of scope",
+        "issues": ["App boots in English on a fresh session even though the org default_language='es'; Spanish still required seeding localStorage eep_language='es' before login."]
+      }
+    ]
+  },
+  "test_report_links": ["/app/test_reports/setup_v9.py", "/app/test_reports/iteration_256.json"],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "EventPackingSection.js:281 and :307 now correctly use term(); no hardcoded 'Evento' literals remain in the file.",
+    "Iter 255's NOT-FIXED verdict was a stale-bundle artifact. Future terminology verifications MUST hard-reload (window.location.reload(true)) after a code change or the CRA dev bundle can serve pre-fix chunks."
+  ],
+  "updated_files": [],
+  "success_rate": { "backend": "n/a (frontend-only round)", "frontend": "100% (3/3 verification points FIXED)" },
+  "seed_data_creation": "Created demo tenant terminology_v6@kora.com (agency, module_resource_management), promoted 3 projects to Committed for the Dashboard check; tenant DELETED at the end (delete returned success, 8 events / 1 user / 3 addons / 1 org config removed).",
+  "should_call_test_agent_after_fix": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Terminology multi-tenant bug for EventPackingSection + Dashboard is CLOSED (verified on screen iter 256). Reproduce env with /app/test_reports/setup_v9.py create|promote|delete (must use modules_to_activate=['module_program_orchestration','module_demand_studio','module_resource_management'] - the legacy key 'module_operations_supplies' is still silently ignored by /api/addons/enabled-modules). Set localStorage eep_language='es' before login for Spanish. Remaining open items are design-only: float 'INVITADOS 8.00', hardcoded 'INVITADOS' label, English 'Packing List' chip, and English app bootstrap language.",
+  "rca_of_the_issue": "Both iter-255 'NOT FIXED' hits were false positives: the filesystem already contained the term()-based code at EventPackingSection.js:281/307, but the browser was served a cached webpack chunk from the pre-fix build, so the old hardcoded 'Evento' strings were rendered. A hard reload (window.location.reload(true)) on a fresh session shows the correct 'Proyecto'-based copy. Dashboard was already fixed by adding entitySingular/entityPlural to the fetchSystemData useCallback deps (line 189), eliminating the stale closure."
+}

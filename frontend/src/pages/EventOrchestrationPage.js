@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useLanguage } from "../contexts/LanguageContext";
+import { useTerminology } from "../hooks/useTerminology";
 import { useModules } from "../contexts/ModulesContext";
 import { Routes, Route, NavLink, Navigate, useParams, useNavigate, useLocation } from "react-router-dom";
 import axios from "axios";
@@ -341,6 +342,7 @@ function EventDetail() {
   const { eventId } = useParams();
   const { language } = useLanguage();
   const isEs = language === "es";
+  const { term } = useTerminology();
   const { getProgramOrchestrationConfig, getFieldLabel, isEventsIndustry } = useModules();
   const navigate = useNavigate();
   const [event, setEvent] = useState(null);
@@ -371,7 +373,7 @@ function EventDetail() {
       }
     } catch (err) {
       console.error(err);
-      toast.error(isEs ? "Error al cargar evento" : "Failed to load event");
+      toast.error(isEs ? `Error al cargar ${term("events", "entity_singular").toLowerCase()}` : `Failed to load ${term("events", "entity_singular").toLowerCase()}`);
     }
     setLoading(false);
   }, [eventId, isEs]);

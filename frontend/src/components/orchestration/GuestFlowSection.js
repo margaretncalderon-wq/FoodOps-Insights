@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useTerminology } from "../../hooks/useTerminology";
 import axios from "axios";
 import { toast } from "sonner";
 import QRCode from "react-qr-code";
@@ -24,6 +25,7 @@ const ACTIVATION_TYPES = [
 
 export default function GuestFlowSection({ eventId, language }) {
   const isEs = language === "es";
+  const { term } = useTerminology();
   const [activations, setActivations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [createDialog, setCreateDialog] = useState(false);
@@ -292,7 +294,7 @@ export default function GuestFlowSection({ eventId, language }) {
               </div>
             </div>
             <div>
-              <Label>{isEs ? "Logo del evento (URL)" : "Event Logo (URL)"}</Label>
+              <Label>{isEs ? `Logo del ${term("events", "entity_singular").toLowerCase()} (URL)` : `${term("events", "entity_singular")} Logo (URL)`}</Label>
               <Input
                 value={newAct.logo_url}
                 onChange={e => setNewAct({ ...newAct, logo_url: e.target.value })}

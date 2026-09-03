@@ -1,0 +1,49 @@
+{
+  "summary": "Frontend-only terminology verification for agency tenant. Created demo terminology_v6@kora.com (industry_type=agency, modules program_orchestration + demand_studio) via super-admin API, promoted 2 seeded projects to stage=Committed so they appear in Orquestación de Programas, then walked EVERY visible project tab in Spanish and regex-scanned rendered text for 'Evento/Eventos'. Found 1 CRITICAL pre-existing crash bug (3 files used term() without destructuring it from useTerminology -> ReferenceError, Calendar/Operational Flow/Experience Design tabs would blank out) which I fixed (3 one-line destructures, in-scope coding bug), plus 4 still-visible Spanish 'evento' strings that the iteration-249/250 fix missed, and 1 backend blocker on Cerrar Proyecto for non-events industries. Demo account deleted at the end (cascade delete confirmed).",
+  "backend_issues": {
+    "critical": [
+      {"endpoint": "POST /api/orchestration/events/{id}/close", "issue": "Returns 400 'Only Won events can be closed' because it checks stage in ['Won'], but non-events industries map Won->Committed (ENGAGEMENT_STAGES). Result: 'Cerrar Proyecto' button is broken for agency/consulting/generic tenants. Also the error message says 'events' instead of using tenant terminology.", "priority": "HIGH"}
+    ],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "TeamRolesTab.js:219", "issue": "Locked banner still hardcoded ES 'Evento cerrado. Los roles no se pueden modificar.' — VISIBLE on agency tenant when project stage=Closed (screenshot verified). Claimed fixed in this iteration but is not.", "selector": "[data-testid=\"team-roles-tab\"]", "priority": "HIGH"},
+      {"component": "PostEventReviewTab.js:130", "issue": "VISIBLE ES text 'La revisión post-evento estará disponible cuando el evento se marque como ganado o perdido.' on Post-Review tab of an agency project.", "selector": "[role=tab] Post-Review", "priority": "HIGH"},
+      {"component": "OperationalDocumentsTab.js:146", "issue": "VISIBLE ES text 'Genera y gestiona documentos para la ejecución del evento' in Documentos > Documentos Generados sub-tab.", "selector": "Documentos tab", "priority": "MEDIUM"},
+      {"component": "components/operations/EventPackingSection.js:430", "issue": "VISIBLE ES text 'Reserva inventario para este evento desde el menú/receta...' in Documentos > Packing List / Montaje sub-tab (file not in the fix list — additional finding).", "selector": "Documentos > Packing List", "priority": "MEDIUM"},
+      {"component": "EventBinderTab.js:38,82,99,120", "issue": "Binder content header hardcoded English 'Event Binder' while the tab trigger correctly reads 'Proyecto Binder' — inconsistent for ES agency tenant.", "selector": "Proyecto Binder tab", "priority": "LOW"},
+      {"component": "TeamRolesTab.js:22", "issue": "Role option labelEs 'Coordinador de Evento' (dropdown) still says Evento for agency tenant.", "selector": "operational role select", "priority": "LOW"},
+      {"component": "EventCalendarTab.js:293", "issue": "Conflict warning ES string '{n} fecha(s) con múltiples eventos' hardcoded (only shows when 2+ items share a date; not reproduced live, code-level finding).", "selector": "Proyecto Calendar", "priority": "LOW"},
+      {"component": "ProductionAssetsTab.js:594", "issue": "Link-item dialog ES helper 'el costo del item aparecerá automáticamente en el resumen del evento.' hardcoded.", "selector": "Production Assets link dialog", "priority": "LOW"}
+    ],
+    "integration_issues": [
+      {"flow": "Cerrar Proyecto (agency)", "issue": "UI confirm text is correct ('¿Estás seguro de cerrar este proyecto?') but the API rejects with 400, so closing a project is impossible for agency tenants. Verified by direct API call.", "affected_selectors": ["button:has-text('Cerrar Proyecto')"]}
+    ],
+    "design_issues": []
+  },
+  "test_report_links": ["/app/test_reports/iteration_251.json"],
+  "action_items": [
+    "Fix backend close_event/reopen_event stage gating to accept 'Committed' (or map via ENGAGEMENT_STAGES) so Cerrar Proyecto works for non-events industries.",
+    "Replace remaining hardcoded ES 'evento' strings with term('events','entity_singular'): TeamRolesTab.js:22 & 219, PostEventReviewTab.js:130, OperationalDocumentsTab.js:146, EventCalendarTab.js:293, ProductionAssetsTab.js:594, components/operations/EventPackingSection.js:430.",
+    "Make EventBinderTab header use terminology instead of hardcoded 'Event Binder' (lines 38, 82, 99, 120).",
+    "Run `eslint` (no-undef) after terminology refactors — the same missing-destructure mistake will white-screen tabs silently."
+  ],
+  "critical_code_review_comments": [
+    "CRITICAL (fixed by me): EventCalendarTab.js, ExperienceDesignTab.js and OperationalFlowTab.js imported useTerminology but never called it, while using term(...) in JSX — 12 eslint no-undef errors, guaranteed ReferenceError render crash on the Proyecto Calendar, Operational Flow and Experience Design tabs. Added `const { term } = useTerminology();` in each component.",
+    "The terminology fix pattern is inconsistent: some files use useTerminology().term, EventOrchestrationPage uses useModules().getProgramOrchestrationConfig() entity_singular_es. Consolidate on one source to avoid future drift.",
+    "ExperienceDesignTab / Room Setup / Run of Show tabs are gated behind isEventsIndustry, so they are NOT visible for agency tenants — their terminology can only be validated on an events tenant."
+  ],
+  "updated_files": [
+    "/app/frontend/src/components/orchestration/EventCalendarTab.js",
+    "/app/frontend/src/components/orchestration/ExperienceDesignTab.js",
+    "/app/frontend/src/components/orchestration/OperationalFlowTab.js"
+  ],
+  "success_rate": {"backend": "not tested (frontend-only request)", "frontend": "70% (5 of 8 visible tabs fully clean; 3 tabs show 'evento' strings; 3 tabs were crash-broken before my lint fix)"},
+  "seed_data_creation": "Created demo terminology_v6@kora.com / Test1234! (company_3d81685332e0, agency, 8 clients/8 projects/8 proposals), promoted 2 projects to Committed, forced 1 project to stage=Closed in Mongo to verify the locked banner. Account fully deleted via super-admin API at the end (cascade: 1 user, 8 events, 8 leads, 8 proposals, 1 company).",
+  "should_call_test_agent_after_fix": true,
+  "should_main_agent_self_test": false,
+  "test_credentials": "Super admin demo.agency@kora.com / Evoque2024! (from /app/memory/test_credentials.md). terminology_v6@kora.com deleted.",
+  "context_for_next_testing_agent": "Seeded agency demos land in stage 'Inquiry Received' so /event-orchestration is EMPTY — you must PUT /api/events/{id} {stage:'Committed'} for projects to appear. Agency tenants only see 8 tabs: Proyecto Blueprint, Operational Flow, Team & Roles, Production Assets, Documentos, Proyecto Calendar, Post-Review, Proyecto Binder. Set language with localStorage 'eep_language'='es'. Verified CLEAN in ES: Blueprint (Resumen del Proyecto, Tipo de Proyecto, ¿Qué debe lograr este proyecto?, ...proyecto fue exitoso), Operational Flow ('Elementos de los que depende el proyecto'), Guest Flow dialog ('Logo del proyecto (URL)'), Proyecto Calendar ('Calendario del Proyecto'), Binder body ('Resumen del Proyecto'), close confirm ('¿Estás seguro de cerrar este proyecto?'), locked banner in page header ('Este proyecto está cerrado...').",
+  "rca_of_the_issue": "Iteration 249/250 replaced literals with term('events','entity_singular') but (a) forgot to destructure `term` in 3 files (runtime crash) and (b) missed 6 additional ES literals plus the English 'Event Binder' header. The Cerrar Proyecto 400 is a separate pre-existing backend bug: stage gating hardcodes 'Won' while non-events industries use the 'Committed' stage label."
+}

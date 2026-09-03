@@ -2070,7 +2070,7 @@ async def get_campaign_insights(user: User = Depends(get_current_user)):
 
 # ---- Campaign Access Management (for Marketing Partners) ----
 
-async def get_user_role(user: User, company_id: str) -> str:
+async def get_user_role(user: User, company_id: str) -> str:  # noqa: F811
     """Get the user's role in the company"""
     # Super admins always have owner privileges
     if getattr(user, 'is_super_admin', False):

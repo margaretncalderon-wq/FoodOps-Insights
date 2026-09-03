@@ -2505,9 +2505,6 @@ async def validate_import_file(
     Validate an import file and return preview with validation status per row.
     Does NOT import - just validates and returns preview data.
     """
-    import pandas as pd
-    import io
-    
     filename = file.filename.lower()
     if not (filename.endswith('.csv') or filename.endswith('.xlsx') or filename.endswith('.xls')):
         raise HTTPException(status_code=400, detail="Only CSV and Excel files are supported")
@@ -2720,9 +2717,6 @@ async def import_inventory_from_file(
     - notes: Additional notes
     - inventory_type: food or packaging (defaults to food)
     """
-    import pandas as pd
-    import io
-    
     # Validate file type
     filename = file.filename.lower()
     if not (filename.endswith('.csv') or filename.endswith('.xlsx') or filename.endswith('.xls')):
@@ -2924,8 +2918,6 @@ async def import_inventory_from_file(
 @inventory_router.get("/import-template")
 async def get_import_template(user: User = Depends(get_current_user)):
     """Get a sample CSV template for inventory import"""
-    import io
-    import csv
     
     output = io.StringIO()
     writer = csv.writer(output)

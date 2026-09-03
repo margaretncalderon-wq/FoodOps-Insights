@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useLanguage } from "../../contexts/LanguageContext";
+import { useTerminology } from "../../hooks/useTerminology";
 import axios from "axios";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../ui/card";
@@ -35,6 +36,7 @@ const RISK_LEVELS = [
 
 export default function OperationalFlowTab({ eventId }) {
   const { language } = useLanguage();
+  const { term } = useTerminology();
   const isEs = language === "es";
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -291,7 +293,7 @@ export default function OperationalFlowTab({ eventId }) {
         <CardHeader className="flex-row items-center justify-between">
           <div>
             <CardTitle className="text-base">{isEs ? "Dependencias" : "Dependencies"}</CardTitle>
-            <CardDescription>{isEs ? "Elementos de los que depende el evento" : "Elements the event depends on"}</CardDescription>
+            <CardDescription>{isEs ? `Elementos de los que depende el ${term("events", "entity_singular").toLowerCase()}` : `Elements the ${term("events", "entity_singular").toLowerCase()} depends on`}</CardDescription>
           </div>
           <Button variant="outline" size="sm" onClick={() => setDepDialog(true)}>
             <Plus className="w-4 h-4 mr-1" />

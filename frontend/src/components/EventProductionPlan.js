@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import axios from "axios";
 import { toast } from "sonner";
 import { useLanguage } from "../contexts/LanguageContext";
+import { useTerminology } from "../hooks/useTerminology";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "./ui/dialog";
 import { Button } from "./ui/button";
 import { Label } from "./ui/label";
@@ -24,6 +25,7 @@ import { fmtNum } from "../utils/format";
  */
 export default function EventProductionPlan({ open, onOpenChange, events = [] }) {
   const { language } = useLanguage();
+  const { term } = useTerminology();
   const [eventId, setEventId] = useState("");
   const [guestOverride, setGuestOverride] = useState("");
   const [plan, setPlan] = useState(null);
@@ -83,7 +85,7 @@ export default function EventProductionPlan({ open, onOpenChange, events = [] })
 
         <div className="grid grid-cols-1 sm:grid-cols-[1fr_140px_auto] gap-2 items-end">
           <div>
-            <Label className="text-xs">{language === "es" ? "Evento" : "Event"}</Label>
+            <Label className="text-xs">{language === "es" ? term("events", "entity_singular") : term("events", "entity_singular")}</Label>
             <Select value={eventId} onValueChange={setEventId}>
               <SelectTrigger data-testid="event-plan-event-select">
                 <SelectValue placeholder={language === "es" ? "Elige un evento..." : "Pick an event..."} />

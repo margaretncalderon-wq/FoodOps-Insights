@@ -1117,7 +1117,8 @@ async def stripe_webhook(request: Request):
         
         return {"status": "ok"}
     except Exception as e:
-        logger.error(f"Webhook error: {e}")
+        import logging
+        logging.getLogger(__name__).error(f"Webhook error: {e}")
         return {"status": "error", "message": str(e)}
 
 # ============== CLIENT FINANCIAL VIEW ==============
@@ -2968,7 +2969,7 @@ async def get_budget_alerts(
 # ============== FIXED COSTS & BUDGET ==============
 
 # Fixed Cost Category Model (Extended for Expense Categories)
-class FixedCostCategoryCreate(BaseModel):
+class FixedCostCategoryCreate(BaseModel):  # noqa: F811
     name: str
     description: Optional[str] = ""
     category_type: str = "operating"  # variable, operating, investment
@@ -3445,7 +3446,7 @@ class CloseExceptionUpdate(BaseModel):
     assigned_event_id: Optional[str] = None
     categorization: Optional[str] = None  # waste, shrink, correction, overhead
 
-class CashSnapshotCreate(BaseModel):
+class CashSnapshotCreate(BaseModel):  # noqa: F811
     opening_cash: float
     closing_cash: float
     cash_in: float
@@ -4204,7 +4205,7 @@ class PhysicalCountItem(BaseModel):
     counted_qty: float
     notes: Optional[str] = None
 
-class PhysicalCountCreate(BaseModel):
+class PhysicalCountCreate(BaseModel):  # noqa: F811
     items: List[PhysicalCountItem]
     count_date: Optional[str] = None
     notes: Optional[str] = None
@@ -5463,7 +5464,7 @@ async def get_cost_center_actual_report(
 
 
 @business_clarity_router.get("/reports/budget-alerts")
-async def get_budget_alerts(
+async def get_budget_alerts(  # noqa: F811
     user: User = Depends(get_current_user),
     year: int = None,
     month: int = None,
@@ -6402,7 +6403,7 @@ async def get_purchases_report(
 
 # ============== ACCOUNTING ENGINE / MOTOR DE CONTABILIZACIÓN ==============
 
-from services.accounting_engine import AccountingEngine, TransactionType
+# AccountingEngine + TransactionType already imported at top of module
 
 @business_clarity_router.get("/accounting/entries")
 async def get_accounting_entries(
@@ -6773,6 +6774,8 @@ async def get_petty_cash(
     # Calculate totals
     total_deposits = sum(t.get("amount", 0) for t in transactions if t.get("transaction_type") == "deposit")
     total_withdrawals = sum(t.get("amount", 0) for t in transactions if t.get("transaction_type") == "withdrawal")
+    if isinstance(fund, dict):
+        fund.pop("_id", None)
     
     return {
         "fund": fund,

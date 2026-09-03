@@ -263,9 +263,8 @@ async def upload_asset(
     filepath = UPLOADS_DIR / filename
     
     try:
-        with open(filepath, "wb") as f:
-            content = await file.read()
-            f.write(content)
+        _content = await file.read()
+        filepath.write_bytes(_content)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to save file: {str(e)}")
     

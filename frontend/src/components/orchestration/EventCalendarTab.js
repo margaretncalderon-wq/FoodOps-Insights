@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useLanguage } from "../../contexts/LanguageContext";
+import { useTerminology } from "../../hooks/useTerminology";
 import axios from "axios";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
@@ -103,6 +104,7 @@ const explodeEventsIntoEntries = (events) => {
 
 export default function EventCalendarTab({ eventId, isGlobal = false }) {
   const { language } = useLanguage();
+  const { term } = useTerminology();
   const isEs = language === "es";
   const [loading, setLoading] = useState(true);
   const [events, setEvents] = useState([]);
@@ -246,8 +248,8 @@ export default function EventCalendarTab({ eventId, isGlobal = false }) {
           <h2 className="text-lg font-semibold flex items-center gap-2">
             <Calendar className="w-5 h-5" />
             {isGlobal
-              ? (isEs ? "Calendario Global de Eventos" : "Global Event Calendar")
-              : (isEs ? "Calendario del Evento" : "Event Calendar")}
+              ? (isEs ? `Calendario Global de ${term("events", "entity_plural")}` : `Global ${term("events", "entity_singular")} Calendar`)
+              : (isEs ? `Calendario del ${term("events", "entity_singular")}` : `${term("events", "entity_singular")} Calendar`)}
           </h2>
           {/* View toggle */}
           <div className="inline-flex rounded-md border bg-background overflow-hidden" data-testid="calendar-view-toggle">
@@ -289,8 +291,8 @@ export default function EventCalendarTab({ eventId, isGlobal = false }) {
               <AlertTriangle className="w-4 h-4" />
               <span className="text-sm">
                 {isEs
-                  ? `${Object.keys(conflicts).length} fecha(s) con múltiples eventos`
-                  : `${Object.keys(conflicts).length} date(s) with multiple events`}
+                  ? `${Object.keys(conflicts).length} fecha(s) con múltiples ${term("events", "entity_plural").toLowerCase()}`
+                  : `${Object.keys(conflicts).length} date(s) with multiple ${term("events", "entity_plural").toLowerCase()}`}
               </span>
             </div>
           </CardContent>

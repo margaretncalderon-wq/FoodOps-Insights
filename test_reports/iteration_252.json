@@ -1,0 +1,35 @@
+{
+  "summary": "Frontend-only re-verification of the 7 residual terminology hits from iteration 251 on an agency tenant in Spanish. Recreated demo terminology_v6@kora.com (industry_type=agency, modules program_orchestration + demand_studio), promoted 3 seeded projects to stage=Committed, forced 1 to stage=Closed in Mongo, and set 2 projects to the same date to trigger the calendar conflict banner. VERDICT: all 7 hits are FIXED and render 'Proyecto/proyecto' correctly. HOWEVER I first found and fixed a blocking no-undef bug: ProductionAssetsTab.js imported useTerminology but never destructured `term`, so the 'Vincular a Inventario' dialog would have thrown a ReferenceError (same mistake pattern as iteration 251). After that 1-line fix, hit (e) renders correctly. Demo account fully deleted at the end.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "ProductionAssetsTab.js:43", "issue": "FIXED BY ME (in-scope no-undef crash): `term(...)` used at lines 595-596 without `const { term } = useTerminology();` -> ReferenceError would blank the Production Assets tab as soon as the link dialog rendered. Added the destructure. Main agent: add an eslint no-undef gate to this refactor workflow, this is the 4th file with the same mistake.", "selector": "[data-testid^=\"asset-link-\"]", "priority": "HIGH"},
+      {"component": "EventBinderTab.js:38", "issue": "Residual hardcoded English/event string in the error toast: 'Error al cargar Event Binder' / 'Failed to load Event Binder' — should use term('events','entity_singular'). Not visible in the happy path (only on fetch failure).", "selector": "toast on binder load error", "priority": "LOW"},
+      {"component": "components/operations/EventPackingSection.js:430", "issue": "STILL VISIBLE for agency tenants (Documentos > Packing List / Montaje sub-tab): 'Reserva inventario para este evento desde el menú/receta o desde Gestión de Recursos → Compras.' Confirmed rendered on screen for the agency project, so the earlier assumption that this file is culinary-only/not reachable is incorrect.", "selector": "[data-testid=\"operational-documents-tab\"] Packing List", "priority": "MEDIUM"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Documentos > Documentos Generados (agency tenant)", "issues": ["Offers culinary-specific documents to an agency tenant: 'Hoja de Cocina — Recetas y preparación para cocina', 'Menú — Menú del proyecto para imprimir', 'Lista de Montaje — Equipos, servicio, decoración - NO comida'. Irrelevant for agency/consulting industries; these cards should be gated by industry/modules."]}
+    ]
+  },
+  "test_report_links": ["/app/test_reports/iteration_252.json", "/app/test_reports/setup_v6.py"],
+  "action_items": [
+    "Run an eslint no-undef pass over src/ after terminology refactors (I found ProductionAssetsTab.js missing the `term` destructure and fixed it).",
+    "Replace 'Event Binder' in EventBinderTab.js:38 toast with terminology.",
+    "Replace 'este evento' in components/operations/EventPackingSection.js:430 — it IS visible on the agency Documentos > Packing List tab.",
+    "Gate the culinary document cards (Hoja de Cocina / Menú / Lista de Montaje) by industry so agency tenants don't see them.",
+    "Still open from iteration 251 (out of scope here): POST /api/orchestration/events/{id}/close rejects Committed stage -> 'Cerrar Proyecto' broken for non-events industries."
+  ],
+  "critical_code_review_comments": [
+    "Terminology refactors keep shipping `term(...)` without destructuring from useTerminology (4 files so far). Either add a lint gate or expose `term` via a context that fails loudly at import time.",
+    "Terminology is sourced two ways (useTerminology().term vs useModules().getProgramOrchestrationConfig()) — consolidate to prevent drift."
+  ],
+  "updated_files": ["/app/frontend/src/components/orchestration/ProductionAssetsTab.js"],
+  "success_rate": {"backend": "not tested (frontend-only request)", "frontend": "100% of the 7 targeted hits verified FIXED (1 required my no-undef fix first)"},
+  "seed_data_creation": "Created demo terminology_v6@kora.com / Test1234! (company_32d20c891f35, agency, 8 clients/8 projects/8 proposals); promoted event_727913bcf865, event_2bf677aacd0c, event_f30a17ca8c39 to Committed; set 2 to date 2026-09-15 for the calendar conflict; forced event_f30a17ca8c39 stage=Closed in Mongo; added 1 TEST_Asset. Account deleted via super-admin API (cascade: 1 user, 8 events, 8 leads, 8 proposals, 1 company, 2 addons, 1 config).",
+  "should_call_test_agent_after_fix": false,
+  "should_main_agent_self_test": true,
+  "test_credentials": "Super admin demo.agency@kora.com / Evoque2024!. terminology_v6@kora.com deleted after testing.",
+  "context_for_next_testing_agent": "Verified rendered ES strings on agency tenant: (a) 'Proyecto cerrado. Los roles no se pueden modificar.' (b) 'La revisión post-proyecto estará disponible cuando el proyecto se marque como ganado o perdido.' (c) 'Genera y gestiona documentos para la ejecución del proyecto' (d) '1 fecha(s) con múltiples proyectos' (e) 'Al vincular, el costo del item aparecerá automáticamente en el resumen del proyecto.' (f) tab+header 'Proyecto Binder' (g) 'Proyecto Binder - Generado: <date>'. Repro tips: PUT /api/events/{event_id} {stage:'Committed'} (id field is event_id, NOT id); stage 'Closed' must be set directly in Mongo because the PUT normalizes it to 'Archived'; calendar conflict banner needs 2 events sharing a date in the visible month. Setup script: /app/test_reports/setup_v6.py.",
+  "rca_of_the_issue": "All 7 iteration-251 terminology literals were correctly replaced with term('events','entity_singular'/'entity_plural'). The only defect left in the fix batch was a missing `const { term } = useTerminology();` in ProductionAssetsTab.js, which would have raised ReferenceError when the inventory-link dialog rendered; fixed in place (in-scope coding bug)."
+}

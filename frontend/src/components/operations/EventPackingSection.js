@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import { useLanguage } from "../../contexts/LanguageContext";
+import { useTerminology } from "../../hooks/useTerminology";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../ui/card";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
@@ -39,6 +40,7 @@ import { fmtNum } from "../../utils/format";
  */
 export function EventPackingSection({ eventId: eventIdProp = null, embedded = false } = {}) {
   const { language } = useLanguage();
+  const { term } = useTerminology();
   const isEs = language === "es";
   const t = (es, en) => (isEs ? es : en);
 
@@ -276,7 +278,7 @@ export function EventPackingSection({ eventId: eventIdProp = null, embedded = fa
             <div>
               <CardTitle className="flex items-center gap-2">
                 <PackageCheck className="w-5 h-5" />
-                {t("Packing List por Evento", "Packing List by Event")}
+                {t(`Packing List por ${term("events", "entity_singular")}`, `Packing List by ${term("events", "entity_singular")}`)}
               </CardTitle>
               <CardDescription>
                 {t("Marca cada equipo como empacado y genera el conduce de salida en un clic.",
@@ -290,19 +292,19 @@ export function EventPackingSection({ eventId: eventIdProp = null, embedded = fa
         </CardHeader>
         <CardContent>
           <div className="space-y-2 max-w-xl">
-            <Label>{t("Evento", "Event")}</Label>
+            <Label>{t(term("events", "entity_singular"), term("events", "entity_singular"))}</Label>
             <Select
               value={selectedEventId}
               onValueChange={setSelectedEventId}
               disabled={loadingEvents}
             >
               <SelectTrigger data-testid="event-packing-select">
-                <SelectValue placeholder={t("Selecciona un evento", "Select an event")} />
+                <SelectValue placeholder={t(`Selecciona un ${term("events", "entity_singular").toLowerCase()}`, `Select ${term("events", "entity_singular").toLowerCase()}`)} />
               </SelectTrigger>
               <SelectContent>
                 {events.length === 0 && (
                   <SelectItem value="__none" disabled>
-                    {loadingEvents ? t("Cargando…", "Loading…") : t("No hay eventos confirmados", "No confirmed events")}
+                    {loadingEvents ? t("Cargando…", "Loading…") : t(`No hay ${term("events", "entity_plural").toLowerCase()} confirmados`, `No confirmed ${term("events", "entity_plural").toLowerCase()}`)}
                   </SelectItem>
                 )}
                 {events.map((ev) => (
@@ -427,8 +429,8 @@ export function EventPackingSection({ eventId: eventIdProp = null, embedded = fa
                   <p className="font-medium">{t("Aún no hay items reservados", "No items reserved yet")}</p>
                   <p className="text-sm text-muted-foreground max-w-md mx-auto">
                     {t(
-                      "Reserva inventario para este evento desde el menú/receta o desde Gestión de Recursos → Compras. Aquí aparecerán para empacar.",
-                      "Reserve inventory for this event from the menu/recipe screen or Resource Management → Purchasing. They'll show up here to pack."
+                      `Reserva inventario para este ${term("events", "entity_singular").toLowerCase()} desde el menú/receta o desde Gestión de Recursos → Compras. Aquí aparecerán para empacar.`,
+                      `Reserve inventory for this ${term("events", "entity_singular").toLowerCase()} from the menu/recipe screen or Resource Management → Purchasing. They'll show up here to pack.`
                     )}
                   </p>
                   <Button
@@ -578,12 +580,12 @@ export function EventPackingSection({ eventId: eventIdProp = null, embedded = fa
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <LayoutTemplate className="w-5 h-5" />
-              {t("Aplicar plantilla al evento", "Apply template to event")}
+              {t(`Aplicar plantilla al ${term("events", "entity_singular").toLowerCase()}`, `Apply template to ${term("events", "entity_singular").toLowerCase()}`)}
             </DialogTitle>
             <DialogDescription>
               {t(
-                "Escoge una plantilla y el sistema calcula las cantidades usando los invitados del evento.",
-                "Pick a template; the system computes quantities using the event's guest count."
+                `Escoge una plantilla y el sistema calcula las cantidades usando los invitados del ${term("events", "entity_singular").toLowerCase()}.`,
+                `Pick a template; the system computes quantities using the ${term("events", "entity_singular").toLowerCase()}'s guest count.`
               )}
             </DialogDescription>
           </DialogHeader>

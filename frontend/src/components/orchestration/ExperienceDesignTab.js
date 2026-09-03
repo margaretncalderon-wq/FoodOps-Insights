@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useLanguage } from "../../contexts/LanguageContext";
+import { useTerminology } from "../../hooks/useTerminology";
 import axios from "axios";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../ui/card";
@@ -39,6 +40,7 @@ const MATERIAL_CATEGORIES = [
 
 export default function ExperienceDesignTab({ eventId }) {
   const { language } = useLanguage();
+  const { term } = useTerminology();
   const isEs = language === "es";
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -136,7 +138,7 @@ export default function ExperienceDesignTab({ eventId }) {
             {isEs ? "Paleta de Colores" : "Color Palette"}
           </CardTitle>
           <CardDescription>
-            {isEs ? "Define los colores principales del evento" : "Define the main colors for the event"}
+            {isEs ? `Define los colores principales del ${term("events", "entity_singular").toLowerCase()}` : `Define the main colors for the ${term("events", "entity_singular").toLowerCase()}`}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -272,9 +274,9 @@ export default function ExperienceDesignTab({ eventId }) {
           <div>
             <CardTitle className="flex items-center gap-2">
               <LayoutGrid className="w-5 h-5" />
-              {isEs ? "Zonas del Evento" : "Event Zones"}
+              {isEs ? `Zonas del ${term("events", "entity_singular")}` : `${term("events", "entity_singular")} Zones`}
             </CardTitle>
-            <CardDescription>{isEs ? "Áreas y espacios del evento" : "Areas and spaces of the event"}</CardDescription>
+            <CardDescription>{isEs ? `Áreas y espacios del ${term("events", "entity_singular").toLowerCase()}` : `Areas and spaces of the ${term("events", "entity_singular").toLowerCase()}`}</CardDescription>
           </div>
           <Button variant="outline" size="sm" onClick={() => setZoneDialog(true)}>
             <Plus className="w-4 h-4 mr-1" />

@@ -580,7 +580,7 @@ async def migrate_companies_from_leads(user: User = Depends(get_current_user)):
     # Find all unique company names from leads
     leads_with_companies = await db.leads.find({
         "company_id": org_id,
-        "company_name": {"$exists": True, "$ne": "", "$ne": None},
+        "company_name": {"$exists": True, "$nin": ["", None]},
         "client_type": "Company"
     }, {"company_name": 1, "lead_id": 1, "phone": 1, "email": 1, "address": 1, "city": 1, "country": 1, "rnc": 1}).to_list(1000)
     

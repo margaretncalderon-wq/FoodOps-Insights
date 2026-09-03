@@ -296,7 +296,7 @@ def test_backward_compat_missing_fields():
     h = {"Authorization": f"Bearer {tok}"}
 
     # Unset again for the actual test
-    import motor.motor_asyncio
+    import motor.motor_asyncio  # noqa: F811
     async def unset_and_test():
         client = motor.motor_asyncio.AsyncIOMotorClient(os.environ["MONGO_URL"])
         db = client[os.environ["DB_NAME"]]

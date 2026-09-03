@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useLanguage } from "../../contexts/LanguageContext";
+import { useTerminology } from "../../hooks/useTerminology";
 import axios from "axios";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../ui/card";
@@ -27,6 +28,7 @@ const COMMON_OPERATIONAL_ROLES = [
 
 export default function TeamRolesTab({ eventId, isLocked = false }) {
   const { language } = useLanguage();
+  const { term } = useTerminology();
   const isEs = language === "es";
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -64,7 +66,7 @@ export default function TeamRolesTab({ eventId, isLocked = false }) {
 
   const handleSave = async () => {
     if (isLocked || team.is_locked) {
-      toast.error(isEs ? "Evento cerrado. No se puede modificar." : "Event is closed. Cannot modify.");
+      toast.error(isEs ? `${term("events", "entity_singular")} cerrado. No se puede modificar.` : `${term("events", "entity_singular")} is closed. Cannot modify.`);
       return;
     }
     setSaving(true);
@@ -214,8 +216,8 @@ export default function TeamRolesTab({ eventId, isLocked = false }) {
             <p className="text-sm text-gray-600 flex items-center gap-2">
               <Lock className="w-4 h-4" />
               {isEs 
-                ? "Evento cerrado. Los roles no se pueden modificar." 
-                : "Event closed. Roles cannot be modified."}
+                ? `${term("events", "entity_singular")} cerrado. Los roles no se pueden modificar.` 
+                : `${term("events", "entity_singular")} closed. Roles cannot be modified.`}
             </p>
           </CardContent>
         </Card>

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useLanguage } from "../../contexts/LanguageContext";
+import { useTerminology } from "../../hooks/useTerminology";
 import axios from "axios";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../ui/card";
@@ -19,6 +20,7 @@ import { KoraLoader } from "../KoraLoader";
 
 export default function EventBinderTab({ eventId }) {
   const { language } = useLanguage();
+  const { term } = useTerminology();
   const isEs = language === "es";
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -33,7 +35,7 @@ export default function EventBinderTab({ eventId }) {
       setNotes(res.data.binder_notes || "");
     } catch (err) {
       console.error(err);
-      toast.error(isEs ? "Error al cargar Event Binder" : "Failed to load Event Binder");
+      toast.error(isEs ? `Error al cargar ${term("events", "entity_singular")} Binder` : `Failed to load ${term("events", "entity_singular")} Binder`);
     }
     setLoading(false);
   }, [eventId, isEs]);
@@ -77,7 +79,7 @@ export default function EventBinderTab({ eventId }) {
   if (!binder) return (
     <div className="text-center py-12 text-muted-foreground">
       <FileText className="w-12 h-12 mx-auto mb-4 opacity-50" />
-      <p>{isEs ? "No se pudo cargar el Event Binder" : "Could not load Event Binder"}</p>
+      <p>{isEs ? `No se pudo cargar el ${term("events", "entity_singular")} Binder` : `Could not load ${term("events", "entity_singular")} Binder`}</p>
     </div>
   );
 
@@ -94,10 +96,10 @@ export default function EventBinderTab({ eventId }) {
         <div>
           <h2 className="text-2xl font-bold flex items-center gap-2">
             <FileText className="w-6 h-6" />
-            Event Binder
+            {term("events", "entity_singular")} Binder
           </h2>
           <p className="text-muted-foreground">
-            {isEs ? "Fuente única de verdad del evento" : "Single source of truth for the event"}
+            {isEs ? `Fuente única de verdad del ${term("events", "entity_singular").toLowerCase()}` : `Single source of truth for the ${term("events", "entity_singular").toLowerCase()}`}
           </p>
         </div>
         <div className="flex gap-2">
@@ -115,7 +117,7 @@ export default function EventBinderTab({ eventId }) {
       {/* Print Header */}
       <div className="hidden print:block mb-8">
         <h1 className="text-3xl font-bold">{es?.name}</h1>
-        <p className="text-lg text-gray-600">Event Binder - {isEs ? "Generado" : "Generated"}: {formatDate(binder.generated_at)}</p>
+        <p className="text-lg text-gray-600">{term("events", "entity_singular")} Binder - {isEs ? "Generado" : "Generated"}: {formatDate(binder.generated_at)}</p>
       </div>
 
       {/* Event Snapshot */}
@@ -123,7 +125,7 @@ export default function EventBinderTab({ eventId }) {
         <CardHeader className="bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-t-lg">
           <CardTitle className="flex items-center gap-2">
             <Target className="w-5 h-5" />
-            {isEs ? "Resumen del Evento" : "Event Snapshot"}
+            {isEs ? `Resumen del ${term("events", "entity_singular")}` : `${term("events", "entity_singular")} Snapshot`}
           </CardTitle>
         </CardHeader>
         <CardContent className="pt-6">
@@ -405,7 +407,7 @@ export default function EventBinderTab({ eventId }) {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Star className="w-5 h-5" />
-              {isEs ? "Revisión Post-Evento" : "Post-Event Review"}
+              {isEs ? `Revisión Post-${term("events", "entity_singular")}` : `Post-${term("events", "entity_singular")} Review`}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -440,7 +442,7 @@ export default function EventBinderTab({ eventId }) {
         <CardHeader>
           <CardTitle className="text-base">{isEs ? "Notas del Binder" : "Binder Notes"}</CardTitle>
           <CardDescription>
-            {isEs ? "Notas manuales para este evento" : "Manual notes for this event"}
+            {isEs ? `Notas manuales para este ${term("events", "entity_singular").toLowerCase()}` : `Manual notes for this ${term("events", "entity_singular").toLowerCase()}`}
           </CardDescription>
         </CardHeader>
         <CardContent>

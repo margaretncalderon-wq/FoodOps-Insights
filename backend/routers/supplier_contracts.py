@@ -197,8 +197,8 @@ async def upload_contract_attachment(
     attachment_id = f"att_{uuid.uuid4().hex[:12]}"
     stored_name = f"{attachment_id}.{ext}"
     file_path = CONTRACT_ATTACHMENTS_DIR / stored_name
-    with file_path.open("wb") as f:
-        shutil.copyfileobj(file.file, f)
+    _sc = file.file.read()
+    file_path.write_bytes(_sc)
     size = file_path.stat().st_size
 
     attachment = {

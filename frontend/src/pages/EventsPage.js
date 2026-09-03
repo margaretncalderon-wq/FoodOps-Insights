@@ -469,7 +469,7 @@ export default function EventsPage({ embedded = false }) {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="font-heading text-3xl font-bold text-foreground">
-            {embedded ? (isEs ? "Propuestas & Acuerdos" : "Proposals & Agreements") : t("events")}
+            {embedded ? (isEs ? "Propuestas & Acuerdos" : "Proposals & Agreements") : entityPlural}
           </h1>
           <p className="text-muted-foreground mt-1">
             {isEs 

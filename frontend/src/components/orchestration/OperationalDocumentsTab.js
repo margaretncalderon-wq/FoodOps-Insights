@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useTerminology } from "../../hooks/useTerminology";
 import axios from "axios";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../ui/card";
@@ -19,6 +20,7 @@ import { formatDateOnly } from "../../utils/dates";
 
 export default function OperationalDocumentsTab({ eventId, isLocked, language }) {
   const isEs = language === "es";
+  const { term } = useTerminology();
   const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(null);
@@ -96,7 +98,7 @@ export default function OperationalDocumentsTab({ eventId, isLocked, language })
     { 
       type: "menu", 
       label: isEs ? "Menú" : "Menu", 
-      description: isEs ? "Menú del evento para imprimir" : "Event menu for printing",
+      description: isEs ? `Menú del ${term("events", "entity_singular").toLowerCase()} para imprimir` : `${term("events", "entity_singular")} menu for printing`,
       icon: FileText,
       color: "text-teal-500"
     },
@@ -141,8 +143,8 @@ export default function OperationalDocumentsTab({ eventId, isLocked, language })
               </h3>
               <p className="text-sm text-muted-foreground">
                 {isEs 
-                  ? "Genera y gestiona documentos para la ejecución del evento"
-                  : "Generate and manage documents for event execution"}
+                  ? `Genera y gestiona documentos para la ejecución del ${term("events", "entity_singular").toLowerCase()}`
+                  : `Generate and manage documents for ${term("events", "entity_singular").toLowerCase()} execution`}
               </p>
             </div>
 

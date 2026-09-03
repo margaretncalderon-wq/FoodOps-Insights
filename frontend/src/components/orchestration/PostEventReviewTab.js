@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useLanguage } from "../../contexts/LanguageContext";
+import { useTerminology } from "../../hooks/useTerminology";
 import axios from "axios";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../ui/card";
@@ -17,6 +18,7 @@ import { KoraLoader } from "../KoraLoader";
 
 export default function PostEventReviewTab({ eventId, eventStatus }) {
   const { language } = useLanguage();
+  const { term } = useTerminology();
   const isEs = language === "es";
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -127,8 +129,8 @@ export default function PostEventReviewTab({ eventId, eventStatus }) {
               <AlertTriangle className="w-4 h-4" />
               <span className="text-sm">
                 {isEs 
-                  ? "La revisión post-evento estará disponible cuando el evento se marque como ganado o perdido."
-                  : "Post-event review will be available when the event is marked as won or lost."}
+                  ? `La revisión post-${term("events", "entity_singular").toLowerCase()} estará disponible cuando el ${term("events", "entity_singular").toLowerCase()} se marque como ganado o perdido.`
+                  : `Post-${term("events", "entity_singular").toLowerCase()} review will be available when the ${term("events", "entity_singular").toLowerCase()} is marked as won or lost.`}
               </span>
             </div>
           </CardContent>

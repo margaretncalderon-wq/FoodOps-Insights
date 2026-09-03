@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useLanguage } from "../../contexts/LanguageContext";
+import { useTerminology } from "../../hooks/useTerminology";
 import axios from "axios";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../ui/card";
@@ -40,6 +41,7 @@ const ASSET_STATUSES = [
 
 export default function ProductionAssetsTab({ eventId }) {
   const { language } = useLanguage();
+  const { term } = useTerminology();
   const isEs = language === "es";
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -591,8 +593,8 @@ export default function ProductionAssetsTab({ eventId }) {
             </div>
             <p className="text-xs text-muted-foreground">
               {isEs
-                ? "Al vincular, el costo del item aparecerá automáticamente en el resumen del evento."
-                : "Once linked, the item cost will flow into the event's resource cost summary."}
+                ? `Al vincular, el costo del item aparecerá automáticamente en el resumen del ${term("events", "entity_singular").toLowerCase()}.`
+                : `Once linked, the item cost will flow into the ${term("events", "entity_singular").toLowerCase()}'s resource cost summary.`}
             </p>
           </div>
           <DialogFooter>

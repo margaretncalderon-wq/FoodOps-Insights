@@ -1,0 +1,55 @@
+import os, sys, json, requests
+from dotenv import dotenv_values
+
+BASE = dotenv_values("/app/frontend/.env")["REACT_APP_BACKEND_URL"].rstrip("/")
+s = requests.Session()
+r = s.post(f"{BASE}/api/auth/login", json={"email": "demo.agency@kora.com", "password": "Evoque2024!"})
+print("admin login", r.status_code)
+tok = r.json().get("access_token") or r.json().get("token")
+s.headers.update({"Authorization": f"Bearer {tok}"})
+
+action = sys.argv[1] if len(sys.argv) > 1 else "create"
+EMAIL = "terminology_v6@kora.com"
+
+r = s.get(f"{BASE}/api/super-admin/demo-accounts")
+accts = r.json() if isinstance(r.json(), list) else r.json().get("demo_accounts", [])
+existing = [a for a in accts if EMAIL in json.dumps(a)]
+print("existing:", [ (a.get('company_id'), a.get('owner_email') or a.get('email')) for a in existing])
+
+if action == "delete":
+    for a in existing:
+        cid = a.get("company_id") or a.get("id")
+        d = s.delete(f"{BASE}/api/super-admin/demo-accounts/{cid}")
+        print("delete", cid, d.status_code, d.text[:200])
+    sys.exit()
+
+if not existing:
+    r = s.post(f"{BASE}/api/super-admin/demo-accounts", json={
+        "email": EMAIL, "name": "Terminology V6", "password": "Test1234!",
+        "organization_name": "Terminology V6 Agency",
+        "industry_type": "agency", "account_type": "demo",
+        "modules_to_activate": ["module_program_orchestration", "module_demand_studio"],
+        "trial_days": 365,
+    })
+    print("create", r.status_code, r.text[:600])
+    cid = r.json().get("company_id")
+else:
+    cid = existing[0].get("company_id") or existing[0].get("id")
+print("company_id", cid)
+
+# login as tenant and promote projects
+t = requests.Session()
+r = t.post(f"{BASE}/api/auth/login", json={"email": EMAIL, "password": "Test1234!"})
+print("tenant login", r.status_code)
+ttok = r.json().get("access_token") or r.json().get("token")
+t.headers.update({"Authorization": f"Bearer {ttok}"})
+r = t.get(f"{BASE}/api/events")
+evs = r.json() if isinstance(r.json(), list) else r.json().get("events", [])
+print("events", len(evs))
+promoted = []
+for e in evs[:3]:
+    eid = e.get("id")
+    u = t.put(f"{BASE}/api/events/{eid}", json={"stage": "Committed"})
+    print("promote", eid, u.status_code, u.text[:150])
+    promoted.append(eid)
+print("PROMOTED", promoted)

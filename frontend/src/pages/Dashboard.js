@@ -186,7 +186,7 @@ export default function SystemPulse() {
     } finally {
       setLoading(false);
     }
-  }, [isEs]);
+  }, [isEs, entitySingular, entityPlural]);
 
   useEffect(() => {
     fetchSystemData();

@@ -171,8 +171,8 @@ async def upload_template_photo(
     ext = ext if ext.isalnum() and len(ext) <= 5 else "jpg"
     filename = f"tpl_{template_id}_{uuid.uuid4().hex[:8]}.{ext}"
     filepath = UPLOADS_DIR / filename
-    with open(filepath, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+    _b = file.file.read()
+    filepath.write_bytes(_b)
     photo_url = f"/api/uploads/{filename}"
 
     existing = list((tmpl or {}).get("setup_photos") or [])
