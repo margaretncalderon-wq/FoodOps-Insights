@@ -2014,8 +2014,8 @@ async def upload_recipe_image(recipe_id: str, file: UploadFile = File(...), user
     filepath = UPLOADS_DIR / filename
     
     # Save file
-    _rb = file.file.read()
-    filepath.write_bytes(_rb)
+    from utils.local_upload import save_bytes as _save
+    _save(filepath, file.file.read())
     
     # Update recipe with image URL
     image_url = f"/api/uploads/{filename}"

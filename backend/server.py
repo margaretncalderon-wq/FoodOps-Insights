@@ -8588,10 +8588,11 @@ async def upload_delivery_note_photo(
 
     ext = (file.filename or "").split(".")[-1].lower() if "." in (file.filename or "") else "jpg"
     ext = ext if ext.isalnum() and len(ext) <= 5 else "jpg"
-    filename = f"dn_{note_id}_{uuid.uuid4().hex[:8]}.{ext}"
+    _dn_name = f"dn_{note_id}_{uuid.uuid4().hex[:8]}.{ext}"
+    from utils.local_upload import save_bytes as _save_dn
+    _save_dn(UPLOADS_DIR / _dn_name, file.file.read())
+    filename = _dn_name
     filepath = UPLOADS_DIR / filename
-    _photo_bytes = file.file.read()
-    filepath.write_bytes(_photo_bytes)
     photo_url = f"/api/uploads/{filename}"
 
     existing = list((note or {}).get("setup_photos") or [])
@@ -16637,15 +16638,17 @@ async def upload_file(file: UploadFile = File(...), user: User = Depends(get_cur
     
     # Generate unique filename
     ext = file.filename.split(".")[-1] if "." in file.filename else "bin"
-    filename = f"{uuid.uuid4().hex[:16]}.{ext}"
-    filepath = UPLOADS_DIR / filename
+    _gen_name = f"{uuid.uuid4().hex[:16]}.{ext}"
     
     # Save file
     try:
         _content = await file.read()
-        filepath.write_bytes(_content)
+        from utils.local_upload import save_bytes as _save_gen
+        _save_gen(UPLOADS_DIR / _gen_name, _content)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to save file: {str(e)}")
+    filename = _gen_name
+    filepath = UPLOADS_DIR / filename
     
     # Return URL
     file_url = f"/api/uploads/{filename}"

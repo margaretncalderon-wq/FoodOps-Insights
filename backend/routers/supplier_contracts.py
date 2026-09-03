@@ -197,8 +197,8 @@ async def upload_contract_attachment(
     attachment_id = f"att_{uuid.uuid4().hex[:12]}"
     stored_name = f"{attachment_id}.{ext}"
     file_path = CONTRACT_ATTACHMENTS_DIR / stored_name
-    _sc = file.file.read()
-    file_path.write_bytes(_sc)
+    from utils.local_upload import save_bytes as _save
+    _save(file_path, file.file.read())
     size = file_path.stat().st_size
 
     attachment = {

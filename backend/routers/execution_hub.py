@@ -1524,7 +1524,8 @@ async def upload_execution_attachment(
     filename = f"exec_{uuid.uuid4().hex[:12]}.{ext}"
     filepath = EXEC_ATTACHMENTS_DIR / filename
     
-    filepath.write_bytes(content)
+    from utils.local_upload import save_bytes as _save
+    _save(filepath, content)
     
     is_image = file.content_type.startswith("image/")
     file_url = f"/api/uploads/exec_attachments/{filename}"

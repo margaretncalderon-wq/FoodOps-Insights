@@ -259,14 +259,16 @@ async def upload_asset(
     
     # Generate unique filename
     ext = file.filename.split(".")[-1] if "." in file.filename else "bin"
-    filename = f"studio_{uuid.uuid4().hex[:16]}.{ext}"
-    filepath = UPLOADS_DIR / filename
+    _filename = f"studio_{uuid.uuid4().hex[:16]}.{ext}"
     
     try:
         _content = await file.read()
-        filepath.write_bytes(_content)
+        from utils.local_upload import save_bytes as _save
+        _save(UPLOADS_DIR / _filename, _content)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to save file: {str(e)}")
+    filename = _filename
+    filepath = UPLOADS_DIR / filename
     
     file_url = f"/api/uploads/{filename}"
     media_type = "video" if file.content_type.startswith("video/") else "image"
@@ -286,7 +288,7 @@ async def upload_asset(
         "metadata_json": {
             "original_filename": file.filename,
             "content_type": file.content_type,
-            "size": len(content)
+            "size": len(_content)
         },
         "current_edit_json": {"sliders": DEFAULT_SLIDER_VALUES},
         "exports_json": [],

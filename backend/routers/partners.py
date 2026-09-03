@@ -1143,7 +1143,8 @@ async def upload_partner_attachment(
     filepath = PARTNER_ATTACHMENTS_DIR / filename
     
     # Save file
-    filepath.write_bytes(content)
+    from utils.local_upload import save_bytes as _save
+    _save(filepath, content)
     
     # Generate file URL
     file_url = f"/api/uploads/partner_attachments/{filename}"

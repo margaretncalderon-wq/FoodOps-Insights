@@ -6774,15 +6774,16 @@ async def get_petty_cash(
     # Calculate totals
     total_deposits = sum(t.get("amount", 0) for t in transactions if t.get("transaction_type") == "deposit")
     total_withdrawals = sum(t.get("amount", 0) for t in transactions if t.get("transaction_type") == "withdrawal")
-    if isinstance(fund, dict):
-        fund.pop("_id", None)
+    fund_view = dict(fund) if isinstance(fund, dict) else fund
+    if isinstance(fund_view, dict):
+        fund_view.pop("_id", None)
     
     return {
-        "fund": fund,
+        "fund": fund_view,
         "transactions": transactions,
         "summary": {
-            "current_balance": fund.get("current_balance", 0),
-            "fund_limit": fund.get("fund_limit", 5000),
+            "current_balance": fund_view.get("current_balance", 0) if isinstance(fund_view, dict) else 0,
+            "fund_limit": fund_view.get("fund_limit", 5000) if isinstance(fund_view, dict) else 5000,
             "total_deposits": total_deposits,
             "total_withdrawals": total_withdrawals,
             "transaction_count": len(transactions)
