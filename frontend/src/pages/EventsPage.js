@@ -1070,8 +1070,8 @@ export default function EventsPage({ embedded = false }) {
                   <SelectItem value="date_asc">{language === "es" ? "Fecha (más antigua)" : "Date (oldest)"}</SelectItem>
                   <SelectItem value="name_asc">{language === "es" ? "Nombre (A-Z)" : "Name (A-Z)"}</SelectItem>
                   <SelectItem value="name_desc">{language === "es" ? "Nombre (Z-A)" : "Name (Z-A)"}</SelectItem>
-                  <SelectItem value="guests_desc">{language === "es" ? "Más invitados" : "Most guests"}</SelectItem>
-                  <SelectItem value="guests_asc">{language === "es" ? "Menos invitados" : "Fewest guests"}</SelectItem>
+                  <SelectItem value="guests_desc">{isEs ? `Más ${guestsLabel.toLowerCase()}` : `Most ${guestsLabel.toLowerCase()}`}</SelectItem>
+                  <SelectItem value="guests_asc">{isEs ? `Menos ${guestsLabel.toLowerCase()}` : `Fewest ${guestsLabel.toLowerCase()}`}</SelectItem>
                   <SelectItem value="value_desc">{language === "es" ? "Mayor valor" : "Highest value"}</SelectItem>
                   <SelectItem value="value_asc">{language === "es" ? "Menor valor" : "Lowest value"}</SelectItem>
                   <SelectItem value="created_desc">{language === "es" ? "Creado recientemente" : "Recently created"}</SelectItem>
@@ -1160,7 +1160,15 @@ export default function EventsPage({ embedded = false }) {
                         : event.name}
                     </h3>
                   </Link>
-                  <p className="text-sm text-muted-foreground mb-4 capitalize">{event.event_type}</p>
+                  {event.event_type && (event.engagement_type === "event" || !event.engagement_type) && (
+                    <p className="text-sm text-muted-foreground mb-4 capitalize">{event.event_type}</p>
+                  )}
+                  {event.engagement_type === "project" && event.scope_summary && (
+                    <p className="text-sm text-muted-foreground mb-4 line-clamp-1">{event.scope_summary}</p>
+                  )}
+                  {event.engagement_type === "service" && event.scope_summary && (
+                    <p className="text-sm text-muted-foreground mb-4 line-clamp-1">{event.scope_summary}</p>
+                  )}
                   <div className="space-y-2 text-sm">
                     <div className="flex items-center gap-2 text-muted-foreground">
                       <CalendarIcon className="w-4 h-4" />
@@ -1187,10 +1195,18 @@ export default function EventsPage({ embedded = false }) {
                         {event.venue}
                       </div>
                     )}
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <Users className="w-4 h-4" />
-                      {event.guest_count} {language === "es" ? "invitados" : "guests"}
-                    </div>
+                    {(event.engagement_type === "event" || (!event.engagement_type && !isProfessionalServices)) && event.guest_count > 0 && (
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <Users className="w-4 h-4" />
+                        {event.guest_count} {guestsLabel.toLowerCase()}
+                      </div>
+                    )}
+                    {event.engagement_type === "project" && event.participant_count > 0 && (
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <Users className="w-4 h-4" />
+                        {event.participant_count} {isEs ? "participantes" : "participants"}
+                      </div>
+                    )}
                     {event.expected_value && (
                       <div className="flex items-center gap-2 text-green-600 font-medium">
                         <DollarSign className="w-4 h-4" />

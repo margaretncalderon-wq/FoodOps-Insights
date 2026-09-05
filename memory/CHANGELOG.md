@@ -1,6 +1,25 @@
 # Kora OS - Changelog
 
 
+## February 24, 2026 — Iteration 257 · Formulario Nuevo Proyecto/Servicio/Evento adaptativo por industria
+
+### 🐛 Bug reportado
+"Cuando creo un proyecto o servicio, la plataforma lo configura automáticamente como si fuera un evento (wedding) y solicita cantidad de invitados, fecha del evento." — negocios de servicios creativos/gestión no necesitan esos campos.
+
+### ✅ Fix
+- El código ya tenía el selector "Tipo de Trabajo" (event/project/service) y campos condicionados por `engagement_type`. Bug residual: dos hits mostraban labels de eventos incluso para proyectos.
+- `EventsPage.js:1073-1074` — sort dropdown "Más/Menos invitados" ahora usa `guestsLabel` de terminology (agency → "Más tamaño del equipo").
+- `EventsPage.js:1191-1204` — la card de la lista mostraba `event.guest_count invitados` para todo. Ahora condiciona: si `engagement_type='event'` → invitados; si `engagement_type='project'` → participantes; si no aplica, no se muestra.
+- Formulario ya trae por default `engagement_type='project'` para tenants agency/consulting (línea 122 `defaultEngagementType`).
+
+### Verificación
+Testing agent iter 257: 100% (4/4 verification points FIXED). Usuario agency ya puede crear proyectos sin campos de wedding.
+
+### Findings out-of-scope
+- Card residual muestra literal "wedding" bajo el nombre del proyecto (`event.event_type` default) — línea 1163 debería ocultar `event_type` cuando engagement_type='project'.
+- Cards de seeded projects renderizan "0" bajo "Remoto" (expected_value=0).
+
+
 ## February 24, 2026 — Iteration 256 · Verificación final del bug de terminología
 
 Re-verificación después de que iter 255 reportara 2 falsos-positivos (los hits en EventPackingSection.js:281 y :307 ya estaban usando `term()` desde iter 254; el testing agent leía un build cacheado de webpack). Todos los hits críticos verificados por grep en el filesystem actual.

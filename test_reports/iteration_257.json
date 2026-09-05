@@ -1,0 +1,33 @@
+{
+  "summary": "Iter 257 frontend-only verification of the adaptive engagement-type form for agency tenants (EventsPage.js modal embedded at /client-engagement/proposals). Fresh tenant terminology_v6@kora.com (industry=agency) logged in with eep_language='es'. ALL FOUR TARGETED VERIFICATION POINTS PASS ON SCREEN: (a) Clicked 'Agregar Proyecto' → modal opens with 'Tipo de Trabajo *' as the FIRST field, three buttons Evento/Proyecto/Servicio, and 'Proyecto' is the pre-selected default (border-primary + bg-primary) — matches defaultEngagementType='project' for isProfessionalServices agency, line 122. (b) Proyecto mode labels: NO 'Invitados', NO 'Tipo de Evento'; visible: 'Participantes', 'Presupuesto', 'Resumen del Alcance', 'Entregables', 'Nombre del Proyecto *', 'Fecha del Proyecto'. (c) Switching to Evento reveals 'Tipo de Evento' + 'Número de Invitados' + 'Ubicaciones del Evento'; 'Participantes' disappears. (d) Switching to Servicio reveals 'Descripción del Servicio' + 'Presupuesto', hides Invitados/Participantes; label becomes 'Nombre del Servicio *' and 'Fecha del Servicio'. Created 'Proyecto Test Digital' with client + participant_count=8: toast 'Proyecto creado' appeared and the new card renders '8 participantes' (NOT '0 invitados' — regression fix line 1191-1200 confirmed on screen; snippet: 'ProyectoPlanificaciónConsulta RecibidaProyecto Test DigitalweddingTBD8 participantes'). Sort dropdown for agency shows 'Más stakeholders' / 'Menos stakeholders' instead of hardcoded 'Más invitados' — guestsLabel terminology-driven (line 1073-1074) confirmed. Tenant deleted at the end.",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {
+        "screen": "Propuestas card (existing seeded projects, agency ES)",
+        "issues": [
+          "Existing seeded cards render a bare '0' line under 'Remoto' (appears to be expected_value=$0 rendered as just '0' or similar residual) — visually confusing but out of scope of this bug fix; only observed on seeded projects, not on the newly created one.",
+          "New card renders the literal token 'wedding' below the project name (comes from event_type default). For a Proyecto engagement_type, event_type ('wedding') should be hidden from the card subtitle (EventsPage.js line 1163 renders event.event_type unconditionally)."
+        ]
+      }
+    ]
+  },
+  "test_report_links": ["/app/test_reports/setup_v9.py", "/app/test_reports/iteration_257.json"],
+  "action_items": [
+    "Consider hiding the '<capitalize>{event.event_type}</capitalize>' subtitle on the card (EventsPage.js:1163) when engagement_type !== 'event', since it prints 'wedding' on projects/services regardless of type."
+  ],
+  "critical_code_review_comments": [
+    "EventsPage.js:122 defaultEngagementType, 528-551 selector, 908-927 guest_count guarded by engagement_type==='event', 929-969 project block, 971-990 service block, 1073-1074 sort labels via guestsLabel, and 1190-1200 card conditional (event vs project vs no-engagement) all render correctly on screen.",
+    "EventsPage.js:1163 still prints raw event.event_type ('wedding') on the card subtitle for every engagement type — should be conditioned on engagement_type==='event'."
+  ],
+  "updated_files": [],
+  "success_rate": { "backend": "n/a (frontend-only round)", "frontend": "100% (4/4 verification points FIXED)" },
+  "test_credentials": "Super admin demo.agency@kora.com / Evoque2024! ; ephemeral tenant terminology_v6@kora.com / Test1234! (created + deleted this iteration).",
+  "seed_data_creation": "Created tenant terminology_v6@kora.com (agency, modules: program_orchestration + demand_studio + resource_management, 8 seeded projects). Deleted at the end (delete returned success, 9 events/1 user/3 addons/1 org config removed).",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Adaptive engagement-type form is closed for agency tenants: modal defaults to 'Proyecto', guest_count/event_type are properly gated to engagement_type==='event', card renders 'N participantes' for projects, sort labels are terminology-driven. Reproduce with /app/test_reports/setup_v9.py create|delete. The modal is at /client-engagement/proposals (embedded EventsPage) NOT at /event-orchestration (which is the Committed-only execution layer). Minor open item: 'wedding' event_type subtitle still prints on non-event cards (line 1163).",
+  "rca_of_the_issue": "N/A — this iteration verified fixes from iter 256 predecessor. Both hits (card '0 invitados' → '8 participantes', sort 'Más invitados' → dynamic 'Más stakeholders') render correctly."
+}
