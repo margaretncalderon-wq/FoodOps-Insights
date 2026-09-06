@@ -185,7 +185,16 @@ def render_branded_html(
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
 
     if logo_url:
-        logo_html = f'<img src="{logo_url}" alt="{company_name}" style="height:{logo_px}px;max-width:{int(logo_px * 3.2)}px;object-fit:contain" />'
+        # Operational docs (kitchen sheets, packing lists, mise en place, BEO)
+        # should NOT have a huge branded header — the chef needs the content
+        # front and center. Cap the logo aggressively for those doc types.
+        _op_docs = {"kitchen_sheet", "packing_list", "mise_en_place", "beo", "timeline"}
+        if (document_type or "").lower() in _op_docs:
+            _op_size = {"small": 20, "medium": 26, "large": 34}
+            eff_px = _op_size.get(logo_size_key, 26)
+        else:
+            eff_px = logo_px
+        logo_html = f'<img src="{logo_url}" alt="{company_name}" style="height:{eff_px}px;max-width:{int(eff_px * 3.2)}px;object-fit:contain" />'
     else:
         logo_html = f'<div style="font-size:{max(16, logo_px // 3)}px;font-weight:800;color:{primary}">{company_name or "&nbsp;"}</div>'
 

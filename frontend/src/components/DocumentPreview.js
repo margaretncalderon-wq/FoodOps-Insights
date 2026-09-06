@@ -735,8 +735,14 @@ export default function DocumentPreview({
               {/* Logo block — lifted above the two-column layout so it can be
                   left/center/right-aligned independently of the text columns. */}
               {template?.show_logo !== false && company?.logo_url && (() => {
-                const sizeMap = { small: 40, medium: 56, large: 80 };
+                // Operational docs (kitchen_sheet, packing_list, BEO, mise_en_place)
+                // deben mostrar el logo pequeño y discreto — la primera página
+                // debe estar dominada por el contenido operativo, no la marca.
+                const sizeMap = isOperationalDoc
+                  ? { small: 20, medium: 26, large: 34 }
+                  : { small: 40, medium: 56, large: 80 };
                 const maxH = sizeMap[template?.logo_size] || sizeMap.medium;
+                const maxW = isOperationalDoc ? 110 : 240;
                 const pos = template?.logo_position || "left";
                 const justifyMap = { left: "flex-start", center: "center", right: "flex-end" };
                 return (
@@ -750,7 +756,7 @@ export default function DocumentPreview({
                       alt={company.name}
                       className="doc-logo"
                       data-logo-size={template?.logo_size || "medium"}
-                      style={{ maxHeight: `${maxH}px`, maxWidth: '240px', width: 'auto', height: 'auto', objectFit: 'contain' }}
+                      style={{ maxHeight: `${maxH}px`, maxWidth: `${maxW}px`, width: 'auto', height: 'auto', objectFit: 'contain' }}
                     />
                   </div>
                 );
