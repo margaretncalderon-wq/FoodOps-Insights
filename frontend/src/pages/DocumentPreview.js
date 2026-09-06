@@ -98,7 +98,12 @@ export default function DocumentPreview() {
   const order = content.order || {};
   const itemsByCategory = content.items_by_category || {};
   const itemsByTanda = content.items_by_tanda || {};
-  const isOperational = content.is_operational === true;
+  // Operational docs (kitchen, packing, mise, BEO) need a discreet logo so
+  // the content dominates. Fall back to doc_type when the backend forgot to
+  // stamp content.is_operational (legacy /generate/{id}/{doc_type} route).
+  const OPERATIONAL_DOC_TYPES = ["kitchen_sheet", "packing_list", "beo", "mise_en_place", "timeline"];
+  const isOperational = content.is_operational === true
+    || OPERATIONAL_DOC_TYPES.includes(document?.document_type);
   const financials = content.financials || {};
   const showPrices = content.show_prices !== false;
   const showInternalNotes = content.show_internal_notes === true;
@@ -180,7 +185,7 @@ export default function DocumentPreview() {
               <img 
                 src={company.logo_url.startsWith('/api') ? `${API.replace('/api', '')}${company.logo_url}` : company.logo_url} 
                 alt={company.legal_name || company.name} 
-                className={`object-contain doc-logo ${isOperational ? "h-6 max-w-[100px]" : "h-8 max-w-[130px]"}`}
+                className={`object-contain doc-logo ${isOperational ? "max-h-[22px] max-w-[95px]" : "max-h-[30px] max-w-[130px]"}`}
                 onError={(e) => { e.target.style.display = 'none'; }}
               />
             )}

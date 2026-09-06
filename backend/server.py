@@ -1490,6 +1490,9 @@ async def generate_document(event_id: str, doc_type: str, user: User = Depends(g
     
     # Add terms and conditions based on document type and language
     lang = company.get("default_language", "en") if company else "en"
+    # Operational docs must not carry heavy branding — flag it so the
+    # frontend caps the logo and skips financial totals.
+    content["is_operational"] = doc_type in ["kitchen_sheet", "packing_list", "beo", "mise_en_place", "timeline"]
     terms_key_map = {
         "quote": f"terms_proposal_{lang}",
         "proposal": f"terms_proposal_{lang}",

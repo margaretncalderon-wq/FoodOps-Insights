@@ -1,6 +1,25 @@
 # Kora OS - Changelog
 
 
+## February 26, 2026 — Iteration 259 · Logo cap global en todos los documentos
+
+**Problem**: El logo aparecía "super grande" en Hoja de Cocina y Lista de Montaje. El cap solo aplicaba en el print CSS, no en el preview on-screen. Además `pages/DocumentPreview.js` derivaba `isOperational` de `content.is_operational` que el endpoint legacy `POST /api/documents/generate` no seteaba → siempre caía en 32px.
+
+**Fixes aplicados (defensa en profundidad, 4 capas)**:
+- `frontend/src/components/DocumentPreview.js` — `sizeMap` condicional: docs operativos usan 20/26/34px en lugar de 40/56/80px; maxWidth 110px vs 240px.
+- `frontend/src/pages/DocumentPreview.js` — `isOperational` ahora también se deriva del `document_type` como fallback; caps tightened a max-h-22/max-w-95 (operativo) y max-h-30/max-w-130 (client-facing).
+- `backend/utils/print_templates.py` — `render_branded_html` acepta `document_type` y aplica 20/26/34px al `<img>` server-side cuando es operativo.
+- `backend/server.py::generate_document` — ahora estampa `content.is_operational=True` para kitchen_sheet, packing_list, beo, mise_en_place y timeline (antes solo lo hacía el flujo nuevo).
+- `frontend/src/index.css` — safety net CSS global con `!important`: `img.doc-logo/.brand-logo/.tmh-logo` capado a 32px/140px; `[data-operational="true"]` a 24px/100px. Ningún componente futuro puede escaparse del cap.
+
+**Validation**:
+- Screenshot Packing List: logo ~22px, header dominado por contenido.
+- Screenshot Quote: logo ~28px, legible pero no dominante.
+- Backend pytest `test_kitchen_beo_all_types.py` 2/2 verde.
+- Endpoint verifica `is_operational=True` para nuevos docs operativos.
+
+
+
 ## February 26, 2026 — Iteration 258 · Hojas de Cocina: horarios logísticos + Alquileres/Desechables agrupados
 
 **Problem**: User feedback — (1) Los artículos desechables no aparecen en la hoja de cocina, (2) falta hora de salida programable, (3) falta una hora de entrega interna distinta a la del cliente. Además pidió asegurar que Alquileres, Cristalería y demás items sin receta también aparezcan.

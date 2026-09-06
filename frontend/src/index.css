@@ -4,6 +4,27 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Global logo safety cap — even if a component forgets to size the logo,
+   this hard ceiling prevents any brand asset from dominating a document
+   or portal header. Individual components can override with more restrictive
+   sizes but cannot exceed these. */
+img.doc-logo,
+img.brand-logo,
+img.tmh-logo {
+  max-height: 32px !important;
+  max-width: 140px !important;
+  width: auto !important;
+  height: auto !important;
+  object-fit: contain !important;
+}
+/* Operational docs (kitchen sheet, packing list, mise en place, BEO):
+   even tighter cap so the chef's content leads, not the brand. */
+.doc-root[data-operational="true"] img.doc-logo,
+[data-operational="true"] img.doc-logo {
+  max-height: 24px !important;
+  max-width: 100px !important;
+}
+
 @layer base {
   :root {
     /* Kora OS Brand Palette - Tech-forward, confident, cohesive */
