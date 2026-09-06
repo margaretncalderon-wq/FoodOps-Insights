@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
+import { useSearchParams } from "react-router-dom";
 import { API } from "../utils/api";
 import axios from "axios";
 import { Layout } from "../components/Layout";
@@ -34,6 +35,7 @@ import {
 import { toast } from "sonner";
 import { Building2, Palette, Globe, DollarSign, FileText, Check, Plus, Trash2, Tag, ListChecks, Percent, Package, FormInput, Copy, ExternalLink, Edit, ToggleLeft, Utensils, Calculator, FileStack, ChefHat, ShoppingCart, Users, Shield, Zap, Plug, Clock, Languages, Upload, MapPin, Phone, Mail, Globe2, Eye, CreditCard, Landmark, X, Pencil, RefreshCw, ChevronDown, ChevronRight, Settings, Database, TrendingUp, Sliders, Search } from "lucide-react";
 import { KoraLoader } from "../components/KoraLoader";
+import LogoPreviewGrid from "../components/LogoPreviewGrid";
 import { Textarea } from "../components/ui/textarea";
 import { Badge } from "../components/ui/badge";
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
@@ -98,8 +100,14 @@ export default function SettingsPage() {
   const { t, language, changeLanguage } = useLanguage();
   const { term } = useTerminology();
   
-  // Active settings tab state for dropdown navigation
-  const [activeSettingsTab, setActiveSettingsTab] = useState("branding");
+  // Active settings tab state for dropdown navigation. Honors ?tab=... in
+  // the URL so links like /settings?tab=templates deep-link to the right pane.
+  const [searchParams] = useSearchParams();
+  const [activeSettingsTab, setActiveSettingsTab] = useState(searchParams.get("tab") || "branding");
+  useEffect(() => {
+    const t = searchParams.get("tab");
+    if (t) setActiveSettingsTab(t);
+  }, [searchParams]);
 
   // Sensors for the Item-Types drag-to-reorder list. 8px activation distance
   // prevents the click on the drag handle from triggering an immediate drag.
@@ -4747,6 +4755,17 @@ return (
                                     </Select>
                                   </div>
                                 </div>
+                              )}
+                              {template.show_logo !== false && (
+                                <LogoPreviewGrid
+                                  logoUrl={formData?.logo_url?.startsWith('/api') ? `${API.replace('/api', '')}${formData.logo_url}` : formData?.logo_url}
+                                  logoSize={template.logo_size || "medium"}
+                                  logoPosition={template.logo_position || "left"}
+                                  showLogo={template.show_logo !== false}
+                                  primaryColor={formData?.primary_color || "#3A4D3F"}
+                                  companyName={formData?.name || ""}
+                                  language={language}
+                                />
                               )}
                             </div>
                           )}

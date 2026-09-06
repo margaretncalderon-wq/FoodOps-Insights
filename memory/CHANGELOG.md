@@ -1,6 +1,21 @@
 # Kora OS - Changelog
 
 
+## February 26, 2026 — Iteration 260 · Logo Preview Grid en Settings
+
+**Problem**: Después de aplicar el cap del logo, el usuario no tenía manera de visualizar cómo se vería el logo en cada tipo de documento sin generar y abrir un PDF real. Elegir logo_size era a ciegas.
+
+**Solution**:
+- Nuevo componente `frontend/src/components/LogoPreviewGrid.js` — renderiza 5 mini-hojas de papel (Quote, Invoice, Kitchen Sheet, Packing List, BEO) con el logo del usuario escalado exactamente como saldrá en el PDF. Los operacionales muestran badge "Cocina" y usan cap tighter (20/26/34px), los client-facing usan cap normal (40/56/80px). El PREVIEW_SCALE=0.42 mantiene la proporción visual con A4.
+- `frontend/src/pages/SettingsPage.js` — se importa y monta debajo del selector logo_size/logo_position/pdf_density dentro del Invoice template. Reacciona en tiempo real a los cambios del selector.
+- Bonus: Se agregó soporte de `?tab=...` en la URL de Settings via `useSearchParams` para deep-linking a la pestaña Templates directamente.
+
+**Validation**:
+- Screenshot muestra las 5 mini-hojas con logos diferenciados según cap operacional vs cliente. Cada hoja tiene título ("Quote / Invoice / Kitchen Sheet / …") y sub-etiqueta con los pixels ("Logo · 56px" / "Logo · 26px").
+- Sin cambios de backend requeridos — puramente visual.
+
+
+
 ## February 26, 2026 — Iteration 259 · Logo cap global en todos los documentos
 
 **Problem**: El logo aparecía "super grande" en Hoja de Cocina y Lista de Montaje. El cap solo aplicaba en el print CSS, no en el preview on-screen. Además `pages/DocumentPreview.js` derivaba `isOperational` de `content.is_operational` que el endpoint legacy `POST /api/documents/generate` no seteaba → siempre caía en 32px.
