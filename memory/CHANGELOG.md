@@ -1,6 +1,25 @@
 # Kora OS - Changelog
 
 
+## February 26, 2026 — Iteration 258 · Hojas de Cocina: horarios logísticos + Alquileres/Desechables agrupados
+
+**Problem**: User feedback — (1) Los artículos desechables no aparecen en la hoja de cocina, (2) falta hora de salida programable, (3) falta una hora de entrega interna distinta a la del cliente. Además pidió asegurar que Alquileres, Cristalería y demás items sin receta también aparezcan.
+
+**Backend**:
+- `models/events.py` — nuevos campos opcionales `internal_delivery_time` y `departure_time` (strings HH:MM) en `EventCreate`, `Event` y `EventUpdate`. Persisten vía el flujo existente `PUT /api/events/{id}` (usa `model_dump()`).
+- `routers/kitchen_beo.py` — `GET /api/kitchen-beo/event/{id}` ahora incluye `internal_delivery_time`, `departure_time`, `start_time`, `end_time` en el root. Cada tanda agrega `extras_by_type: [{type_key, label_en, label_es, sort_order, items, count}]` derivado de `company.proposal_item_types` — así Alquileres, Desechables, Cristalería, etc. aparecen como bloques con encabezado en la hoja de cocina en lugar de una lista plana anónima.
+- `GET /api/kitchen-beo/batch` hereda estos cambios sin modificaciones (reusa `get_kitchen_beo`).
+
+**Frontend**:
+- `pages/EventsPage.js` — nueva sección "Logística de cocina" en el dialog crear/editar evento (visible solo para `engagement_type='event'` y cuando la fecha no está TBD) con 2 inputs `type=time` (`event-internal-delivery-time`, `event-departure-time`). Se persisten en el payload y hidratan al editar.
+- `components/KitchenBEOPrint.js` — el header de cada tanda ahora muestra "Salida cocina" y "Entrega interna" cuando existen. Los `extras` se renderizan agrupados por categoría con encabezado ámbar (Alquileres, Desechables, etc.) más un checkbox visual (☐) para tachar en cocina. Fallback al render plano si el backend no devuelve `extras_by_type` (retrocompatible).
+
+**Validation** (`/app/test_reports/iteration_258.json` — 100% pass):
+- Backend pytest 5/5 en `test_kitchen_sheets_logistics.py`. Verificado que PUT persiste ambas horas, GET/batch las devuelven, extras_by_type agrupa correctamente todo item sin receta con label localizado.
+- Frontend E2E Playwright: dialog abre, sección Logística sólo visible en Event no-TBD, valores se guardan y se rehidratan al editar.
+
+
+
 ## February 24, 2026 — Iteration 257 · Formulario Nuevo Proyecto/Servicio/Evento adaptativo por industria
 
 ### 🐛 Bug reportado

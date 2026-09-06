@@ -1,5 +1,9 @@
 # Kora OS — Product Requirements Document
 
+## February 26, 2026 — Iter 258 · Kitchen Sheets logistics + grouped extras
+- PRD updated with new event fields (internal_delivery_time, departure_time)
+- Kitchen BEO extras now grouped by item_type (Alquileres/Desechables/Cristalería visible)
+
 
 ## Feature — Pricing Architecture · Fase 1b (UI) — COMPLETA (Feb 20, 2026)
 

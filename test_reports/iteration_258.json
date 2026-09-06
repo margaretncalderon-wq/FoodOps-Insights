@@ -1,0 +1,25 @@
+{
+  "summary": "Verified Kitchen Sheets (Hojas de Cocina) fixes: (1) new fields internal_delivery_time & departure_time on EventCreate/Event/EventUpdate persist through PUT /api/events and are exposed by GET /api/kitchen-beo/event/{id} and GET /api/kitchen-beo/batch; (2) extras_by_type array added to every tanda with type_key/label_es/label_en/count/items, mirrors the flat extras list, and non-recipe items (Alquileres/Desechables/Cristalería) are no longer filtered out; (3) new UI section 'Kitchen logistics' with data-testid=event-internal-delivery-time and event-departure-time (both type=time) renders only when Work Type=Event and Date TBD is OFF. All 5 pytest cases pass. UI verified end-to-end via Playwright.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_kitchen_sheets_logistics.py",
+    "/app/test_reports/pytest/iter258_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "kitchen_beo.py batch endpoint reuses get_kitchen_beo per event; fine for small counts but could get slow for orgs with many confirmed events in a wide date range — consider batching recipe fetches across events later.",
+    "extras_by_type sort uses (sort_order, type_key) which is deterministic and matches the editor order — good.",
+    "EventUpdate correctly includes internal_delivery_time & departure_time; PUT persists them (verified). No missing pieces."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_kitchen_sheets_logistics.py (new)"
+  ],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "demo.agency@kora.com / Evoque2024!",
+  "seed_data_creation": "None. Used existing event(s) belonging to the demo.agency org; PUT applied and reverted (times set to 10:30 / 08:15 on the first event-type event).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend tests live at /app/backend/tests/test_kitchen_sheets_logistics.py. The demo.agency@kora.com account uses agency terminology ('Projects' / 'Add Project') but the dialog exposes Work Type = Event/Project/Service — selecting 'Event' triggers the Kitchen logistics section. The section correctly hides on Date TBD ON or Work Type != Event. English UI label is 'Kitchen logistics'; Spanish equivalent is 'Logística de cocina'. First event in GET /api/events was used and had internal_delivery_time=10:30 / departure_time=08:15 persisted at test end.",
+  "rca of the issue": "N/A — bug fix verification only. Original user issues (desechables not appearing, no departure time, no internal delivery time distinct from client time) are now resolved by (a) new pydantic fields on all 3 event models, (b) extras_by_type grouping in kitchen_beo.py so non-recipe items get grouped labels from company.proposal_item_types, and (c) new UI section conditionally rendered in EventsPage.js."
+}

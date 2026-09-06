@@ -26,8 +26,11 @@ class EventCreate(BaseModel):
     event_date_tbd: bool = False
     end_date: Optional[datetime] = None  # For multi-day events
     event_dates: List[str] = []  # Non-consecutive multi-day dates as "YYYY-MM-DD" strings
-    start_time: Optional[str] = None  # e.g., "14:00"
+    start_time: Optional[str] = None  # e.g., "14:00" (client-facing service time)
     end_time: Optional[str] = None  # e.g., "22:00"
+    # Kitchen logistics — separate from client service time
+    internal_delivery_time: Optional[str] = None  # Hora interna de entrega en el sitio (HH:MM)
+    departure_time: Optional[str] = None  # Hora de salida de cocina (HH:MM)
     is_booking: bool = False
     venue: Optional[str] = None
     guest_count: int = 0
@@ -60,6 +63,8 @@ class Event(BaseModel):
     event_dates: List[str] = []  # Non-consecutive multi-day dates
     start_time: Optional[str] = None  # e.g., "14:00"
     end_time: Optional[str] = None  # e.g., "22:00"
+    internal_delivery_time: Optional[str] = None  # Hora interna de entrega en el sitio
+    departure_time: Optional[str] = None  # Hora de salida de cocina
     is_booking: bool = False
     venue: Optional[str] = None
     guest_count: int
@@ -104,6 +109,8 @@ class EventUpdate(BaseModel):
     event_dates: Optional[List[str]] = None  # Non-consecutive multi-day dates as "YYYY-MM-DD"
     start_time: Optional[str] = None
     end_time: Optional[str] = None
+    internal_delivery_time: Optional[str] = None
+    departure_time: Optional[str] = None
     is_booking: Optional[bool] = None
     venue: Optional[str] = None
     guest_count: Optional[int] = None

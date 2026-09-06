@@ -53,14 +53,36 @@ const renderTandaPage = (beo, day, tanda, isEs) => {
       </tr>` : ""}
   `).join("");
 
-  const extrasRows = (tanda.extras || []).map((ex) => `
-    <tr class="extra">
-      <td class="qty">×${ex.quantity}</td>
-      <td><div class="recipe-name">${escapeHtml(ex.description || "")}</div>
-          <div class="notes">${isEs ? "Sin receta — preparación manual" : "No recipe — manual prep"}</div></td>
-      <td></td>
-    </tr>
-  `).join("");
+  const extrasRows = (() => {
+    // Prefer grouped-by-type rendering when the backend provides it — the
+    // chef expects to see Alquileres, Cristalería, Desechables como bloques
+    // separados con su propio subtítulo, no mezclados con los platos.
+    const groups = Array.isArray(tanda.extras_by_type) ? tanda.extras_by_type : [];
+    if (!groups.length && (tanda.extras || []).length) {
+      return (tanda.extras || []).map((ex) => `
+        <tr class="extra">
+          <td class="qty">×${ex.quantity}</td>
+          <td><div class="recipe-name">${escapeHtml(ex.description || "")}</div>
+              <div class="notes">${escapeHtml(ex.item_type || "")}</div></td>
+          <td></td>
+        </tr>
+      `).join("");
+    }
+    return groups.map((g) => {
+      const label = escapeHtml((isEs ? g.label_es : g.label_en) || g.type_key || "");
+      const rows = (g.items || []).map((ex) => `
+        <tr class="extra">
+          <td class="qty check">☐ ×${ex.quantity}</td>
+          <td><div class="recipe-name">${escapeHtml(ex.description || "")}</div></td>
+          <td class="time"></td>
+        </tr>
+      `).join("");
+      return `
+        <tr class="group-header"><td colspan="3">${label} <span class="group-count">(${g.count})</span></td></tr>
+        ${rows}
+      `;
+    }).join("");
+  })();
 
   return `
     <section class="sheet">
@@ -79,6 +101,12 @@ const renderTandaPage = (beo, day, tanda, isEs) => {
         <div class="tanda-box">
           <div class="tanda-title">${escapeHtml(tandaLabel)}</div>
           ${tanda.section_title ? `<div class="tanda-sub">${escapeHtml(tanda.section_title)}</div>` : ""}
+          ${(beo.departure_time || beo.internal_delivery_time) ? `
+            <div class="logistics">
+              ${beo.departure_time ? `<div><b>${isEs ? "Salida cocina" : "Kitchen departure"}:</b> ${escapeHtml(beo.departure_time)}</div>` : ""}
+              ${beo.internal_delivery_time ? `<div><b>${isEs ? "Entrega interna" : "Internal delivery"}:</b> ${escapeHtml(beo.internal_delivery_time)}</div>` : ""}
+            </div>
+          ` : ""}
         </div>
       </header>
 
@@ -170,6 +198,11 @@ export const buildBeoPrintHtml = (beos, isEs = true) => {
   .ings { margin: 0; padding-left: 18px; font-size: 11px; column-count: 2; }
   .ings li { break-inside: avoid; }
   .extra td { background: #fff; }
+  .group-header td { background: #fef3c7; color: #92400e; font-weight: 700; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; padding: 6px 10px !important; border-top: 2px solid #f59e0b; }
+  .group-count { color: #b45309; font-weight: 600; font-size: 10px; margin-left: 4px; }
+  td.check { font-family: ui-monospace, monospace; font-weight: 700; font-size: 13px; color: #111827; letter-spacing: 0.05em; }
+  .logistics { margin-top: 6px; padding-top: 6px; border-top: 1px dashed #d1d5db; font-size: 10px; color: #374151; text-align: right; }
+  .logistics b { color: #111827; }
   .empty { text-align: center; color: #9ca3af; padding: 20px 0; }
 
   .sheet-footer { margin-top: 18px; display: flex; justify-content: space-between; font-size: 10px; color: #9ca3af; border-top: 1px dashed #d1d5db; padding-top: 6px; }

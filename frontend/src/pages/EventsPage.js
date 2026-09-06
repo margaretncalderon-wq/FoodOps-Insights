@@ -143,6 +143,8 @@ export default function EventsPage({ embedded = false }) {
     event_dates: [],
     start_time: "",
     end_time: "",
+    internal_delivery_time: "",
+    departure_time: "",
     is_booking: false,
     is_multi_select: false,
     venue: "",
@@ -228,6 +230,8 @@ export default function EventsPage({ embedded = false }) {
         event_dates: derivedEventDates,
         start_time: formData.start_time || null,
         end_time: formData.end_time || null,
+        internal_delivery_time: formData.internal_delivery_time || null,
+        departure_time: formData.departure_time || null,
         next_followup_date: formData.next_followup_date ? formData.next_followup_date.toISOString() : null,
         guest_count: parseInt(formData.guest_count) || 0,
         participant_count: parseInt(formData.participant_count) || 0,
@@ -291,6 +295,8 @@ export default function EventsPage({ embedded = false }) {
         : [],
       start_time: event.start_time || "",
       end_time: event.end_time || "",
+      internal_delivery_time: event.internal_delivery_time || "",
+      departure_time: event.departure_time || "",
       is_booking: event.is_booking || false,
       is_multi_select: Array.isArray(event.event_dates) && event.event_dates.length > 0,
       venue: event.venue || "",
@@ -878,6 +884,44 @@ export default function EventsPage({ embedded = false }) {
                           value={formData.end_time}
                           onChange={(e) => setFormData({ ...formData, end_time: e.target.value })}
                           data-testid="event-end-time"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Kitchen logistics — internal delivery + departure */}
+                  {!formData.event_date_tbd && formData.engagement_type === "event" && (
+                    <div className="grid grid-cols-2 gap-4 p-3 rounded-md border border-amber-200 bg-amber-50/60">
+                      <div className="col-span-2 -mb-1">
+                        <p className="text-xs font-semibold text-amber-800">
+                          {language === "es" ? "Logística de cocina" : "Kitchen logistics"}
+                        </p>
+                        <p className="text-[11px] text-amber-700/80">
+                          {language === "es"
+                            ? "Horas internas para la operación. No se muestran al cliente."
+                            : "Internal ops times. Not shown to clients."}
+                        </p>
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-xs">
+                          {language === "es" ? "Hora de entrega interna" : "Internal delivery time"}
+                        </Label>
+                        <Input
+                          type="time"
+                          value={formData.internal_delivery_time}
+                          onChange={(e) => setFormData({ ...formData, internal_delivery_time: e.target.value })}
+                          data-testid="event-internal-delivery-time"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-xs">
+                          {language === "es" ? "Hora de salida de cocina" : "Kitchen departure time"}
+                        </Label>
+                        <Input
+                          type="time"
+                          value={formData.departure_time}
+                          onChange={(e) => setFormData({ ...formData, departure_time: e.target.value })}
+                          data-testid="event-departure-time"
                         />
                       </div>
                     </div>

@@ -205,16 +205,23 @@ async def get_kitchen_beo(event_id: str, user: User = Depends(get_current_user))
         tanda_dietary: set = set()
         recipes_out: list = []
         extras_out: list = []  # items without a recipe link
+        # extras_by_type gives the print layer a grouped view so Alquileres,
+        # Cristalería y Desechables no queden escondidos abajo del listado.
+        extras_by_type_map: dict = defaultdict(list)
         for it in tanda_items:
             qty = float(it.get("quantity") or 0)
             rid = it.get("loaded_from_recipe_id")
             recipe = recipes_by_id.get(rid) if rid else None
             if not recipe:
-                extras_out.append({
+                extra_entry = {
                     "description": it.get("description"),
                     "quantity": qty,
                     "item_type": it.get("item_type"),
-                })
+                }
+                extras_out.append(extra_entry)
+                # Bucket by type_key so the UI can render a titled section.
+                bucket_key = (it.get("item_type") or "Other").strip() or "Other"
+                extras_by_type_map[bucket_key].append(extra_entry)
                 continue
             factor = await _resolve_buffet_factor(recipe, user.company_id, menu_type)
             # `quantity` on the order_item is already total portions sold for
@@ -252,6 +259,30 @@ async def get_kitchen_beo(event_id: str, user: User = Depends(get_current_user))
                 "presentation_notes": recipe.get("presentation_notes"),
                 "chef_notes": recipe.get("chef_notes"),
             })
+        # Resolve human-readable labels for the extras type_keys using the
+        # company's proposal_item_types config so the chef sees "Alquileres y
+        # Equipos" instead of the raw "Rental" slug.
+        type_labels = {}
+        for pt in ((co or {}).get("proposal_item_types") or []):
+            tk = pt.get("type_key")
+            if tk:
+                type_labels[tk] = {
+                    "label_en": pt.get("label_en") or tk,
+                    "label_es": pt.get("label_es") or tk,
+                    "sort_order": pt.get("sort_order", 999),
+                }
+        extras_by_type = []
+        for tk, entries in extras_by_type_map.items():
+            meta = type_labels.get(tk, {"label_en": tk, "label_es": tk, "sort_order": 999})
+            extras_by_type.append({
+                "type_key": tk,
+                "label_en": meta["label_en"],
+                "label_es": meta["label_es"],
+                "sort_order": meta["sort_order"],
+                "items": entries,
+                "count": len(entries),
+            })
+        extras_by_type.sort(key=lambda g: (g["sort_order"], g["type_key"]))
         return {
             "tanda_key": f"{d or 'tbd'}|{t}",
             "date": d,
@@ -261,6 +292,7 @@ async def get_kitchen_beo(event_id: str, user: User = Depends(get_current_user))
             "guest_count": guest_count,
             "recipes": recipes_out,
             "extras": extras_out,
+            "extras_by_type": extras_by_type,
             "allergens": sorted(tanda_allergens),
             "dietary_tags": sorted(tanda_dietary),
         }
@@ -335,6 +367,10 @@ async def get_kitchen_beo(event_id: str, user: User = Depends(get_current_user))
         "calendar_dates": calendar_dates,
         "guest_count": guest_count,
         "venue": event.get("venue"),
+        "start_time": event.get("start_time"),
+        "end_time": event.get("end_time"),
+        "internal_delivery_time": event.get("internal_delivery_time"),
+        "departure_time": event.get("departure_time"),
         "menu_name": (menu or {}).get("name"),
         "menu_type": menu_type,
         "primary_color": primary_color,
