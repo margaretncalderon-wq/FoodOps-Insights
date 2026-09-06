@@ -24,6 +24,7 @@ import {
 
 import { API_BASE as API } from "../utils/api";
 import { fmtNum } from "../utils/format";
+import { KoraLoader } from "./KoraLoader";
 
 const RECIPE_TYPES = [
   { value: "base", label: "Base Recipe", labelEs: "Receta Base", desc: "Sauces, stocks, seasonings" },
