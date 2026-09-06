@@ -1,6 +1,25 @@
 # Kora OS - Changelog
 
 
+## February 26, 2026 — Iteration 261 · Silent auto-reload (no more "new version available" toast)
+
+**Problem**: El aviso "A new version of Kora is available - Reload" tenía múltiples problemas: falsos positivos por cada reinicio de backend (dev, hotfix), interrupción del workflow con toast persistente, riesgo de perder formularios sin guardar. User pidió: "se puede hacer reload sin que el usuario lo sienta".
+
+**Solution**:
+- `hooks/useVersionWatcher.js` reescrito de cero — elimina completamente el `toast.info` persistente. Ahora usa detección de "momento seguro" + debounce.
+- Debounce de 60s antes de considerar un build como "real" (elimina falsos positivos por supervisor restart o rolling deploys).
+- Detección de safe moment cada 5s: sin diálogos abiertos, sin inputs enfocados, usuario idle 30s, cero requests axios en vuelo, tab visible.
+- Reload silencioso preserva `scrollY` en `sessionStorage` → restaurado en el próximo mount vía `requestAnimationFrame`.
+- `utils/api.js` — interceptores axios request/response ahora mantienen contador global `window.__koraAxiosPending` para que `useVersionWatcher` sepa cuándo la red está silenciosa.
+
+**Impact**:
+- Los usuarios nunca más ven un banner de "reload available"
+- La app se recarga sola en el instante correcto (leyendo, entre tareas, café)
+- Los formularios abiertos jamás pierden data por reload automático
+- Reinicios de dev/deploy en curso no disparan reloads
+
+
+
 ## February 26, 2026 — Iteration 260 · Logo Preview Grid en Settings
 
 **Problem**: Después de aplicar el cap del logo, el usuario no tenía manera de visualizar cómo se vería el logo en cada tipo de documento sin generar y abrir un PDF real. Elegir logo_size era a ciegas.

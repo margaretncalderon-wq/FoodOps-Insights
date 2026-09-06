@@ -32,12 +32,20 @@ export const getAuthToken = () => {
   }
 };
 
-// Global axios interceptor - adds Authorization header to all requests
+// Global axios interceptor - adds Authorization header to all requests +
+// tracks in-flight request count so useVersionWatcher can defer silent
+// reloads until no data is being fetched/saved.
+if (typeof window !== "undefined" && typeof window.__koraAxiosPending !== "number") {
+  window.__koraAxiosPending = 0;
+}
 axios.interceptors.request.use((config) => {
   config.withCredentials = true;
   const token = getAuthToken();
   if (token && !config.headers.Authorization) {
     config.headers.Authorization = `Bearer ${token}`;
+  }
+  if (typeof window !== "undefined") {
+    window.__koraAxiosPending = (window.__koraAxiosPending || 0) + 1;
   }
   return config;
 });
@@ -77,8 +85,16 @@ const isAuthEndpoint = (url = "") =>
   url.includes("/auth/logout");
 
 axios.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    if (typeof window !== "undefined") {
+      window.__koraAxiosPending = Math.max(0, (window.__koraAxiosPending || 1) - 1);
+    }
+    return response;
+  },
   async (error) => {
+    if (typeof window !== "undefined") {
+      window.__koraAxiosPending = Math.max(0, (window.__koraAxiosPending || 1) - 1);
+    }
     // ──────────────────────────────────────────────────────────────────────
     // Normalize pydantic 422 detail BEFORE any consumer reads it.
     // The backend returns: data.detail = [{loc, msg, type, ...}, ...]
