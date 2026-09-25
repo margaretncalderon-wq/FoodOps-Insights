@@ -436,10 +436,40 @@ export default function RecipeBuilderAdvanced() {
                     <span className="text-muted-foreground">{t("totalCost")}</span>
                     <span className="font-semibold text-green-600">${fmtNum(recipe.total_cost)}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">{t("costPerPortion")}</span>
-                    <span className="font-semibold">${fmtNum(recipe.cost_per_portion)}</span>
-                  </div>
+                  {/* Costing engine audit Feb 2026: label matches the yield
+                      unit so a dough recipe (yield_kind=weight) shows
+                      "Costo por g" instead of the misleading
+                      "Costo por porción". Falls back gracefully when the
+                      backend hasn't sent yield_kind yet. */}
+                  {(() => {
+                    const kind = recipe.yield_kind;
+                    const isWeight = kind === "weight";
+                    const isVolume = kind === "volume";
+                    const cost = isWeight || isVolume
+                      ? (recipe.cost_per_yield || 0)
+                      : (recipe.cost_per_portion || 0);
+                    const label = isWeight
+                      ? (language === "es" ? "Costo por g" : "Cost per g")
+                      : isVolume
+                      ? (language === "es" ? "Costo por ml" : "Cost per ml")
+                      : t("costPerPortion");
+                    if (recipe.has_conversion_errors) {
+                      return (
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">{label}</span>
+                          <span className="font-semibold text-amber-600 text-xs">
+                            {language === "es" ? "Costo incompleto" : "Incomplete"}
+                          </span>
+                        </div>
+                      );
+                    }
+                    return (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">{label}</span>
+                        <span className="font-semibold">${fmtNum(cost)}</span>
+                      </div>
+                    );
+                  })()}
                   {recipe.sell_price > 0 && (
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">{t("foodCost")}</span>

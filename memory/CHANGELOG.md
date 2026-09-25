@@ -1,6 +1,30 @@
 # Kora OS - Changelog
 
 
+## February 26, 2026 — Iteration 262 · Recipe Costing Engine Audit (14-point spec)
+
+**Problem**: User reported catastrophic costing bug — 450g of flour from a 2.27kg bag @ RD$175 was showing RD$34,691.63 as line cost (should be RD$34.69, a 1000x overcount). Recipe portions also showed impossible values ("900 = 30x30").
+
+**Root causes**:
+1. `_apply_pase_a_derivations` in `inventory.py` computed `cost_per_base_unit = purchase_cost / purchase_qty` without converting `purchase_unit → base_unit`. For a 2.27 kg bag @ RD$175 that produced RD$77/g instead of RD$0.077/g.
+2. Same bug replicated in `normalize_ingredient_cost` endpoint.
+3. `compute_full_recipe_costing` computed `cost_per_portion = food_cost / (yield_qty × portions_per_yield)` — multiplication that hallucinated portion counts when both fields carried the same semantic ("30 mini pies" × "30 mini pies" = 900).
+
+**Fixes**:
+- `utils/units.py` — new helpers `resolve_cost_per_base_unit(ingredient)` and `apply_purchase_format(ingredient)`. Canonical formula: `purchase_cost / (purchase_qty × convert(1, purchase_unit, base_unit))`. Also robustified count↔weight bridge to raise `UnitConversionError` when a pack unit has no factor instead of crashing.
+- `routers/inventory.py` — `_apply_pase_a_derivations` and `normalize_ingredient_cost` now delegate to `apply_purchase_format`. New bulk endpoint `POST /api/inventory/ingredients/recompute-cost-per-base-unit` re-runs the fix over every tenant ingredient + cascades recipe recalc; does NOT touch stock or purchase price.
+- `routers/recipes.py::compute_full_recipe_costing` — now respects `yield_kind` (weight/volume/count). For weight/volume yields, `cost_per_portion = 0` and `cost_per_yield` is the meaningful metric; for count yields, `total_portions = portions_per_yield` (or `yield_qty` when unset), never multiplied.
+- `components/RecipeBuilderAdvanced.js` — label switches to "Costo por g" / "Costo por ml" based on `yield_kind`. Shows "Costo incompleto" (amber) when `has_conversion_errors=true`.
+
+**Validation**:
+- New test suite `tests/test_recipe_costing_audit.py` (21 tests, all passing) covers kg→g, lb→g, oz→g, L→ml, gal→ml, cup/tbsp/tsp, the exact 450g/2.27kg scenario, ratio-of-package for any price, case-of-24-bars butter, waste 10%/0%, purchase_incomplete exceptions, sub-recipe cost/g, food cost pricing, gross margin pricing.
+- Live curl verification: `POST /api/inventory/ingredients` with 2.27 kg @ RD$175 now stores `cost_per_base_unit=0.07709251` and `POST /api/inventory/ingredients/cost-preview` for 450g returns `cost: 34.6916`.
+- Bulk recompute run against demo.agency: 10 scanned, 7 flagged as `purchase_incomplete=True` (missing data), 3 unchanged, 0 hallucinated costs.
+
+**Data not modified**: `current_stock`, `reserved_quantity`, `purchase_cost`, `stock_quantity` untouched. Recipes' `total_cost` is recomputed only when ingredients change.
+
+
+
 ## February 26, 2026 — Iteration 261 · Silent auto-reload (no more "new version available" toast)
 
 **Problem**: El aviso "A new version of Kora is available - Reload" tenía múltiples problemas: falsos positivos por cada reinicio de backend (dev, hotfix), interrupción del workflow con toast persistente, riesgo de perder formularios sin guardar. User pidió: "se puede hacer reload sin que el usuario lo sienta".

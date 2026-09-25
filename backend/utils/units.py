@@ -266,13 +266,22 @@ def convert(quantity: float, from_unit: str, to_unit: str, ingredient: Optional[
                 "missing weight_per_unit_g (set the average weight per unit)",
                 ing_name)
         wpu = float(wpu)
+        # Some count units (case, box, pack) have factor=None because they
+        # depend on the ingredient's pack_size. If the caller has arrived here
+        # without going through the pack-unit fast path, we cannot resolve.
+        from_factor = COUNT_UNITS.get(from_u) if from_kind == "count" else WEIGHT_UNITS.get(from_u)
+        to_factor = COUNT_UNITS.get(to_u) if to_kind == "count" else WEIGHT_UNITS.get(to_u)
+        if from_factor is None or to_factor is None:
+            raise UnitConversionError(from_unit, to_unit,
+                f"custom pack unit requires pack_size + pack_unit on ingredient",
+                ing_name)
         if from_kind == "count":
-            grams = quantity * COUNT_UNITS[from_u] * wpu
-            return grams / WEIGHT_UNITS[to_u]
+            grams = quantity * from_factor * wpu
+            return grams / to_factor
         else:
-            grams = quantity * WEIGHT_UNITS[from_u]
+            grams = quantity * from_factor
             count = grams / wpu
-            return count / COUNT_UNITS[to_u]
+            return count / to_factor
 
     # count ↔ volume: not supported (would need density AND weight_per_unit_g)
     raise UnitConversionError(from_unit, to_unit,
@@ -332,6 +341,105 @@ def cost_for_recipe_line(quantity: float, line_unit: str, ingredient: dict) -> f
         # (happens only when either side was empty; treated as same unit).
         return float(quantity) * cost_per_base
     return qty_in_base * cost_per_base
+
+
+def resolve_cost_per_base_unit(ingredient: dict) -> Optional[float]:
+    """
+    Compute the cost per single unit of the ingredient's `base_unit` (g / ml /
+    unit) using the CANONICAL formula:
+
+        cost_per_base_unit = purchase_cost / (purchase_quantity_per_unit
+                                              expressed in base_unit)
+
+    Example — a 2.27 kg flour bag bought at RD$175:
+        purchase_cost                = 175
+        purchase_unit                = "kg"
+        purchase_quantity_per_unit   = 2.27
+        base_unit                    = "g"
+        → normalized 2.27 kg = 2270 g
+        → cost_per_base_unit = 175 / 2270 = 0.07709 RD$/g
+
+    Returns None when any required field is missing OR when the purchase unit
+    cannot be converted to the base_unit (e.g. "case" without pack_size). In
+    those cases the caller MUST mark the ingredient as `purchase_incomplete`
+    so downstream recipe costing shows "Costo incompleto" instead of a
+    hallucinated number.
+
+    NEVER falls back to `purchase_cost` alone — that would recreate the exact
+    "$175 per gram" bug we are fixing.
+    """
+    if not ingredient:
+        return None
+    purchase_cost = ingredient.get("purchase_cost")
+    purchase_qty = ingredient.get("purchase_quantity_per_unit")
+    purchase_unit = normalize_unit(ingredient.get("purchase_unit") or "")
+    base_unit = normalize_unit(ingredient.get("base_unit") or ingredient.get("unit") or "")
+    if purchase_cost is None or purchase_qty is None:
+        return None
+    try:
+        purchase_cost = float(purchase_cost)
+        purchase_qty = float(purchase_qty)
+    except (TypeError, ValueError):
+        return None
+    if purchase_cost <= 0 or purchase_qty <= 0 or not base_unit:
+        return None
+    # If purchase_unit is empty, assume purchase_qty is already in base_unit.
+    if not purchase_unit:
+        return round(purchase_cost / purchase_qty, 8)
+    if purchase_unit == base_unit:
+        return round(purchase_cost / purchase_qty, 8)
+    # Convert 1 purchase_unit → base_unit. That gives us "how many base units
+    # in one purchase unit"; total base units in the pack = purchase_qty *
+    # that factor.
+    try:
+        base_units_per_purchase_unit = convert(1.0, purchase_unit, base_unit, ingredient)
+    except UnitConversionError:
+        return None
+    if base_units_per_purchase_unit is None or base_units_per_purchase_unit <= 0:
+        return None
+    total_base_units = purchase_qty * base_units_per_purchase_unit
+    if total_base_units <= 0:
+        return None
+    return round(purchase_cost / total_base_units, 8)
+
+
+def apply_purchase_format(ingredient: dict) -> dict:
+    """
+    Mutates `ingredient` in place: recomputes `cost_per_base_unit` from the
+    (purchase_cost, purchase_qty, purchase_unit) tuple whenever the tuple is
+    complete, and flips `purchase_incomplete` accordingly.
+
+    Returns the same dict for chaining. This is the ONLY place in the codebase
+    that should own the "how do I know a purchase format is complete" rule —
+    call it from every ingredient create/update path.
+    """
+    cost_per_base = resolve_cost_per_base_unit(ingredient)
+    has_purchase_bundle = all(
+        ingredient.get(k) not in (None, "", 0) for k in
+        ("purchase_cost", "purchase_quantity_per_unit", "purchase_unit")
+    )
+    if cost_per_base is not None:
+        ingredient["cost_per_base_unit"] = cost_per_base
+        ingredient["purchase_incomplete"] = False
+    elif has_purchase_bundle:
+        # User provided all 3 fields but the conversion still failed
+        # (e.g. purchase_unit = "case" without pack_size). Keep the flag.
+        ingredient["cost_per_base_unit"] = None
+        ingredient["purchase_incomplete"] = True
+    else:
+        # Legacy ingredient with just cost_per_unit + unit — respect the
+        # existing cost_per_base_unit only when it was derived correctly
+        # (base_unit == unit). Otherwise flag as incomplete.
+        base_unit = normalize_unit(ingredient.get("base_unit") or "")
+        legacy_unit = normalize_unit(ingredient.get("unit") or "")
+        legacy_cost = ingredient.get("cost_per_unit")
+        if legacy_cost and base_unit and legacy_unit == base_unit:
+            ingredient.setdefault("cost_per_base_unit", float(legacy_cost))
+            ingredient["purchase_incomplete"] = False
+        else:
+            ingredient["cost_per_base_unit"] = None
+            ingredient["purchase_incomplete"] = True
+    return ingredient
 
 
 def derive_base_unit(category: str) -> str:

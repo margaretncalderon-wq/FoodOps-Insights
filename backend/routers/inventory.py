@@ -209,13 +209,14 @@ _PASE_A_ENABLED = os.environ.get("PASE_A_ENABLED", "true").strip().lower() not i
 def _apply_pase_a_derivations(payload: dict) -> None:
     """Mutate `payload` in-place to enforce PASE A semantics.
 
-    - If purchase_cost + purchase_quantity_per_unit > 0:
-        cost_per_unit       = purchase_cost                  ($/purchase_unit)
-        cost_per_base_unit  = purchase_cost / purchase_qty   ($/base_unit)
-        purchase_incomplete = False
-        unit                = purchase_unit  (keeps stock rollup coherent)
-    - Else: purchase_incomplete = True (do NOT touch legacy cpu/cpbu — the
-      user's prior data is preserved but not trusted for new derivations).
+    CORRECT formula (as of Feb 2026 costing engine audit):
+        cost_per_base_unit = purchase_cost /
+                             (purchase_quantity_per_unit converted to base_unit)
+
+    Previously divided `pc / pq` directly which produced RD$77/g instead of
+    RD$0.077/g for a 2.27 kg purchase — the "$34,691 flour" bug. Now defers
+    to utils.units.apply_purchase_format() which does the unit conversion
+    (kg → g, L → ml, case → units via pack_size, etc.) before dividing.
 
     Feature flag `PASE_A_ENABLED` (default true) short-circuits this whole
     block, restoring pre-PASE-A behaviour for emergency rollback without a
@@ -223,25 +224,30 @@ def _apply_pase_a_derivations(payload: dict) -> None:
     """
     if not _PASE_A_ENABLED:
         return
+    from utils.units import apply_purchase_format, normalize_unit
+
     pc = float(payload.get("purchase_cost") or 0)
     pq = float(payload.get("purchase_quantity_per_unit") or 0)
-    pu = (payload.get("purchase_unit") or "").strip()
-    bu = (payload.get("base_unit") or "").strip()
-    u = (payload.get("unit") or "").strip()
-    complete = pc > 0 and pq > 0 and bool(pu) and bool(bu)
-    if complete:
+    pu = normalize_unit(payload.get("purchase_unit") or "")
+    bu = normalize_unit(payload.get("base_unit") or "")
+    u = normalize_unit(payload.get("unit") or "")
+
+    # Delegate the actual cost_per_base_unit computation to the canonical
+    # helper. It also flips purchase_incomplete for us.
+    apply_purchase_format(payload)
+
+    # Legacy behaviour side-effects: keep cost_per_unit + unit in sync when
+    # the purchase bundle is fully specified. cost_per_unit stays priced in
+    # purchase_unit (that's what the stock rollup uses).
+    if pc > 0 and pq > 0 and pu and bu:
         payload["cost_per_unit"] = round(pc, 4)
-        payload["cost_per_base_unit"] = round(pc / pq, 6)
-        payload["purchase_incomplete"] = False
         payload["unit"] = pu
     else:
-        # Degenerate-but-safe case: unit == base_unit (e.g. unit=g, base=g).
-        # No ambiguity — cost_per_unit is already priced per base_unit and
-        # Value/recipes will compute correctly. Keep purchase_incomplete=False.
+        # Degenerate-but-safe case: unit == base_unit and cost_per_unit is
+        # already priced per base_unit (e.g. someone entered raw g @ RD$/g).
+        # apply_purchase_format handles the flag; nothing more to do.
         if u and bu and u == bu and float(payload.get("cost_per_unit") or 0) > 0:
             payload["purchase_incomplete"] = False
-        else:
-            payload["purchase_incomplete"] = True
 
 
 @inventory_router.post("/ingredients", response_model=Ingredient)
@@ -2977,9 +2983,19 @@ async def normalize_ingredient_cost(
         "cost_per_base_unit": ing.get("cost_per_base_unit"),
         "purchase_cost": ing.get("purchase_cost"),
     }
+    # AUDIT Feb 2026: use the canonical helper so the unit conversion (kg→g,
+    # L→ml, case+pack_size→units, etc.) is applied. The prior `pc/pq` inline
+    # formula was the origin of the "$34,691 flour" bug.
+    from utils.units import resolve_cost_per_base_unit
+    cpbu = resolve_cost_per_base_unit(ing)
+    if cpbu is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Could not derive cost_per_base_unit — check purchase_unit ↔ base_unit compatibility (e.g. add pack_size or density).",
+        )
     new = {
         "cost_per_unit": round(pc, 4),
-        "cost_per_base_unit": round(pc / pq, 6),
+        "cost_per_base_unit": cpbu,
         "purchase_incomplete": False,
         "updated_at": now,
     }
@@ -3002,6 +3018,81 @@ async def normalize_ingredient_cost(
     except Exception as e:
         logger.warning(f"recalc after normalize-cost failed for {ingredient_id}: {e}")
     return {"ingredient_id": ingredient_id, "previous": prev, "new": new}
+
+
+@inventory_router.post("/ingredients/recompute-cost-per-base-unit")
+async def recompute_all_cost_per_base_unit(
+    body: dict = Body(default={}),
+    user: User = Depends(get_current_user),
+):
+    """AUDIT Feb 2026 · Bulk migrator for the "$34,691 flour" bug.
+
+    For every ingredient in the tenant:
+      - Recomputes cost_per_base_unit via the canonical helper (purchase_cost
+        divided by purchase_quantity converted to base_unit).
+      - Sets purchase_incomplete=True when the purchase bundle is missing.
+      - Never overwrites purchase_price, stock, or reserved quantities.
+
+    Then cascades a recipe recalc for every affected ingredient so downstream
+    total_cost / cost_per_portion values converge on the corrected numbers.
+
+    Returns a report of what changed so the user can spot-check.
+    """
+    from utils.units import apply_purchase_format
+    now = datetime.now(timezone.utc).isoformat()
+    cursor = db.ingredients.find({"company_id": user.company_id}, {"_id": 0})
+    ingredients = await cursor.to_list(5000)
+    updated_ids: list = []
+    still_incomplete: list = []
+    unchanged = 0
+    for ing in ingredients:
+        prior_cpbu = ing.get("cost_per_base_unit")
+        prior_incomplete = bool(ing.get("purchase_incomplete", False))
+        # Work on a copy so we don't mutate the doc twice.
+        merged = dict(ing)
+        apply_purchase_format(merged)
+        new_cpbu = merged.get("cost_per_base_unit")
+        new_incomplete = bool(merged.get("purchase_incomplete", False))
+        # Skip a Mongo write when nothing changed.
+        if (prior_cpbu == new_cpbu) and (prior_incomplete == new_incomplete):
+            unchanged += 1
+            continue
+        set_doc = {
+            "cost_per_base_unit": new_cpbu,
+            "purchase_incomplete": new_incomplete,
+            "updated_at": now,
+            "last_cpbu_recompute_at": now,
+        }
+        await db.ingredients.update_one(
+            {"ingredient_id": ing["ingredient_id"], "company_id": user.company_id},
+            {"$set": set_doc},
+        )
+        updated_ids.append(ing["ingredient_id"])
+        if new_incomplete:
+            still_incomplete.append({
+                "ingredient_id": ing["ingredient_id"],
+                "name": ing.get("name"),
+                "reason": "Missing purchase_cost, purchase_quantity_per_unit, purchase_unit or a compatible base_unit",
+            })
+    # Cascade recipe recalc for every ingredient that changed. Uses the same
+    # helper the ingredient PUT already relies on so behaviour matches.
+    recalc_report = {"recipes_touched": 0, "portion_formats_refreshed": 0}
+    for iid in updated_ids:
+        try:
+            r = await _recalc_recipes_using_ingredient(iid, user.company_id)
+            recalc_report["recipes_touched"] += r.get("recalculated", 0)
+            recalc_report["portion_formats_refreshed"] += r.get("portion_formats_refreshed", 0)
+        except Exception as e:
+            logger.warning(f"cascade recalc failed for {iid}: {e}")
+    return {
+        "scanned": len(ingredients),
+        "updated": len(updated_ids),
+        "unchanged": unchanged,
+        "still_incomplete_count": len(still_incomplete),
+        "still_incomplete": still_incomplete[:50],  # cap payload
+        "cascade": recalc_report,
+        "run_at": now,
+    }
 
 
 @inventory_router.post("/ingredients/rollback-paseA")

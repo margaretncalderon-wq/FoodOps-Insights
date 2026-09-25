@@ -373,11 +373,42 @@ async def compute_full_recipe_costing(
     total_cost_full = round(food_cost + labor_cost + overhead_cost, 4)
 
     yield_qty = _safe_float(recipe_data.get("yield_quantity"), 1) or 1
-    portions = _safe_float(recipe_data.get("portions_per_yield"), 1) or 1
+    portions_field = _safe_float(recipe_data.get("portions_per_yield"), 0)
 
-    cost_per_yield = round(food_cost / yield_qty, 4)
-    cost_per_portion_food = round(food_cost / (yield_qty * portions if yield_qty * portions else 1), 4)
-    total_cost_per_portion = round(total_cost_full / (yield_qty * portions if yield_qty * portions else 1), 4)
+    # -----------------------------------------------------------------------
+    # Portion resolution (audit Feb 2026 — the "900 = 30 × 30" bug):
+    # Interpret `portions_per_yield` as the TOTAL number of servings the
+    # entire recipe produces, NOT "portions per unit of yield". The prior
+    # code multiplied yield_qty × portions which produced impossible portion
+    # counts (a pie dough batch of 30 saved with 30 mini-pies → 900).
+    #
+    # Rules:
+    #   • yield_unit is weight or volume  → cost_per_g / cost_per_ml is the
+    #     meaningful metric; portions math is skipped (unless the user set
+    #     portions_per_yield explicitly, in which case we honour it).
+    #   • yield_unit is portion/serving/unit/piece → portions_per_yield is
+    #     the total; falls back to yield_qty when unset.
+    #   • Never multiply the two fields silently — that hallucinates portions.
+    # -----------------------------------------------------------------------
+    from utils.units import normalize_unit, unit_kind
+    yield_unit_norm = normalize_unit(recipe_data.get("yield_unit") or "portion")
+    yield_kind = unit_kind(yield_unit_norm)  # 'weight' | 'volume' | 'count' | None
+    if yield_kind in ("weight", "volume"):
+        total_portions = portions_field if portions_field > 0 else 0
+    else:
+        # yield_kind == 'count' or unknown → treat yield_qty as # of units
+        total_portions = portions_field if portions_field > 0 else yield_qty
+
+    cost_per_yield = round(food_cost / yield_qty, 4) if yield_qty else 0
+    # cost_per_portion only meaningful when we have a real portion count.
+    if total_portions and total_portions > 0:
+        cost_per_portion_food = round(food_cost / total_portions, 4)
+        total_cost_per_portion = round(total_cost_full / total_portions, 4)
+    else:
+        # Weight/volume recipe without an explicit portion count — the
+        # per-yield cost (cost_per_g / cost_per_ml) is the meaningful metric.
+        cost_per_portion_food = 0.0
+        total_cost_per_portion = 0.0
 
     sell_price = _safe_float(recipe_data.get("sell_price") or recipe_data.get("default_portion_price"), 0)
     food_cost_percent = round((cost_per_portion_food / sell_price * 100), 2) if sell_price > 0 else 0
@@ -399,7 +430,7 @@ async def compute_full_recipe_costing(
     # `suggested_sell_price` (main field, preserved for backwards compat) = Method A
     # `pricing_methods` sub-object exposes B and C for the UI.
 
-    labor_per_portion = round(labor_cost / (yield_qty * portions if yield_qty * portions else 1), 4)
+    labor_per_portion = round(labor_cost / total_portions, 4) if total_portions > 0 else 0
     prime_cost_per_portion = round(cost_per_portion_food + labor_per_portion, 4)
 
     target_prime_pct = _safe_float((company or {}).get("recipe_target_prime_cost_percent"), 55.0)
@@ -421,6 +452,12 @@ async def compute_full_recipe_costing(
         "overhead_cost": overhead_cost,
         "total_cost_full": total_cost_full,
         "cost_per_yield": cost_per_yield,
+        # yield_kind + total_portions expose the interpretation to the UI so
+        # it can render "Costo por g" instead of "Costo por porción" for a
+        # dough recipe, etc. Fixes the "900 porciones" hallucination.
+        "yield_kind": yield_kind or "count",
+        "yield_unit_normalized": yield_unit_norm,
+        "total_portions": total_portions,
         "cost_per_portion": cost_per_portion_food,       # legacy field: food-only per portion
         "total_cost_per_portion": total_cost_per_portion,
         "prime_cost_per_portion": prime_cost_per_portion,
