@@ -36,6 +36,7 @@ import { toast } from "sonner";
 import { Building2, Palette, Globe, DollarSign, FileText, Check, Plus, Trash2, Tag, ListChecks, Percent, Package, FormInput, Copy, ExternalLink, Edit, ToggleLeft, Utensils, Calculator, FileStack, ChefHat, ShoppingCart, Users, Shield, Zap, Plug, Clock, Languages, Upload, MapPin, Phone, Mail, Globe2, Eye, CreditCard, Landmark, X, Pencil, RefreshCw, ChevronDown, ChevronRight, Settings, Database, TrendingUp, Sliders, Search } from "lucide-react";
 import { KoraLoader } from "../components/KoraLoader";
 import LogoPreviewGrid from "../components/LogoPreviewGrid";
+import ProposalApprovalToggle from "../components/ProposalApprovalToggle";
 import { Textarea } from "../components/ui/textarea";
 import { Badge } from "../components/ui/badge";
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
@@ -1270,8 +1271,8 @@ return (
                   }`}>
                     <Palette className="w-4 h-4" />
                     {language === "es" ? "Empresa" : "Company"}
-                    {getSettingsActiveChild(["branding", "terminology", "templates", "locale"]) && (
-                      <span className="text-xs opacity-70">· {getSettingsActiveChild(["branding", "terminology", "templates", "locale"])}</span>
+                    {getSettingsActiveChild(["branding", "terminology", "templates", "locale", "proposal_approval"]) && (
+                      <span className="text-xs opacity-70">· {getSettingsActiveChild(["branding", "terminology", "templates", "locale", "proposal_approval"])}</span>
                     )}
                     <ChevronDown className="w-3 h-3" />
                   </button>
@@ -1284,6 +1285,10 @@ return (
                   <DropdownMenuItem onClick={() => setActiveSettingsTab("terminology")} className={activeSettingsTab === "terminology" ? "bg-emerald-50 text-emerald-700" : ""}>
                     <Languages className="w-4 h-4 mr-2" />
                     {language === "es" ? "Terminología" : "Terminology"}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setActiveSettingsTab("proposal_approval")} className={activeSettingsTab === "proposal_approval" ? "bg-emerald-50 text-emerald-700" : ""}>
+                    <FileText className="w-4 h-4 mr-2" />
+                    {language === "es" ? "Propuestas" : "Proposals"}
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => setActiveSettingsTab("templates")} className={activeSettingsTab === "templates" ? "bg-emerald-50 text-emerald-700" : ""}>
                     <FileText className="w-4 h-4 mr-2" />
@@ -4334,6 +4339,25 @@ return (
           </TabsContent>
 
           {/* Document Templates Tab */}
+          <TabsContent value="proposal_approval">
+            <Card data-testid="settings-proposal-approval">
+              <CardHeader>
+                <CardTitle className="font-heading text-lg flex items-center gap-2">
+                  <FileText className="w-5 h-5" />
+                  {language === "es" ? "Aprobación de propuestas" : "Proposal approval"}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground mb-4">
+                  {language === "es"
+                    ? "Cuando esté activado, cada propuesta debe pasar por 'Pendiente aprobación → Aprobada' antes de enviarse al cliente. Los cambios materiales (precio, cantidad, impuestos) revocan la aprobación automáticamente."
+                    : "When on, every proposal must pass 'Pending Approval → Approved' before it can be sent to the client. Material edits (price, qty, taxes) auto-revoke approval."}
+                </p>
+                <ProposalApprovalToggle language={language} />
+              </CardContent>
+            </Card>
+          </TabsContent>
+
           <TabsContent value="templates">
             <Card>
               <CardHeader>

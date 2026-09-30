@@ -198,6 +198,21 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
   const clientLabel = term("events", "client");
   
   const [proposal, setProposal] = useState(null);
+  // Feb 2026: keep an in-editor copy of the event name so the input is
+  // fully controlled and only fires PUT on blur (avoids saving every
+  // keystroke). approvalRequired mirrors company_settings.proposal_approval
+  // so the extra buttons only render when the tenant opted in.
+  const [eventName, setEventName] = useState(event?.name || "");
+  const [approvalRequired, setApprovalRequired] = useState(false);
+  useEffect(() => { setEventName(event?.name || ""); }, [event?.name]);
+  useEffect(() => {
+    (async () => {
+      try {
+        const r = await axios.get(`${API}/proposals/settings/approval`, { withCredentials: true });
+        setApprovalRequired(!!r.data?.require_approval);
+      } catch { /* default off */ }
+    })();
+  }, []);
   // Live drop indicator (Notion/Linear-style) — set by onDragOver, rendered by SortableItemRow.
   const [dropIndicator, setDropIndicator] = useState({ overId: null, insertAbove: false });
   // ID of the row currently being dragged — used to render a floating <DragOverlay>
@@ -2095,24 +2110,133 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
       {/* Compact Header - Proposal Status */}
       <div className="flex items-center justify-between py-3 border-b">
         <div className="flex items-center gap-3 flex-wrap">
-          <Badge variant="outline" className="font-mono text-xs">
+          <Badge variant="outline" className="font-mono text-xs" data-testid="proposal-number-badge">
             {proposal?.proposal_number}
           </Badge>
-          <Badge className={`${STATUS_COLORS[proposal?.status]} px-2 py-0.5 text-xs`}>
-            {proposal?.status === "Draft" && <Edit className="w-3 h-3 mr-1" />}
-            {proposal?.status === "Sent" && <Send className="w-3 h-3 mr-1" />}
-            {proposal?.status === "Accepted" && <CheckCircle className="w-3 h-3 mr-1" />}
-            {proposal?.status === "Rejected" && <XCircle className="w-3 h-3 mr-1" />}
-            {proposal?.status === "Draft" ? (language === "es" ? "Borrador" : "Draft") : 
-             proposal?.status === "Sent" ? (language === "es" ? "Enviado" : "Sent") :
-             proposal?.status === "Accepted" ? (language === "es" ? "Aceptado" : "Accepted") :
-             proposal?.status === "Rejected" ? (language === "es" ? "Rechazado" : "Rejected") : proposal?.status}
-          </Badge>
+          {/* Editable event name — feb 2026 fix so users don't have to leave the
+              editor to rename the event. Persist on blur via PUT /events/{id}. */}
+          <Input
+            data-testid="proposal-event-name-input"
+            value={eventName}
+            onChange={(e) => setEventName(e.target.value)}
+            onBlur={async () => {
+              if (!event?.event_id) return;
+              const trimmed = (eventName || "").trim();
+              if (!trimmed || trimmed === event.name) return;
+              try {
+                await axios.put(`${API}/events/${event.event_id}`, { name: trimmed }, { withCredentials: true });
+                toast.success(language === "es" ? "Nombre actualizado" : "Name updated");
+              } catch (err) {
+                toast.error(language === "es" ? "No se pudo renombrar" : "Rename failed");
+                setEventName(event.name || "");
+              }
+            }}
+            className="h-7 text-sm font-medium max-w-xs"
+            placeholder={language === "es" ? "Nombre del evento" : "Event name"}
+          />
+          {/* Feb 2026 approval state machine badge. Falls back to legacy
+              status when the new document_status isn't populated yet so
+              proposals created before the migration still look right. */}
+          {(() => {
+            const ds = proposal?.document_status || proposal?.status || "Draft";
+            const map = {
+              "Draft":            { es: "Borrador",         en: "Draft",            color: "bg-slate-100 text-slate-700" },
+              "Ready to Send":    { es: "Listo para enviar", en: "Ready to Send",   color: "bg-blue-100 text-blue-700" },
+              "Pending Approval": { es: "Pendiente aprobación", en: "Pending Approval", color: "bg-amber-100 text-amber-800" },
+              "Approved":         { es: "Aprobado",         en: "Approved",         color: "bg-emerald-100 text-emerald-700" },
+              "Sent":             { es: "Enviado",          en: "Sent",             color: "bg-indigo-100 text-indigo-700" },
+              "Client Signed":    { es: "Firmado cliente",  en: "Client Signed",    color: "bg-green-100 text-green-700" },
+              "Accepted":         { es: "Aceptado",         en: "Accepted",         color: "bg-green-100 text-green-700" },
+              "Rejected":         { es: "Rechazado",        en: "Rejected",         color: "bg-red-100 text-red-700" },
+            };
+            const cfg = map[ds] || map["Draft"];
+            return (
+              <Badge className={`${cfg.color} px-2 py-0.5 text-xs`} data-testid="proposal-doc-status-badge">
+                {language === "es" ? cfg.es : cfg.en}
+              </Badge>
+            );
+          })()}
+          {proposal?.data_incomplete && (
+            <button
+              className="inline-flex items-center gap-1 text-[11px] bg-amber-50 border border-amber-300 text-amber-800 rounded-full px-2 py-0.5 hover:bg-amber-100"
+              data-testid="proposal-data-incomplete-badge"
+              onClick={async () => {
+                try {
+                  await axios.post(`${API}/proposals/${proposal.proposal_id}/clear-incomplete-flag`, {}, { withCredentials: true });
+                  toast.success(language === "es" ? "Marcada como completa" : "Marked complete");
+                  if (typeof fetchProposal === "function") fetchProposal();
+                } catch { /* silent */ }
+              }}
+              title={language === "es" ? "Click para limpiar" : "Click to clear"}
+            >
+              {language === "es" ? "Datos incompletos" : "Incomplete data"} · ✕
+            </button>
+          )}
+          {proposal?.approved_by?.name && ["Approved","Sent","Client Signed"].includes(proposal?.document_status) && (
+            <span className="text-[11px] text-emerald-700">
+              ✓ {language === "es" ? "por" : "by"} {proposal.approved_by.name}
+            </span>
+          )}
           {proposal?.status === "Accepted" && (
             <span className="text-xs text-green-600 flex items-center gap-1">
               <CheckCircle className="w-3 h-3" />
               {language === "es" ? "Evento movido a Comprometido" : "Event moved to Committed"}
             </span>
+          )}
+          {/* Approval action buttons — appear only when the tenant toggle is on. */}
+          {approvalRequired && (
+            <div className="flex items-center gap-1 ml-2" data-testid="proposal-approval-actions">
+              {(proposal?.document_status || "Draft") === "Draft" && (
+                <Button size="sm" variant="outline" data-testid="submit-for-approval-btn"
+                  onClick={async () => {
+                    try {
+                      await axios.post(`${API}/proposals/${proposal.proposal_id}/submit-for-approval`, {}, { withCredentials: true });
+                      toast.success(language === "es" ? "Enviado a aprobación" : "Submitted for approval");
+                      if (typeof fetchProposal === "function") fetchProposal();
+                    } catch (e) { toast.error(e?.response?.data?.detail || "Error"); }
+                  }}>
+                  {language === "es" ? "Enviar a aprobación" : "Submit for approval"}
+                </Button>
+              )}
+              {proposal?.document_status === "Pending Approval" && (
+                <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700" data-testid="approve-btn"
+                  onClick={async () => {
+                    try {
+                      await axios.post(`${API}/proposals/${proposal.proposal_id}/approve`, {}, { withCredentials: true });
+                      toast.success(language === "es" ? "Aprobada" : "Approved");
+                      if (typeof fetchProposal === "function") fetchProposal();
+                    } catch (e) { toast.error(e?.response?.data?.detail || "Error"); }
+                  }}>
+                  {language === "es" ? "Aprobar" : "Approve"}
+                </Button>
+              )}
+              {["Approved","Sent"].includes(proposal?.document_status) && (
+                <Button size="sm" variant="ghost" data-testid="revoke-btn"
+                  onClick={async () => {
+                    const reason = window.prompt(language === "es" ? "Motivo para revocar aprobación (obligatorio):" : "Reason for revoke (required):");
+                    if (!reason || !reason.trim()) return;
+                    try {
+                      await axios.post(`${API}/proposals/${proposal.proposal_id}/revoke-approval`, { reason: reason.trim() }, { withCredentials: true });
+                      toast.success(language === "es" ? "Aprobación revocada" : "Approval revoked");
+                      if (typeof fetchProposal === "function") fetchProposal();
+                    } catch (e) { toast.error(e?.response?.data?.detail || "Error"); }
+                  }}>
+                  {language === "es" ? "Revocar" : "Revoke"}
+                </Button>
+              )}
+              {proposal?.document_status === "Approved" && (
+                <Button size="sm" data-testid="send-to-client-btn"
+                  onClick={async () => {
+                    try {
+                      await axios.post(`${API}/proposals/${proposal.proposal_id}/send-to-client`, {}, { withCredentials: true });
+                      toast.success(language === "es" ? "Enviada al cliente" : "Sent to client");
+                      if (typeof fetchProposal === "function") fetchProposal();
+                    } catch (e) { toast.error(e?.response?.data?.detail || "Error"); }
+                  }}>
+                  {language === "es" ? "Enviar al cliente" : "Send to client"}
+                </Button>
+              )}
+            </div>
           )}
 
           {/* Food Cost per Guest KPI */}
