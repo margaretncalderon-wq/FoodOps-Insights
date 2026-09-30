@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import CostHealthDashboard from "../components/CostHealthDashboard";
 import { useNavigate } from "react-router-dom";
+import { usePendingApprovals } from "../hooks/usePendingApprovals";
 
 // ==================== SYSTEM PULSE ====================
 export default function SystemPulse() {
@@ -51,6 +52,7 @@ export default function SystemPulse() {
   const [executionPending, setExecutionPending] = useState(null);
   const [executionSignals, setExecutionSignals] = useState(null);
   const [salesPerformance, setSalesPerformance] = useState(null);
+  const { require_approval: approvalRequired, count_pending: pendingApprovalCount, pending: pendingApprovals } = usePendingApprovals({ pollMs: 60000 });
 
   const fetchSystemData = useCallback(async () => {
     setLoading(true);
@@ -302,9 +304,82 @@ export default function SystemPulse() {
           </div>
         </div>
 
+        {/* ==================== PENDING APPROVALS WIDGET ==================== */}
+        {approvalRequired && pendingApprovalCount > 0 && (
+          <Card className="border-amber-500/30 bg-amber-500/5" data-testid="pending-approvals-widget">
+            <CardHeader className="pb-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <FileCheck className="w-5 h-5 text-amber-600" />
+                  <CardTitle className="text-lg">
+                    {isEs ? "Requieren tu aprobación" : "Awaiting your approval"}
+                  </CardTitle>
+                  <Badge className="bg-amber-500/20 text-amber-700 text-xs" data-testid="pending-approvals-count">
+                    {pendingApprovalCount}
+                  </Badge>
+                </div>
+                <Link
+                  to="/client-engagement/proposals?approval=pending"
+                  className="text-sm text-muted-foreground hover:text-amber-600 flex items-center gap-1"
+                  data-testid="pending-approvals-view-all"
+                >
+                  {isEs ? "Ver todas" : "View all"}
+                  <ArrowRight className="w-3 h-3" />
+                </Link>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {(pendingApprovals || []).slice(0, 5).map((p) => (
+                  <Link
+                    key={p.proposal_id}
+                    to={`/events/${p.event_id}`}
+                    className="flex items-center justify-between p-3 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 transition-colors"
+                    data-testid={`pending-approval-item-${p.proposal_id}`}
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium text-sm text-amber-900 truncate">{p.event_name}</p>
+                      <p className="text-xs text-muted-foreground truncate">
+                        {p.client_name || (isEs ? "Sin cliente" : "No client")}
+                        {p.revoked_reason && (
+                          <span className="ml-2 text-rose-600">· {isEs ? "revocada" : "revoked"}: {p.revoked_reason}</span>
+                        )}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-3 ml-3 shrink-0">
+                      {p.total > 0 && (
+                        <span className="text-xs font-medium text-emerald-700">
+                          ${Number(p.total).toLocaleString()}
+                        </span>
+                      )}
+                      <Badge variant="outline" className="text-xs border-amber-500/50">
+                        <Calendar className="w-3 h-3 mr-1" />
+                        {p.event_date ? formatDateOnly(p.event_date, language) : (isEs ? "Sin fecha" : "TBD")}
+                      </Badge>
+                      {p.data_incomplete && (
+                        <Badge className="bg-rose-100 text-rose-700 text-[10px]">
+                          {isEs ? "Data incompleta" : "Incomplete"}
+                        </Badge>
+                      )}
+                      <ArrowRight className="w-4 h-4 text-muted-foreground" />
+                    </div>
+                  </Link>
+                ))}
+                {pendingApprovalCount > 5 && (
+                  <Link
+                    to="/client-engagement/proposals?approval=pending"
+                    className="block text-center text-xs text-amber-700 hover:text-amber-900 pt-2"
+                  >
+                    +{pendingApprovalCount - 5} {isEs ? "más pendientes" : "more pending"} →
+                  </Link>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* ==================== EXECUTION SIGNALS (Critical Alerts) ==================== */}
-        {executionSignals && (executionSignals.summary?.blocked > 0 || executionSignals.summary?.at_risk > 0) && (
-          <Card className="border-yellow-500/30 bg-yellow-500/5" data-testid="execution-signals-section">
+        {executionSignals && (executionSignals.summary?.blocked > 0 || executionSignals.summary?.at_risk > 0) && (          <Card className="border-yellow-500/30 bg-yellow-500/5" data-testid="execution-signals-section">
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">

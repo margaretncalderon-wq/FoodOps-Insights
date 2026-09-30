@@ -44,6 +44,7 @@ import {
 import EventLocationSelector from "../components/EventLocationSelector";
 import LostReasonDialog from "../components/LostReasonDialog";
 import LostReasonsWidget from "../components/LostReasonsWidget";
+import { usePendingApprovals } from "../hooks/usePendingApprovals";
 
 
 const EVENT_TYPES = ["wedding", "corporate", "birthday", "social", "other"];
@@ -130,6 +131,11 @@ export default function EventsPage({ embedded = false }) {
   const [editingEvent, setEditingEvent] = useState(null);
   const [viewMode, setViewMode] = useState(searchParams.get("view") || "list"); // list, calendar, pipeline
   const [sortBy, setSortBy] = useState(localStorage.getItem("eventsSortBy") || "date_desc");
+  // Approval filter chip — driven by ?approval= URL param so the sidebar badge
+  // and dashboard widget can deep-link straight into the "Pending" tray.
+  // Values: "all" | "pending" | "approved" | "sent" | "incomplete"
+  const [approvalFilter, setApprovalFilter] = useState(searchParams.get("approval") || "all");
+  const { event_status_map, require_approval, count_pending, refresh: refreshApprovals } = usePendingApprovals();
   // Track which event is being marked as Lost so we can fire the dialog.
   const [lostDialogEventId, setLostDialogEventId] = useState(null);
   const [formData, setFormData] = useState({
@@ -398,10 +404,20 @@ export default function EventsPage({ embedded = false }) {
   };
 
   const filteredEvents = (() => {
-    const list = events.filter((event) =>
-      event.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      event.venue?.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    const list = events.filter((event) => {
+      const matchesSearch =
+        event.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        event.venue?.toLowerCase().includes(searchTerm.toLowerCase());
+      if (!matchesSearch) return false;
+      if (approvalFilter === "all") return true;
+      const meta = event_status_map?.[event.event_id];
+      if (!meta) return false;
+      if (approvalFilter === "pending") return meta.document_status === "Pending Approval";
+      if (approvalFilter === "approved") return meta.document_status === "Approved";
+      if (approvalFilter === "sent") return meta.document_status === "Sent";
+      if (approvalFilter === "incomplete") return !!meta.data_incomplete;
+      return true;
+    });
     const parseDate = (d) => (d ? new Date(d).getTime() : 0);
     const sorters = {
       date_desc: (a, b) => parseDate(b.event_date) - parseDate(a.event_date),
@@ -1087,41 +1103,90 @@ export default function EventsPage({ embedded = false }) {
 
         {/* Search + Sort */}
         {viewMode !== "pipeline" && (
-          <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
-            <div className="relative flex-1 max-w-md">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
-                placeholder={t("search")}
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-                data-testid="event-search-input"
-              />
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
+              <div className="relative flex-1 max-w-md">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  placeholder={t("search")}
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                  data-testid="event-search-input"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground whitespace-nowrap">
+                  {language === "es" ? "Ordenar por" : "Sort by"}:
+                </span>
+                <Select
+                  value={sortBy}
+                  onValueChange={(v) => { setSortBy(v); localStorage.setItem("eventsSortBy", v); }}
+                >
+                  <SelectTrigger className="w-[220px]" data-testid="events-sort-select">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="date_desc">{language === "es" ? "Fecha (más reciente)" : "Date (newest)"}</SelectItem>
+                    <SelectItem value="date_asc">{language === "es" ? "Fecha (más antigua)" : "Date (oldest)"}</SelectItem>
+                    <SelectItem value="name_asc">{language === "es" ? "Nombre (A-Z)" : "Name (A-Z)"}</SelectItem>
+                    <SelectItem value="name_desc">{language === "es" ? "Nombre (Z-A)" : "Name (Z-A)"}</SelectItem>
+                    <SelectItem value="guests_desc">{isEs ? `Más ${guestsLabel.toLowerCase()}` : `Most ${guestsLabel.toLowerCase()}`}</SelectItem>
+                    <SelectItem value="guests_asc">{isEs ? `Menos ${guestsLabel.toLowerCase()}` : `Fewest ${guestsLabel.toLowerCase()}`}</SelectItem>
+                    <SelectItem value="value_desc">{language === "es" ? "Mayor valor" : "Highest value"}</SelectItem>
+                    <SelectItem value="value_asc">{language === "es" ? "Menor valor" : "Lowest value"}</SelectItem>
+                    <SelectItem value="created_desc">{language === "es" ? "Creado recientemente" : "Recently created"}</SelectItem>
+                    <SelectItem value="created_asc">{language === "es" ? "Creado primero" : "Created first"}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-muted-foreground whitespace-nowrap">
-                {language === "es" ? "Ordenar por" : "Sort by"}:
-              </span>
-              <Select
-                value={sortBy}
-                onValueChange={(v) => { setSortBy(v); localStorage.setItem("eventsSortBy", v); }}
-              >
-                <SelectTrigger className="w-[220px]" data-testid="events-sort-select">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="date_desc">{language === "es" ? "Fecha (más reciente)" : "Date (newest)"}</SelectItem>
-                  <SelectItem value="date_asc">{language === "es" ? "Fecha (más antigua)" : "Date (oldest)"}</SelectItem>
-                  <SelectItem value="name_asc">{language === "es" ? "Nombre (A-Z)" : "Name (A-Z)"}</SelectItem>
-                  <SelectItem value="name_desc">{language === "es" ? "Nombre (Z-A)" : "Name (Z-A)"}</SelectItem>
-                  <SelectItem value="guests_desc">{isEs ? `Más ${guestsLabel.toLowerCase()}` : `Most ${guestsLabel.toLowerCase()}`}</SelectItem>
-                  <SelectItem value="guests_asc">{isEs ? `Menos ${guestsLabel.toLowerCase()}` : `Fewest ${guestsLabel.toLowerCase()}`}</SelectItem>
-                  <SelectItem value="value_desc">{language === "es" ? "Mayor valor" : "Highest value"}</SelectItem>
-                  <SelectItem value="value_asc">{language === "es" ? "Menor valor" : "Lowest value"}</SelectItem>
-                  <SelectItem value="created_desc">{language === "es" ? "Creado recientemente" : "Recently created"}</SelectItem>
-                  <SelectItem value="created_asc">{language === "es" ? "Creado primero" : "Created first"}</SelectItem>
-                </SelectContent>
-              </Select>
+
+            {/* Approval status filter chips */}
+            <div className="flex flex-wrap items-center gap-2" data-testid="approval-filter-bar">
+              {[
+                { key: "all", labelEs: "Todas", labelEn: "All", tone: "neutral" },
+                { key: "pending", labelEs: "Pendientes de aprobación", labelEn: "Pending approval", tone: "amber", count: count_pending },
+                { key: "approved", labelEs: "Aprobadas", labelEn: "Approved", tone: "emerald" },
+                { key: "sent", labelEs: "Enviadas", labelEn: "Sent", tone: "blue" },
+                { key: "incomplete", labelEs: "Data incompleta", labelEn: "Data incomplete", tone: "rose" },
+              ].map((chip) => {
+                const active = approvalFilter === chip.key;
+                const tones = {
+                  neutral: active ? "bg-[#1F2937] text-white border-[#1F2937]" : "bg-white text-[#1F2937] border-border hover:bg-muted",
+                  amber: active ? "bg-amber-500 text-white border-amber-500" : "bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100",
+                  emerald: active ? "bg-emerald-600 text-white border-emerald-600" : "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100",
+                  blue: active ? "bg-blue-600 text-white border-blue-600" : "bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100",
+                  rose: active ? "bg-rose-600 text-white border-rose-600" : "bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100",
+                };
+                return (
+                  <button
+                    key={chip.key}
+                    type="button"
+                    data-testid={`approval-chip-${chip.key}`}
+                    onClick={() => {
+                      setApprovalFilter(chip.key);
+                      const next = new URLSearchParams(searchParams);
+                      if (chip.key === "all") next.delete("approval");
+                      else next.set("approval", chip.key);
+                      setSearchParams(next, { replace: true });
+                    }}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-medium transition-colors ${tones[chip.tone]}`}
+                  >
+                    <span>{isEs ? chip.labelEs : chip.labelEn}</span>
+                    {chip.count > 0 && (
+                      <span className={`inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold ${active ? "bg-white/25 text-white" : "bg-amber-500 text-white"}`}>
+                        {chip.count > 99 ? "99+" : chip.count}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+              {require_approval && (
+                <span className="text-xs text-muted-foreground ml-1">
+                  {isEs ? "· Aprobación requerida está activa" : "· Approval required is on"}
+                </span>
+              )}
             </div>
           </div>
         )}
@@ -1157,6 +1222,37 @@ export default function EventsPage({ embedded = false }) {
                       )}
                       <Badge className={statusColors[event.status]}>{t(event.status)}</Badge>
                       <Badge className={stageColors[event.stage || "Lead"]}>{stageLabel(event.stage || "Inquiry Received", isEs)}</Badge>
+                      {(() => {
+                        const meta = event_status_map?.[event.event_id];
+                        if (!meta) return null;
+                        if (meta.document_status === "Pending Approval") {
+                          return (
+                            <Badge className="bg-amber-100 text-amber-800 border-amber-200" data-testid={`approval-status-${event.event_id}`}>
+                              {isEs ? "Pend. aprobar" : "Pend. approval"}
+                            </Badge>
+                          );
+                        }
+                        if (meta.document_status === "Approved") {
+                          return (
+                            <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200" data-testid={`approval-status-${event.event_id}`}>
+                              {isEs ? "Aprobada" : "Approved"}
+                            </Badge>
+                          );
+                        }
+                        if (meta.document_status === "Sent") {
+                          return (
+                            <Badge className="bg-blue-100 text-blue-800 border-blue-200" data-testid={`approval-status-${event.event_id}`}>
+                              {isEs ? "Enviada" : "Sent"}
+                            </Badge>
+                          );
+                        }
+                        return null;
+                      })()}
+                      {event_status_map?.[event.event_id]?.data_incomplete && (
+                        <Badge className="bg-rose-100 text-rose-700 border-rose-200" data-testid={`data-incomplete-${event.event_id}`}>
+                          {isEs ? "Data incompleta" : "Data incomplete"}
+                        </Badge>
+                      )}
                       {event.is_booking && (
                         <Badge variant="outline" className="text-xs">
                           {language === "es" ? "Reserva" : "Booking"}

@@ -48,6 +48,7 @@ import ApprovalQueueBell from "./notifications/ApprovalQueueBell";
 import BudgetAlertsBell from "./notifications/BudgetAlertsBell";
 import { GlobalActivityLog } from "./GlobalActivityLog";
 import BugReportButton from "./BugReportButton";
+import { usePendingApprovals } from "../hooks/usePendingApprovals";
 
 // Icon mapping for dynamic modules
 const iconMap = {
@@ -85,6 +86,12 @@ export const Layout = ({ children }) => {
   // Get current page name for presence
   const currentPage = location.pathname.split("/").filter(Boolean).join("/") || "dashboard";
   const { onlineUsers } = usePresence({ page: currentPage });
+
+  // Pending approvals — used to render a small badge next to the module that
+  // hosts Proposals (currently `/client-engagement`). Silently no-ops when the
+  // tenant flag is off.
+  const { require_approval, count_pending } = usePendingApprovals({ pollMs: 60000 });
+  const showApprovalBadge = require_approval && (count_pending || 0) > 0;
 
   // Build navigation items from enabled modules
   const navItems = useMemo(() => {
@@ -136,10 +143,11 @@ export const Layout = ({ children }) => {
             const displayLabel = item.labelKey 
               ? t(item.labelKey) 
               : (language === "es" && item.labelEs ? item.labelEs : item.label);
+            const showBadge = showApprovalBadge && item.path === "/client-engagement";
             return (
               <Link
                 key={item.path}
-                to={item.path}
+                to={showBadge ? "/client-engagement/proposals?approval=pending" : item.path}
                 data-testid={`nav-${item.labelKey || item.path.replace('/', '')}`}
                 className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 ${
                   active
@@ -149,6 +157,15 @@ export const Layout = ({ children }) => {
               >
                 <Icon className="w-5 h-5 shrink-0" strokeWidth={1.5} />
                 <span className="font-medium flex-1 truncate">{displayLabel}</span>
+                {showBadge && (
+                  <span
+                    data-testid="sidebar-pending-approval-badge"
+                    className="ml-auto inline-flex items-center justify-center min-w-[22px] h-[22px] px-1.5 rounded-full bg-amber-400 text-[#1F2937] text-[11px] font-bold shadow-sm"
+                    title={language === "es" ? "Propuestas pendientes de aprobación" : "Proposals pending approval"}
+                  >
+                    {count_pending > 99 ? "99+" : count_pending}
+                  </span>
+                )}
               </Link>
             );
           })}
@@ -247,10 +264,11 @@ export const Layout = ({ children }) => {
             {navItems.map((item) => {
               const Icon = item.icon;
               const active = isActive(item.path);
+              const showBadge = showApprovalBadge && item.path === "/client-engagement";
               return (
                 <Link
                   key={item.path}
-                  to={item.path}
+                  to={showBadge ? "/client-engagement/proposals?approval=pending" : item.path}
                   onClick={() => setMobileMenuOpen(false)}
                   className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
                     active
@@ -260,6 +278,11 @@ export const Layout = ({ children }) => {
                 >
                   <Icon className="w-5 h-5 shrink-0" strokeWidth={1.5} />
                   <span className="font-medium flex-1 truncate">{item.label || t(item.labelKey)}</span>
+                  {showBadge && (
+                    <span className="ml-auto inline-flex items-center justify-center min-w-[22px] h-[22px] px-1.5 rounded-full bg-amber-400 text-[#1F2937] text-[11px] font-bold">
+                      {count_pending > 99 ? "99+" : count_pending}
+                    </span>
+                  )}
                 </Link>
               );
             })}

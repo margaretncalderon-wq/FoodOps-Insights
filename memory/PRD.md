@@ -1,5 +1,38 @@
 # Kora OS — Product Requirements Document
 
+## September 30, 2026 — Iter 259 · Pending Approvals Tray (surface UX)
+
+**Estado:** ✅ Completo. 11/11 pytests PASS + smoke E2E (dashboard widget, sidebar badge y chips visibles con 3 propuestas pendientes de prueba).
+
+### Alcance
+Resolver la pregunta directa del usuario ("¿dónde veo pending aprobar?"). Antes las propuestas pendientes solo eran visibles abriendo cada evento. Ahora hay 3 superficies concurrentes:
+
+1. **Backend — `GET /api/proposals/approval-overview`** (`routers/proposal_approval.py`)
+   Devuelve `require_approval`, `count_pending`, `pending[]` (urgencia = event_date ASC + FIFO submitted_at ASC como tiebreaker; TBD queda al final) y `event_status_map` (event_id → {document_status, data_incomplete, proposal_id}). Un solo call alimenta las tres superficies.
+2. **Frontend — Sidebar badge** (`components/Layout.js`)
+   Chip ámbar con el conteo pegado al ítem del módulo `/client-engagement`. Deep-link a `/client-engagement/proposals?approval=pending`. Sólo aparece si `require_approval=true` y hay pendientes. Mobile menu incluido.
+3. **Frontend — Dashboard widget** (`pages/Dashboard.js`)
+   Card "Requieren tu aprobación" antes de Execution Signals con top 5 clickeables (evento, cliente, monto, fecha) y footer "+N más pendientes". Auto-hides cuando el toggle está apagado.
+4. **Frontend — Chips en listado de Propuestas** (`pages/EventsPage.js`)
+   Filtros `Todas / Pendientes de aprobación (N) / Aprobadas / Enviadas / Data incompleta`. El filtro `?approval=pending` se sincroniza al URL, y cada card muestra badge de status. Poll 60 s desde el hook.
+5. **Hook compartido** (`hooks/usePendingApprovals.js`) con `refresh()` + polling opcional.
+
+### Archivos nuevos
+- `/app/backend/tests/test_pending_approvals_overview.py` (2 tests)
+- `/app/frontend/src/hooks/usePendingApprovals.js`
+
+### Archivos modificados
+- `/app/backend/routers/proposal_approval.py` (+approval-overview endpoint)
+- `/app/frontend/src/components/Layout.js` (badge sidebar desktop + mobile)
+- `/app/frontend/src/pages/Dashboard.js` (widget "Requieren tu aprobación")
+- `/app/frontend/src/pages/EventsPage.js` (chips filtro + badges de status en cards)
+
+### Pendiente Iteración 2 del sistema de aprobación
+- Migración one-shot para marcar share_links legacy con `legacy_signature_flow=true`.
+- Gate de firma en el Portal del Cliente (`routers/portal.py` + `ClientEventPortal.js`).
+
+
+
 ## February 26, 2026 — Iter 258 · Kitchen Sheets logistics + grouped extras
 - PRD updated with new event fields (internal_delivery_time, departure_time)
 - Kitchen BEO extras now grouped by item_type (Alquileres/Desechables/Cristalería visible)
