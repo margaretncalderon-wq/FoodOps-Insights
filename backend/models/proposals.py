@@ -13,10 +13,18 @@ class ProposalCreate(BaseModel):
 
 
 class ProposalUpdate(BaseModel):
-    status: Optional[str] = None  # Draft, Sent, Accepted, Rejected
+    status: Optional[str] = None  # Draft, Sent, Accepted, Rejected  (legacy)
+    document_status: Optional[str] = None  # Draft/Ready to Send/Pending Approval/Approved/Sent/Client Signed
     valid_until: Optional[datetime] = None
     client_notes: Optional[str] = None
+    internal_notes: Optional[str] = None
     payment_terms: Optional[str] = None
+    # Text-only fields — these do NOT revoke approval.
+    presentation_notes: Optional[str] = None
+    # Data-quality flag — cleared by user from the UI when import/duplicate
+    # copies have been cleaned.
+    data_incomplete: Optional[bool] = None
+    data_incomplete_source: Optional[str] = None
 
 
 class Proposal(BaseModel):
@@ -24,9 +32,14 @@ class Proposal(BaseModel):
     event_id: str
     company_id: str
     proposal_number: str
-    status: str = "Draft"  # Draft, Sent, Accepted, Rejected
+    status: str = "Draft"  # Draft, Sent, Accepted, Rejected — LEGACY, kept for BC
+    # New approval state machine (Feb 2026): Draft → Ready to Send →
+    # Pending Approval → Approved → Sent → Client Signed. Backwards
+    # compatible: when absent, derive from `status`.
+    document_status: str = "Draft"
     valid_until: Optional[datetime] = None
     client_notes: Optional[str] = None
+    internal_notes: Optional[str] = None
     payment_terms: Optional[str] = None
     subtotal: float = 0.0
     discount_amount: float = 0.0
@@ -37,8 +50,19 @@ class Proposal(BaseModel):
     total_cost: float = 0.0
     total_margin: float = 0.0
     margin_percentage: float = 0.0
+    # Approval trail (Feb 2026)
+    approved_by: Optional[Dict[str, Any]] = None
+    approval_revoked_reason: Optional[str] = None
+    approval_revoked_at: Optional[datetime] = None
+    last_material_edit_at: Optional[datetime] = None
+    # Automation / import lineage
+    data_incomplete: bool = False
+    data_incomplete_source: Optional[str] = None  # import | duplicate | automation | seed
     last_edited_at: datetime
     created_at: datetime
+
+    class Config:
+        extra = "allow"
 
 
 # ============== ORDER ITEM MODELS (Unified Commercial Engine) ==============

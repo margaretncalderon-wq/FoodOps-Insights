@@ -479,6 +479,15 @@ async def duplicate_event(event_id: str, user: User = Depends(get_current_user))
             "proposal_number": new_proposal_number,
             "event_id": new_event_id,
             "status": "Draft",
+            "document_status": "Draft",
+            "approved_by": None,
+            "approval_revoked_reason": None,
+            "approval_revoked_at": None,
+            # Feb 2026: duplicates are auto-created by a process, so they
+            # carry the "Datos incompletos" badge. Non-blocking — user
+            # clears it from the UI when they review the copy.
+            "data_incomplete": True,
+            "data_incomplete_source": "duplicate",
             "sent_at": None,
             "accepted_at": None,
             "rejected_at": None,
