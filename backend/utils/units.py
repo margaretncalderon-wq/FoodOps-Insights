@@ -164,13 +164,27 @@ def detect_density(ingredient: Optional[dict]) -> Optional[float]:
 
 
 def _pack_size_for(unit: str, ingredient: Optional[dict]) -> Optional[float]:
-    """Resolve a custom pack unit (caja, saco, etc.) using ingredient.pack_size."""
+    """Resolve a custom pack unit (caja, saco, etc.) using ingredient.pack_size.
+
+    Guard: a pack_unit that equals the base_unit is a nonsense config
+    (multiplying the base by pack_size would just re-enter this branch).
+    Returning None in that case is the single fix that prevents the
+    infinite recursion in convert() observed when editing ingredients
+    whose pack_unit was auto-copied from base_unit.
+    """
     if not ingredient:
         return None
     u = normalize_unit(unit)
     pack_unit = normalize_unit(ingredient.get("pack_unit") or "")
+    base_unit = normalize_unit(ingredient.get("base_unit") or "")
     pack_size = ingredient.get("pack_size") or 0
-    if u == pack_unit and pack_size and pack_size > 0:
+    if (
+        u == pack_unit
+        and pack_unit
+        and pack_unit != base_unit
+        and pack_size
+        and pack_size > 0
+    ):
         return float(pack_size)
     return None
 

@@ -62,10 +62,29 @@ async def get_supplier(supplier_id: str, user: User = Depends(get_current_user))
 
 
 @suppliers_router.put("/{supplier_id}", response_model=Supplier)
-async def update_supplier(supplier_id: str, data: SupplierCreate, user: User = Depends(get_current_user)):
+async def update_supplier(supplier_id: str, data: dict, user: User = Depends(get_current_user)):
+    """PARTIAL update — accepts any subset of Supplier fields.
+
+    Prior version bound the body to `SupplierCreate` which forced the FE to
+    resend every required field (name, category, etc.) on every edit,
+    returning HTTP 422 when a single field like phone was changed. Now we
+    whitelist the update to known Supplier fields so a stale FE cannot
+    inject arbitrary keys.
+    """
+    if not isinstance(data, dict) or not data:
+        raise HTTPException(status_code=400, detail="Empty update payload")
+    allowed = set(SupplierCreate.model_fields.keys()) | {
+        # Extended fields that live on Supplier but not SupplierCreate
+        "company_name", "has_credit", "credit_limit",
+        "usual_delivery_days", "logo_url", "notes",
+    }
+    update_data = {k: v for k, v in data.items() if k in allowed}
+    if not update_data:
+        raise HTTPException(status_code=400, detail="No valid fields to update")
+    update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
     result = await db.suppliers.update_one(
         {"supplier_id": supplier_id, "company_id": user.company_id},
-        {"$set": data.model_dump()}
+        {"$set": update_data}
     )
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Supplier not found")
