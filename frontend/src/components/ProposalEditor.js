@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback, useMemo, createContext, useCon
 import { API } from "../utils/api";
 import axios from "axios";
 import ChangeClientDialog from "./ChangeClientDialog";
+import LostReasonDialog from "./LostReasonDialog";
 import { parseDateOnly, toDateOnly } from "../utils/dates";
 import { useLanguage } from "../contexts/LanguageContext";
 import { useTerminology } from "../hooks/useTerminology";
@@ -51,7 +52,7 @@ import {
   AlertDialogTitle,
 } from "./ui/alert-dialog";
 import { toast } from "sonner";
-import { Plus, Trash2, FileText, Download, Eye, Utensils, Wine, Armchair, Users, Flower2, Package, GripVertical, Percent, DollarSign, ChevronDown, ChevronRight, AlertTriangle, Search, Send, CheckCircle, XCircle, Lock, History, TrendingUp, Edit, Clock, Calculator, Link2, RefreshCw, CreditCard, Check, X, Type, ChefHat, Calendar as CalendarIcon, ArrowUp, ArrowDown, Copy } from "lucide-react";
+import { Plus, Trash2, FileText, Download, Eye, Utensils, Wine, Armchair, Users, Flower2, Package, GripVertical, Percent, DollarSign, ChevronDown, ChevronRight, AlertTriangle, Search, Send, CheckCircle, XCircle, Lock, History, TrendingUp, Edit, Clock, Calculator, Link2, RefreshCw, CreditCard, Check, X, Type, ChefHat, Calendar as CalendarIcon, ArrowUp, ArrowDown, Copy, MoreVertical, Archive } from "lucide-react";
 
 import { KoraLoader } from "./KoraLoader";
 import {
@@ -206,6 +207,8 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
   const [eventName, setEventName] = useState(event?.name || "");
   const [approvalRequired, setApprovalRequired] = useState(false);
   const [changeClientOpen, setChangeClientOpen] = useState(false);
+  const [archiveOpen, setArchiveOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   useEffect(() => { setEventName(event?.name || ""); }, [event?.name]);
   useEffect(() => {
     (async () => {
@@ -2277,6 +2280,70 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
                   }}>
                   {language === "es" ? "Enviar al cliente" : "Send to client"}
                 </Button>
+              )}
+              {/* "..." menu — Archive (soft, with reason) + Delete (admin only). */}
+              {event?.event_id && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button size="sm" variant="ghost" className="px-2" data-testid="proposal-more-menu-btn">
+                      <MoreVertical className="w-4 h-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem
+                      onClick={() => setArchiveOpen(true)}
+                      data-testid="archive-event-item"
+                    >
+                      <Archive className="w-4 h-4 mr-2" />
+                      {language === "es" ? "Archivar (con motivo)" : "Archive (with reason)"}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      className="text-destructive"
+                      disabled={deleting}
+                      data-testid="delete-event-item"
+                      onClick={async () => {
+                        const typed = window.prompt(
+                          language === "es"
+                            ? "Esta acción es IRREVERSIBLE. Escribe ELIMINAR para confirmar:"
+                            : "This is IRREVERSIBLE. Type DELETE to confirm:"
+                        );
+                        const expected = language === "es" ? "ELIMINAR" : "DELETE";
+                        if (!typed || typed.trim().toUpperCase() !== expected) return;
+                        setDeleting(true);
+                        try {
+                          await axios.delete(`${API}/events/${event.event_id}`, { withCredentials: true });
+                          toast.success(language === "es" ? "Evento eliminado" : "Event deleted");
+                          window.location.href = "/client-engagement/proposals";
+                        } catch (e) {
+                          const detail = e?.response?.data?.detail || "";
+                          if (detail.startsWith("financial_data_exists")) {
+                            const retry = window.confirm(
+                              language === "es"
+                                ? `${detail}\n\n¿Forzar eliminación de todas formas? (Admin override)`
+                                : `${detail}\n\nForce delete anyway? (Admin override)`
+                            );
+                            if (retry) {
+                              try {
+                                await axios.delete(`${API}/events/${event.event_id}?force=true`, { withCredentials: true });
+                                toast.success(language === "es" ? "Evento eliminado" : "Event deleted");
+                                window.location.href = "/client-engagement/proposals";
+                              } catch (e2) {
+                                toast.error(e2?.response?.data?.detail || "Error");
+                              }
+                            }
+                          } else {
+                            toast.error(detail || (language === "es" ? "No permitido" : "Not allowed"));
+                          }
+                        } finally {
+                          setDeleting(false);
+                        }
+                      }}
+                    >
+                      <Trash2 className="w-4 h-4 mr-2" />
+                      {language === "es" ? "Eliminar permanentemente" : "Delete permanently"}
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               )}
             </div>
           )}
@@ -5168,9 +5235,31 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
         currentClientId={event?.client_id}
         language={language}
         onReassigned={() => {
-          // Refetch proposal + client so the header reflects the new assignment.
           fetchProposal();
           fetchClient();
+        }}
+      />
+
+      {/* Archive Dialog (reuses the shared LostReasonDialog so we store the
+          same lost_reason + lost_reason_notes used by analytics). */}
+      <LostReasonDialog
+        open={archiveOpen}
+        onOpenChange={setArchiveOpen}
+        eventName={event?.name || ""}
+        onConfirm={async ({ reason, notes }) => {
+          try {
+            await axios.put(`${API}/events/${event.event_id}`, {
+              stage: "Archived",
+              lost_reason: reason,
+              lost_reason_notes: notes,
+            }, { withCredentials: true });
+            toast.success(language === "es" ? "Propuesta archivada" : "Proposal archived");
+            // Nav back to list — the editor shouldn't stay open on an archived
+            // event because many flows (approve, send) no longer apply.
+            setTimeout(() => { window.location.href = "/client-engagement/proposals"; }, 300);
+          } catch (e) {
+            toast.error(e?.response?.data?.detail || (language === "es" ? "Error archivando" : "Archive failed"));
+          }
         }}
       />
     </div>

@@ -39,6 +39,31 @@ Resolver la pregunta directa del usuario ("¿dónde veo pending aprobar?"). Ante
 
 
 ## Feature — Pricing Architecture · Fase 1b (UI) — COMPLETA (Feb 20, 2026)
+## September 30, 2026 — Iter 265 · Fase 1 Archivar/Eliminar en editor
+
+**Estado:** ✅ Completo. E2E: PUT stage=Archived → ok, DELETE 200 (admin role), restore ok.
+
+### Alcance
+Resolver "2 propuestas y aprueban una, quiero descartar la otra". El usuario eligió:
+- a1: ambas acciones (Archivar + Eliminar)
+- b1: menú `•••` en el header del editor
+- c3: solo admins pueden eliminar hard delete
+- d1: toggle "Mostrar archivadas" en el listado
+
+### Backend
+- **`routers/events.py:delete_event`** reforzado:
+  - Role check: 403 si `user.role` no es admin/owner.
+  - Preflight financiero: 409 `financial_data_exists` cuando hay invoices o payments, salvo que llame con `?force=true`.
+  - Cascade cleanup: ahora borra `proposals`, `order_items`, `inventory_reservations` del event (antes quedaban huérfanos).
+
+### Frontend
+- **`components/ProposalEditor.js`** · Menú `•••` nuevo en header (`data-testid="proposal-more-menu-btn"`) con 2 items:
+  - **Archive (with reason)** → abre `LostReasonDialog`, al confirmar hace PUT stage=Archived + lost_reason + notes y navega al listado.
+  - **Delete permanently** → pide typing "ELIMINAR/DELETE" + maneja 409 financial_data con opción admin override.
+- **`pages/EventsPage.js`** · Toggle "Mostrar archivadas" sincronizado a `?archived=1` con contador. Oculta por default stage=Archived/Lost.
+
+
+
 ## September 30, 2026 — Iter 264 · Fase B3 · Workflow config por tenant
 
 **Estado:** ✅ Completo. Backend E2E verificado (GET/PUT con palette válido + 400 con palette inválido).

@@ -665,11 +665,43 @@ async def update_event(event_id: str, data: EventUpdate, user: User = Depends(ge
     return await get_event(event_id, user)
 
 @events_router.delete("/{event_id}")
-async def delete_event(event_id: str, user: User = Depends(get_current_user)):
+async def delete_event(
+    event_id: str,
+    force: bool = False,
+    user: User = Depends(get_current_user),
+):
+    # Admin-only (per user's choice c3). Role field defaults to "admin" so
+    # existing single-user tenants aren't locked out.
+    if (user.role or "").lower() not in ("admin", "owner"):
+        raise HTTPException(
+            status_code=403,
+            detail="Only admins/owners can permanently delete events. Use 'Archive' instead.",
+        )
+
     event = await db.events.find_one({"event_id": event_id, "company_id": user.company_id})
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
-    
+
+    # Guardrail: block hard delete when there's financial trail. Caller can
+    # pass `?force=true` to override, but only after an explicit admin UI
+    # confirmation flow.
+    if not force:
+        has_invoices = await db.invoices.count_documents({
+            "event_id": event_id, "company_id": user.company_id,
+        })
+        has_payments = await db.payments.count_documents({
+            "event_id": event_id, "company_id": user.company_id,
+        })
+        if has_invoices or has_payments:
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    f"financial_data_exists: event has {has_invoices} invoice(s) "
+                    f"and {has_payments} payment(s). Resolve those first or re-call "
+                    f"with ?force=true (admin override)."
+                ),
+            )
+
     event_name = event.get("name", "Event")
     _calendar_event_hint = event.get("calendar_event_id")  # captured for post-delete sync
     
@@ -692,6 +724,12 @@ async def delete_event(event_id: str, user: User = Depends(get_current_user)):
 
     await db.events.delete_one({"event_id": event_id})
     await db.clients.update_one({"client_id": event["client_id"]}, {"$inc": {"events_count": -1}})
+
+    # Cascade cleanup: proposals + order_items + reservations tied to the event
+    # so hard-deletes don't leave orphans in the DB.
+    await db.proposals.delete_many({"event_id": event_id, "company_id": user.company_id})
+    await db.order_items.delete_many({"event_id": event_id, "company_id": user.company_id})
+    await db.inventory_reservations.delete_many({"event_id": event_id, "company_id": user.company_id})
     
     # Log activity
     await log_activity(

@@ -148,6 +148,7 @@ export default function EventsPage({ embedded = false }) {
   // and dashboard widget can deep-link straight into the "Pending" tray.
   // Values: "all" | "pending" | "approved" | "sent" | "incomplete"
   const [approvalFilter, setApprovalFilter] = useState(searchParams.get("approval") || "all");
+  const [showArchived, setShowArchived] = useState(searchParams.get("archived") === "1");
   const { event_status_map, require_approval, count_pending, refresh: refreshApprovals } = usePendingApprovals();
   // Tenant-configurable stage labels + palettes (Sep 2026). Falls back to
   // the hard defaults until the GET resolves so first paint is never broken.
@@ -425,6 +426,9 @@ export default function EventsPage({ embedded = false }) {
         event.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         event.venue?.toLowerCase().includes(searchTerm.toLowerCase());
       if (!matchesSearch) return false;
+      // Hide archived by default (c3): user flips the toggle to see them.
+      const isArchived = event.stage === "Archived" || event.stage === "Lost";
+      if (isArchived && !showArchived && approvalFilter !== "incomplete") return false;
       if (approvalFilter === "all") return true;
       const meta = event_status_map?.[event.event_id];
       if (!meta) return false;
@@ -1192,6 +1196,31 @@ export default function EventsPage({ embedded = false }) {
                   {isEs ? "· Aprobación requerida está activa" : "· Approval required is on"}
                 </span>
               )}
+              {/* Toggle "Show archived" (c3) — hidden by default so the main
+                  list isn't polluted. Also syncs to ?archived=1 for deep links. */}
+              <label className="flex items-center gap-1.5 text-xs text-muted-foreground ml-auto cursor-pointer" data-testid="show-archived-toggle-wrapper">
+                <input
+                  type="checkbox"
+                  checked={showArchived}
+                  onChange={(e) => {
+                    const next = new URLSearchParams(searchParams);
+                    if (e.target.checked) next.set("archived", "1");
+                    else next.delete("archived");
+                    setSearchParams(next, { replace: true });
+                    setShowArchived(e.target.checked);
+                  }}
+                  data-testid="show-archived-toggle"
+                />
+                {isEs ? "Mostrar archivadas" : "Show archived"}
+                {(() => {
+                  const count = events.filter(e => e.stage === "Archived" || e.stage === "Lost").length;
+                  return count > 0 ? (
+                    <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-gray-200 text-gray-700 text-[10px] font-bold">
+                      {count}
+                    </span>
+                  ) : null;
+                })()}
+              </label>
             </div>
           </div>
         )}
