@@ -45,6 +45,7 @@ import EventLocationSelector from "../components/EventLocationSelector";
 import LostReasonDialog from "../components/LostReasonDialog";
 import LostReasonsWidget from "../components/LostReasonsWidget";
 import { usePendingApprovals } from "../hooks/usePendingApprovals";
+import { useProposalWorkflow } from "../hooks/useProposalWorkflow";
 
 
 const EVENT_TYPES = ["wedding", "corporate", "birthday", "social", "other"];
@@ -96,6 +97,8 @@ const LEGACY_STAGE_MAP = {
 
 // Display labels for stages (internal value stays "Archived" — we just show
 // "Perdida/Lost" to match how users actually think about it).
+// Note: UI calls now get stage labels from useProposalWorkflow().getStageLabel()
+// so tenants can rename. This helper is kept only for places not yet migrated.
 const stageLabel = (stage, isEs) => {
   if (stage === "Archived" || stage === "Lost") return isEs ? "Perdida" : "Lost";
   if (!isEs) return stage;
@@ -146,6 +149,9 @@ export default function EventsPage({ embedded = false }) {
   // Values: "all" | "pending" | "approved" | "sent" | "incomplete"
   const [approvalFilter, setApprovalFilter] = useState(searchParams.get("approval") || "all");
   const { event_status_map, require_approval, count_pending, refresh: refreshApprovals } = usePendingApprovals();
+  // Tenant-configurable stage labels + palettes (Sep 2026). Falls back to
+  // the hard defaults until the GET resolves so first paint is never broken.
+  const { getStagePalette, getStageLabel } = useProposalWorkflow();
   // Track which event is being marked as Lost so we can fire the dialog.
   const [lostDialogEventId, setLostDialogEventId] = useState(null);
   const [formData, setFormData] = useState({
@@ -452,43 +458,28 @@ export default function EventsPage({ embedded = false }) {
     cancelled: "bg-destructive/10 text-destructive",
   };
 
-  const stageColors = {
-    "Inquiry Received": "bg-slate-100 text-slate-800 border-slate-200",
-    "Context Captured": "bg-blue-100 text-blue-800 border-blue-200",
-    "Scope Drafted": "bg-amber-100 text-amber-800 border-amber-200",
-    "Definition In Review": "bg-orange-100 text-orange-800 border-orange-200",
-    "Sent to Client": "bg-cyan-100 text-cyan-800 border-cyan-200",
-    "Confirmed by Client": "bg-violet-100 text-violet-800 border-violet-200",
-    "Committed": "bg-emerald-100 text-emerald-800 border-emerald-200",
-    "Archived": "bg-gray-100 text-gray-500 border-gray-200",
-    // Legacy support
-    Lead: "bg-slate-100 text-slate-800 border-slate-200",
-    Contacted: "bg-blue-100 text-blue-800 border-blue-200",
-    Proposal: "bg-amber-100 text-amber-800 border-amber-200",
-    Negotiation: "bg-orange-100 text-orange-800 border-orange-200",
-    Won: "bg-emerald-100 text-emerald-800 border-emerald-200",
-    Lost: "bg-gray-100 text-gray-500 border-gray-200",
-    Closed: "bg-purple-100 text-purple-800 border-purple-200",
-  };
+  const stageColors = Object.fromEntries(
+    ["Inquiry Received", "Context Captured", "Scope Drafted", "Definition In Review",
+     "Sent to Client", "Confirmed by Client", "Committed", "Archived",
+     "Lead", "Contacted", "Proposal", "Negotiation", "Won", "Lost", "Closed"]
+      .map((s) => [s, getStagePalette(
+        // Map legacy keys to their new equivalents so colors stay consistent.
+        {Lead: "Inquiry Received", Contacted: "Context Captured", Proposal: "Scope Drafted",
+         Negotiation: "Definition In Review", Won: "Committed", Lost: "Archived",
+         Closed: "Committed"}[s] || s
+      ).chip])
+  );
 
-  const stageHeaderColors = {
-    "Inquiry Received": "bg-slate-500",
-    "Context Captured": "bg-blue-500",
-    "Scope Drafted": "bg-amber-500",
-    "Definition In Review": "bg-orange-500",
-    "Sent to Client": "bg-cyan-500",
-    "Confirmed by Client": "bg-violet-500",
-    "Committed": "bg-emerald-500",
-    "Archived": "bg-gray-400",
-    // Legacy support
-    Lead: "bg-slate-500",
-    Contacted: "bg-blue-500",
-    Proposal: "bg-amber-500",
-    Negotiation: "bg-orange-500",
-    Won: "bg-emerald-500",
-    Lost: "bg-gray-400",
-    Closed: "bg-purple-500",
-  };
+  const stageHeaderColors = Object.fromEntries(
+    ["Inquiry Received", "Context Captured", "Scope Drafted", "Definition In Review",
+     "Sent to Client", "Confirmed by Client", "Committed", "Archived",
+     "Lead", "Contacted", "Proposal", "Negotiation", "Won", "Lost", "Closed"]
+      .map((s) => [s, getStagePalette(
+        {Lead: "Inquiry Received", Contacted: "Context Captured", Proposal: "Scope Drafted",
+         Negotiation: "Definition In Review", Won: "Committed", Lost: "Archived",
+         Closed: "Committed"}[s] || s
+      ).header])
+  );
 
   const getDuration = (event) => {
     if (!event.is_booking || !event.end_date) return null;

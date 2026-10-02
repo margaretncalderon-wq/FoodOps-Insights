@@ -37,6 +37,7 @@ import { Building2, Palette, Globe, DollarSign, FileText, Check, Plus, Trash2, T
 import { KoraLoader } from "../components/KoraLoader";
 import LogoPreviewGrid from "../components/LogoPreviewGrid";
 import ProposalApprovalToggle from "../components/ProposalApprovalToggle";
+import ProposalWorkflowConfig from "../components/ProposalWorkflowConfig";
 import { Textarea } from "../components/ui/textarea";
 import { Badge } from "../components/ui/badge";
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
@@ -4338,22 +4339,22 @@ return (
             </Dialog>
           </TabsContent>
 
-          {/* Document Templates Tab */}
+          {/* Proposal Workflow Tab — approval gate + stage/status labels & colors (Sep 2026) */}
           <TabsContent value="proposal_approval">
             <Card data-testid="settings-proposal-approval">
               <CardHeader>
                 <CardTitle className="font-heading text-lg flex items-center gap-2">
                   <FileText className="w-5 h-5" />
-                  {language === "es" ? "Aprobación de propuestas" : "Proposal approval"}
+                  {language === "es" ? "Flujo de propuestas" : "Proposal workflow"}
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <p className="text-sm text-muted-foreground mb-4">
                   {language === "es"
-                    ? "Cuando esté activado, cada propuesta debe pasar por 'Pendiente aprobación → Aprobada' antes de enviarse al cliente. Los cambios materiales (precio, cantidad, impuestos) revocan la aprobación automáticamente."
-                    : "When on, every proposal must pass 'Pending Approval → Approved' before it can be sent to the client. Material edits (price, qty, taxes) auto-revoke approval."}
+                    ? "Configura el gate de aprobación, los nombres visibles y colores de las etapas del pipeline/calendario, y los estados comerciales que ve el cliente."
+                    : "Configure the approval gate, the visible names + colors of pipeline/calendar stages, and the commercial statuses the client sees."}
                 </p>
-                <ProposalApprovalToggle language={language} />
+                <ProposalWorkflowConfig language={language} />
               </CardContent>
             </Card>
           </TabsContent>

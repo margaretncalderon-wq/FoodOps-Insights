@@ -100,6 +100,7 @@ from routers import proposal_section_templates  # noqa: F401 — registers secti
 from routers import proposal_approval  # noqa: F401 — Feb 2026 approval state machine
 from routers import proposal_financials  # noqa: F401 — registers financials/day-logistics/custom-fields routes
 from routers import event_change_client  # noqa: F401 — Sep 2026 reassign-client endpoint
+from routers import proposal_workflow  # noqa: F401 — Sep 2026 tenant workflow config
 from routers import proposal_cost_health  # noqa: F401 — registers cost-staleness/refresh/margin-approval/cost-health routes
 from models.proposals import (
     OrderItem,

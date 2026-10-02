@@ -39,6 +39,28 @@ Resolver la pregunta directa del usuario ("¿dónde veo pending aprobar?"). Ante
 
 
 ## Feature — Pricing Architecture · Fase 1b (UI) — COMPLETA (Feb 20, 2026)
+## September 30, 2026 — Iter 264 · Fase B3 · Workflow config por tenant
+
+**Estado:** ✅ Completo. Backend E2E verificado (GET/PUT con palette válido + 400 con palette inválido).
+
+### Scope
+Mover la configuración del flujo de propuestas (gate + stages + statuses comerciales) a **un solo lugar** en Settings. Permite al tenant renombrar etiquetas (ES/EN) y escoger entre 22 paletas Tailwind por cada etapa/estado — todo persistido en `company_settings.proposal_workflow`.
+
+### Backend
+- Nuevo router `/app/backend/routers/proposal_workflow.py`:
+  - `GET /api/proposals/settings/workflow` → devuelve `{stage_config, commercial_status_config, require_approval}` con defaults si no hay override.
+  - `PUT /api/proposals/settings/workflow` → acepta parche parcial, valida que la paleta esté en whitelist (22 colores Tailwind) y que las keys sean las 8 fijas de stages y 4 fijas de statuses.
+- Registrado en `server.py` con `from routers import proposal_workflow`.
+
+### Frontend
+- **Paleta registry** `/app/frontend/src/utils/stageColorPalettes.js` — 22 paletas Tailwind con todas las clases pre-declaradas (JIT-safe): `bg`, `border`, `text`, `dot`, `stripe`, `header`, `chip`.
+- **Hook** `/app/frontend/src/hooks/useProposalWorkflow.js` — `getStagePalette`, `getStageLabel`, `getStatusPalette`, `getStatusLabel`, `refresh`, `save`. Fallback automático a defaults mientras resuelve el GET.
+- **UI** `/app/frontend/src/components/ProposalWorkflowConfig.js` — card con 3 secciones: toggle de aprobación (lo que había antes), stages con rename ES/EN + dropdown de paleta con swatch, statuses iguales. Botones Save/Discard sticky al final.
+- **Pages conectadas**: `pages/EventsPage.js` (`stageColors` + `stageHeaderColors` ahora salen del hook con legacy mapping) y `pages/EngagementCalendar.js` (`getStatusColor` + legenda compacta leen del hook).
+- **Settings tab renombrado**: "Propuestas" ahora renderiza `ProposalWorkflowConfig` en lugar del simple toggle. Mismo testid `settings-proposal-approval` para no romper tests existentes.
+
+
+
 ## September 30, 2026 — Iter 263 · Fase B1+B2 · Stages nuevos + automations
 
 **Estado:** ✅ Completo. 20/20 pytests PASS + E2E verificado (send-to-client → event.stage pasó de "Inquiry Received" → "Sent to Client").

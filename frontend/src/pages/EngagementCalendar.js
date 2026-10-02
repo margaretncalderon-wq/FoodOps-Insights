@@ -17,6 +17,8 @@ import {
 import { API_BASE as API } from "../utils/api";
 import { KoraLoader } from "../components/KoraLoader";
 
+import { useProposalWorkflow } from "../hooks/useProposalWorkflow";
+
 // Engagement Stages (OS-level progression). Sep 2026: added "Sent to Client"
 // + "Confirmed by Client" between Definition In Review and Committed so the
 // calendar reflects the proposal approval machine.
@@ -75,6 +77,8 @@ export default function EngagementCalendar({ embedded = false }) {
   const { term } = useTerminology();
   const navigate = useNavigate();
   const isEs = language === "es";
+  // Tenant-configurable stage palettes + labels (Sep 2026).
+  const { getStagePalette } = useProposalWorkflow();
   const entityPlural = term("events", "entity_plural");
   const entitySingular = term("events", "entity_singular");
   
@@ -311,10 +315,12 @@ export default function EngagementCalendar({ embedded = false }) {
     setCurrentDate(new Date());
   };
 
-  // Get status color (handles both new and legacy stages)
+  // Get status color (handles both new and legacy stages). Reads from tenant
+  // config via useProposalWorkflow() so colors reflect Settings → Proposal
+  // Workflow in real time.
   const getStatusColor = (stage) => {
     const normalizedStage = normalizeStage(stage);
-    return STATUS_COLORS[normalizedStage] || STATUS_COLORS.default;
+    return getStagePalette(normalizedStage);
   };
 
   // Open event detail
@@ -551,7 +557,7 @@ export default function EngagementCalendar({ embedded = false }) {
       {/* Status Legend - Compact */}
       <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
         {ENGAGEMENT_STAGES.slice(0, -1).map(status => {
-          const colors = STATUS_COLORS[status];
+          const colors = getStagePalette(status);
           return (
             <div key={status} className="flex items-center gap-1">
               <div className={`w-2 h-2 rounded-full ${colors.dot}`} />
