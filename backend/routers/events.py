@@ -34,7 +34,8 @@ events_router = APIRouter(prefix="/events", tags=["Events"])
 
 # Stage normalization — kept in sync with server.py's global map.
 ENGAGEMENT_STAGES = ["Inquiry Received", "Context Captured", "Scope Drafted",
-                     "Definition In Review", "Committed", "Archived"]
+                     "Definition In Review", "Sent to Client",
+                     "Confirmed by Client", "Committed", "Archived"]
 _LEGACY_STAGE_MAP = {
     "Lead": "Inquiry Received",
     "Contacted": "Context Captured",

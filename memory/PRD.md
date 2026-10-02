@@ -39,6 +39,35 @@ Resolver la pregunta directa del usuario ("¿dónde veo pending aprobar?"). Ante
 
 
 ## Feature — Pricing Architecture · Fase 1b (UI) — COMPLETA (Feb 20, 2026)
+## September 30, 2026 — Iter 263 · Fase B1+B2 · Stages nuevos + automations
+
+**Estado:** ✅ Completo. 20/20 pytests PASS + E2E verificado (send-to-client → event.stage pasó de "Inquiry Received" → "Sent to Client").
+
+### Nuevos stages (entre Definition In Review y Committed)
+```
+Inquiry Received → Context Captured → Scope Drafted → Definition In Review
+                → Sent to Client (cyan) → Confirmed by Client (violet) → Committed → Archived
+```
+
+### Backend
+- **`models/events.py`** + **`routers/events.py`** — `ENGAGEMENT_STAGES` incluye los 2 nuevos.
+- **`routers/proposal_approval.py:send_to_client`** — al mandar al cliente también escribe `event.stage = "Sent to Client"`.
+- **`server.py:document.sign`** (línea ~2539) — cuando el cliente firma en el portal propaga `document_status = "Client Signed"` al proposal y `event.stage = "Confirmed by Client"` al evento.
+
+### Frontend
+- **`pages/EventsPage.js`** — `ENGAGEMENT_STAGES`, `stageLabel`, `stageColors`, `stageHeaderColors` actualizados (cyan + violet).
+- **`pages/EngagementCalendar.js`** — `ENGAGEMENT_STAGES`, `STATUS_COLORS` (bg/border/text/dot/stripe), `stageDisplay` i18n ES.
+
+### Tests
+- **`/app/backend/tests/test_stage_automations.py`** — 2 casos (happy path + bloqueo `Approval required`).
+
+### Verificación E2E
+- Pipeline view muestra la nueva columna "Sent to Client" (cyan).
+- Calendar leyenda muestra los 7 stages activos con sus colores.
+- Backend: `POST /proposals/{id}/send-to-client` → `event.stage` cambia correctamente.
+
+
+
 ## September 30, 2026 — Iter 262 · Change-client en propuesta ya creada (Fase A)
 
 **Estado:** ✅ Completo. E2E backend verificado (200 OK en 2 reasignaciones + 400 bloqueando el shortcut vía PUT /events).

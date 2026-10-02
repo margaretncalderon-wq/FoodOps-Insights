@@ -17,22 +17,29 @@ import {
 import { API_BASE as API } from "../utils/api";
 import { KoraLoader } from "../components/KoraLoader";
 
-// Engagement Stages (OS-level progression)
+// Engagement Stages (OS-level progression). Sep 2026: added "Sent to Client"
+// + "Confirmed by Client" between Definition In Review and Committed so the
+// calendar reflects the proposal approval machine.
 const ENGAGEMENT_STAGES = [
-  "Inquiry Received",    // Intention exists, nothing defined
-  "Context Captured",    // We understood what they want
-  "Scope Drafted",       // Proposal under construction
-  "Definition In Review", // Adjustments, changes, validations
-  "Committed",           // Approved, ready to orchestrate
-  "Archived"             // Not proceeding (no drama)
+  "Inquiry Received",
+  "Context Captured",
+  "Scope Drafted",
+  "Definition In Review",
+  "Sent to Client",
+  "Confirmed by Client",
+  "Committed",
+  "Archived",
 ];
 
-// Status colors for events (only new engagement stages)
+// Status colors for events (default palette; Phase B3 will make these
+// configurable per-tenant).
 const STATUS_COLORS = {
   "Inquiry Received": { bg: "bg-slate-100", border: "border-slate-300", text: "text-slate-700", dot: "bg-slate-500", stripe: "bg-slate-500" },
   "Context Captured": { bg: "bg-blue-100", border: "border-blue-300", text: "text-blue-700", dot: "bg-blue-500", stripe: "bg-blue-500" },
   "Scope Drafted": { bg: "bg-amber-100", border: "border-amber-300", text: "text-amber-700", dot: "bg-amber-500", stripe: "bg-amber-500" },
   "Definition In Review": { bg: "bg-orange-100", border: "border-orange-300", text: "text-orange-700", dot: "bg-orange-500", stripe: "bg-orange-500" },
+  "Sent to Client": { bg: "bg-cyan-100", border: "border-cyan-300", text: "text-cyan-700", dot: "bg-cyan-500", stripe: "bg-cyan-500" },
+  "Confirmed by Client": { bg: "bg-violet-100", border: "border-violet-300", text: "text-violet-700", dot: "bg-violet-500", stripe: "bg-violet-500" },
   "Committed": { bg: "bg-emerald-100", border: "border-emerald-300", text: "text-emerald-700", dot: "bg-emerald-500", stripe: "bg-emerald-500" },
   "Archived": { bg: "bg-gray-100", border: "border-gray-300", text: "text-gray-500", dot: "bg-gray-400", stripe: "bg-gray-400" },
   "default": { bg: "bg-gray-100", border: "border-gray-200", text: "text-gray-700", dot: "bg-gray-400", stripe: "bg-gray-400" }
@@ -56,6 +63,8 @@ const stageDisplay = (stage, isEs) => {
     "Context Captured": "Contexto Capturado",
     "Scope Drafted": "Alcance Definido",
     "Definition In Review": "Definición en Revisión",
+    "Sent to Client": "Enviada al Cliente",
+    "Confirmed by Client": "Confirmada por Cliente",
     "Committed": "Comprometido",
   };
   return ES[stage] || stage;

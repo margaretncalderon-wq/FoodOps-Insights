@@ -2545,9 +2545,18 @@ async def client_sign_document(document_id: str, data: dict, request: Request):
                     "client_signed_email": signed_email,
                     "client_signed_ip": client_ip,
                     "status": "approved",
+                    "document_status": "Client Signed",
                     "updated_at": now.isoformat(),
                 }}
             )
+            # Sep 2026: when the client signs through the portal, move the
+            # event forward so humans see the signal in the calendar/pipeline
+            # and can route it to orders.
+            if doc.get("event_id"):
+                await db.events.update_one(
+                    {"event_id": doc["event_id"]},
+                    {"$set": {"stage": "Confirmed by Client", "updated_at": now.isoformat()}},
+                )
 
     return {"message": "Document signed successfully", "signed_at": now.isoformat()}
 

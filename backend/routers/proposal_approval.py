@@ -152,6 +152,16 @@ async def send_to_client(proposal_id: str, user: User = Depends(get_current_user
         {"proposal_id": proposal_id, "company_id": user.company_id},
         {"$set": {"document_status": "Sent", "status": "Sent", "sent_at": _now_iso(), "last_edited_at": _now_iso()}},
     )
+
+    # Sep 2026: pushing a proposal to the client also advances the event's
+    # engagement stage so the calendar/pipeline reflects the "ball-in-client-
+    # court" state without a manual stage change.
+    if p.get("event_id"):
+        await db.events.update_one(
+            {"event_id": p["event_id"], "company_id": user.company_id},
+            {"$set": {"stage": "Sent to Client", "updated_at": _now_iso()}},
+        )
+
     return {"document_status": "Sent"}
 
 

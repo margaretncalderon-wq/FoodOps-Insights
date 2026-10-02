@@ -66,13 +66,21 @@ const EVENT_SOURCES = [
   { value: "other", labelEn: "Other", labelEs: "Otro" },
 ];
 // Engagement Stages (OS-level progression)
+// Sep 2026: added "Sent to Client" + "Confirmed by Client" between review and
+// commit. The flow is driven by the proposal approval machine:
+//   send-to-client → Sent to Client
+//   portal signature → Confirmed by Client
+//   human marks Committed → Committed
+//   proposal rejected → Archived (with lost_reason)
 const ENGAGEMENT_STAGES = [
-  "Inquiry Received",    // Intention exists, nothing defined
-  "Context Captured",    // We understood what they want
-  "Scope Drafted",       // Proposal under construction
-  "Definition In Review", // Adjustments, changes, validations
-  "Committed",           // Approved, ready to orchestrate
-  "Archived"             // Not proceeding (no drama)
+  "Inquiry Received",
+  "Context Captured",
+  "Scope Drafted",
+  "Definition In Review",
+  "Sent to Client",
+  "Confirmed by Client",
+  "Committed",
+  "Archived",
 ];
 
 // Legacy mapping for backward compatibility
@@ -96,6 +104,8 @@ const stageLabel = (stage, isEs) => {
     "Context Captured": "Contexto Capturado",
     "Scope Drafted": "Alcance Definido",
     "Definition In Review": "Definición en Revisión",
+    "Sent to Client": "Enviada al Cliente",
+    "Confirmed by Client": "Confirmada por Cliente",
     "Committed": "Comprometido",
   };
   return ES[stage] || stage;
@@ -447,6 +457,8 @@ export default function EventsPage({ embedded = false }) {
     "Context Captured": "bg-blue-100 text-blue-800 border-blue-200",
     "Scope Drafted": "bg-amber-100 text-amber-800 border-amber-200",
     "Definition In Review": "bg-orange-100 text-orange-800 border-orange-200",
+    "Sent to Client": "bg-cyan-100 text-cyan-800 border-cyan-200",
+    "Confirmed by Client": "bg-violet-100 text-violet-800 border-violet-200",
     "Committed": "bg-emerald-100 text-emerald-800 border-emerald-200",
     "Archived": "bg-gray-100 text-gray-500 border-gray-200",
     // Legacy support
@@ -464,6 +476,8 @@ export default function EventsPage({ embedded = false }) {
     "Context Captured": "bg-blue-500",
     "Scope Drafted": "bg-amber-500",
     "Definition In Review": "bg-orange-500",
+    "Sent to Client": "bg-cyan-500",
+    "Confirmed by Client": "bg-violet-500",
     "Committed": "bg-emerald-500",
     "Archived": "bg-gray-400",
     // Legacy support
