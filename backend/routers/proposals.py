@@ -328,6 +328,13 @@ async def update_proposal(proposal_id: str, data: ProposalUpdate, user: User = D
         {"proposal_id": proposal_id},
         {"$set": update_data}
     )
+
+    # Auto-revoke approval if the edit touched any material field (price, tax,
+    # discount, payment terms, etc). Text-only edits (notes, descriptions)
+    # intentionally pass through.
+    from routers.proposal_approval import maybe_revoke_on_material_change
+    changed = set(update_data.keys()) - {"last_edited_at", "updated_at"}
+    await maybe_revoke_on_material_change(proposal_id, user.company_id, changed)
     
     # Create audit log if status changed to/from Accepted
     if old_status != new_status and (old_status == "Accepted" or new_status == "Accepted"):
@@ -438,6 +445,10 @@ async def add_order_item(proposal_id: str, data: OrderItemCreate, user: User = D
     
     await db.order_items.insert_one(item_doc)
     del item_doc["_id"]
+
+    # Any new item changes subtotal/margin → auto-revoke Approval.
+    from routers.proposal_approval import maybe_revoke_on_material_change
+    await maybe_revoke_on_material_change(proposal_id, user.company_id, {"item_added"})
     
     # Log if proposal is already accepted
     if proposal.get("status") == "Accepted":
@@ -567,6 +578,11 @@ async def add_items_from_menu(proposal_id: str, body: Dict[str, Any], user: User
         inserted.append(doc)
 
     return {"items_added": len(inserted), "menu_name": menu.get("name"), "items": inserted}
+
+
+# Bulk-from-menu endpoint also counts as a material change — intercept at the
+# site that calls it (frontend hits POST then PUT /items). Here we tail the
+# handler with the same revoke call as individual inserts.
 
 
 @proposals_router.post("/{proposal_id}/items/bulk-from-plated-menu")
@@ -788,6 +804,10 @@ async def add_items_from_plated_menu(proposal_id: str, body: Dict[str, Any], use
             inserted.append(doc)
             sort_idx += 1
 
+    # Bulk plated menu insert is a material change → auto-revoke Approval.
+    from routers.proposal_approval import maybe_revoke_on_material_change
+    await maybe_revoke_on_material_change(proposal_id, user.company_id, {"item_bulk_import"})
+
     return {
         "items_added": len(inserted),
         "menu_name": menu.get("name"),
@@ -916,7 +936,12 @@ async def update_order_item(proposal_id: str, item_id: str, data: OrderItemUpdat
         {"item_id": item_id},
         {"$set": update_data}
     )
-    
+
+    # Price/qty/discount/tax changes on any item → auto-revoke Approval.
+    from routers.proposal_approval import maybe_revoke_on_material_change
+    changed = set(update_data.keys()) - {"updated_at"}
+    await maybe_revoke_on_material_change(proposal_id, user.company_id, changed)
+
     updated_item = await db.order_items.find_one({"item_id": item_id}, {"_id": 0})
     return updated_item
 
@@ -1007,6 +1032,11 @@ async def delete_order_item(proposal_id: str, item_id: str, user: User = Depends
         })
     
     await db.order_items.delete_one({"item_id": item_id})
+
+    # Removing an item changes subtotal/margin → auto-revoke Approval.
+    from routers.proposal_approval import maybe_revoke_on_material_change
+    await maybe_revoke_on_material_change(proposal_id, user.company_id, {"item_removed"})
+
     return {"message": "Item deleted"}
 
 
@@ -1080,5 +1110,8 @@ async def duplicate_proposal_day(proposal_id: str, body: Dict[str, Any], user: U
         await db.order_items.insert_one(new_doc)
         new_doc.pop("_id", None)
         created.append(new_doc)
+    # Day duplication adds items → auto-revoke Approval.
+    from routers.proposal_approval import maybe_revoke_on_material_change
+    await maybe_revoke_on_material_change(proposal_id, user.company_id, {"day_duplicated"})
     return {"created": len(created), "mode": mode, "items": created}
 

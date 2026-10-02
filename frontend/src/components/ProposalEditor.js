@@ -2150,8 +2150,14 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
               "Rejected":         { es: "Rechazado",        en: "Rejected",         color: "bg-red-100 text-red-700" },
             };
             const cfg = map[ds] || map["Draft"];
+            const tooltipEs = "Flujo interno de aprobación. Cambia con los botones Enviar a aprobación / Aprobar / Retirar / Revocar. Cualquier edición material (precio, cantidad, impuestos) lo revoca automáticamente a Pendiente aprobación.";
+            const tooltipEn = "Internal approval flow. Driven by the Submit / Approve / Withdraw / Revoke buttons. Any material edit (price, qty, tax) auto-reverts it to Pending Approval.";
             return (
-              <Badge className={`${cfg.color} px-2 py-0.5 text-xs`} data-testid="proposal-doc-status-badge">
+              <Badge
+                className={`${cfg.color} px-2 py-0.5 text-xs cursor-help`}
+                data-testid="proposal-doc-status-badge"
+                title={language === "es" ? `Estado interno · ${tooltipEs}` : `Internal status · ${tooltipEn}`}
+              >
                 {language === "es" ? cfg.es : cfg.en}
               </Badge>
             );

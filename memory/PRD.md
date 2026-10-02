@@ -39,6 +39,29 @@ Resolver la pregunta directa del usuario ("¿dónde veo pending aprobar?"). Ante
 
 
 ## Feature — Pricing Architecture · Fase 1b (UI) — COMPLETA (Feb 20, 2026)
+## September 30, 2026 — Iter 261 · Auto-revoke wiring + status tooltip
+
+**Estado:** ✅ Completo. 18/18 pytests PASS + E2E `/financials` + `/items` CRUD verificado.
+
+### Bug encontrado por el usuario
+"actualmente no veo que cambie Pending Approval cuando cambio algo" — la función `maybe_revoke_on_material_change` existía desde Feb 2026 pero NUNCA se llamaba desde los endpoints de edición. Causa raíz adicional: `discount_type` y `discount_value` no están en el schema `ProposalUpdate` (frontend los envía por `/proposals/{id}/financials`).
+
+### Fixes
+1. **routers/proposals.py** — Añadí la llamada `maybe_revoke_on_material_change` en:
+   - `PUT /{id}` (filtrando `last_edited_at`/`updated_at`)
+   - `POST /{id}/items` → sentinel `item_added`
+   - `PUT /{id}/items/{item_id}` → pasa fields cambiados
+   - `DELETE /{id}/items/{item_id}` → sentinel `item_removed`
+   - `POST /{id}/items/bulk-from-menu` → sentinel `item_bulk_import`
+   - `POST /{id}/items/bulk-from-plated-menu` → sentinel `item_bulk_import`
+   - `POST /{id}/duplicate-day` → sentinel `day_duplicated`
+2. **routers/proposal_financials.py** — Añadí la llamada en `PUT /{id}/financials` filtrando por lo que vino en el body (`discount_type`, `discount_value`, `tax_ids` → `tax_details`, `payment_terms`).
+3. **routers/proposal_approval.py** — Expandí `MATERIAL_FIELDS` para incluir sentinels de item-level (`quantity`, `unit_price`, `internal_cost`, `tax_exempt`, `item_added`, `item_removed`, `item_bulk_import`, `day_duplicated`). Y `TEXT_ONLY_FIELDS` ahora incluye `last_edited_at`/`updated_at` como bookkeeping para que no cuenten como material.
+4. **frontend/components/ProposalEditor.js** — Tooltip (option C) explica qué significa el badge: "Estado interno · Flujo interno de aprobación. Cambia con los botones Enviar a aprobación / Aprobar / Retirar / Revocar. Cualquier edición material (precio, cantidad, impuestos) lo revoca automáticamente a Pendiente aprobación."
+5. **Tests** — `/app/backend/tests/test_auto_revoke_wiring.py` (3 casos de integración + extendió los existentes).
+
+
+
 ## September 30, 2026 — Iter 260 · Withdraw-approval transition
 
 **Estado:** ✅ Completo. 4/4 pytests PASS + E2E curl verificado (submit → withdraw → 409 al reintento).

@@ -36,6 +36,7 @@ TEXT_ONLY_FIELDS = {
     "client_notes", "internal_notes", "presentation_notes",
     "long_description", "description", "notes",
     "sections", "section_titles",  # section-level text tweaks
+    "last_edited_at", "updated_at",  # bookkeeping only
 }
 
 # Explicit fields that DO revoke approval when they change.
@@ -43,6 +44,9 @@ MATERIAL_FIELDS = {
     "subtotal", "discount_amount", "discount_type", "discount_value",
     "tax_details", "total_tax", "total", "total_cost", "total_margin",
     "margin_percentage", "payment_terms", "valid_until",
+    # Item-level fields that bubble up into subtotal / cost / margin:
+    "quantity", "unit_price", "internal_cost", "tax_exempt",
+    "item_added", "item_removed", "item_bulk_import", "day_duplicated",
 }
 
 

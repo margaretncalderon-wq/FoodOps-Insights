@@ -105,7 +105,19 @@ async def update_proposal_financials(proposal_id: str, data: dict, user: User = 
         {"proposal_id": proposal_id},
         {"$set": update_data}
     )
-    
+
+    # Discount/tax/payment_terms are material fields → auto-revoke Approval.
+    # Compute changed fields relative to the incoming request so a no-op
+    # financials refresh doesn't bump the status.
+    from routers.proposal_approval import maybe_revoke_on_material_change
+    changed = set()
+    for k in ("discount_type", "discount_value", "tax_ids", "payment_terms"):
+        if k in data:
+            # Mapping: tax_ids edits bubble up through tax_details.
+            changed.add("tax_details" if k == "tax_ids" else k)
+    if changed:
+        await maybe_revoke_on_material_change(proposal_id, user.company_id, changed)
+
     return await get_event_proposal(proposal["event_id"], user)
 
 class DayLogistic(BaseModel):
