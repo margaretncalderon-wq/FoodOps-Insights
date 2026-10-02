@@ -276,6 +276,11 @@ async def approval_overview(user: User = Depends(get_current_user)):
         ):
             events_by_id[e["event_id"]] = e
 
+    # Orphan proposals (their event was deleted) stay in the DB forever but
+    # confuse the queue — exclude them from the pending list AND the
+    # event_status_map so chip counts match what the user can actually open.
+    live_proposals = [p for p in proposals if p.get("event_id") in events_by_id]
+
     clients_by_id: Dict[str, Dict[str, Any]] = {}
     all_client_ids = set(client_ids) | {e.get("client_id") for e in events_by_id.values() if e.get("client_id")}
     if all_client_ids:
@@ -287,7 +292,7 @@ async def approval_overview(user: User = Depends(get_current_user)):
 
     event_status_map: Dict[str, Dict[str, Any]] = {}
     pending: list = []
-    for p in proposals:
+    for p in live_proposals:
         eid = p.get("event_id")
         status = p.get("document_status") or "Draft"
         if eid:
