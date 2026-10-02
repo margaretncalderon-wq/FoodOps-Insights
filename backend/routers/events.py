@@ -559,12 +559,24 @@ async def update_event(event_id: str, data: EventUpdate, user: User = Depends(ge
     # Get event name for logging
     old_event = await db.events.find_one(
         {"event_id": event_id, "company_id": user.company_id},
-        {"_id": 0, "name": 1, "stage": 1, "operational_status": 1}
+        {"_id": 0, "name": 1, "stage": 1, "operational_status": 1, "client_id": 1}
     )
     
     if not old_event:
         raise HTTPException(status_code=404, detail="Event not found")
-    
+
+    # client_id must go through the dedicated endpoint so payment reassignment
+    # is handled explicitly. Reject any client_id slipped in via the generic
+    # PUT so callers don't silently decouple invoices from their client.
+    if data.client_id and data.client_id != old_event.get("client_id"):
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Use POST /events/{event_id}/change-client to reassign the "
+                "client (ensures payment ownership stays consistent)."
+            ),
+        )
+
     now = datetime.now(timezone.utc)
     # Only include non-None values in update
     update_data = {k: v for k, v in data.model_dump().items() if v is not None}

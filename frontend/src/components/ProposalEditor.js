@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback, useMemo, createContext, useContext } from "react";
 import { API } from "../utils/api";
 import axios from "axios";
+import ChangeClientDialog from "./ChangeClientDialog";
 import { parseDateOnly, toDateOnly } from "../utils/dates";
 import { useLanguage } from "../contexts/LanguageContext";
 import { useTerminology } from "../hooks/useTerminology";
@@ -204,6 +205,7 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
   // so the extra buttons only render when the tenant opted in.
   const [eventName, setEventName] = useState(event?.name || "");
   const [approvalRequired, setApprovalRequired] = useState(false);
+  const [changeClientOpen, setChangeClientOpen] = useState(false);
   useEffect(() => { setEventName(event?.name || ""); }, [event?.name]);
   useEffect(() => {
     (async () => {
@@ -2134,6 +2136,24 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
             className="h-7 text-sm font-medium max-w-xs"
             placeholder={language === "es" ? "Nombre del evento" : "Event name"}
           />
+          {/* Change-client button — Sep 2026. Opens a dialog that calls the
+              dedicated /change-client endpoint, which guards against stray
+              payments and writes an audit log. */}
+          {event?.event_id && (
+            <button
+              type="button"
+              onClick={() => setChangeClientOpen(true)}
+              data-testid="change-client-btn"
+              className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-primary border rounded-full px-2 py-0.5"
+              title={language === "es" ? "Cambiar cliente" : "Change client"}
+            >
+              <Users className="w-3 h-3" />
+              {client?.display_name || client?.name
+                ? (client.display_name || client.name)
+                : (language === "es" ? "Asignar cliente" : "Assign client")}
+              <span className="opacity-50">✎</span>
+            </button>
+          )}
           {/* Feb 2026 approval state machine badge. Falls back to legacy
               status when the new document_status isn't populated yet so
               proposals created before the migration still look right. */}
@@ -5137,6 +5157,20 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
         onConfirm={async ({ selected_items }) => {
           if (!buffetSelectMenu) return;
           await handleAddPlatedMenu(buffetSelectMenu, selected_items);
+        }}
+      />
+
+      {/* Change Client Dialog (Sep 2026) */}
+      <ChangeClientDialog
+        open={changeClientOpen}
+        onOpenChange={setChangeClientOpen}
+        eventId={event?.event_id}
+        currentClientId={event?.client_id}
+        language={language}
+        onReassigned={() => {
+          // Refetch proposal + client so the header reflects the new assignment.
+          fetchProposal();
+          fetchClient();
         }}
       />
     </div>

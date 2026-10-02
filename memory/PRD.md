@@ -39,6 +39,34 @@ Resolver la pregunta directa del usuario ("¿dónde veo pending aprobar?"). Ante
 
 
 ## Feature — Pricing Architecture · Fase 1b (UI) — COMPLETA (Feb 20, 2026)
+## September 30, 2026 — Iter 262 · Change-client en propuesta ya creada (Fase A)
+
+**Estado:** ✅ Completo. E2E backend verificado (200 OK en 2 reasignaciones + 400 bloqueando el shortcut vía PUT /events).
+
+### Alcance
+Resolver "no me permite cambiar cliente después de hecha la propuesta". El usuario pidió además:
+- Guardrail de pagos: si el evento tiene pagos, obliga a decidir "transferir al nuevo cliente" o cancelar.
+- Audit log del reassignment.
+- Material change → auto-revoca aprobación si estaba Approved/Sent.
+
+### Backend
+- Nuevo módulo `/app/backend/routers/event_change_client.py` con dos endpoints:
+  - `GET /events/{id}/change-client/preflight` → cuenta invoices/payments vinculados y devuelve el cliente actual para que la UI muestre el guardrail.
+  - `POST /events/{id}/change-client` body `{new_client_id, transfer_payments: bool}` → valida, actualiza `event.client_id`, repunta `invoices` + `payments` si `transfer_payments=true`, ajusta `events_count` en ambos clientes, auto-revoca approval y escribe audit log con `action_type="client_reassigned"`.
+  - 409 `payments_exist` cuando hay pagos y no se pasó `transfer_payments=true`.
+- `routers/events.py:update_event` ahora rechaza con 400 cualquier intento de cambiar `client_id` vía el PUT genérico (fuerza a los callers a usar el endpoint dedicado).
+- `server.py` importa el nuevo router.
+
+### Frontend
+- Nuevo componente `/app/frontend/src/components/ChangeClientDialog.js` que:
+  - Hace preflight al abrirse.
+  - Lista todos los clientes (SearchableSelect) excepto el actual.
+  - Si hay pagos, muestra alerta ámbar con `AlertTriangle` y checkbox obligatorio "Transferir pagos existentes al nuevo cliente" antes de permitir guardar.
+  - Toast de éxito con el nombre del nuevo cliente.
+- `ProposalEditor.js` header ahora tiene chip clickeable `👤 <cliente actual> ✎` (`data-testid="change-client-btn"`) que abre el diálogo. Al reasignar re-fetch `proposal` + `client`.
+
+
+
 ## September 30, 2026 — Iter 261 · Auto-revoke wiring + status tooltip
 
 **Estado:** ✅ Completo. 18/18 pytests PASS + E2E `/financials` + `/items` CRUD verificado.
