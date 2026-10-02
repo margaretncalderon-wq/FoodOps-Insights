@@ -2199,16 +2199,32 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
                 </Button>
               )}
               {proposal?.document_status === "Pending Approval" && (
-                <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700" data-testid="approve-btn"
-                  onClick={async () => {
-                    try {
-                      await axios.post(`${API}/proposals/${proposal.proposal_id}/approve`, {}, { withCredentials: true });
-                      toast.success(language === "es" ? "Aprobada" : "Approved");
-                      if (typeof fetchProposal === "function") fetchProposal();
-                    } catch (e) { toast.error(e?.response?.data?.detail || "Error"); }
-                  }}>
-                  {language === "es" ? "Aprobar" : "Approve"}
-                </Button>
+                <>
+                  <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700" data-testid="approve-btn"
+                    onClick={async () => {
+                      try {
+                        await axios.post(`${API}/proposals/${proposal.proposal_id}/approve`, {}, { withCredentials: true });
+                        toast.success(language === "es" ? "Aprobada" : "Approved");
+                        if (typeof fetchProposal === "function") fetchProposal();
+                      } catch (e) { toast.error(e?.response?.data?.detail || "Error"); }
+                    }}>
+                    {language === "es" ? "Aprobar" : "Approve"}
+                  </Button>
+                  <Button size="sm" variant="outline" data-testid="withdraw-approval-btn"
+                    onClick={async () => {
+                      const ok = window.confirm(language === "es"
+                        ? "¿Retirar la solicitud de aprobación y volver a Borrador?"
+                        : "Withdraw approval request and return to Draft?");
+                      if (!ok) return;
+                      try {
+                        await axios.post(`${API}/proposals/${proposal.proposal_id}/withdraw-approval`, {}, { withCredentials: true });
+                        toast.success(language === "es" ? "Devuelta a Borrador" : "Returned to Draft");
+                        if (typeof fetchProposal === "function") fetchProposal();
+                      } catch (e) { toast.error(e?.response?.data?.detail || "Error"); }
+                    }}>
+                    {language === "es" ? "Retirar" : "Withdraw"}
+                  </Button>
+                </>
               )}
               {["Approved","Sent"].includes(proposal?.document_status) && (
                 <Button size="sm" variant="ghost" data-testid="revoke-btn"

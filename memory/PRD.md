@@ -39,6 +39,19 @@ Resolver la pregunta directa del usuario ("¿dónde veo pending aprobar?"). Ante
 
 
 ## Feature — Pricing Architecture · Fase 1b (UI) — COMPLETA (Feb 20, 2026)
+## September 30, 2026 — Iter 260 · Withdraw-approval transition
+
+**Estado:** ✅ Completo. 4/4 pytests PASS + E2E curl verificado (submit → withdraw → 409 al reintento).
+
+### Alcance
+Agregar la transición faltante **Pending Approval → Draft** sin tener que aprobar primero. Útil para cancelar un envío a aprobación por error, o cuando el cliente pide cambios grandes antes de que el aprobador la revise.
+
+- **Backend** — `POST /api/proposals/{id}/withdraw-approval` en `routers/proposal_approval.py`. 409 si no está en Pending Approval; 404 si no existe. Permiso: cualquiera con `proposals:edit` del tenant. Audit stamp `withdrawn_by` (user_id + name + at) + `withdrawn_at`.
+- **Frontend** — Botón `Retirar / Withdraw` en `ProposalEditor.js` al lado de `Aprobar`, con `window.confirm`. Testid: `withdraw-approval-btn`.
+- **Tests** — `/app/backend/tests/test_withdraw_approval.py` (4 casos: happy path, 409 desde Draft, 409 desde Approved, 404).
+
+
+
 
 **Estado:** ✅ Completo. Testing agent iteration_242 verificó 100% frontend + 100% backend.
 

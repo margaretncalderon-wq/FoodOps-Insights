@@ -4,6 +4,7 @@ Proposal approval — endpoints for the state machine introduced Feb 2026.
 State machine (per product owner):
     Draft ── submit-for-approval ─▶ Pending Approval
     Pending Approval ── approve ──▶ Approved
+    Pending Approval ── withdraw ─▶ Draft (any editor; stamps withdrawn_by/at)
     Approved ── send-to-client ──▶ Sent
     Approved ── revoke-approval ▶ Pending Approval (motivo obligatorio)
     Sent   ── material edit ─────▶ Pending Approval (revoked, toast confirma en UI)
@@ -148,6 +149,36 @@ async def send_to_client(proposal_id: str, user: User = Depends(get_current_user
         {"$set": {"document_status": "Sent", "status": "Sent", "sent_at": _now_iso(), "last_edited_at": _now_iso()}},
     )
     return {"document_status": "Sent"}
+
+
+@proposals_router.post("/{proposal_id}/withdraw-approval")
+async def withdraw_approval(proposal_id: str, user: User = Depends(get_current_user)):
+    """Any teammate with proposals:edit permission may withdraw a pending
+    approval request and send the document back to Draft. Audit stamp is
+    stored on `withdrawn_by` / `withdrawn_at` so history explains why the
+    doc left the queue without being approved."""
+    p = await db.proposals.find_one(
+        {"proposal_id": proposal_id, "company_id": user.company_id}, {"_id": 0}
+    )
+    if not p:
+        raise HTTPException(status_code=404, detail="Proposal not found")
+    cur = p.get("document_status") or "Draft"
+    if cur != "Pending Approval":
+        raise HTTPException(
+            status_code=409,
+            detail=f"Only 'Pending Approval' can be withdrawn (current: '{cur}')",
+        )
+    withdrawn_by = {"user_id": user.user_id, "name": user.name, "at": _now_iso()}
+    await db.proposals.update_one(
+        {"proposal_id": proposal_id, "company_id": user.company_id},
+        {"$set": {
+            "document_status": "Draft",
+            "withdrawn_by": withdrawn_by,
+            "withdrawn_at": _now_iso(),
+            "last_edited_at": _now_iso(),
+        }},
+    )
+    return {"document_status": "Draft", "withdrawn_by": withdrawn_by}
 
 
 @proposals_router.post("/{proposal_id}/clear-incomplete-flag")
