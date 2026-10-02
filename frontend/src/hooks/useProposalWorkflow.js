@@ -23,6 +23,7 @@ import {
 export function useProposalWorkflow() {
   const [stageConfig, setStageConfig] = useState({});
   const [statusConfig, setStatusConfig] = useState({});
+  const [lostReasons, setLostReasons] = useState([]);
   const [requireApproval, setRequireApproval] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -31,6 +32,7 @@ export function useProposalWorkflow() {
       const r = await axios.get(`${API}/proposals/settings/workflow`, { withCredentials: true });
       setStageConfig(r.data?.stage_config || {});
       setStatusConfig(r.data?.commercial_status_config || {});
+      setLostReasons(r.data?.lost_reasons || []);
       setRequireApproval(!!r.data?.require_approval);
     } catch {
       /* keep defaults */
@@ -69,26 +71,37 @@ export function useProposalWorkflow() {
     return entry?.[key] || DEFAULT_STATUS_LABELS[status]?.[lang] || status;
   }, [statusConfig]);
 
-  const save = useCallback(async ({ stage_config, commercial_status_config }) => {
+  const save = useCallback(async ({ stage_config, commercial_status_config, lost_reasons }) => {
     const body = {};
     if (stage_config) body.stage_config = stage_config;
     if (commercial_status_config) body.commercial_status_config = commercial_status_config;
+    if (lost_reasons) body.lost_reasons = lost_reasons;
     const r = await axios.put(`${API}/proposals/settings/workflow`, body, { withCredentials: true });
     setStageConfig(r.data?.stage_config || {});
     setStatusConfig(r.data?.commercial_status_config || {});
+    setLostReasons(r.data?.lost_reasons || []);
     return r.data;
   }, []);
+
+  // Lost reason helpers.
+  const getLostReasonLabel = useCallback((key, lang = "en") => {
+    const r = lostReasons.find((x) => x.key === key);
+    if (!r) return key || "";
+    return lang === "es" ? r.label_es : r.label_en;
+  }, [lostReasons]);
 
   return useMemo(() => ({
     loading,
     stageConfig,
     statusConfig,
+    lostReasons,
     requireApproval,
     getStagePalette,
     getStageLabel,
     getStatusPalette,
     getStatusLabel,
+    getLostReasonLabel,
     refresh: fetchCfg,
     save,
-  }), [loading, stageConfig, statusConfig, requireApproval, getStagePalette, getStageLabel, getStatusPalette, getStatusLabel, fetchCfg, save]);
+  }), [loading, stageConfig, statusConfig, lostReasons, requireApproval, getStagePalette, getStageLabel, getStatusPalette, getStatusLabel, getLostReasonLabel, fetchCfg, save]);
 }

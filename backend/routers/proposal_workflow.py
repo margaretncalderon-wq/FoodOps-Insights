@@ -76,15 +76,40 @@ DEFAULT_STATUS_CONFIG: Dict[str, Dict[str, str]] = {
 }
 
 
+# Default lost-reason catalogue. Seeded on first fetch; tenants may rename,
+# recolor, delete, add new reasons, and flip the `counts_as_loss` flag.
+#   counts_as_loss=False means the reason is a "discard" (variant not chosen,
+#   duplicate, test, etc) and must NOT inflate loss analytics.
+DEFAULT_LOST_REASONS: List[Dict[str, Any]] = [
+    {"key": "price",              "label_en": "Price",            "label_es": "Precio",                "palette": "red",     "counts_as_loss": True},
+    {"key": "timing",             "label_en": "Timing / Dates",   "label_es": "Tiempo / Fechas",       "palette": "amber",   "counts_as_loss": True},
+    {"key": "competitor",         "label_en": "Competitor",       "label_es": "Competencia",           "palette": "purple",  "counts_as_loss": True},
+    {"key": "no_response",        "label_en": "No response",      "label_es": "No responde",           "palette": "slate",   "counts_as_loss": True},
+    {"key": "not_a_fit",          "label_en": "Not a fit",        "label_es": "No aplica",             "palette": "cyan",    "counts_as_loss": True},
+    {"key": "scope",              "label_en": "Scope / Services", "label_es": "Alcance / Servicios",   "palette": "blue",    "counts_as_loss": True},
+    {"key": "variant_not_chosen", "label_en": "Variant not chosen", "label_es": "Variante no elegida", "palette": "gray",    "counts_as_loss": False},
+    {"key": "other",              "label_en": "Other",            "label_es": "Otro",                  "palette": "gray",    "counts_as_loss": True},
+]
+
+
 class StageEntry(BaseModel):
     label_en: str
     label_es: str
     palette: str
 
 
+class LostReasonEntry(BaseModel):
+    key: str
+    label_en: str
+    label_es: str
+    palette: str
+    counts_as_loss: bool = True
+
+
 class WorkflowConfigUpdate(BaseModel):
     stage_config: Dict[str, StageEntry] | None = None
     commercial_status_config: Dict[str, StageEntry] | None = None
+    lost_reasons: List[LostReasonEntry] | None = None
 
 
 def _validate_palette(palette: str) -> str:
@@ -114,11 +139,15 @@ async def get_workflow(user: User = Depends(get_current_user)):
         {"company_id": user.company_id}, {"_id": 0, "proposal_workflow": 1, "proposal_approval": 1}
     )
     stored = (doc or {}).get("proposal_workflow") or {}
+    lost_reasons = stored.get("lost_reasons")
+    if not lost_reasons:
+        lost_reasons = [dict(r) for r in DEFAULT_LOST_REASONS]
     return {
         "stage_config": _merge_defaults(stored.get("stage_config"), DEFAULT_STAGE_CONFIG, ENGAGEMENT_STAGE_KEYS),
         "commercial_status_config": _merge_defaults(
             stored.get("commercial_status_config"), DEFAULT_STATUS_CONFIG, COMMERCIAL_STATUS_KEYS,
         ),
+        "lost_reasons": lost_reasons,
         "require_approval": bool(((doc or {}).get("proposal_approval") or {}).get("require_approval", False)),
     }
 
@@ -140,6 +169,18 @@ async def update_workflow(payload: WorkflowConfigUpdate, user: User = Depends(ge
                 raise HTTPException(status_code=400, detail=f"Unknown status '{k}'")
             _validate_palette(entry.palette)
             update_set[f"proposal_workflow.commercial_status_config.{k}"] = entry.model_dump()
+
+    if payload.lost_reasons is not None:
+        # Lost reasons are a free list; validate palette + unique keys.
+        seen_keys = set()
+        normalized: List[Dict[str, Any]] = []
+        for r in payload.lost_reasons:
+            if r.key in seen_keys:
+                raise HTTPException(status_code=400, detail=f"Duplicate lost reason key '{r.key}'")
+            seen_keys.add(r.key)
+            _validate_palette(r.palette)
+            normalized.append(r.model_dump())
+        update_set["proposal_workflow.lost_reasons"] = normalized
 
     if not update_set:
         raise HTTPException(status_code=400, detail="Nothing to update")

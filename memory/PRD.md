@@ -39,6 +39,22 @@ Resolver la pregunta directa del usuario ("¿dónde veo pending aprobar?"). Ante
 
 
 ## Feature — Pricing Architecture · Fase 1b (UI) — COMPLETA (Feb 20, 2026)
+## September 30, 2026 — Iter 266 · Fase 2 + 3 · Lost reasons configurables + Dashboard
+
+**Estado:** ✅ Completo. E2E: GET + PUT custom reason + 400 duplicate key + analytics filtra `counts_as_loss=false`.
+
+### Fase 2 — Lost reasons configurables por tenant
+- **Backend `proposal_workflow.py`**: añade `lost_reasons: List[LostReasonEntry]` al endpoint `/settings/workflow` con 8 defaults seeded (los 7 originales + nuevo `variant_not_chosen` con `counts_as_loss=false`). Valida palette + duplicate keys.
+- **Backend `events.get_lost_reasons_analytics`**: lee el config del tenant y excluye los reasons con `counts_as_loss=false` del buckets/pie chart. Verificado: cuando archivas con "variant_not_chosen" ya no infla el conteo de deals perdidos.
+- **Frontend `useProposalWorkflow`**: expone `lostReasons` y `getLostReasonLabel()`.
+- **Frontend `LostReasonDialog`**: ahora carga el catalog del tenant via GET al abrirse. Muestra tag "(no cuenta como pérdida)" junto a los reasons flagged.
+- **Frontend `ProposalWorkflowConfig`**: 4ta sección con filas editables (key, EN, ES, palette, checkbox "Pérdida"), botón Agregar + papelera por fila.
+
+### Fase 3 — Reports expandidos
+- **Dashboard (System Pulse)** ahora muestra el widget `LostReasonsWidget` entre `Awaiting Approval` y `Execution Signals`, con pie chart + top 5 recientes + filtro de periodo.
+
+
+
 ## September 30, 2026 — Iter 265 · Fase 1 Archivar/Eliminar en editor
 
 **Estado:** ✅ Completo. E2E: PUT stage=Archived → ok, DELETE 200 (admin role), restore ok.

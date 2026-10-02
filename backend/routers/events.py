@@ -315,6 +315,17 @@ async def get_lost_reasons_analytics(
         },
     ).to_list(1000)
 
+    # Resolve the tenant's lost_reasons config so reasons flagged as
+    # counts_as_loss=False (variants, duplicates) are excluded from analytics
+    # buckets but still visible in the raw list.
+    cfg_doc = await db.company_settings.find_one(
+        {"company_id": user.company_id},
+        {"_id": 0, "proposal_workflow.lost_reasons": 1},
+    )
+    cfg_reasons = ((cfg_doc or {}).get("proposal_workflow") or {}).get("lost_reasons") or []
+    non_loss_keys = {r.get("key") for r in cfg_reasons if r.get("counts_as_loss") is False}
+    events = [e for e in events if (e.get("lost_reason") or "") not in non_loss_keys]
+
     # Bucket by reason
     buckets: Dict[str, Dict[str, Any]] = {}
     total_value = 0.0

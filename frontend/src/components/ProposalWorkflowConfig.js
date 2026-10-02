@@ -10,7 +10,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "./ui/select";
 import { COLOR_PALETTES, PALETTE_KEYS, resolvePalette } from "../utils/stageColorPalettes";
-import { RotateCcw, Save } from "lucide-react";
+import { RotateCcw, Save, Plus, Trash2 } from "lucide-react";
 
 const STAGE_ORDER = [
   "Inquiry Received", "Context Captured", "Scope Drafted", "Definition In Review",
@@ -34,6 +34,7 @@ export default function ProposalWorkflowConfig({ language }) {
   const [requireApproval, setRequireApproval] = useState(false);
   const [stageConfig, setStageConfig] = useState({});
   const [statusConfig, setStatusConfig] = useState({});
+  const [lostReasons, setLostReasons] = useState([]);
   const [dirty, setDirty] = useState(false);
 
   // Load current config
@@ -43,6 +44,7 @@ export default function ProposalWorkflowConfig({ language }) {
         const r = await axios.get(`${API}/proposals/settings/workflow`, { withCredentials: true });
         setStageConfig(r.data?.stage_config || {});
         setStatusConfig(r.data?.commercial_status_config || {});
+        setLostReasons(r.data?.lost_reasons || []);
         setRequireApproval(!!r.data?.require_approval);
       } catch (e) {
         toast.error(e?.response?.data?.detail || (isEs ? "Error cargando" : "Load failed"));
@@ -78,7 +80,11 @@ export default function ProposalWorkflowConfig({ language }) {
     try {
       await axios.put(
         `${API}/proposals/settings/workflow`,
-        { stage_config: stageConfig, commercial_status_config: statusConfig },
+        {
+          stage_config: stageConfig,
+          commercial_status_config: statusConfig,
+          lost_reasons: lostReasons,
+        },
         { withCredentials: true },
       );
       toast.success(isEs ? "Flujo guardado" : "Workflow saved");
@@ -88,6 +94,23 @@ export default function ProposalWorkflowConfig({ language }) {
     } finally {
       setSaving(false);
     }
+  };
+
+  const patchReason = (idx, field, value) => {
+    setLostReasons((prev) => prev.map((r, i) => i === idx ? { ...r, [field]: value } : r));
+    setDirty(true);
+  };
+  const addReason = () => {
+    const base = "custom_" + Math.random().toString(36).slice(2, 8);
+    setLostReasons((prev) => [...prev, {
+      key: base, label_en: "New reason", label_es: "Nuevo motivo",
+      palette: "gray", counts_as_loss: true,
+    }]);
+    setDirty(true);
+  };
+  const removeReason = (idx) => {
+    setLostReasons((prev) => prev.filter((_, i) => i !== idx));
+    setDirty(true);
   };
 
   const handleReset = async () => {
@@ -252,6 +275,93 @@ export default function ProposalWorkflowConfig({ language }) {
               </div>
             );
           })}
+        </div>
+      </div>
+
+      {/* 4. Lost / Discard Reasons */}
+      <div className="rounded-lg border p-4">
+        <div className="mb-4 flex items-start justify-between gap-3">
+          <div>
+            <h3 className="text-sm font-semibold">
+              {isEs ? "Motivos de pérdida / descarte" : "Lost / discard reasons"}
+            </h3>
+            <p className="text-[11px] text-muted-foreground mt-0.5">
+              {isEs
+                ? "Al archivar una propuesta se pide uno de estos motivos. Marca 'No cuenta como pérdida' para variantes/duplicados que no deben inflar analytics."
+                : "When a proposal is archived, one of these reasons is required. Mark 'Not a loss' for variants/duplicates so they don't inflate analytics."}
+            </p>
+          </div>
+          <Button size="sm" variant="outline" onClick={addReason} data-testid="add-lost-reason-btn">
+            <Plus className="w-3 h-3 mr-1" />
+            {isEs ? "Agregar" : "Add"}
+          </Button>
+        </div>
+        <div className="space-y-2">
+          {lostReasons.map((r, idx) => {
+            const palette = resolvePalette(r.palette || "gray");
+            return (
+              <div key={r.key + idx} className="flex items-center gap-2 p-2 border rounded-lg" data-testid={`lost-reason-row-${r.key}`}>
+                <div className={`w-3 h-10 rounded-full ${palette.stripe} flex-shrink-0`} />
+                <div className="flex-1 grid grid-cols-12 gap-2 min-w-0">
+                  <Input
+                    className="col-span-3 h-8 text-xs font-mono"
+                    placeholder="key"
+                    value={r.key}
+                    onChange={(e) => patchReason(idx, "key", e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, "_"))}
+                  />
+                  <Input
+                    className="col-span-3 h-8 text-xs"
+                    placeholder="EN"
+                    value={r.label_en || ""}
+                    onChange={(e) => patchReason(idx, "label_en", e.target.value)}
+                  />
+                  <Input
+                    className="col-span-3 h-8 text-xs"
+                    placeholder="ES"
+                    value={r.label_es || ""}
+                    onChange={(e) => patchReason(idx, "label_es", e.target.value)}
+                  />
+                  <Select value={r.palette || "gray"} onValueChange={(v) => patchReason(idx, "palette", v)}>
+                    <SelectTrigger className="col-span-2 h-8 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {PALETTE_KEYS.map((p) => (
+                        <SelectItem key={p} value={p}>
+                          <div className="flex items-center gap-2">
+                            <span className={`inline-block w-3 h-3 rounded-full ${COLOR_PALETTES[p].stripe}`} />
+                            {COLOR_PALETTES[p].label}
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <label className="col-span-1 flex items-center justify-center gap-1 text-[10px] text-muted-foreground cursor-pointer" title={isEs ? "¿Cuenta como pérdida en analytics?" : "Counts as loss in analytics?"}>
+                    <input
+                      type="checkbox"
+                      checked={r.counts_as_loss !== false}
+                      onChange={(e) => patchReason(idx, "counts_as_loss", e.target.checked)}
+                      data-testid={`counts-as-loss-${r.key}`}
+                    />
+                    <span>{isEs ? "Pérdida" : "Loss"}</span>
+                  </label>
+                </div>
+                <Button
+                  size="icon" variant="ghost"
+                  className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                  onClick={() => removeReason(idx)}
+                  data-testid={`remove-lost-reason-${r.key}`}
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </Button>
+              </div>
+            );
+          })}
+          {lostReasons.length === 0 && (
+            <p className="text-xs text-muted-foreground italic text-center py-4">
+              {isEs ? "No hay motivos. Agrega al menos uno para que el archivado funcione." : "No reasons. Add at least one so archive works."}
+            </p>
+          )}
         </div>
       </div>
 

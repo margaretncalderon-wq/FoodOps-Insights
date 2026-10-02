@@ -16,6 +16,7 @@ import {
   ArrowUpRight, ArrowDownLeft, Phone, Mail, User as UserIcon
 } from "lucide-react";
 import CostHealthDashboard from "../components/CostHealthDashboard";
+import LostReasonsWidget from "../components/LostReasonsWidget";
 import { useNavigate } from "react-router-dom";
 import { usePendingApprovals } from "../hooks/usePendingApprovals";
 
@@ -377,6 +378,9 @@ export default function SystemPulse() {
             </CardContent>
           </Card>
         )}
+
+        {/* ==================== LOST REASONS WIDGET (why we lose deals) =========== */}
+        <LostReasonsWidget />
 
         {/* ==================== EXECUTION SIGNALS (Critical Alerts) ==================== */}
         {executionSignals && (executionSignals.summary?.blocked > 0 || executionSignals.summary?.at_risk > 0) && (          <Card className="border-yellow-500/30 bg-yellow-500/5" data-testid="execution-signals-section">
