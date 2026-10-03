@@ -503,23 +503,74 @@ async def add_items_from_menu(proposal_id: str, body: Dict[str, Any], user: User
     inserted = []
     food_cat = await db.item_categories.find_one({"company_id": user.company_id, "key": "Food"}, {"_id": 0, "category_id": 1, "name": 1}) or {}
 
-    for entry in (menu.get("items") or []):
+    # If the menu is a "flat package" (no itemized children but a fixed price),
+    # insert one single line representing the whole package. Users create these
+    # in Settings → Catalog → Menus/Packages when they just want a bundled price
+    # without exposing the internal composition.
+    menu_items = menu.get("items") or []
+    is_flat_package = bool(menu.get("is_fixed_price")) and float(menu.get("default_price") or 0) > 0
+    if not menu_items and is_flat_package:
+        base_price = float(menu.get("default_price") or 0)
+        if variant_discount:
+            if variant_discount_type == "percentage":
+                base_price = max(0.0, base_price * (1 - variant_discount / 100))
+            else:
+                base_price = max(0.0, base_price - variant_discount)
+        qty = quantity_multiplier
+        internal_cost = float(menu.get("default_cost") or 0)
+        total_price = qty * base_price
+        total_cost = qty * internal_cost
+        item_id = f"oi_{uuid.uuid4().hex[:12]}"
+        doc = {
+            "item_id": item_id,
+            "event_id": proposal["event_id"],
+            "proposal_id": proposal_id,
+            "company_id": user.company_id,
+            "item_type": "Service",
+            "reference_id": menu_id,
+            "description": menu.get("name") or "Package",
+            "long_description": menu.get("description") or "",
+            "quantity": qty,
+            "unit_price": base_price,
+            "internal_cost": internal_cost,
+            "total_price": total_price,
+            "total_cost": total_cost,
+            "margin_amount": total_price - total_cost,
+            "margin_percentage": ((base_price - internal_cost) / base_price * 100) if base_price > 0 else None,
+            "category_id": food_cat.get("category_id"),
+            "category_name": food_cat.get("name"),
+            "internal_notes": menu.get("internal_notes"),
+            "section_title": section_title or menu.get("name"),
+            "sort_order": 0,
+            "created_at": now.isoformat(),
+            "updated_at": now.isoformat(),
+            "loaded_from_menu_id": menu_id,
+        }
+        await db.order_items.insert_one(doc)
+        doc.pop("_id", None)
+        inserted.append(doc)
+
+    for entry in menu_items:
         qty = float(entry.get("quantity") or 1.0) * quantity_multiplier
         # Resolve recipe or picklist item
         recipe_id = entry.get("recipe_id")
         picklist_item_id = entry.get("picklist_item_id")
         description = entry.get("custom_name") or ""
+        long_description = entry.get("custom_description") or ""
         unit_price = entry.get("unit_price_override")
         internal_cost = entry.get("internal_cost_override")
         item_type = "Service"
         reference_id = None
         category_id = entry.get("category_id") or food_cat.get("category_id")
         category_name = food_cat.get("name")
+        line_internal_notes = None
 
         if recipe_id:
             rec = await db.recipes.find_one({"recipe_id": recipe_id, "company_id": user.company_id}, {"_id": 0})
             if rec:
                 description = description or rec.get("name") or "Item"
+                if not long_description:
+                    long_description = rec.get("description") or ""
                 if internal_cost is None:
                     internal_cost = rec.get("cost_per_portion") or 0
                 if unit_price is None:
@@ -530,12 +581,15 @@ async def add_items_from_menu(proposal_id: str, body: Dict[str, Any], user: User
             pli = await db.picklist_items.find_one({"item_id": picklist_item_id, "company_id": user.company_id}, {"_id": 0})
             if pli:
                 description = description or pli.get("name") or "Item"
+                if not long_description:
+                    long_description = pli.get("description") or ""
                 if unit_price is None:
                     unit_price = pli.get("default_price") or 0
                 if internal_cost is None:
                     internal_cost = pli.get("internal_cost")
                 item_type = pli.get("item_type") or "Service"
                 reference_id = pli.get("recipe_id") or pli.get("inventory_item_id")
+                line_internal_notes = pli.get("internal_notes")
 
         # Apply variant discount to unit_price
         if unit_price and variant_discount:
@@ -558,6 +612,7 @@ async def add_items_from_menu(proposal_id: str, body: Dict[str, Any], user: User
             "item_type": item_type,
             "reference_id": reference_id,
             "description": description or "Item",
+            "long_description": long_description or None,
             "quantity": qty,
             "unit_price": float(unit_price or 0),
             "internal_cost": internal_cost,
@@ -567,6 +622,7 @@ async def add_items_from_menu(proposal_id: str, body: Dict[str, Any], user: User
             "margin_percentage": margin_pct,
             "category_id": category_id,
             "category_name": category_name,
+            "internal_notes": line_internal_notes,
             "section_title": section_title or menu.get("name"),
             "sort_order": int(entry.get("sort_order") or 0),
             "created_at": now.isoformat(),

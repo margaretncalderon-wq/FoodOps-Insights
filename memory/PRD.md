@@ -1,5 +1,40 @@
 # Kora OS — Product Requirements Document
 
+## February 3, 2026 — Iter 260 · Menus/Paquetes: Costo Interno + Notas Internas + Margin Preview
+
+**Estado:** ✅ Completo. 3/3 pytests PASS (`tests/test_bulk_from_menu_fields.py`).
+
+### Problema reportado
+Usuario detectó que al cargar menús/paquetes a una cotización vía `bulk-from-menu`, no se propagaba el costo interno ni las notas internas como con los demás ítems. Además, en el menu builder de Settings no había manera de capturar costo interno de un paquete flat ni ver el margen resultante.
+
+### Cambios
+**Backend (`server.py`, `routers/proposals.py`):**
+1. Agregado `default_cost` y `internal_notes` a `MenuCreate`, `MenuUpdate`, `Menu` + `internal_notes` a `PicklistItem*`.
+2. `create_menu` persiste `default_cost` + `internal_notes`.
+3. `enrich_menu_items`: para paquetes flat (`is_fixed_price` + sin items), `total_cost = default_cost` → `margin_amount` + `margin_percentage` correctos en la respuesta enriquecida.
+4. `bulk-from-menu` (flat branch): propaga `internal_notes` del menú al `order_item`. `long_description` ya se copiaba.
+5. `bulk-from-menu` (itemized branch): propaga `internal_notes` del `picklist_item` + `long_description` del recipe/picklist.
+
+**Frontend (`pages/SettingsPage.js`):**
+6. Estado del menú añadido `default_cost` + `internal_notes` (new/edit/reset).
+7. Al activar "Precio Fijo", aparece panel ámbar con `Costo Interno ($)` y `Notas Internas (textarea)`.
+8. **Margin preview bar** visible siempre: muestra `Precio · Costo · Margen %` con color verde (≥40%), ámbar (25–39%) o rojo (<25%) + etiqueta semántica. Calcula en vivo desde `default_price/default_cost` para paquetes flat, o sumando `picklist.default_price * qty` y costos para menús itemizados.
+9. Cada línea del menú builder ahora muestra "Costo: $X · Precio: $Y · Z% margen" (color-coded) cuando viene de picklist/receta con costo conocido.
+
+### Archivos nuevos
+- `/app/backend/tests/test_bulk_from_menu_fields.py` (3 tests: persistencia modelo, flat package → order_item, itemized → picklist notes).
+
+### Archivos modificados
+- `/app/backend/server.py` (modelos Menu + Picklist, create_menu, enrich_menu_items).
+- `/app/backend/routers/proposals.py` (bulk-from-menu flat + itemized branches).
+- `/app/frontend/src/pages/SettingsPage.js` (state menu, cost+notes inputs, margin preview bar, per-line cost/margin display).
+
+### Pendiente Iteración 2 del sistema de aprobación (sigue abierto)
+- Migración one-shot para marcar share_links legacy con `legacy_signature_flow=true`.
+- Gate de firma en el Portal del Cliente (`routers/portal.py` + `ClientEventPortal.js`).
+
+
+
 ## September 30, 2026 — Iter 259 · Pending Approvals Tray (surface UX)
 
 **Estado:** ✅ Completo. 11/11 pytests PASS + smoke E2E (dashboard widget, sidebar badge y chips visibles con 3 propuestas pendientes de prueba).
@@ -39,6 +74,25 @@ Resolver la pregunta directa del usuario ("¿dónde veo pending aprobar?"). Ante
 
 
 ## Feature — Pricing Architecture · Fase 1b (UI) — COMPLETA (Feb 20, 2026)
+## September 30, 2026 — Iter 267 · Flat-package menus (fix bulk-from-menu)
+
+**Bug reportado por el usuario**: "los menú y paquetes no salen cuando trato de hacer una cotización con eso".
+
+**Causa raíz**: En `routers/proposals.py:506` el loop `for entry in menu.items` se salta cuando `menu.items=[]`. Los paquetes del tenant Ciano Gourmet (Almuerzo Corporativo, Almuerzo empacado, Combo bocadillos) estaban creados con `fixed_price` pero sin items desglosados, así que `bulk-from-menu` insertaba 0 líneas.
+
+**Fix** (`routers/proposals.py:bulk-from-menu`): Cuando el menú es "flat package" (sin items pero con fixed_price > 0), ahora inserta **1 línea única** con:
+- `description = menu.name`
+- `unit_price = menu.fixed_price`
+- `quantity = quantity_multiplier`
+- `item_type = "Service"`
+- `internal_cost = menu.fixed_cost || 0`
+- Aplica `variant_discount` si corresponde
+- Mantiene el loop normal para menús desglosados (comportamiento previo intacto)
+
+**E2E verificado**: `POST /api/settings/menus {fixed_price:500, items:[]}` + `POST /bulk-from-menu {quantity_multiplier:2}` → `items_added=1`, `total_price=1000`.
+
+
+
 ## September 30, 2026 — Iter 266 · Fase 2 + 3 · Lost reasons configurables + Dashboard
 
 **Estado:** ✅ Completo. E2E: GET + PUT custom reason + 400 duplicate key + analytics filtra `counts_as_loss=false`.

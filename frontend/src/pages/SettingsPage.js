@@ -251,8 +251,10 @@ export default function SettingsPage() {
     menu_type: "Menu",
     items: [],
     default_price: null,
+    default_cost: null,
     is_fixed_price: false,
     is_active: true,
+    internal_notes: "",
     variants: []
   });
   const [newVariant, setNewVariant] = useState({
@@ -1094,8 +1096,10 @@ export default function SettingsPage() {
       items: menu.items || [],
       variants: menu.variants || [],
       default_price: menu.default_price || null,
+      default_cost: menu.default_cost ?? null,
       is_fixed_price: menu.is_fixed_price || false,
-      is_active: menu.is_active !== false
+      is_active: menu.is_active !== false,
+      internal_notes: menu.internal_notes || ""
     });
     setMenuDialogOpen(true);
   };
@@ -1111,8 +1115,10 @@ export default function SettingsPage() {
       items: [],
       variants: [],
       default_price: null,
+      default_cost: null,
       is_fixed_price: false,
-      is_active: true
+      is_active: true,
+      internal_notes: ""
     });
     setNewVariant({
       name: "",
@@ -4093,6 +4099,7 @@ return (
                     <div className="flex items-center gap-4">
                       <div className="flex items-center gap-2">
                         <Switch 
+                          data-testid="menu-fixed-price-toggle"
                           checked={newMenu.is_fixed_price}
                           onCheckedChange={(v) => setNewMenu({ ...newMenu, is_fixed_price: v })}
                         />
@@ -4100,6 +4107,7 @@ return (
                       </div>
                       {newMenu.is_fixed_price && (
                         <Input 
+                          data-testid="menu-default-price-input"
                           type="number"
                           step="0.01"
                           className="w-32"
@@ -4110,6 +4118,72 @@ return (
                       )}
                     </div>
                   </div>
+
+                  {/* Internal cost + notes (for operators only, never shown to clients) */}
+                  {newMenu.is_fixed_price && (
+                    <div className="grid grid-cols-2 gap-3 p-3 border rounded-lg bg-amber-50/40">
+                      <div>
+                        <Label className="text-xs">{language === "es" ? "Costo Interno" : "Internal Cost"}</Label>
+                        <Input
+                          data-testid="menu-default-cost-input"
+                          type="number"
+                          step="0.01"
+                          placeholder="$0.00"
+                          value={newMenu.default_cost ?? ""}
+                          onChange={(e) => setNewMenu({ ...newMenu, default_cost: e.target.value === "" ? null : parseFloat(e.target.value) })}
+                        />
+                        <p className="text-[11px] text-muted-foreground mt-1">
+                          {language === "es" ? "Lo que te cuesta producir el paquete (uso interno)" : "What it costs you to produce (internal)"}
+                        </p>
+                      </div>
+                      <div>
+                        <Label className="text-xs">{language === "es" ? "Notas Internas" : "Internal Notes"}</Label>
+                        <Textarea
+                          data-testid="menu-internal-notes-input"
+                          rows={2}
+                          placeholder={language === "es" ? "Notas para cocina/producción (no se muestran al cliente)" : "Kitchen/ops notes (never shown to clients)"}
+                          value={newMenu.internal_notes || ""}
+                          onChange={(e) => setNewMenu({ ...newMenu, internal_notes: e.target.value })}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Margin preview bar */}
+                  {(() => {
+                    const price = newMenu.is_fixed_price
+                      ? Number(newMenu.default_price || 0)
+                      : (newMenu.items || []).reduce((sum, it) => {
+                          const pli = picklist.find(p => p.item_id === it.picklist_item_id);
+                          const unit = it.unit_price_override ?? pli?.default_price ?? 0;
+                          return sum + unit * (it.quantity || 1);
+                        }, 0);
+                    const cost = newMenu.is_fixed_price
+                      ? Number(newMenu.default_cost || 0)
+                      : (newMenu.items || []).reduce((sum, it) => {
+                          const pli = picklist.find(p => p.item_id === it.picklist_item_id);
+                          const unit = it.internal_cost_override ?? pli?.internal_cost ?? 0;
+                          return sum + (unit || 0) * (it.quantity || 1);
+                        }, 0);
+                    if (price <= 0 && cost <= 0) return null;
+                    const margin = price > 0 ? ((price - cost) / price) * 100 : 0;
+                    const tone = margin >= 40 ? "text-emerald-700 bg-emerald-50 border-emerald-200"
+                      : margin >= 25 ? "text-amber-700 bg-amber-50 border-amber-200"
+                      : "text-red-700 bg-red-50 border-red-200";
+                    const label = margin >= 40 ? (language === "es" ? "Margen saludable" : "Healthy margin")
+                      : margin >= 25 ? (language === "es" ? "Margen bajo" : "Low margin")
+                      : (language === "es" ? "Margen crítico" : "Critical margin");
+                    return (
+                      <div data-testid="menu-margin-preview" className={`flex items-center justify-between gap-4 p-3 border rounded-lg ${tone}`}>
+                        <div className="flex items-center gap-4 flex-wrap text-sm">
+                          <span>{language === "es" ? "Precio" : "Price"}: <span className="font-mono font-semibold">${fmtNum(price)}</span></span>
+                          <span>{language === "es" ? "Costo" : "Cost"}: <span className="font-mono font-semibold">${fmtNum(cost)}</span></span>
+                          <span>{language === "es" ? "Margen" : "Margin"}: <span className="font-mono font-semibold">{margin.toFixed(1)}%</span></span>
+                        </div>
+                        <span className="text-xs font-medium">{label}</span>
+                      </div>
+                    );
+                  })()}
 
                   {/* Items in Menu */}
                   <div className="border rounded-lg p-4">
@@ -4137,6 +4211,9 @@ return (
                       <div className="space-y-2">
                         {newMenu.items.map((item, idx) => {
                           const picklistItem = picklist.find(p => p.item_id === item.picklist_item_id);
+                          const unitPrice = item.unit_price_override ?? picklistItem?.default_price ?? 0;
+                          const unitCost = item.internal_cost_override ?? picklistItem?.internal_cost ?? 0;
+                          const lineMarginPct = unitPrice > 0 ? ((unitPrice - unitCost) / unitPrice) * 100 : null;
                           return (
                             <div key={idx} className="flex items-center gap-3 p-2 bg-muted/50 rounded-lg">
                               <Input
@@ -4147,11 +4224,23 @@ return (
                                 value={item.quantity}
                                 onChange={(e) => updateMenuItemQuantity(idx, e.target.value)}
                               />
-                              <span className="flex-1 text-sm">
-                                {item.custom_name || picklistItem?.name || "Item"}
-                              </span>
-                              <span className="text-sm text-muted-foreground">
-                                ${fmtNum(((picklistItem?.default_price || 0) * item.quantity))}
+                              <div className="flex-1 min-w-0">
+                                <div className="text-sm truncate">
+                                  {item.custom_name || picklistItem?.name || "Item"}
+                                </div>
+                                {unitCost > 0 && (
+                                  <div className="text-[11px] text-muted-foreground font-mono">
+                                    {language === "es" ? "Costo" : "Cost"}: ${fmtNum(unitCost)} · {language === "es" ? "Precio" : "Price"}: ${fmtNum(unitPrice)}
+                                    {lineMarginPct !== null && (
+                                      <span className={`ml-2 ${lineMarginPct >= 40 ? "text-emerald-700" : lineMarginPct >= 25 ? "text-amber-700" : "text-red-700"}`}>
+                                        · {lineMarginPct.toFixed(1)}% {language === "es" ? "margen" : "margin"}
+                                      </span>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                              <span className="text-sm text-muted-foreground font-mono">
+                                ${fmtNum(unitPrice * item.quantity)}
                               </span>
                               <Button type="button" variant="ghost" size="icon" onClick={() => removeItemFromMenu(idx)}>
                                 <Trash2 className="w-4 h-4 text-destructive" />

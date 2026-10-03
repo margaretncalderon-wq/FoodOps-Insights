@@ -962,6 +962,7 @@ class PicklistItemCreate(BaseModel):
     unit: str = "unit"
     is_active: bool = True
     min_margin_pct: Optional[float] = None  # Per-item override for margin policy
+    internal_notes: Optional[str] = None  # Internal operator notes, never shown to clients
 
 class PicklistItemUpdate(BaseModel):
     name: Optional[str] = None
@@ -976,6 +977,7 @@ class PicklistItemUpdate(BaseModel):
     unit: Optional[str] = None
     is_active: Optional[bool] = None
     min_margin_pct: Optional[float] = None
+    internal_notes: Optional[str] = None
 
 class PicklistItem(BaseModel):
     item_id: str
@@ -994,6 +996,7 @@ class PicklistItem(BaseModel):
     created_at: datetime
     updated_at: Optional[datetime] = None
     min_margin_pct: Optional[float] = None
+    internal_notes: Optional[str] = None
 
 # Bulk Add Picklist Items
 class PicklistBulkCreate(BaseModel):
@@ -1034,8 +1037,10 @@ class MenuCreate(BaseModel):
     items: List[MenuItemEntry] = []
     variants: List[MenuVariant] = []  # Gold, Silver, Bronze variants
     default_price: Optional[float] = None  # Fixed price for entire package
+    default_cost: Optional[float] = None  # Internal cost for flat packages
     is_fixed_price: bool = False  # If true, use default_price instead of sum
     is_active: bool = True
+    internal_notes: Optional[str] = None  # Internal operator notes, never shown to clients
 
 class MenuUpdate(BaseModel):
     name: Optional[str] = None
@@ -1047,8 +1052,10 @@ class MenuUpdate(BaseModel):
     items: Optional[List[MenuItemEntry]] = None
     variants: Optional[List[MenuVariant]] = None
     default_price: Optional[float] = None
+    default_cost: Optional[float] = None
     is_fixed_price: Optional[bool] = None
     is_active: Optional[bool] = None
+    internal_notes: Optional[str] = None
 
 class Menu(BaseModel):
     menu_id: str
@@ -1062,8 +1069,10 @@ class Menu(BaseModel):
     items: List[Dict[str, Any]] = []
     variants: List[Dict[str, Any]] = []  # Variants with calculated prices
     default_price: Optional[float] = None
+    default_cost: Optional[float] = None
     is_fixed_price: bool
     is_active: bool
+    internal_notes: Optional[str] = None
     # Calculated fields
     total_price: float = 0
     total_cost: float = 0
@@ -3378,7 +3387,12 @@ async def enrich_menu_items(menu: dict, company_id: str):
         menu["total_price"] = menu["default_price"]
     else:
         menu["total_price"] = total_price
-    
+
+    # For flat packages (fixed-price without itemized children) use manually captured
+    # default_cost so operators can see margin even without a detailed BOM.
+    if menu.get("is_fixed_price") and not menu.get("items") and menu.get("default_cost") is not None:
+        total_cost = float(menu.get("default_cost") or 0)
+
     menu["total_cost"] = total_cost
     menu["margin_amount"] = menu["total_price"] - total_cost
     menu["margin_percentage"] = (menu["margin_amount"] / menu["total_price"] * 100) if menu["total_price"] > 0 else 0
@@ -3468,8 +3482,10 @@ async def create_menu(data: MenuCreate, user: User = Depends(get_current_user)):
         "items": items,
         "variants": variants,
         "default_price": data.default_price,
+        "default_cost": data.default_cost,
         "is_fixed_price": data.is_fixed_price,
         "is_active": data.is_active,
+        "internal_notes": data.internal_notes,
         "created_at": now.isoformat(),
         "updated_at": now.isoformat()
     }
