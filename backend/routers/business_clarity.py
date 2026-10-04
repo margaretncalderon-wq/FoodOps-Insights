@@ -2241,9 +2241,16 @@ async def get_event_profitability_report(user: User = Depends(get_current_user))
         # Get costs from order items internal cost
         order_items = await db.order_items.find(
             {"event_id": event_id, "company_id": user.company_id},
-            {"_id": 0, "internal_cost": 1}
+            {"_id": 0, "internal_cost": 1, "quantity": 1, "total_cost": 1}
         ).to_list(100)
-        internal_costs = sum(item.get("internal_cost") or 0 for item in order_items)
+        # Prefer the pre-computed total_cost (unit_cost * qty) stored on the
+        # order_item; fall back to internal_cost * quantity when total_cost is
+        # missing on legacy rows.
+        internal_costs = sum(
+            (item.get("total_cost") if item.get("total_cost") is not None
+             else (item.get("internal_cost") or 0) * (item.get("quantity") or 1))
+            for item in order_items
+        )
         total_costs = costs + internal_costs
         
         profit = revenue - total_costs
