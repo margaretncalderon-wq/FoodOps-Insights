@@ -236,6 +236,18 @@ async def maybe_revoke_on_material_change(
         }},
     )
     logger.info(f"proposal_approval: auto-revoked {proposal_id} due to material change")
+    # Fire auto-note into the bitácora (fail-safe)
+    try:
+        from routers.proposal_notes import record_system_note
+        fields_str = ", ".join(sorted(changed_fields & MATERIAL_FIELDS))
+        await record_system_note(
+            proposal_id=proposal_id,
+            company_id=company_id,
+            body=f"Aprobación revocada automáticamente por cambio material en: {fields_str}",
+            category="system",
+        )
+    except Exception as e:  # noqa: BLE001
+        logger.warning(f"proposal_approval: auto-note hook failed: {e}")
     return True
 
 

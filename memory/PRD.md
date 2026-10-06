@@ -1,5 +1,56 @@
 # Kora OS — Product Requirements Document
 
+## February 6, 2026 — Iter 261 · Bitácora de Propuestas (Full Feature)
+
+**Estado:** ✅ Completo. 5/5 pytests PASS (`tests/test_proposal_notes.py`) incluyendo upload+download con Emergent Object Storage.
+
+### Alcance
+Timeline threaded de notas por propuesta: cambios, solicitudes del cliente, llamadas, reuniones, emails, notas internas. Soporta attachments, @menciones con notificación, reacciones emoji, fijar notas críticas, visibilidad al cliente, y auto-notas del sistema cuando se revoca una aprobación.
+
+### Backend
+- **Nuevo router `/app/backend/routers/proposal_notes.py`** (bajo `/api/proposals/{id}/notes`):
+  - `POST /notes` — crea nota con category, visibility, attachment_ids, linked_item_ids
+  - `GET /notes` — lista pin-first + newest; filtros `category` + `pinned_only`; hidrata attachments
+  - `PUT /notes/{note_id}` — edita body/category/visibility/pinned/linked_items; recalcula mentions; stamp `edited_at`
+  - `DELETE /notes/{note_id}` — soft-delete
+  - `POST /notes/{note_id}/pin` — toggle pin
+  - `POST /notes/{note_id}/reactions` — toggle emoji por user
+  - `POST /notes/attachments` — upload (15MB cap)
+  - `GET /notes/attachments/{id}` — download
+- **Nuevo helper `/app/backend/utils/object_storage.py`** — wrapper de Emergent Object Storage con `init_storage` cacheado + retry on 404 + MIME guessing.
+- **Startup hook** en `server.py` para inicializar storage al arrancar.
+- **Auto-notas**: `proposal_approval.maybe_revoke_on_material_change` ahora llama a `record_system_note` cuando revoca aprobación → aparece en la bitácora con autor "Sistema" y categoría `system`.
+- **@Mentions**: resuelve `@name` → user_ids del tenant → `create_notification` tipo `proposal_note_mention` con deep-link.
+
+### Frontend
+- **Nuevo componente `/app/frontend/src/components/ProposalNotesTimeline.js`**:
+  - Composer: category selector (6 opciones + icons color-coded), visibility toggle (interno/cliente), drag-free file picker con preview chips, textarea con @mentions highlight
+  - Timeline: cada tarjeta muestra autor+tiempo relativo+categoría; badge "Cliente ve esto" cuando corresponde; pin icon; menu de acciones (fijar/editar/eliminar)
+  - Attachments: botón descarga con nombre + size
+  - Reactions: 6 emojis preset (👍 ✅ ⚠️ ❤️ 👀 🚨) agrupados con conteo, click para toggle, hover muestra quién reaccionó
+  - Mention rendering: `@nombre` resalta en azul inline
+  - Filter chips por categoría con contador
+  - Empty state ilustrado
+- **ProposalEditor.js**: nueva pestaña "Bitácora" con contador badge (notesCount), montada después de Generar.
+
+### Archivos nuevos
+- `/app/backend/routers/proposal_notes.py`
+- `/app/backend/utils/object_storage.py`
+- `/app/backend/tests/test_proposal_notes.py` (5 tests)
+- `/app/frontend/src/components/ProposalNotesTimeline.js`
+
+### Archivos modificados
+- `/app/backend/server.py` (import router, include, startup hook)
+- `/app/backend/routers/proposal_approval.py` (auto-note hook en revoke)
+- `/app/frontend/src/components/ProposalEditor.js` (tab Bitácora + import)
+
+### Pendiente Iteración 2 Portal (sigue abierto)
+- Exponer notas con `visibility=share_with_client` en el ClientEventPortal (nuevo tab "Mensajes" en el portal).
+- Migración legacy share_links.
+- Gate de firma en portal (`document_status == Sent` o legacy).
+
+
+
 ## February 3, 2026 — Iter 260 · Menus/Paquetes: Costo Interno + Notas Internas + Margin Preview
 
 **Estado:** ✅ Completo. 3/3 pytests PASS (`tests/test_bulk_from_menu_fields.py`).

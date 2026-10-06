@@ -102,6 +102,7 @@ from routers import proposal_financials  # noqa: F401 — registers financials/d
 from routers import event_change_client  # noqa: F401 — Sep 2026 reassign-client endpoint
 from routers import proposal_workflow  # noqa: F401 — Sep 2026 tenant workflow config
 from routers import proposal_cost_health  # noqa: F401 — registers cost-staleness/refresh/margin-approval/cost-health routes
+from routers import proposal_notes  # noqa: F401 — Feb 2026 bitácora (threaded notes with attachments)
 from models.proposals import (
     OrderItem,
     OrderItemCreate,
@@ -8733,6 +8734,8 @@ api_router.include_router(public_catalog_router)
 api_router.include_router(reports_router)
 api_router.include_router(event_order_router)
 api_router.include_router(proposals_router)
+from routers.proposal_notes import proposal_notes_router  # noqa: E402 — avoid top-level circular
+api_router.include_router(proposal_notes_router)
 api_router.include_router(audit_router)
 api_router.include_router(purchase_orders_router)
 api_router.include_router(expenses_router)
@@ -9071,6 +9074,18 @@ async def ensure_default_plans():
                 )
 
 # Initialize plans on startup
+@app.on_event("startup")
+async def startup_init_object_storage():
+    """Initialize Emergent Object Storage once at boot. Non-fatal on failure —
+    upload endpoints will surface a 503 if the key never minted."""
+    try:
+        from utils.object_storage import init_storage
+        init_storage()
+    except Exception as e:  # noqa: BLE001
+        import logging
+        logging.getLogger("startup").warning(f"object_storage init skipped: {e}")
+
+
 @app.on_event("startup")
 async def startup_validate_critical_helpers():
     """MULTI-TENANT SAFETY NET (auto-detects regressions like the one on

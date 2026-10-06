@@ -3,6 +3,7 @@ import { API } from "../utils/api";
 import axios from "axios";
 import ChangeClientDialog from "./ChangeClientDialog";
 import LostReasonDialog from "./LostReasonDialog";
+import ProposalNotesTimeline from "./ProposalNotesTimeline";
 import { parseDateOnly, toDateOnly } from "../utils/dates";
 import { useLanguage } from "../contexts/LanguageContext";
 import { useTerminology } from "../hooks/useTerminology";
@@ -52,7 +53,7 @@ import {
   AlertDialogTitle,
 } from "./ui/alert-dialog";
 import { toast } from "sonner";
-import { Plus, Trash2, FileText, Download, Eye, Utensils, Wine, Armchair, Users, Flower2, Package, GripVertical, Percent, DollarSign, ChevronDown, ChevronRight, AlertTriangle, Search, Send, CheckCircle, XCircle, Lock, History, TrendingUp, Edit, Clock, Calculator, Link2, RefreshCw, CreditCard, Check, X, Type, ChefHat, Calendar as CalendarIcon, ArrowUp, ArrowDown, Copy, MoreVertical, Archive } from "lucide-react";
+import { Plus, Trash2, FileText, Download, Eye, Utensils, Wine, Armchair, Users, Flower2, Package, GripVertical, Percent, DollarSign, ChevronDown, ChevronRight, AlertTriangle, Search, Send, CheckCircle, XCircle, Lock, History, TrendingUp, Edit, Clock, Calculator, Link2, RefreshCw, CreditCard, Check, X, Type, ChefHat, Calendar as CalendarIcon, ArrowUp, ArrowDown, Copy, MoreVertical, Archive, MessageSquare } from "lucide-react";
 
 import { KoraLoader } from "./KoraLoader";
 import {
@@ -252,6 +253,7 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
   const [selectedPicklistCategory, setSelectedPicklistCategory] = useState("");
   const [picklistSearch, setPicklistSearch] = useState("");
   const [activeTab, setActiveTab] = useState("items");
+  const [notesCount, setNotesCount] = useState(0);
 
   // Day-by-day logistics (per-date delivery info)
   const [dayLogistics, setDayLogistics] = useState([]);
@@ -2480,6 +2482,10 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
             <FileText className="w-3.5 h-3.5" />
             {language === "es" ? "Generar" : "Generate"}
           </TabsTrigger>
+          <TabsTrigger value="notes" className="gap-1.5 text-xs h-7" data-testid="tab-notes">
+            <MessageSquare className="w-3.5 h-3.5" />
+            {language === "es" ? "Bitácora" : "Notes"}{notesCount > 0 ? ` (${notesCount})` : ""}
+          </TabsTrigger>
         </TabsList>
 
         {/* Items Tab */}
@@ -3754,6 +3760,27 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
                     : "Add items to generate documents"}
                 </p>
               )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Notes / Bitácora Tab */}
+        <TabsContent value="notes" className="space-y-4" data-testid="tab-content-notes">
+          <Card>
+            <CardHeader className="py-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <MessageSquare className="w-4 h-4" />
+                {language === "es" ? "Bitácora de la propuesta" : "Proposal notes"}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ProposalNotesTimeline
+                proposalId={proposal?.proposal_id}
+                language={language}
+                currentUserId={typeof window !== "undefined" ? window.__koraUserId : null}
+                orderItems={proposal?.items || []}
+                onCountChange={setNotesCount}
+              />
             </CardContent>
           </Card>
         </TabsContent>
