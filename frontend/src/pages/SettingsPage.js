@@ -235,7 +235,8 @@ export default function SettingsPage() {
     inventory_item_id: "",
     unit: "unit",
     is_active: true,
-    min_margin_pct: ""
+    min_margin_pct: "",
+    internal_notes: ""
   });
   const [editingPicklist, setEditingPicklist] = useState(null);
   const [picklistRecipeFormats, setPicklistRecipeFormats] = useState([]);
@@ -938,7 +939,8 @@ export default function SettingsPage() {
       inventory_item_id: item.inventory_item_id || "",
       unit: item.unit || "unit",
       is_active: item.is_active !== false,
-      min_margin_pct: item.min_margin_pct != null ? item.min_margin_pct : ""
+      min_margin_pct: item.min_margin_pct != null ? item.min_margin_pct : "",
+      internal_notes: item.internal_notes || ""
     });
     setPicklistDialogOpen(true);
     if (item.recipe_id) {
@@ -963,7 +965,8 @@ export default function SettingsPage() {
       inventory_item_id: "",
       unit: "unit",
       is_active: true,
-      min_margin_pct: ""
+      min_margin_pct: "",
+      internal_notes: ""
     });
   };
 
@@ -3651,6 +3654,18 @@ return (
                           ))}
                         </SelectContent>
                       </Select>
+                    </div>
+
+                    {/* Internal notes (operators only, never shown to clients) */}
+                    <div className="col-span-2">
+                      <Label>{language === "es" ? "Notas Internas" : "Internal Notes"}</Label>
+                      <Textarea
+                        data-testid="picklist-internal-notes"
+                        rows={2}
+                        placeholder={language === "es" ? "Notas para cocina/producción (nunca se muestran al cliente)" : "Kitchen/ops notes (never shown to clients)"}
+                        value={newPicklist.internal_notes || ""}
+                        onChange={(e) => setNewPicklist({ ...newPicklist, internal_notes: e.target.value })}
+                      />
                     </div>
 
                     {/* Recipe Portion Format (only when recipe selected and has formats) */}
