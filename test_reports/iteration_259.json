@@ -1,0 +1,25 @@
+{
+  "summary": "Validated 'Ask the team' (approval_question) feature end-to-end on event event_qa_print_spacing_20260729 / proposal prop_qa_print_spacing_20260729. Backend: 7/7 pytest tests passed covering create-question → open_questions_count=1 + data_incomplete=true (source=open_questions), resolve toggles & clears flag only when source=open_questions (preserves 'duplicate' source), 400 on non-question resolve, delete recalculates and clears flag, PUT category change resyncs both directions, approve 409 with detail {code:'open_questions', count:1} and force:true approves. Frontend: ask-team-btn opens Notes tab with composer preset to Approval question + hint + Internal only visibility; posting shows note-open-badge and sets ask-team-open-count=1 and proposal-data-incomplete-badge 'Incomplete data · 1 question(s)'; clicking the badge navigates without clearing; filter-open-questions chip rendered; Approve opens open-questions-confirm-dialog, Review goes back to notes, Approve-anyway force-approves; Mark resolved updates note-resolved-badge and both count/data-incomplete badges disappear; Reopen brings them back. Final state restored to Pending Approval, data_incomplete=false, open_questions_count=0, no residual QA notes.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_approval_questions_flow.py",
+    "/app/test_reports/pytest/approval_questions.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "sync_open_questions correctly guards source: when count>0 it only writes source if data_incomplete was previously false, and when count==0 it only clears if source=='open_questions'. Verified both branches with a 'duplicate' source test.",
+    "Visibility select in composer is rendered but the underlying trigger does not carry the HTML 'disabled' attribute (aria-disabled also null) — it is just visually locked ('Internal only'). Functionally internal-only is enforced because the backend only accepts 'internal_only'/'share_with_client' and the composer sends 'internal_only' by default for approval_question. Suggest adding disabled/aria-disabled on the Select trigger for stronger accessibility signal, but not a blocker."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (7/7)", "frontend": "100% (all critical flows)"},
+  "test_credentials": "demo.agency@kora.com / Evoque2024! (admin)",
+  "seed_data_creation": "No persistent seed. Each test creates its own TEST_ notes and deletes them. One ad-hoc approval was force-triggered then revoked (reason='QA test cleanup') to restore Pending Approval status. approved_by stub remains populated (expected after revoke per current backend contract) and approval_revoked_reason='QA test cleanup' is now recorded on the proposal.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Proposal prop_qa_print_spacing_20260729 ends with document_status='Pending Approval', data_incomplete=false, open_questions_count=0, approval_revoked_reason='QA test cleanup', approved_by preserved from the force-approve step (standard revoke behavior). No stray notes remain. Backend regression file: /app/backend/tests/test_approval_questions_flow.py."
+}

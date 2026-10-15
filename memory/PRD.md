@@ -2653,6 +2653,15 @@ Build a comprehensive ERP application called **Kora OS** with modules for People
 
 ## Latest Releases
 
+### "Preguntar al equipo" — Approval Questions in Bitácora (Oct 15, 2026)
+- New note category `approval_question` (always internal). Notes carry `resolved` / `resolved_by`.
+- `POST /api/proposals/{pid}/notes/{nid}/resolve` toggles resolved. `sync_open_questions()` keeps `proposals.open_questions_count` updated and sets `data_incomplete=true, data_incomplete_source="open_questions"` while questions are open (auto-cleared only when the flag came from questions).
+- `POST /api/proposals/{pid}/approve` returns 409 `{code:"open_questions", count}` when questions are open; `{force:true}` approves anyway.
+- UI: `ask-team-btn` in the proposal header (count badge) opens the Notes tab with a question composer; resolve/reopen buttons; "Abiertas" filter; "Datos incompletos · N pregunta(s)" badge links to notes; confirmation dialog before approving with open questions.
+- Tested: iteration_259 (backend 7/7, frontend 100%).
+- NOTE: the user was looking at the PUBLISHED app — they need to redeploy to see the Bitácora and this feature.
+
+
 ### Culinary UX — Live Cost Preview + Wizard + Review Banner (Feb 14, 2026)
 **Goal**: Real-time recipe costing + chef-friendly tools to repair inconsistent ingredient data.
 
