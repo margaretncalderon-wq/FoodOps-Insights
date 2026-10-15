@@ -2653,6 +2653,14 @@ Build a comprehensive ERP application called **Kora OS** with modules for People
 
 ## Latest Releases
 
+### Mentions + Portal Messages + Portal Gate + Daily Culinary Insights (Oct 15, 2026)
+- **@Mentions**: `GET /api/proposals/{pid}/notes/mentionable` (all active company users, handle = email prefix). `MentionTextarea.js` autocomplete (arrows/enter/tab/esc). Mention notifications link to `/events/{event_id}?tab=notes&note={id}`; ProposalEditor reads `tab`/`note` query params and highlights the note. Old mention notifications were relinked by the startup migration.
+- **Portal Messages**: `portal_messages_router` (in proposal_notes.py): `GET/POST /api/portal/event/{event_id}/messages` and a shared-attachment download. The client sees only `share_with_client` notes; replies are stored as `client_request` notes (`is_client=true`) and notify org admins (`portal_client_message`). UI: `PortalMessages.js` and a "Mensajes" tab in ClientEventPortal (`?tab=messages`).
+- **Client Portal Gate (P0 DONE)**: `_portal_proposal_visible()` in server.py. Proposal/quote docs are hidden (403 `proposal_not_ready`, excluded from all-documents and client summary) and cannot be signed unless the proposal is Sent or Client Signed. Applies only when the tenant has `require_approval=true` and the doc has no `legacy_signature_flow`. One-shot startup migration `legacy_signature_flow_v1` (db.migrations) marks existing docs. ClientPortal shows a "Tu propuesta está en preparación" screen.
+- **Daily Culinary Insights**: `GET /api/culinary-digest/daily-insights` (10-min cache, `?refresh=true`). `CulinaryInsightsCard.js` on System Pulse (module_culinary_intelligence) and a compact version on all /food-ops pages. Deep links: variance dialog, staleness highlight, `/food-ops/inventory?tab=lowstock`. The FoodOps deeplink consumer now reacts to searchParams changes.
+- Tested: iteration_260 (backend 11/11, frontend 100%).
+
+
 ### "Preguntar al equipo" — Approval Questions in Bitácora (Oct 15, 2026)
 - New note category `approval_question` (always internal). Notes carry `resolved` / `resolved_by`.
 - `POST /api/proposals/{pid}/notes/{nid}/resolve` toggles resolved. `sync_open_questions()` keeps `proposals.open_questions_count` updated and sets `data_incomplete=true, data_incomplete_source="open_questions"` while questions are open (auto-cleared only when the flag came from questions).

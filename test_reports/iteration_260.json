@@ -1,0 +1,25 @@
+{
+  "summary": "Full-stack verification of iter260 features: (1) @mentions autocomplete + deep-link highlight in proposal Bitácora; (2) Portal 'Mensajes' tab (client posts + visibility gating of internal notes); (3) Client Portal Gate on proposal/quote docs (403 proposal_not_ready + exclusion from aggregates); (4) /api/culinary-digest/daily-insights shape + cache + refresh + CulinaryInsightsCard on Dashboard, /food-ops/menus and /food-ops/inventory?tab=lowstock. Backend pytest: 11/11 PASSED. Frontend Playwright: all critical flows PASSED. Regression: Ask the team / approve flow from iter259 intact (QA proposal remains Pending Approval and Approve/Withdraw buttons render correctly).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_iter260_mentions_portal_gate_digest.py",
+    "/app/test_reports/pytest/iter260.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "No DELETE endpoint exists for /api/documents (only GET/POST/PUT and /sign /send /regenerate). Pytest fixture cleanup uses requests.delete which silently 405s. Test docs were purged via direct mongo delete during this run. Suggest adding an admin DELETE route or soft-delete to make document tests fully self-cleaning.",
+    "GET /api/proposals/{proposal_id} (singular) is not routed (405/not-mounted). Only /api/proposals/event/{event_id} and sub-paths exist. If main agent later expects direct proposal fetch by id, this needs adding.",
+    "portal_post_message: pydantic Field(min_length=1) returns 422 on empty body/name; after strip() the manual 400 branch only triggers when body is whitespace-only. This is fine and matches the test expectation ((400,422)), but worth noting.",
+    "_portal_proposal_visible correctly short-circuits non-proposal/quote docs and legacy_signature_flow=true docs, and only enforces when require_approval is on — matched behavior verified end-to-end."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter260_mentions_portal_gate_digest.py (new)"
+  ],
+  "success_rate": {"backend": "100% (11/11)", "frontend": "100% (all critical flows)"},
+  "test_credentials": "demo.agency@kora.com / Evoque2024!, margaret.n.calderon@gmail.com / Evoque2024!",
+  "seed_data_creation": "No persistent seed. Each test created TEST_iter260_* / QA260_* notes and documents. All residual data (5 test documents + 4 test notes + related notifications) were purged via direct mongo cleanup. Confirmed: 0 residual notes/docs after run. QA proposal prop_qa_print_spacing_20260729 remains in document_status='Pending Approval' (unchanged).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend regression file: /app/backend/tests/test_iter260_mentions_portal_gate_digest.py (11 tests). All green. The gated-doc fixture leaks docs because no DELETE endpoint exists; purge via mongo if re-running. QA event=event_qa_print_spacing_20260729, proposal=prop_qa_print_spacing_20260729 (Pending Approval). Frontend verified selectors: note-body-input, mention-suggestions, mention-option-{handle}, note-{note_id} (ring-blue when deep-linked via ?note=), portal-tab-messages, portal-messages-list, portal-message-{name,body}-input, portal-message-send-btn, portal-proposal-not-ready, culinary-insights-card, culinary-insights-all-good."
+}
