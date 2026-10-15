@@ -3,7 +3,7 @@ import axios from "axios";
 import { API } from "../utils/api";
 import { toast } from "sonner";
 import { Button } from "./ui/button";
-import { Textarea } from "./ui/textarea";
+import { MentionTextarea } from "./MentionTextarea";
 import { Badge } from "./ui/badge";
 import {
   Select,
@@ -61,7 +61,7 @@ function groupReactions(reactions) {
   return Object.values(groups);
 }
 
-export default function ProposalNotesTimeline({ proposalId, language = "es", currentUserId, onCountChange, orderItems = [], composeSignal = 0, onOpenQuestionsChange }) {
+export default function ProposalNotesTimeline({ proposalId, language = "es", currentUserId, onCountChange, orderItems = [], composeSignal = 0, onOpenQuestionsChange, highlightNoteId }) {
   const [notes, setNotes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [body, setBody] = useState("");
@@ -74,6 +74,8 @@ export default function ProposalNotesTimeline({ proposalId, language = "es", cur
   const [editBody, setEditBody] = useState("");
   const [filterCategory, setFilterCategory] = useState("all");
   const fileInputRef = useRef(null);
+  const [mentionUsers, setMentionUsers] = useState([]);
+  const [flashId, setFlashId] = useState(null);
   const composerRef = useRef(null);
   const textareaRef = useRef(null);
   const isQuestion = category === "approval_question";
@@ -107,6 +109,22 @@ export default function ProposalNotesTimeline({ proposalId, language = "es", cur
   }, [proposalId, language, onCountChange]);
 
   useEffect(() => { fetchNotes(); }, [fetchNotes]);
+
+  useEffect(() => {
+    if (!proposalId) return;
+    axios.get(`${API}/proposals/${proposalId}/notes/mentionable`, { withCredentials: true })
+      .then((r) => setMentionUsers(r.data?.users || []))
+      .catch(() => {});
+  }, [proposalId]);
+
+  useEffect(() => {
+    if (loading || !highlightNoteId) return;
+    setFilterCategory("all");
+    setFlashId(highlightNoteId);
+    setTimeout(() => document.querySelector(`[data-testid="note-${highlightNoteId}"]`)?.scrollIntoView({ behavior: "smooth", block: "center" }), 300);
+    const t = setTimeout(() => setFlashId(null), 4000);
+    return () => clearTimeout(t);
+  }, [loading, highlightNoteId]);
 
   const handleFiles = async (files) => {
     if (!files?.length) return;
@@ -294,8 +312,9 @@ export default function ProposalNotesTimeline({ proposalId, language = "es", cur
               : "Internal question for your team. While open, the proposal is flagged \"Incomplete data\" and you'll be warned before approving."}
           </p>
         )}
-        <Textarea
+        <MentionTextarea
           ref={textareaRef}
+          users={mentionUsers}
           data-testid="note-body-input"
           placeholder={isQuestion
             ? (language === "es" ? "¿Qué necesitas confirmar antes de aprobar? Usa @nombre para dirigirla a alguien…" : "What do you need to confirm before approving? Use @name to direct it…")
@@ -402,7 +421,7 @@ export default function ProposalNotesTimeline({ proposalId, language = "es", cur
             return (
               <div
                 key={n.note_id}
-                className={`border rounded-xl p-4 ${n.pinned ? "ring-1 ring-amber-300 bg-amber-50/30" : n.category === "approval_question" && !n.resolved ? "border-orange-300 bg-orange-50/40" : "bg-white"}`}
+                className={`border rounded-xl p-4 transition-shadow ${flashId === n.note_id ? "ring-2 ring-blue-400 shadow-lg" : ""} ${n.pinned ? "ring-1 ring-amber-300 bg-amber-50/30" : n.category === "approval_question" && !n.resolved ? "border-orange-300 bg-orange-50/40" : "bg-white"}`}
                 data-testid={`note-${n.note_id}`}
               >
                 <div className="flex items-start justify-between gap-3 mb-2">
@@ -410,7 +429,12 @@ export default function ProposalNotesTimeline({ proposalId, language = "es", cur
                     <Badge variant="outline" className={`gap-1 border ${meta.color}`}>
                       <Icon className="w-3 h-3" /> {language === "es" ? meta.es : meta.en}
                     </Badge>
-                    {n.visibility === "share_with_client" && (
+                    {n.is_client && (
+                      <Badge className="text-xs bg-amber-500 text-white" data-testid={`note-client-badge-${n.note_id}`}>
+                        {language === "es" ? "Mensaje del cliente" : "Client message"}
+                      </Badge>
+                    )}
+                    {n.visibility === "share_with_client" && !n.is_client && (
                       <Badge variant="secondary" className="text-xs">👥 {language === "es" ? "Cliente ve esto" : "Client sees this"}</Badge>
                     )}
                     {n.category === "approval_question" && (
@@ -473,7 +497,7 @@ export default function ProposalNotesTimeline({ proposalId, language = "es", cur
 
                 {isEditing ? (
                   <div className="space-y-2">
-                    <Textarea value={editBody} onChange={(e) => setEditBody(e.target.value)} rows={3} className="text-sm resize-none" />
+                    <MentionTextarea users={mentionUsers} value={editBody} onChange={(e) => setEditBody(e.target.value)} rows={3} className="text-sm resize-none" data-testid={`note-edit-input-${n.note_id}`} />
                     <div className="flex gap-2 justify-end">
                       <Button size="sm" variant="ghost" onClick={() => { setEditingId(null); setEditBody(""); }}>
                         {language === "es" ? "Cancelar" : "Cancel"}
@@ -488,7 +512,7 @@ export default function ProposalNotesTimeline({ proposalId, language = "es", cur
                     <p className="text-sm whitespace-pre-wrap leading-relaxed">
                       {n.body.split(/(@[A-Za-z0-9._-]+)/g).map((part, i) =>
                         part.startsWith("@") ? (
-                          <span key={i} className="text-blue-600 font-medium bg-blue-50 px-1 rounded">{part}</span>
+                          <span key={i} className="text-blue-600 font-medium bg-blue-50 px-1 rounded" title={mentionUsers.find((u) => `@${u.handle}` === part)?.name || ""}>{part}</span>
                         ) : (
                           <span key={i}>{part}</span>
                         )

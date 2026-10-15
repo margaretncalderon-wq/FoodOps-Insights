@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import CostHealthDashboard from "../components/CostHealthDashboard";
 import LostReasonsWidget from "../components/LostReasonsWidget";
+import { CulinaryInsightsCard } from "../components/CulinaryInsightsCard";
 import { useNavigate } from "react-router-dom";
 import { usePendingApprovals } from "../hooks/usePendingApprovals";
 
@@ -378,6 +379,9 @@ export default function SystemPulse() {
             </CardContent>
           </Card>
         )}
+
+        {/* ==================== DAILY CULINARY INSIGHTS ==================== */}
+        {isModuleEnabled("module_culinary_intelligence") && <CulinaryInsightsCard isEs={isEs} />}
 
         {/* ==================== LOST REASONS WIDGET (why we lose deals) =========== */}
         <LostReasonsWidget />

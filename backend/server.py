@@ -2479,11 +2479,28 @@ async def submit_public_quote_request(slug: str, payload: Dict[str, Any]):
     }
 
 
+async def _portal_proposal_visible(doc: dict) -> bool:
+    """Client Portal Gate: proposal/quote docs are only visible/signable once the
+    proposal is 'Sent' (tenants with approval on). Pre-gate docs keep working."""
+    if doc.get("document_type") not in ("proposal", "quote") or doc.get("legacy_signature_flow"):
+        return True
+    from routers.proposal_approval import is_approval_required
+    if not doc.get("company_id") or not await is_approval_required(doc["company_id"]):
+        return True
+    q = {"proposal_id": doc["proposal_id"]} if doc.get("proposal_id") else {"event_id": doc.get("event_id")}
+    proposal = await db.proposals.find_one(q, {"_id": 0, "document_status": 1})
+    if not proposal:
+        return True
+    return proposal.get("document_status") in ("Sent", "Client Signed")
+
+
 @portal_router.get("/document/{document_id}")
 async def get_portal_document(document_id: str, token: Optional[str] = None):
     doc = await db.documents.find_one({"document_id": document_id}, {"_id": 0})
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
+    if not await _portal_proposal_visible(doc):
+        raise HTTPException(status_code=403, detail={"code": "proposal_not_ready"})
     
     for field in ["created_at", "updated_at", "signed_at"]:
         if doc.get(field) and isinstance(doc[field], str):
@@ -2510,6 +2527,12 @@ async def client_sign_document(document_id: str, data: dict, request: Request):
     xff = (request.headers.get("x-forwarded-for") or "").split(",")[0].strip()
     client_ip = xff or (request.client.host if request.client else None)
     user_agent = request.headers.get("user-agent")
+
+    existing = await db.documents.find_one({"document_id": document_id}, {"_id": 0, "signature": 0})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Document not found")
+    if not await _portal_proposal_visible(existing):
+        raise HTTPException(status_code=403, detail={"code": "proposal_not_ready"})
 
     update = {
         "signature": signature,
@@ -2626,11 +2649,12 @@ async def get_portal_all_documents(event_id: str):
             {"_id": 0, "name": 1, "logo_url": 1, "primary_color": 1}
         )
     
-    # Get all documents for this event
+    # Get all documents for this event (proposal gate hides not-yet-sent proposals)
     documents = await db.documents.find(
         {"event_id": event_id},
         {"_id": 0}
     ).to_list(length=100)
+    documents = [d for d in documents if await _portal_proposal_visible(d)]
     
     # Get delivery notes
     delivery_notes = await db.delivery_notes.find(
@@ -2687,6 +2711,7 @@ async def get_client_portal_summary(client_id: str):
         {"event_id": {"$in": event_ids}, "document_type": {"$in": client_doc_types}},
         {"_id": 0}
     ).sort("created_at", -1).to_list(length=50)
+    documents = [d for d in documents if await _portal_proposal_visible(d)]
     
     # Add event name to each document
     event_names = {e["event_id"]: e["name"] for e in events}
@@ -8734,8 +8759,9 @@ api_router.include_router(public_catalog_router)
 api_router.include_router(reports_router)
 api_router.include_router(event_order_router)
 api_router.include_router(proposals_router)
-from routers.proposal_notes import proposal_notes_router  # noqa: E402 — avoid top-level circular
+from routers.proposal_notes import proposal_notes_router, portal_messages_router  # noqa: E402 — avoid top-level circular
 api_router.include_router(proposal_notes_router)
+api_router.include_router(portal_messages_router)
 api_router.include_router(audit_router)
 api_router.include_router(purchase_orders_router)
 api_router.include_router(expenses_router)
@@ -9074,6 +9100,32 @@ async def ensure_default_plans():
                 )
 
 # Initialize plans on startup
+@app.on_event("startup")
+async def startup_migrate_legacy_signature_links():
+    """One-shot: proposal/quote docs created before the Portal Gate keep the old signing flow."""
+    try:
+        if await db.migrations.find_one({"key": "legacy_signature_flow_v1"}):
+            return
+        r = await db.documents.update_many(
+            {"document_type": {"$in": ["proposal", "quote"]}, "legacy_signature_flow": {"$exists": False}},
+            {"$set": {"legacy_signature_flow": True}},
+        )
+        props = {p["proposal_id"]: p.get("event_id") for p in await db.proposals.find({}, {"_id": 0, "proposal_id": 1, "event_id": 1}).to_list(100000)}
+        async for n in db.notifications.find({"type": "proposal_note_mention"}, {"_id": 0, "notification_id": 1, "metadata": 1}):
+            md = n.get("metadata") or {}
+            eid = props.get(md.get("proposal_id"))
+            if eid and n.get("notification_id"):
+                await db.notifications.update_one(
+                    {"notification_id": n["notification_id"]},
+                    {"$set": {"link": f"/events/{eid}?tab=notes&note={md.get('note_id')}"}},
+                )
+        await db.migrations.insert_one({"key": "legacy_signature_flow_v1", "documents_marked": r.modified_count,
+                                        "at": datetime.now(timezone.utc).isoformat()})
+        logging.getLogger("startup").info(f"legacy_signature_flow_v1: marked {r.modified_count} docs")
+    except Exception as e:  # noqa: BLE001
+        logging.getLogger("startup").warning(f"legacy_signature_flow_v1 migration failed: {e}")
+
+
 @app.on_event("startup")
 async def startup_init_object_storage():
     """Initialize Emergent Object Storage once at boot. Non-fatal on failure —

@@ -252,7 +252,11 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
   const [expandedCategories, setExpandedCategories] = useState({});
   const [selectedPicklistCategory, setSelectedPicklistCategory] = useState("");
   const [picklistSearch, setPicklistSearch] = useState("");
-  const [activeTab, setActiveTab] = useState("items");
+  const [deepLink] = useState(() => {
+    const q = new URLSearchParams(window.location.search);
+    return { tab: q.get("tab"), note: q.get("note") };
+  });
+  const [activeTab, setActiveTab] = useState(deepLink.tab === "notes" ? "notes" : "items");
   const [notesCount, setNotesCount] = useState(0);
   const [composeSignal, setComposeSignal] = useState(0);
   const [openQuestionsConfirm, setOpenQuestionsConfirm] = useState(0);
@@ -524,6 +528,13 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
       return next;
     });
   }, []);
+
+  const proposalLoaded = !!proposal?.proposal_id;
+  useEffect(() => {
+    if (proposalLoaded && deepLink.tab === "notes") {
+      setTimeout(() => document.querySelector('[data-testid="proposal-editor-tabs"]')?.scrollIntoView({ behavior: "smooth", block: "start" }), 300);
+    }
+  }, [proposalLoaded, deepLink.tab]);
 
   const approveProposal = async (force) => {
     try {
@@ -3829,6 +3840,7 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
                 onCountChange={setNotesCount}
                 composeSignal={composeSignal}
                 onOpenQuestionsChange={handleOpenQuestionsChange}
+                highlightNoteId={deepLink.note}
               />
             </CardContent>
           </Card>

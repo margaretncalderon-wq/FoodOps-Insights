@@ -6,15 +6,16 @@ import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card"
 import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
-import { FileText, Calendar, MapPin, Users, Building2, FileSignature, Receipt, ClipboardList, Truck, Clock, CheckCircle, ExternalLink, PlayCircle, ChefHat } from "lucide-react";
+import { FileText, Calendar, MapPin, Users, Building2, FileSignature, Receipt, ClipboardList, Truck, Clock, CheckCircle, ExternalLink, PlayCircle, ChefHat, MessageSquare } from "lucide-react";
 import { KoraLoader } from "../components/KoraLoader";
 import { formatDateOnly } from "../utils/dates";
+import { PortalMessages } from "../components/PortalMessages";
 
 export default function ClientEventPortal() {
   const { eventId } = useParams();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("documents");
+  const [activeTab, setActiveTab] = useState(() => new URLSearchParams(window.location.search).get("tab") || "documents");
 
   const isEs = true; // Default to Spanish
 
@@ -166,7 +167,7 @@ export default function ClientEventPortal() {
       {/* Main Content */}
       <main className="max-w-5xl mx-auto px-6 py-8">
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-4 mb-6">
+          <TabsList className="grid w-full grid-cols-5 mb-6">
             <TabsTrigger value="documents" className="gap-2">
               <FileText className="w-4 h-4" />
               {isEs ? "Documentos" : "Documents"}
@@ -182,6 +183,10 @@ export default function ClientEventPortal() {
             <TabsTrigger value="delivery" className="gap-2">
               <Truck className="w-4 h-4" />
               {isEs ? "Conduces" : "Delivery"}
+            </TabsTrigger>
+            <TabsTrigger value="messages" className="gap-2" data-testid="portal-tab-messages">
+              <MessageSquare className="w-4 h-4" />
+              {isEs ? "Mensajes" : "Messages"}
             </TabsTrigger>
           </TabsList>
 
@@ -399,6 +404,9 @@ export default function ClientEventPortal() {
                 )}
               </CardContent>
             </Card>
+          </TabsContent>
+          <TabsContent value="messages">
+            <PortalMessages eventId={eventId} defaultName={client?.name || ""} companyName={company?.name || ""} />
           </TabsContent>
         </Tabs>
       </main>

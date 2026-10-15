@@ -680,3 +680,69 @@ async def get_digest_history(limit: int = 20, user: User = Depends(get_current_u
         {"_id": 0},
     ).sort("dispatched_at", -1).limit(min(max(limit, 1), 100))
     return await cursor.to_list(100)
+
+
+_DAILY_CACHE: Dict[str, Dict[str, Any]] = {}
+_DAILY_TTL_SECONDS = 600
+
+
+@culinary_digest_router.get("/daily-insights")
+async def daily_insights(refresh: bool = False, user: User = Depends(get_current_user)):
+    """Compact daily Culinary Insights for dashboards (variance, stale menus, low stock) with deep links."""
+    now = datetime.now(timezone.utc)
+    cached = _DAILY_CACHE.get(user.company_id)
+    if cached and not refresh and (now - cached["at"]).total_seconds() < _DAILY_TTL_SECONDS:
+        return cached["data"]
+
+    variance = await _variance_critical(user.company_id, user)
+    stale = await _stale_menus(user.company_id)
+    shortages = await _low_stock_affecting_events(user.company_id, user)
+    below_par = await db.ingredients.find(
+        {"company_id": user.company_id, "par_level": {"$gt": 0},
+         "$expr": {"$lt": [{"$ifNull": ["$stock_quantity", 0]}, "$par_level"]}},
+        {"_id": 0, "ingredient_id": 1, "name": 1, "stock_quantity": 1, "par_level": 1, "unit": 1},
+    ).to_list(200)
+
+    data = {
+        "generated_at": now.isoformat(),
+        "variance": {
+            "count": len(variance),
+            "link": "/food-ops/menus?dialog=variance",
+            "items": [{
+                "event_id": v.get("event_id"),
+                "label": v.get("event_name"),
+                "value": v.get("variance_percent"),
+                "link": f"/food-ops/menus?dialog=variance&event_id={v.get('event_id')}",
+            } for v in variance[:5]],
+        },
+        "staleness": {
+            "count": len(stale),
+            "link": "/food-ops/menus",
+            "items": [{
+                "menu_id": s["menu_id"],
+                "label": s["name"],
+                "value": s["drift_pct"],
+                "link": f"/food-ops/menus?dialog=staleness&menu_id={s['menu_id']}",
+            } for s in stale[:5]],
+        },
+        "low_stock": {
+            "count": len(shortages) or len(below_par),
+            "affects_events": bool(shortages),
+            "link": "/food-ops/inventory?tab=lowstock",
+            "items": ([{
+                "label": r["name"],
+                "value": r["total_shortage"],
+                "unit": r.get("unit"),
+                "events": len(r["events"]),
+                "link": "/food-ops/inventory?tab=lowstock",
+            } for r in shortages[:5]] if shortages else [{
+                "label": i.get("name"),
+                "value": round(float(i.get("par_level") or 0) - float(i.get("stock_quantity") or 0), 3),
+                "unit": i.get("unit"),
+                "events": 0,
+                "link": "/food-ops/inventory?tab=lowstock",
+            } for i in below_par[:5]]),
+        },
+    }
+    _DAILY_CACHE[user.company_id] = {"at": now, "data": data}
+    return data

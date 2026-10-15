@@ -45,6 +45,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 
 import { KoraLoader } from "../components/KoraLoader";
 import { API_BASE as API } from "../utils/api"; // Dynamic API URL
+import { CulinaryInsightsCard } from "../components/CulinaryInsightsCard";
 
 // Culinary Intelligence inventory types (food-related only)
 const INVENTORY_TYPES = [
@@ -309,6 +310,11 @@ function InventorySection() {
   const [searchTerm, setSearchTerm] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
   const [activeTab, setActiveTab] = useState("items");
+  const [invSearchParams] = useSearchParams();
+  useEffect(() => {
+    const tab = invSearchParams.get("tab");
+    if (tab) setActiveTab(tab);
+  }, [invSearchParams]);
   
   // Categories and brands from backend
   const [categories, setCategories] = useState([]);
@@ -2742,7 +2748,7 @@ function PlatedMenusSection() {
     next.delete("menu_id");
     setSearchParams(next, { replace: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [searchParams]);
 
   const handleRefreshMenuCosts = async (menuId) => {
     setRefreshingMenuId(menuId);
@@ -3456,6 +3462,8 @@ export default function FoodOpsPage() {
             })}
           </nav>
         </div>
+
+        <CulinaryInsightsCard isEs={isEs} compact />
 
         {/* Content */}
         <Routes>

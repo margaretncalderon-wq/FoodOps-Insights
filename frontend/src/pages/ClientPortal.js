@@ -42,6 +42,7 @@ export default function ClientPortal() {
   const [signedBy, setSignedBy] = useState("");
   const [signedEmail, setSignedEmail] = useState("");
   const [saving, setSaving] = useState(false);
+  const [notReady, setNotReady] = useState(false);
   const sigCanvasRef = useRef(null);
 
   useEffect(() => {
@@ -53,7 +54,8 @@ export default function ClientPortal() {
       const response = await axios.get(`${API}/portal/document/${documentId}`);
       setDocument(response.data);
     } catch (error) {
-      console.error("Failed to fetch document:", error);
+      if (error?.response?.data?.detail?.code === "proposal_not_ready") setNotReady(true);
+      else console.error("Failed to fetch document:", error);
     } finally {
       setLoading(false);
     }
@@ -81,6 +83,7 @@ export default function ClientPortal() {
       fetchDocument();
       setSigning(false);
     } catch (error) {
+      if (error?.response?.data?.detail?.code === "proposal_not_ready") { setNotReady(true); return; }
       toast.error("Failed to sign document");
     } finally {
       setSaving(false);
@@ -97,6 +100,24 @@ export default function ClientPortal() {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <KoraLoader size={32} />
+      </div>
+    );
+  }
+
+  if (notReady) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center p-6">
+        <Card className="max-w-md" data-testid="portal-proposal-not-ready">
+          <CardContent className="p-8 text-center">
+            <div className="w-14 h-14 rounded-2xl bg-amber-100 flex items-center justify-center mx-auto mb-4">
+              <Clock className="w-7 h-7 text-amber-600" />
+            </div>
+            <h2 className="font-heading text-xl font-semibold mb-2">Tu propuesta está en preparación</h2>
+            <p className="text-muted-foreground text-sm">
+              Nuestro equipo está terminando de revisarla. Te avisaremos en cuanto esté lista para revisar y firmar.
+            </p>
+          </CardContent>
+        </Card>
       </div>
     );
   }

@@ -25,6 +25,7 @@ from utils.object_storage import APP_NAME, guess_mime, get_object, put_object
 logger = logging.getLogger(__name__)
 
 proposal_notes_router = APIRouter(prefix="/proposals", tags=["Proposal Notes"])
+portal_messages_router = APIRouter(prefix="/portal", tags=["Client Portal Messages"])
 
 NOTE_CATEGORIES = {
     "change_request", "client_request", "internal", "meeting", "call", "email", "system",
@@ -115,6 +116,24 @@ async def _resolve_mentions(body: str, company_id: str) -> List[Dict[str, str]]:
                     seen.add(u["user_id"])
                 break
     return resolved
+
+
+@proposal_notes_router.get("/{proposal_id}/notes/mentionable")
+async def list_mentionable_users(proposal_id: str, user: User = Depends(get_current_user)):
+    """Active teammates for the @mention autocomplete. `handle` is what gets inserted."""
+    await _ensure_proposal_access(proposal_id, user.company_id)
+    users = await db.users.find(
+        {"company_id": user.company_id, "is_active": {"$ne": False}},
+        {"_id": 0, "user_id": 1, "name": 1, "email": 1, "picture": 1},
+    ).sort("name", 1).to_list(500)
+    out = []
+    for u in users:
+        handle = re.sub(r"[^A-Za-z0-9._-]", "", (u.get("email") or "").split("@")[0])
+        if len(handle) < 2:
+            continue
+        out.append({"user_id": u["user_id"], "name": u.get("name") or handle, "email": u.get("email"),
+                    "handle": handle, "picture": u.get("picture")})
+    return {"users": out}
 
 
 # ============== ATTACHMENT UPLOAD ==============
@@ -276,7 +295,7 @@ async def create_note(
     if mentions:
         try:
             from routers.notifications import create_notification
-            link = f"/events?proposal={proposal_id}&tab=notes&note={note_id}"
+            link = f"/events/{proposal.get('event_id')}?tab=notes&note={note_id}"
             for m in mentions:
                 if m["user_id"] == user.user_id:
                     continue
@@ -475,3 +494,121 @@ async def record_system_note(
         })
     except Exception as e:  # noqa: BLE001
         logger.warning(f"proposal_notes: record_system_note failed: {e}")
+
+
+# ============== CLIENT PORTAL MESSAGES ==============
+
+class PortalMessageCreate(BaseModel):
+    body: str = Field(min_length=1, max_length=2000)
+    name: str = Field(min_length=1, max_length=120)
+    email: Optional[str] = Field(default=None, max_length=200)
+
+
+async def _portal_proposal(event_id: str) -> Dict[str, Any]:
+    p = await db.proposals.find_one(
+        {"event_id": event_id}, {"_id": 0, "proposal_id": 1, "company_id": 1, "event_id": 1}
+    )
+    if not p:
+        raise HTTPException(status_code=404, detail="Event not found")
+    return p
+
+
+@portal_messages_router.get("/event/{event_id}/messages")
+async def portal_list_messages(event_id: str):
+    p = await _portal_proposal(event_id)
+    notes = await db.proposal_notes.find(
+        {"proposal_id": p["proposal_id"], "company_id": p["company_id"],
+         "visibility": "share_with_client", "is_deleted": {"$ne": True}},
+        {"_id": 0, "note_id": 1, "author_name": 1, "author_id": 1, "body": 1,
+         "created_at": 1, "attachment_ids": 1, "is_client": 1},
+    ).sort("created_at", 1).to_list(500)
+    att_ids = {a for n in notes for a in (n.get("attachment_ids") or [])}
+    atts: Dict[str, Dict[str, Any]] = {}
+    if att_ids:
+        rows = await db.note_attachments.find(
+            {"attachment_id": {"$in": list(att_ids)}, "company_id": p["company_id"], "is_deleted": {"$ne": True}},
+            {"_id": 0, "attachment_id": 1, "original_filename": 1, "content_type": 1, "size": 1},
+        ).to_list(500)
+        atts = {r["attachment_id"]: r for r in rows}
+    out = []
+    for n in notes:
+        out.append({
+            "note_id": n["note_id"],
+            "author_name": n.get("author_name"),
+            "is_client": bool(n.get("is_client")),
+            "body": n.get("body"),
+            "created_at": n.get("created_at"),
+            "attachments": [atts[a] for a in (n.get("attachment_ids") or []) if a in atts],
+        })
+    return {"messages": out}
+
+
+@portal_messages_router.get("/event/{event_id}/messages/attachments/{attachment_id}")
+async def portal_download_attachment(event_id: str, attachment_id: str):
+    from fastapi.responses import Response
+    p = await _portal_proposal(event_id)
+    shared = await db.proposal_notes.find_one({
+        "proposal_id": p["proposal_id"], "visibility": "share_with_client",
+        "is_deleted": {"$ne": True}, "attachment_ids": attachment_id,
+    }, {"_id": 0, "note_id": 1})
+    rec = await db.note_attachments.find_one(
+        {"attachment_id": attachment_id, "proposal_id": p["proposal_id"], "is_deleted": {"$ne": True}}, {"_id": 0}
+    )
+    if not shared or not rec:
+        raise HTTPException(status_code=404, detail="Attachment not found")
+    data, _ct = get_object(rec["storage_path"])
+    return Response(
+        content=data,
+        media_type=rec.get("content_type") or "application/octet-stream",
+        headers={"Content-Disposition": f'inline; filename="{rec.get("original_filename", "file")}"'},
+    )
+
+
+@portal_messages_router.post("/event/{event_id}/messages")
+async def portal_post_message(event_id: str, data: PortalMessageCreate):
+    p = await _portal_proposal(event_id)
+    body = data.body.strip()
+    name = data.name.strip()
+    if not body or not name:
+        raise HTTPException(status_code=400, detail="name and body are required")
+    now = _now_iso()
+    note_id = f"note_{uuid.uuid4().hex[:12]}"
+    doc = {
+        "note_id": note_id,
+        "proposal_id": p["proposal_id"],
+        "event_id": event_id,
+        "company_id": p["company_id"],
+        "author_id": "client",
+        "author_name": name,
+        "author_email": (data.email or "").strip() or None,
+        "is_client": True,
+        "category": "client_request",
+        "visibility": "share_with_client",
+        "body": body,
+        "pinned": False,
+        "linked_item_ids": [],
+        "attachment_ids": [],
+        "mentions": [],
+        "reactions": [],
+        "resolved": False,
+        "resolved_by": None,
+        "edited_at": None,
+        "is_deleted": False,
+        "created_at": now,
+        "updated_at": now,
+    }
+    await db.proposal_notes.insert_one(doc)
+    try:
+        from routers.notifications import notify_org_admins
+        await notify_org_admins(
+            org_id=p["company_id"],
+            notification_type="portal_client_message",
+            title=f"{name} escribió desde el portal",
+            message=body[:140] + ("…" if len(body) > 140 else ""),
+            link=f"/events/{event_id}?tab=notes&note={note_id}",
+            metadata={"proposal_id": p["proposal_id"], "note_id": note_id, "event_id": event_id},
+            priority="high",
+        )
+    except Exception as e:  # noqa: BLE001
+        logger.warning(f"portal message notify failed: {e}")
+    return {"note_id": note_id, "author_name": name, "is_client": True, "body": body, "created_at": now, "attachments": []}
