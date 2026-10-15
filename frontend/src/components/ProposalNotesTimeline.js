@@ -20,10 +20,11 @@ import {
 } from "./ui/dropdown-menu";
 import {
   Paperclip, Pin, MoreVertical, Trash2, Edit3, Send, Smile, Download, X,
-  MessageSquare, Phone, Mail, Users, FileText, Zap,
+  MessageSquare, Phone, Mail, Users, FileText, Zap, HelpCircle, CheckCircle2, RotateCcw,
 } from "lucide-react";
 
 const CATEGORY_META = {
+  approval_question: { es: "Pregunta de aprobación", en: "Approval question", icon: HelpCircle, color: "bg-orange-100 text-orange-800 border-orange-200" },
   change_request:  { es: "Cambio",         en: "Change",          icon: Edit3,          color: "bg-blue-100 text-blue-700 border-blue-200" },
   client_request:  { es: "Solicitud",      en: "Request",         icon: MessageSquare,  color: "bg-amber-100 text-amber-800 border-amber-200" },
   internal:        { es: "Interna",        en: "Internal",        icon: FileText,       color: "bg-slate-100 text-slate-700 border-slate-200" },
@@ -60,7 +61,7 @@ function groupReactions(reactions) {
   return Object.values(groups);
 }
 
-export default function ProposalNotesTimeline({ proposalId, language = "es", currentUserId, onCountChange, orderItems = [] }) {
+export default function ProposalNotesTimeline({ proposalId, language = "es", currentUserId, onCountChange, orderItems = [], composeSignal = 0, onOpenQuestionsChange }) {
   const [notes, setNotes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [body, setBody] = useState("");
@@ -73,6 +74,24 @@ export default function ProposalNotesTimeline({ proposalId, language = "es", cur
   const [editBody, setEditBody] = useState("");
   const [filterCategory, setFilterCategory] = useState("all");
   const fileInputRef = useRef(null);
+  const composerRef = useRef(null);
+  const textareaRef = useRef(null);
+  const isQuestion = category === "approval_question";
+  const openQuestions = notes.filter((n) => n.category === "approval_question" && !n.resolved).length;
+
+  useEffect(() => {
+    if (!composeSignal) return;
+    setCategory("approval_question");
+    setVisibility("internal_only");
+    setTimeout(() => {
+      composerRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      textareaRef.current?.focus();
+    }, 150);
+  }, [composeSignal]);
+
+  useEffect(() => {
+    if (!loading && onOpenQuestionsChange) onOpenQuestionsChange(openQuestions);
+  }, [openQuestions, loading]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchNotes = useCallback(async () => {
     if (!proposalId) return;
@@ -179,6 +198,18 @@ export default function ProposalNotesTimeline({ proposalId, language = "es", cur
     }
   };
 
+  const toggleResolved = async (noteId) => {
+    try {
+      const r = await axios.post(`${API}/proposals/${proposalId}/notes/${noteId}/resolve`, {}, { withCredentials: true });
+      toast.success(r.data?.resolved
+        ? (language === "es" ? "Pregunta resuelta" : "Question resolved")
+        : (language === "es" ? "Pregunta reabierta" : "Question reopened"));
+      await fetchNotes();
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || "Error");
+    }
+  };
+
   const toggleReaction = async (noteId, emoji) => {
     try {
       await axios.post(
@@ -209,15 +240,17 @@ export default function ProposalNotesTimeline({ proposalId, language = "es", cur
     }
   };
 
-  const filteredNotes = notes.filter((n) => filterCategory === "all" || n.category === filterCategory);
+  const filteredNotes = notes.filter((n) =>
+    filterCategory === "all"
+    || (filterCategory === "open_questions" ? n.category === "approval_question" && !n.resolved : n.category === filterCategory));
 
   return (
     <div className="space-y-4" data-testid="proposal-notes-timeline">
       {/* Composer */}
-      <div className="border rounded-xl p-4 bg-gradient-to-br from-slate-50 to-white">
+      <div ref={composerRef} className={`border rounded-xl p-4 bg-gradient-to-br to-white transition-colors ${isQuestion ? "from-orange-50 border-orange-200" : "from-slate-50"}`} data-testid="note-composer">
         <div className="flex items-center gap-2 mb-3 flex-wrap">
-          <Select value={category} onValueChange={setCategory}>
-            <SelectTrigger className="w-40 h-8 text-xs" data-testid="note-category-select">
+          <Select value={category} onValueChange={(v) => { setCategory(v); if (v === "approval_question") setVisibility("internal_only"); }}>
+            <SelectTrigger className="w-52 h-8 text-xs" data-testid="note-category-select">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -231,7 +264,7 @@ export default function ProposalNotesTimeline({ proposalId, language = "es", cur
               })}
             </SelectContent>
           </Select>
-          <Select value={visibility} onValueChange={setVisibility}>
+          <Select value={visibility} onValueChange={setVisibility} disabled={isQuestion}>
             <SelectTrigger className="w-44 h-8 text-xs" data-testid="note-visibility-select">
               <SelectValue />
             </SelectTrigger>
@@ -254,9 +287,19 @@ export default function ProposalNotesTimeline({ proposalId, language = "es", cur
           </Button>
         </div>
 
+        {isQuestion && (
+          <p className="text-xs text-orange-800 mb-2" data-testid="note-question-hint">
+            {language === "es"
+              ? "Pregunta interna para tu equipo. Mientras esté abierta, la propuesta queda como \"Datos incompletos\" y se te avisará antes de aprobar."
+              : "Internal question for your team. While open, the proposal is flagged \"Incomplete data\" and you'll be warned before approving."}
+          </p>
+        )}
         <Textarea
+          ref={textareaRef}
           data-testid="note-body-input"
-          placeholder={language === "es" ? "Escribe una nota. Usa @nombre para mencionar a tu equipo…" : "Write a note. Use @name to mention your team…"}
+          placeholder={isQuestion
+            ? (language === "es" ? "¿Qué necesitas confirmar antes de aprobar? Usa @nombre para dirigirla a alguien…" : "What do you need to confirm before approving? Use @name to direct it…")
+            : (language === "es" ? "Escribe una nota. Usa @nombre para mencionar a tu equipo…" : "Write a note. Use @name to mention your team…")}
           value={body}
           onChange={(e) => setBody(e.target.value)}
           rows={3}
@@ -286,7 +329,11 @@ export default function ProposalNotesTimeline({ proposalId, language = "es", cur
             className="gap-1.5"
           >
             <Send className="w-3.5 h-3.5" />
-            {posting ? (language === "es" ? "Publicando…" : "Posting…") : (language === "es" ? "Publicar" : "Post")}
+            {posting
+              ? (language === "es" ? "Publicando…" : "Posting…")
+              : isQuestion
+                ? (language === "es" ? "Preguntar" : "Ask")
+                : (language === "es" ? "Publicar" : "Post")}
           </Button>
         </div>
       </div>
@@ -301,6 +348,17 @@ export default function ProposalNotesTimeline({ proposalId, language = "es", cur
         >
           {language === "es" ? "Todas" : "All"} ({notes.length})
         </Badge>
+        {openQuestions > 0 && (
+          <Badge
+            variant={filterCategory === "open_questions" ? "default" : "outline"}
+            className="cursor-pointer gap-1 border-orange-300 text-orange-800"
+            onClick={() => setFilterCategory("open_questions")}
+            data-testid="filter-open-questions"
+          >
+            <HelpCircle className="w-3 h-3" />
+            {language === "es" ? "Abiertas" : "Open"} ({openQuestions})
+          </Badge>
+        )}
         {Object.entries(CATEGORY_META).map(([key, meta]) => {
           const count = notes.filter((n) => n.category === key).length;
           if (!count) return null;
@@ -344,7 +402,7 @@ export default function ProposalNotesTimeline({ proposalId, language = "es", cur
             return (
               <div
                 key={n.note_id}
-                className={`border rounded-xl p-4 ${n.pinned ? "ring-1 ring-amber-300 bg-amber-50/30" : "bg-white"}`}
+                className={`border rounded-xl p-4 ${n.pinned ? "ring-1 ring-amber-300 bg-amber-50/30" : n.category === "approval_question" && !n.resolved ? "border-orange-300 bg-orange-50/40" : "bg-white"}`}
                 data-testid={`note-${n.note_id}`}
               >
                 <div className="flex items-start justify-between gap-3 mb-2">
@@ -355,6 +413,18 @@ export default function ProposalNotesTimeline({ proposalId, language = "es", cur
                     {n.visibility === "share_with_client" && (
                       <Badge variant="secondary" className="text-xs">👥 {language === "es" ? "Cliente ve esto" : "Client sees this"}</Badge>
                     )}
+                    {n.category === "approval_question" && (
+                      n.resolved ? (
+                        <Badge variant="outline" className="gap-1 text-xs border-emerald-300 bg-emerald-50 text-emerald-700" data-testid={`note-resolved-badge-${n.note_id}`}>
+                          <CheckCircle2 className="w-3 h-3" />
+                          {language === "es" ? "Resuelta" : "Resolved"}{n.resolved_by?.name ? ` · ${n.resolved_by.name}` : ""}
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="text-xs border-orange-300 bg-orange-100 text-orange-800" data-testid={`note-open-badge-${n.note_id}`}>
+                          {language === "es" ? "Abierta" : "Open"}
+                        </Badge>
+                      )
+                    )}
                     {n.pinned && <Pin className="w-3.5 h-3.5 text-amber-600 fill-amber-500" />}
                     <span className="text-xs text-muted-foreground">
                       <strong className={isSystem ? "text-red-700" : ""}>{n.author_name}</strong> · {formatRelative(n.created_at, language)}
@@ -362,6 +432,19 @@ export default function ProposalNotesTimeline({ proposalId, language = "es", cur
                     </span>
                   </div>
                   {!isSystem && (
+                    <div className="flex items-center gap-1">
+                    {n.category === "approval_question" && (
+                      <Button
+                        variant={n.resolved ? "ghost" : "outline"}
+                        size="sm"
+                        className={`h-7 text-xs gap-1 ${n.resolved ? "text-muted-foreground" : "border-emerald-300 text-emerald-700 hover:bg-emerald-50"}`}
+                        onClick={() => toggleResolved(n.note_id)}
+                        data-testid={`note-resolve-btn-${n.note_id}`}
+                      >
+                        {n.resolved ? <RotateCcw className="w-3 h-3" /> : <CheckCircle2 className="w-3 h-3" />}
+                        {n.resolved ? (language === "es" ? "Reabrir" : "Reopen") : (language === "es" ? "Marcar resuelta" : "Mark resolved")}
+                      </Button>
+                    )}
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button variant="ghost" size="icon" className="h-7 w-7" data-testid={`note-menu-${n.note_id}`}>
@@ -384,6 +467,7 @@ export default function ProposalNotesTimeline({ proposalId, language = "es", cur
                         )}
                       </DropdownMenuContent>
                     </DropdownMenu>
+                    </div>
                   )}
                 </div>
 

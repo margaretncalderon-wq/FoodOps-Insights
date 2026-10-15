@@ -53,7 +53,7 @@ import {
   AlertDialogTitle,
 } from "./ui/alert-dialog";
 import { toast } from "sonner";
-import { Plus, Trash2, FileText, Download, Eye, Utensils, Wine, Armchair, Users, Flower2, Package, GripVertical, Percent, DollarSign, ChevronDown, ChevronRight, AlertTriangle, Search, Send, CheckCircle, XCircle, Lock, History, TrendingUp, Edit, Clock, Calculator, Link2, RefreshCw, CreditCard, Check, X, Type, ChefHat, Calendar as CalendarIcon, ArrowUp, ArrowDown, Copy, MoreVertical, Archive, MessageSquare } from "lucide-react";
+import { Plus, Trash2, FileText, Download, Eye, Utensils, Wine, Armchair, Users, Flower2, Package, GripVertical, Percent, DollarSign, ChevronDown, ChevronRight, AlertTriangle, Search, Send, CheckCircle, XCircle, Lock, History, TrendingUp, Edit, Clock, Calculator, Link2, RefreshCw, CreditCard, Check, X, Type, ChefHat, Calendar as CalendarIcon, ArrowUp, ArrowDown, Copy, MoreVertical, Archive, MessageSquare, HelpCircle } from "lucide-react";
 
 import { KoraLoader } from "./KoraLoader";
 import {
@@ -254,6 +254,8 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
   const [picklistSearch, setPicklistSearch] = useState("");
   const [activeTab, setActiveTab] = useState("items");
   const [notesCount, setNotesCount] = useState(0);
+  const [composeSignal, setComposeSignal] = useState(0);
+  const [openQuestionsConfirm, setOpenQuestionsConfirm] = useState(0);
 
   // Day-by-day logistics (per-date delivery info)
   const [dayLogistics, setDayLogistics] = useState([]);
@@ -504,6 +506,35 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
       } catch { /* ignore — staleness is informational */ }
     } catch (error) {
       console.error("Failed to fetch proposal:", error);
+    }
+  };
+
+  const openNotesTab = (compose) => {
+    setActiveTab("notes");
+    if (compose) setComposeSignal((n) => n + 1);
+    setTimeout(() => document.querySelector('[data-testid="proposal-editor-tabs"]')?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
+  };
+
+  const handleOpenQuestionsChange = useCallback((count) => {
+    setProposal((p) => {
+      if (!p || p.open_questions_count === count) return p;
+      const next = { ...p, open_questions_count: count };
+      if (count > 0 && !p.data_incomplete) Object.assign(next, { data_incomplete: true, data_incomplete_source: "open_questions" });
+      if (count === 0 && p.data_incomplete_source === "open_questions") Object.assign(next, { data_incomplete: false, data_incomplete_source: null });
+      return next;
+    });
+  }, []);
+
+  const approveProposal = async (force) => {
+    try {
+      await axios.post(`${API}/proposals/${proposal.proposal_id}/approve`, force ? { force: true } : {}, { withCredentials: true });
+      setOpenQuestionsConfirm(0);
+      toast.success(language === "es" ? "Aprobada" : "Approved");
+      fetchProposal();
+    } catch (e) {
+      const detail = e?.response?.data?.detail;
+      if (detail?.code === "open_questions") { setOpenQuestionsConfirm(detail.count); return; }
+      toast.error(typeof detail === "string" ? detail : "Error");
     }
   };
 
@@ -2192,15 +2223,21 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
               className="inline-flex items-center gap-1 text-[11px] bg-amber-50 border border-amber-300 text-amber-800 rounded-full px-2 py-0.5 hover:bg-amber-100"
               data-testid="proposal-data-incomplete-badge"
               onClick={async () => {
+                if (proposal.data_incomplete_source === "open_questions") { openNotesTab(false); return; }
                 try {
                   await axios.post(`${API}/proposals/${proposal.proposal_id}/clear-incomplete-flag`, {}, { withCredentials: true });
                   toast.success(language === "es" ? "Marcada como completa" : "Marked complete");
                   if (typeof fetchProposal === "function") fetchProposal();
                 } catch { /* silent */ }
               }}
-              title={language === "es" ? "Click para limpiar" : "Click to clear"}
+              title={proposal.data_incomplete_source === "open_questions"
+                ? (language === "es" ? "Hay preguntas abiertas al equipo — click para verlas" : "Open team questions — click to view")
+                : (language === "es" ? "Click para limpiar" : "Click to clear")}
             >
-              {language === "es" ? "Datos incompletos" : "Incomplete data"} · ✕
+              {language === "es" ? "Datos incompletos" : "Incomplete data"}
+              {proposal.data_incomplete_source === "open_questions"
+                ? ` · ${proposal.open_questions_count || 0} ${language === "es" ? "pregunta(s)" : "question(s)"}`
+                : " · ✕"}
             </button>
           )}
           {proposal?.approved_by?.name && ["Approved","Sent","Client Signed"].includes(proposal?.document_status) && (
@@ -2214,6 +2251,22 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
               {language === "es" ? "Evento movido a Comprometido" : "Event moved to Committed"}
             </span>
           )}
+          <Button
+            size="sm"
+            variant="outline"
+            className={`gap-1.5 ml-2 ${proposal?.open_questions_count > 0 ? "border-orange-300 text-orange-800 bg-orange-50 hover:bg-orange-100" : ""}`}
+            onClick={() => openNotesTab(true)}
+            data-testid="ask-team-btn"
+            title={language === "es" ? "Deja una pregunta interna a tu equipo antes de aprobar" : "Leave an internal question for your team before approving"}
+          >
+            <HelpCircle className="w-3.5 h-3.5" />
+            {language === "es" ? "Preguntar al equipo" : "Ask the team"}
+            {proposal?.open_questions_count > 0 && (
+              <span className="ml-0.5 rounded-full bg-orange-500 text-white text-[10px] px-1.5 leading-4" data-testid="ask-team-open-count">
+                {proposal.open_questions_count}
+              </span>
+            )}
+          </Button>
           {/* Approval action buttons — appear only when the tenant toggle is on. */}
           {approvalRequired && (
             <div className="flex items-center gap-1 ml-2" data-testid="proposal-approval-actions">
@@ -2232,13 +2285,7 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
               {proposal?.document_status === "Pending Approval" && (
                 <>
                   <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700" data-testid="approve-btn"
-                    onClick={async () => {
-                      try {
-                        await axios.post(`${API}/proposals/${proposal.proposal_id}/approve`, {}, { withCredentials: true });
-                        toast.success(language === "es" ? "Aprobada" : "Approved");
-                        if (typeof fetchProposal === "function") fetchProposal();
-                      } catch (e) { toast.error(e?.response?.data?.detail || "Error"); }
-                    }}>
+                    onClick={() => approveProposal(false)}>
                     {language === "es" ? "Aprobar" : "Approve"}
                   </Button>
                   <Button size="sm" variant="outline" data-testid="withdraw-approval-btn"
@@ -2466,7 +2513,7 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
       </div>
 
       {/* Main Content - Single View (no nested tabs) */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+      <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v); if (v !== "notes") setComposeSignal(0); }} className="space-y-4" data-testid="proposal-editor-tabs">
         <TabsList className="h-9">
           <TabsTrigger value="items" className="gap-1.5 text-xs h-7" data-testid="tab-items">
             <Package className="w-3.5 h-3.5" />
@@ -3780,6 +3827,8 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
                 currentUserId={typeof window !== "undefined" ? window.__koraUserId : null}
                 orderItems={proposal?.items || []}
                 onCountChange={setNotesCount}
+                composeSignal={composeSignal}
+                onOpenQuestionsChange={handleOpenQuestionsChange}
               />
             </CardContent>
           </Card>
@@ -5255,6 +5304,38 @@ export default function ProposalEditor({ eventId, event, onDocumentGenerated }) 
       />
 
       {/* Change Client Dialog (Sep 2026) */}
+      <AlertDialog open={openQuestionsConfirm > 0} onOpenChange={(o) => { if (!o) setOpenQuestionsConfirm(0); }}>
+        <AlertDialogContent data-testid="open-questions-confirm-dialog">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <HelpCircle className="w-5 h-5 text-orange-600" />
+              {language === "es"
+                ? `Hay ${openQuestionsConfirm} pregunta(s) abierta(s) al equipo`
+                : `There are ${openQuestionsConfirm} open team question(s)`}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {language === "es"
+                ? "Esta propuesta tiene preguntas de aprobación sin resolver en la Bitácora. ¿Quieres revisarlas primero o aprobar de todas formas?"
+                : "This proposal has unresolved approval questions in the Notes. Review them first or approve anyway?"}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              data-testid="open-questions-review-btn"
+              onClick={() => { setOpenQuestionsConfirm(0); openNotesTab(false); }}
+            >
+              {language === "es" ? "Revisar preguntas" : "Review questions"}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-emerald-600 hover:bg-emerald-700"
+              data-testid="open-questions-approve-anyway-btn"
+              onClick={() => approveProposal(true)}
+            >
+              {language === "es" ? "Aprobar de todas formas" : "Approve anyway"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <ChangeClientDialog
         open={changeClientOpen}
         onOpenChange={setChangeClientOpen}

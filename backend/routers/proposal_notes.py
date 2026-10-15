@@ -28,6 +28,7 @@ proposal_notes_router = APIRouter(prefix="/proposals", tags=["Proposal Notes"])
 
 NOTE_CATEGORIES = {
     "change_request", "client_request", "internal", "meeting", "call", "email", "system",
+    "approval_question",
 }
 VISIBILITY_OPTIONS = {"internal_only", "share_with_client"}
 MAX_ATTACHMENT_BYTES = 15 * 1024 * 1024  # 15MB
@@ -35,6 +36,25 @@ MAX_ATTACHMENT_BYTES = 15 * 1024 * 1024  # 15MB
 
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+async def sync_open_questions(proposal_id: str, company_id: str) -> int:
+    """Recount open approval questions and mirror them onto the proposal's data_incomplete flag."""
+    count = await db.proposal_notes.count_documents({
+        "proposal_id": proposal_id, "company_id": company_id,
+        "category": "approval_question", "is_deleted": {"$ne": True}, "resolved": {"$ne": True},
+    })
+    p = await db.proposals.find_one(
+        {"proposal_id": proposal_id, "company_id": company_id},
+        {"_id": 0, "data_incomplete": 1, "data_incomplete_source": 1},
+    ) or {}
+    update: Dict[str, Any] = {"open_questions_count": count}
+    if count > 0 and not p.get("data_incomplete"):
+        update.update({"data_incomplete": True, "data_incomplete_source": "open_questions"})
+    elif count == 0 and p.get("data_incomplete_source") == "open_questions":
+        update.update({"data_incomplete": False, "data_incomplete_source": None})
+    await db.proposals.update_one({"proposal_id": proposal_id, "company_id": company_id}, {"$set": update})
+    return count
 
 
 def _extract_mentions(body: str) -> List[str]:
@@ -241,6 +261,8 @@ async def create_note(
         "attachment_ids": list(data.attachment_ids or []),
         "mentions": mentions,
         "reactions": [],
+        "resolved": False,
+        "resolved_by": None,
         "edited_at": None,
         "is_deleted": False,
         "created_at": now,
@@ -248,6 +270,7 @@ async def create_note(
     }
     await db.proposal_notes.insert_one(doc)
     doc.pop("_id", None)
+    doc["open_questions_count"] = await sync_open_questions(proposal_id, user.company_id)
 
     # Fire mention notifications (best effort)
     if mentions:
@@ -313,6 +336,7 @@ async def update_note(
         {"note_id": note_id, "proposal_id": proposal_id, "company_id": user.company_id},
         {"$set": update},
     )
+    await sync_open_questions(proposal_id, user.company_id)
     return await db.proposal_notes.find_one({"note_id": note_id}, {"_id": 0})
 
 
@@ -328,7 +352,33 @@ async def delete_note(
     )
     if r.matched_count == 0:
         raise HTTPException(status_code=404, detail="Note not found")
-    return {"deleted": True}
+    count = await sync_open_questions(proposal_id, user.company_id)
+    return {"deleted": True, "open_questions_count": count}
+
+
+@proposal_notes_router.post("/{proposal_id}/notes/{note_id}/resolve")
+async def toggle_resolved(
+    proposal_id: str,
+    note_id: str,
+    user: User = Depends(get_current_user),
+):
+    """Toggle resolved state of an approval question."""
+    note = await db.proposal_notes.find_one(
+        {"note_id": note_id, "proposal_id": proposal_id, "company_id": user.company_id, "is_deleted": {"$ne": True}},
+        {"_id": 0, "resolved": 1, "category": 1},
+    )
+    if not note:
+        raise HTTPException(status_code=404, detail="Note not found")
+    if note.get("category") != "approval_question":
+        raise HTTPException(status_code=400, detail="Only approval questions can be resolved")
+    resolved = not bool(note.get("resolved"))
+    resolved_by = {"user_id": user.user_id, "name": user.name, "at": _now_iso()} if resolved else None
+    await db.proposal_notes.update_one(
+        {"note_id": note_id},
+        {"$set": {"resolved": resolved, "resolved_by": resolved_by, "updated_at": _now_iso()}},
+    )
+    count = await sync_open_questions(proposal_id, user.company_id)
+    return {"resolved": resolved, "resolved_by": resolved_by, "open_questions_count": count}
 
 
 @proposal_notes_router.post("/{proposal_id}/notes/{note_id}/pin")

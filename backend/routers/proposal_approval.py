@@ -80,7 +80,11 @@ async def submit_for_approval(proposal_id: str, user: User = Depends(get_current
 
 
 @proposals_router.post("/{proposal_id}/approve")
-async def approve_proposal(proposal_id: str, user: User = Depends(get_current_user)):
+async def approve_proposal(
+    proposal_id: str,
+    body: Dict[str, Any] = Body(default={}),
+    user: User = Depends(get_current_user),
+):
     """Any teammate with proposals:edit permission may approve. Auth is
     already enforced via `get_current_user`; a finer-grained permission
     check can be added later without changing the endpoint contract."""
@@ -90,6 +94,12 @@ async def approve_proposal(proposal_id: str, user: User = Depends(get_current_us
     cur = p.get("document_status") or "Draft"
     if cur != "Pending Approval":
         raise HTTPException(status_code=409, detail=f"Only 'Pending Approval' can be approved (current: '{cur}')")
+    open_q = await db.proposal_notes.count_documents({
+        "proposal_id": proposal_id, "company_id": user.company_id,
+        "category": "approval_question", "is_deleted": {"$ne": True}, "resolved": {"$ne": True},
+    })
+    if open_q and not body.get("force"):
+        raise HTTPException(status_code=409, detail={"code": "open_questions", "count": open_q})
     approved_by = {"user_id": user.user_id, "name": user.name, "at": _now_iso()}
     await db.proposals.update_one(
         {"proposal_id": proposal_id, "company_id": user.company_id},
